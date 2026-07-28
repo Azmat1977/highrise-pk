@@ -1,0 +1,444 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom global styles for Highrise.pk */
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  /* This is intentionally left blank. The 'scroll-behavior: smooth'
+     was removed to prevent conflicts with the Next.js router,
+     as recommended by the console warning. */
+}
+
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: #f8f9fa;
+  color: #333;
+}
+
+/* Brand colors */
+.primary-color {
+  color: #029bba;
+}
+
+.secondary-color {
+  color: #004063;
+}
+
+.primary-bg {
+  background-color: #029bba;
+}
+
+.secondary-bg {
+  background-color: #004063;
+}
+
+.primary-border {
+  border-color: #029bba;
+}
+
+/* ─────────────────────────────── */
+/* HIGHRISE.PK – LUXURY INPUT STYLE */
+/* ─────────────────────────────── */
+.input {
+  @apply w-full px-6 py-4 rounded-xl border border-gray-300 
+         focus:border-primary focus:ring-4 focus:ring-primary/10 
+         transition-all duration-300 text-base placeholder-gray-400
+         bg-white shadow-sm focus:shadow-lg focus:shadow-primary/5;
+}
+
+/* For file input and select input matching our brand style */
+select.input,
+input[type="file"].input {
+  @apply cursor-pointer file:mr-4 file:py-3 file:px-6 file:rounded-lg 
+         file:border-0 file:bg-primary/10 file:text-primary 
+         file:font-medium hover:file:bg-primary/20;
+}
+
+/* 🔄 RECOMMENDED ADDITION FOR /.input-file */
+.input-file {
+  @apply w-full px-4 py-2 rounded border border-gray-300 text-sm bg-white;
+}
+
+/* Optional spacing for file upload labels */
+label.block {
+  display: block;
+  font-weight: 500;
+  font-size: 0.875rem;
+  margin-bottom: 0.25rem;
+  color: #222;
+}
+
+/* ─────────────────────────────── */
+/* Skeleton Loading Effect */
+.skeleton {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 200% 100%;
+  animation: loading 1.5s infinite;
+}
+
+@keyframes loading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Fade-in Animation */
+.fade-in {
+  animation: fadeIn 0.6s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   🚀 PREMIUM ROUTE LOADING BAR (Zameen/Bayut/Zillow Style)
+   ═══════════════════════════════════════════════════════════════ */
+
+/* Smooth left-to-right sliding animation with brand gradient */
+@keyframes routeLoading {
+  0% {
+    transform: translateX(-100%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(400%);
+    opacity: 0;
+  }
+}
+
+/* Pulse glow effect for premium feel */
+@keyframes loadingPulse {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(2, 155, 186, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 30px rgba(2, 155, 186, 0.6);
+  }
+}
+
+/* Optional: Premium button hover glow */
+button:hover {
+  transition: all 0.3s ease;
+}
+
+/* ─────────────────────────────── */
+/* SCROLLBAR HIDE UTILITY */
+/* For horizontal scroll navigation (Jump Links) */
+/* ─────────────────────────────── */
+
+/* Hide scrollbar for Chrome, Safari and Opera */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide scrollbar for IE, Edge and Firefox */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+/* Optional: Custom thin scrollbar for other elements */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #029bba;
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #027a94;
+}
+
+/* ─────────────────────────────── */
+/* ✅ RADIX DROPDOWN UTILITY SUPPORT */
+/* ─────────────────────────────── */
+@layer utilities {
+  .animate-in {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+
+  .fade-in {
+    opacity: 0;
+  }
+
+  .radix-state-open\:animate-in[data-state='open'] {
+    animation: fadeIn 0.3s ease-out forwards;
+  }
+}
+
+/* ─────────────────────────────── */
+/* STICKY NAVIGATION ENHANCEMENTS */
+/* ─────────────────────────────── */
+
+/* Smooth scroll offset for anchor links */
+[id] {
+  scroll-margin-top: 80px;
+}
+
+/* Jump links active state animation */
+.jump-link-active {
+  @apply bg-[#029bba] text-white shadow-md;
+  transform: scale(1.02);
+}
+
+/* ─────────────────────────────── */
+/* IMAGE GALLERY ENHANCEMENTS */
+/* ─────────────────────────────── */
+
+/* Lightbox backdrop blur */
+.lightbox-backdrop {
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+/* Image hover zoom effect */
+.image-hover-zoom {
+  transition: transform 0.3s ease;
+}
+
+.image-hover-zoom:hover {
+  transform: scale(1.05);
+}
+
+/* ─────────────────────────────── */
+/* GLOBAL UI COMPONENT STYLES      */
+/* Buttons, Cards, Sections, Rich Text */
+/* ─────────────────────────────── */
+@layer components {
+  /* Buttons – base + variants */
+  .btn {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-4 py-2 text-sm font-semibold
+           transition-all duration-200
+           focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2
+           disabled:opacity-60 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary {
+    @apply bg-gradient-to-r from-[#029bba] to-[#017a8a]
+           text-white shadow-sm hover:shadow-lg hover:brightness-110;
+  }
+
+  .btn-secondary {
+    @apply bg-white text-gray-800
+           border border-gray-200
+           hover:border-primary/70 hover:bg-primary/5;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-gray-700 hover:bg-gray-100;
+  }
+
+  .btn-danger {
+    @apply bg-red-500 text-white hover:bg-red-600;
+  }
+
+  /* Cards */
+  .card {
+    @apply bg-white rounded-2xl border border-gray-100
+           shadow-sm hover:shadow-md transition-shadow duration-200;
+  }
+
+  .card-soft {
+    @apply bg-white/80 rounded-2xl border border-gray-100/60 shadow-sm;
+  }
+
+  /* Page / Section layout */
+  .page-container {
+    @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+  }
+
+  .section {
+    @apply page-container py-8;
+  }
+
+  .section-header {
+    @apply mb-6 flex items-center gap-3;
+  }
+
+  .section-icon {
+    @apply flex h-9 w-9 items-center justify-center
+           rounded-xl bg-primary/10 text-primary;
+  }
+
+  .section-title {
+    @apply text-2xl sm:text-3xl font-semibold text-gray-900;
+  }
+
+  .section-subtitle {
+    @apply text-sm sm:text-base text-gray-500;
+  }
+
+  /* Badges / Chips */
+  .badge {
+    @apply inline-flex items-center gap-1
+           rounded-full px-3 py-1 text-xs font-medium
+           bg-primary/5 text-primary;
+  }
+
+  .badge-soft {
+    @apply inline-flex items-center gap-1
+           rounded-full px-3 py-1 text-xs font-medium
+           bg-gray-100 text-gray-700;
+  }
+
+  /* ─────────────────────────────── */
+  /* RICH TEXT CONTENT (DESCRIPTION) */
+  /* ─────────────────────────────── */
+  .rich-text-content {
+    @apply text-gray-700 leading-relaxed;
+  }
+
+  .rich-text-content h1 {
+    @apply text-2xl font-bold mb-3;
+  }
+
+  .rich-text-content h2 {
+    @apply text-xl font-semibold mb-2;
+  }
+
+  .rich-text-content h3 {
+    @apply text-lg font-semibold mb-2;
+  }
+
+  .rich-text-content h4 {
+    @apply text-base font-semibold mb-2;
+  }
+
+  .rich-text-content p {
+    @apply mb-2;
+  }
+
+  .rich-text-content ul {
+    @apply list-disc list-inside mb-2 pl-4;
+  }
+
+  .rich-text-content ol {
+    @apply list-decimal list-inside mb-2 pl-4;
+  }
+
+  .rich-text-content a {
+    @apply text-[#029bba] underline;
+  }
+
+  .rich-text-content strong {
+    @apply font-semibold;
+  }
+
+  .rich-text-content em {
+    @apply italic;
+  }
+}
+
+/* ─────────────────────────────── */
+/* MOBILE RESPONSIVENESS */
+/* ─────────────────────────────── */
+
+/* Touch-friendly tap targets */
+@media (max-width: 640px) {
+  button, a {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Larger touch targets for navigation */
+  .jump-link {
+    padding: 12px 16px;
+  }
+}
+
+/* Prevent horizontal scroll on mobile */
+@media (max-width: 768px) {
+  html, body {
+    overflow-x: hidden;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════
+    TRUSTED PARTNERS MARQUEE ANIMATION
+═══════════════════════════════════════════════════════════════ */
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+.animate-marquee {
+  display: flex;
+  animation: marquee 30s linear infinite;
+}
+
+/* Pause on hover */
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Slower on mobile */
+@media (max-width: 768px) {
+  .animate-marquee {
+    animation-duration: 20s;
+  }
+}
+
+/* ═════════════════════════════════════════
+   MARQUEE ANIMATION — Developer Carousel
+   ═════════════════════════════════════════ */
+
+@keyframes marquee {
+  0% {
+    transform: translateX(0);
+  }
+  100% {
+    transform: translateX(-33.333%);
+  }
+}
+
+.animate-marquee {
+  animation: marquee 40s linear infinite;
+}
+
+/* Slower on smaller screens */
+@media (max-width: 768px) {
+  .animate-marquee {
+    animation-duration: 30s;
+  }
+}
+
+/* Respect users who prefer reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation: none;
+  }
+}

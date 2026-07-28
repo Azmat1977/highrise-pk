@@ -1,0 +1,191 @@
+[
+  {
+    "id": 1,
+    "title": "Luxury Apartment in DHA Phase 7",
+    "price": 85000000,
+    "area": 1200,
+    "unit": "Sq. Ft.",
+    "bedrooms": 3,
+    "bathrooms": 2,
+    "parking": true,
+    "developer": "DHA Lahore",
+    "city": "Lahore",
+    "type": "Apartment",
+    "description": "A luxurious apartment in the heart of DHA Phase 7 with modern amenities and breathtaking views.",
+    "amenities": ["Swimming Pool", "Gym", "Security", "Parking", "Club House"],
+    "status": "Trusted Developer",
+    "images": [
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800"
+    ],
+    "location": {
+      "lat": 31.5204,
+      "lng": 74.3587,
+      "address": "DHA Phase 7, Lahore"
+    },
+    "paymentPlan": {
+      "booking": 10,
+      "downPayment": 20,
+      "installmentDuration": 24,
+      "installmentAmount": 2500000
+    }
+  },
+  {
+    "id": 2,
+    "title": "Commercial Plot in Bahria Town",
+    "price": 50000000,
+    "area": 5,
+    "unit": "Marla",
+    "bedrooms": 0,
+    "bathrooms": 0,
+    "parking": false,
+    "developer": "Bahria Town",
+    "city": "Islamabad",
+    "type": "Plot",
+    "description": "Prime commercial plot in Bahria Town Islamabad with high investment potential.",
+    "amenities": ["Main Boulevard", "Electricity", "Gas", "Sewerage"],
+    "status": "Trusted Developer",
+    "images": [
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800"
+    ],
+    "location": {
+      "lat": 33.6844,
+      "lng": 73.0479,
+      "address": "Bahria Town Islamabad"
+    },
+    "paymentPlan": {
+      "booking": 20,
+      "downPayment": 30,
+      "installmentDuration": 36,
+      "installmentAmount": 500000
+    }
+  },
+  {
+    "id": 3,
+    "title": "Modern Shop in Liberty Market",
+    "price": 12000000,
+    "area": 800,
+    "unit": "Sq. Ft.",
+    "bedrooms": 0,
+    "bathrooms": 1,
+    "parking": true,
+    "developer": "Private Owner",
+    "city": "Lahore",
+    "type": "Shop",
+    "description": "Well-located shop in busy Liberty Market Lahore with high footfall.",
+    "amenities": ["Air Conditioning", "Display Windows", "Storage Room"],
+    "status": "New Listing",
+    "images": [
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800"
+    ],
+    "location": {
+      "lat": 31.5204,
+      "lng": 74.3587,
+      "address": "Liberty Market, Lahore"
+    },
+    "paymentPlan": {
+      "booking": 15,
+      "downPayment": 25,
+      "installmentDuration": 18,
+      "installmentAmount": 333333
+    }
+  },
+  {
+    "id": 4,
+    "title": "Villa in Bahria Town Karachi",
+    "price": 150000000,
+    "area": 10,
+    "unit": "Kanal",
+    "bedrooms": 5,
+    "bathrooms": 4,
+    "parking": 2,
+    "developer": "Bahria Town",
+    "city": "Karachi",
+    "type": "Apartment",
+    "description": "Spacious villa in Bahria Town Karachi with modern design and luxury finishes.",
+    "amenities": ["Swimming Pool", "Garden", "Garage", "Security", "Backup Generator"],
+    "status": "Trusted Developer",
+    "images": [
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800"
+    ],
+    "location": {
+      "lat": 24.8607,
+      "lng": 67.0011,
+      "address": "Bahria Town Karachi"
+    },
+    "paymentPlan": {
+      "booking": 10,
+      "downPayment": 20,
+      "installmentDuration": 36,
+      "installmentAmount": 2777778
+    }
+  },
+  {
+    "id": 5,
+    "title": "Office Space in Blue Area",
+    "price": 45000000,
+    "area": 2000,
+    "unit": "Sq. Ft.",
+    "bedrooms": 0,
+    "bathrooms": 3,
+    "parking": 5,
+    "developer": "Capital Developers",
+    "city": "Islamabad",
+    "type": "Shop",
+    "description": "Premium office space in Blue Area Islamabad with excellent connectivity.",
+    "amenities": ["Central AC", "High Speed Internet", "Conference Room", "Cafeteria"],
+    "status": "Trusted Developer",
+    "images": [
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800"
+    ],
+    "location": {
+      "lat": 33.6844,
+      "lng": 73.0479,
+      "address": "Blue Area, Islamabad"
+    },
+    "paymentPlan": {
+      "booking": 10,
+      "downPayment": 30,
+      "installmentDuration": 24,
+      "installmentAmount": 625000
+    }
+  },
+  {
+    "id": 6,
+    "title": "Residential Plot in Bahria Town Rawalpindi",
+    "price": 35000000,
+    "area": 8,
+    "unit": "Marla",
+    "bedrooms": 0,
+    "bathrooms": 0,
+    "parking": false,
+    "developer": "Bahria Town",
+    "city": "Rawalpindi",
+    "type": "Plot",
+    "description": "Beautiful residential plot in Bahria Town Rawalpindi with all amenities.",
+    "amenities": ["Electricity", "Gas", "Sewerage", "Park", "School"],
+    "status": "Trusted Developer",
+    "images": [
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800",
+      "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800"
+    ],
+    "location": {
+      "lat": 33.6173,
+      "lng": 73.0821,
+      "address": "Bahria Town Rawalpindi"
+    },
+    "paymentPlan": {
+      "booking": 15,
+      "downPayment": 25,
+      "installmentDuration": 30,
+      "installmentAmount": 583333
+    }
+  }
+]

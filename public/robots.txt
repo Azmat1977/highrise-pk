@@ -1,0 +1,120 @@
+# Highrise.pk — Robots.txt
+# Pakistan's Most Trusted Real Estate Platform
+# https://highrise.pk
+
+# ═══════════════════════════════════════════
+# ALLOW SEARCH ENGINES
+# ═══════════════════════════════════════════
+
+User-agent: *
+Allow: /
+
+# ═══════════════════════════════════════════
+# BLOCK PRIVATE / SENSITIVE AREAS
+# ═══════════════════════════════════════════
+
+# Admin portal (private)
+Disallow: /admin
+Disallow: /admin/*
+
+# Developer portal (private)
+Disallow: /developer
+Disallow: /developer/*
+
+# Owner portal (private)
+Disallow: /owner
+Disallow: /owner/*
+
+# Agent portal (private)
+Disallow: /agent
+Disallow: /agent/*
+
+# API endpoints (server only)
+Disallow: /api
+Disallow: /api/*
+
+# Authentication routes
+Disallow: /login
+Disallow: /register
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
+
+# User account pages
+Disallow: /account
+Disallow: /account/*
+Disallow: /profile
+Disallow: /profile/*
+Disallow: /dashboard
+Disallow: /dashboard/*
+
+# Search result variations (noindex handled in page)
+Disallow: /projects?*&page=
+Disallow: /projects?*&sort=
+
+# Test / staging paths
+Disallow: /test
+Disallow: /staging
+Disallow: /_next
+Disallow: /404
+Disallow: /500
+
+# ═══════════════════════════════════════════
+# ALLOW SPECIFIC PATHS EXPLICITLY
+# ═══════════════════════════════════════════
+
+Allow: /
+Allow: /projects
+Allow: /projects/*
+Allow: /properties
+Allow: /properties/*
+Allow: /developers
+Allow: /developers/*
+Allow: /agents
+Allow: /agents/*
+Allow: /tools
+Allow: /tools/*
+Allow: /about
+Allow: /contact
+Allow: /terms
+Allow: /privacy
+
+# ═══════════════════════════════════════════
+# CRAWL DELAY (Polite crawling)
+# ═══════════════════════════════════════════
+
+# Google, Bing — normal speed (no delay)
+User-agent: Googlebot
+Crawl-delay: 0
+
+User-agent: Bingbot
+Crawl-delay: 1
+
+# Other bots — 5 second delay to reduce load
+User-agent: *
+Crawl-delay: 5
+
+# ═══════════════════════════════════════════
+# BLOCK AGGRESSIVE / MALICIOUS BOTS
+# ═══════════════════════════════════════════
+
+User-agent: AhrefsBot
+Crawl-delay: 30
+
+User-agent: SemrushBot
+Crawl-delay: 30
+
+User-agent: MJ12bot
+Disallow: /
+
+User-agent: DotBot
+Disallow: /
+
+User-agent: PetalBot
+Disallow: /
+
+# ═══════════════════════════════════════════
+# SITEMAP LOCATION
+# ═══════════════════════════════════════════
+
+Sitemap: https://highrise.pk/sitemap.xml

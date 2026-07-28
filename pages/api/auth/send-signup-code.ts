@@ -1,0 +1,1034 @@
+// ========== FILE: pages/api/auth/send-signup-code.ts ==========
+// 🔒 ENTERPRISE SIGNUP CODE SYSTEM - HIGHRISE.PK
+// Security Level: MAXIMUM | Anti-Fraud | Bot Prevention | Audit Logging
+// ═══════════════════════════════════════════════════════════════
+
+import type { NextApiRequest, NextApiResponse } from "next";
+import crypto from "crypto";
+import nodemailer from "nodemailer";
+import dbConnect from "@/lib/dbConnect";
+import SignupCode from "@/models/SignupCode";
+import User from "@/models/User";
+import { rateLimitSignup, getClientIp } from "@/lib/rateLimit";
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 CONFIGURATION
+// ═══════════════════════════════════════════════════════════════
+
+// ✅ OTP Settings
+const OTP_LENGTH = 6;
+const OTP_EXPIRY_MINUTES = 10;
+const MAX_PENDING_CODES_PER_EMAIL = 3;
+const MAX_SIGNUP_ATTEMPTS_PER_IP_DAILY = 10;
+
+// ✅ Password Policy (must match User model)
+const MIN_PASSWORD_LENGTH = 12;
+
+// ✅ Pakistan Phone Regex
+const PAKISTAN_PHONE_REGEX = /^(\+92|0)?3\d{9}$/;
+
+// ✅ CNIC Regex (13 digits)
+const CNIC_REGEX = /^\d{13}$/;
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 DISPOSABLE EMAIL DOMAINS (Comprehensive List)
+// ═══════════════════════════════════════════════════════════════
+
+const DISPOSABLE_EMAIL_DOMAINS = new Set([
+  // Common disposable services
+  "mailinator.com",
+  "10minutemail.com",
+  "10minutemail.net",
+  "guerrillamail.com",
+  "guerrillamail.org",
+  "guerrillamailblock.com",
+  "tempmail.com",
+  "tempmail.net",
+  "temp-mail.org",
+  "temp-mail.io",
+  "yopmail.com",
+  "yopmail.fr",
+  "getnada.com",
+  "dispostable.com",
+  "sharklasers.com",
+  "trashmail.com",
+  "trashmail.net",
+  "moakt.com",
+  "mintemail.com",
+  "maildrop.cc",
+  "inboxkitten.com",
+  "fakeinbox.com",
+  "throwawaymail.com",
+  "mailnesia.com",
+  "mailcatch.com",
+  "dropmail.me",
+  "mohmal.com",
+  "tempail.com",
+  "emailondeck.com",
+  "fakemailgenerator.com",
+  "generator.email",
+  "guerrillamail.biz",
+  "guerrillamail.de",
+  "spam4.me",
+  "spamgourmet.com",
+  "mailexpire.com",
+  "incognitomail.org",
+  "anonymbox.com",
+  "33mail.com",
+  "mailforspam.com",
+  "spamfree24.org",
+  "mytemp.email",
+  "tmpmail.org",
+  "tmpmail.net",
+  "burnermail.io",
+  "jetable.org",
+  "get2mail.fr",
+  "discard.email",
+  "discardmail.com",
+  "spambog.com",
+  "spambog.ru",
+  "tempr.email",
+  "fakemail.net",
+  "throwaway.email",
+  "mailnull.com",
+  "e4ward.com",
+  "spamex.com",
+  "lroid.com",
+  "trbvm.com",
+  "armyspy.com",
+  "cuvox.de",
+  "dayrep.com",
+  "einrot.com",
+  "fleckens.hu",
+  "gustr.com",
+  "jourrapide.com",
+  "rhyta.com",
+  "superrito.com",
+  "teleworm.us",
+  "bultoc.com", // Your test domain
+]);
+
+// ✅ Suspicious domain patterns
+const SUSPICIOUS_DOMAIN_PATTERNS = [
+  "tempmail",
+  "temp-mail",
+  "10min",
+  "guerrilla",
+  "throwaway",
+  "trashmail",
+  "maildrop",
+  "fakeinbox",
+  "fakemail",
+  "disposable",
+  "mailinator",
+  "spammail",
+  "tmpmail",
+];
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * ✅ Generate request ID
+ */
+function getRequestId(req: NextApiRequest): string {
+  const hdr = req.headers["x-request-id"];
+  if (typeof hdr === "string" && hdr.trim()) return hdr.trim().slice(0, 64);
+  return crypto.randomUUID();
+}
+
+/**
+ * ✅ Set security headers
+ */
+function setSecurityHeaders(res: NextApiResponse, requestId: string): void {
+  res.setHeader("X-Request-Id", requestId);
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("X-XSS-Protection", "1; mode=block");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  res.setHeader("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+  res.setHeader("Pragma", "no-cache");
+  res.setHeader("Expires", "0");
+}
+
+/**
+ * ✅ Hash IP for logging (privacy)
+ */
+function hashIp(ip: string): string {
+  const secret = process.env.NEXTAUTH_SECRET || "signup-log-secret";
+  return crypto
+    .createHmac("sha256", secret)
+    .update(ip)
+    .digest("hex")
+    .slice(0, 16);
+}
+
+/**
+ * ✅ Normalize email
+ */
+function normalizeEmail(email: string): string {
+  return String(email || "")
+    .trim()
+    .toLowerCase()
+    .slice(0, 254); // RFC 5321 max length
+}
+
+/**
+ * ✅ Validate email format
+ */
+function isValidEmail(email: string): boolean {
+  // RFC 5322 compliant regex (simplified)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  
+  if (!emailRegex.test(email)) return false;
+  if (email.length < 5 || email.length > 254) return false;
+  
+  const [local, domain] = email.split("@");
+  if (!local || !domain) return false;
+  if (local.length > 64) return false; // RFC 5321
+  if (domain.length > 253) return false;
+  
+  return true;
+}
+
+/**
+ * ✅ Get email domain
+ */
+function getEmailDomain(email: string): string {
+  const parts = normalizeEmail(email).split("@");
+  return parts.length === 2 ? parts[1] : "";
+}
+
+/**
+ * ✅ Check if email is disposable
+ */
+function isDisposableEmail(email: string): boolean {
+  const domain = getEmailDomain(email);
+  if (!domain) return true;
+
+  // Check direct match
+  if (DISPOSABLE_EMAIL_DOMAINS.has(domain)) return true;
+
+  // Check subdomain patterns (x.tempmail.com)
+  for (const disposable of DISPOSABLE_EMAIL_DOMAINS) {
+    if (domain.endsWith(`.${disposable}`)) return true;
+  }
+
+  // Check suspicious patterns
+  for (const pattern of SUSPICIOUS_DOMAIN_PATTERNS) {
+    if (domain.includes(pattern)) return true;
+  }
+
+  // Check environment blocklist
+  const envBlocked = process.env.BLOCKED_EMAIL_DOMAINS;
+  if (envBlocked) {
+    const blocked = envBlocked.split(",").map((d) => d.trim().toLowerCase());
+    if (blocked.includes(domain)) return true;
+  }
+
+  return false;
+}
+
+/**
+ * ✅ Normalize phone number (Pakistan format)
+ */
+function normalizePhone(phone: string): string | null {
+  const cleaned = String(phone || "").replace(/[\s\-()]/g, "");
+
+  if (cleaned.startsWith("+92")) {
+    const number = cleaned.slice(3);
+    if (/^3\d{9}$/.test(number)) return `+92${number}`;
+  }
+
+  if (cleaned.startsWith("0")) {
+    const number = cleaned.slice(1);
+    if (/^3\d{9}$/.test(number)) return `+92${number}`;
+  }
+
+  if (/^3\d{9}$/.test(cleaned)) {
+    return `+92${cleaned}`;
+  }
+
+  return null;
+}
+
+/**
+ * ✅ Normalize CNIC (13 digits)
+ */
+function normalizeCnic(cnic: string): string | null {
+  const digits = String(cnic || "").replace(/\D/g, "");
+  if (CNIC_REGEX.test(digits)) return digits;
+  return null;
+}
+
+/**
+ * ✅ Validate password strength (enterprise policy)
+ */
+function validatePassword(password: string): { valid: boolean; reason?: string } {
+  const pw = String(password || "");
+
+  if (pw.length < MIN_PASSWORD_LENGTH) {
+    return { valid: false, reason: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
+  }
+
+  if (!/[a-z]/.test(pw)) {
+    return { valid: false, reason: "Password must contain lowercase letters" };
+  }
+
+  if (!/[A-Z]/.test(pw)) {
+    return { valid: false, reason: "Password must contain uppercase letters" };
+  }
+
+  if (!/[0-9]/.test(pw)) {
+    return { valid: false, reason: "Password must contain numbers" };
+  }
+
+  if (!/[^a-zA-Z0-9]/.test(pw)) {
+    return { valid: false, reason: "Password must contain special characters" };
+  }
+
+  // Check common passwords
+  const commonPasswords = [
+    "password123!",
+    "pakistan123!",
+    "highrise123!",
+    "admin123456!",
+    "qwerty123456!",
+  ];
+  if (commonPasswords.some((cp) => pw.toLowerCase().includes(cp.toLowerCase()))) {
+    return { valid: false, reason: "Password is too common" };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * ✅ Generate cryptographically secure OTP
+ */
+function generateSecureOTP(): string {
+  // Use crypto.randomInt for cryptographically secure random
+  const min = Math.pow(10, OTP_LENGTH - 1);
+  const max = Math.pow(10, OTP_LENGTH) - 1;
+  return crypto.randomInt(min, max + 1).toString();
+}
+
+/**
+ * ✅ Hash OTP for storage (never store plaintext)
+ */
+function hashOtp(email: string, code: string): string {
+  const pepper = process.env.OTP_PEPPER || process.env.NEXTAUTH_SECRET || "otp_pepper_secure";
+  const normalized = normalizeEmail(email);
+  return crypto
+    .createHmac("sha256", pepper)
+    .update(`${normalized}:${code}`)
+    .digest("hex");
+}
+
+/**
+ * ✅ Get encryption key for temp password storage
+ */
+function getSignupTempSecretKey(): Buffer {
+  const raw = process.env.SIGNUP_TEMP_SECRET || process.env.NEXTAUTH_SECRET;
+  if (!raw || raw.length < 32) {
+    throw new Error("SIGNUP_TEMP_SECRET must be at least 32 characters");
+  }
+  return crypto.createHash("sha256").update(raw).digest();
+}
+
+/**
+ * ✅ Encrypt password for temp storage (never store plaintext)
+ */
+function encryptTempPassword(password: string): string {
+  const key = getSignupTempSecretKey();
+  const iv = crypto.randomBytes(12); // GCM IV
+  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
+
+  const encrypted = Buffer.concat([
+    cipher.update(password, "utf8"),
+    cipher.final(),
+  ]);
+  const tag = cipher.getAuthTag();
+
+  // Format: iv.ciphertext.tag (all base64)
+  return `${iv.toString("base64")}.${encrypted.toString("base64")}.${tag.toString("base64")}`;
+}
+
+/**
+ * ✅ Verify Turnstile CAPTCHA
+ */
+async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) return false;
+
+  try {
+    const formData = new URLSearchParams();
+    formData.append("secret", secret);
+    formData.append("response", token);
+    if (ip && ip !== "unknown") {
+      formData.append("remoteip", ip);
+    }
+
+    const response = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString(),
+      }
+    );
+
+    const data = await response.json();
+    return Boolean(data?.success);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * ✅ Log signup attempt (audit trail)
+ */
+async function logSignupAttempt(_data: {
+  email?: string;
+  ip: string;
+  userAgent?: string;
+  action: string;
+  success: boolean;
+  reason?: string;
+  requestId: string;
+}): Promise<void> {
+  // Audit trail: integrate with SecurityEvent model in Section 8
+}
+
+/**
+ * ✅ Sanitize string input
+ */
+function sanitize(input: string, maxLength: number = 100): string {
+  return String(input || "")
+    .trim()
+    .replace(/[<>'"]/g, "") // Remove HTML/JS injection chars
+    .slice(0, maxLength);
+}
+
+/**
+ * ✅ Sanitize alphanumeric (for license, NTN, etc.)
+ */
+function sanitizeAlphaNum(input: string, maxLength: number = 40): string {
+  return String(input || "")
+    .trim()
+    .replace(/[^a-zA-Z0-9\-_]/g, "")
+    .slice(0, maxLength);
+}
+
+/**
+ * ✅ Send generic success (anti-enumeration)
+ */
+function sendSuccess(res: NextApiResponse, requestId: string): void {
+  res.status(200).json({
+    success: true,
+    message: "If the email is valid, a verification code has been sent.",
+    requestId,
+  });
+}
+
+/**
+ * ✅ Send error response
+ */
+function sendError(
+  res: NextApiResponse,
+  status: number,
+  message: string,
+  requestId: string,
+  code?: string
+): void {
+  res.status(status).json({
+    success: false,
+    message,
+    code: code || "ERROR",
+    requestId,
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 EMAIL SENDING
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * ✅ Send verification email
+ */
+async function sendVerificationEmail(email: string, code: string): Promise<boolean> {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: Number(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === "true",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: process.env.NODE_ENV === "production",
+      },
+    });
+
+        const html = `
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Verify Your Email - Highrise.pk</title>
+  <!--[if mso]>
+  <style type="text/css">
+    table, td, div, p, a { font-family: Arial, Helvetica, sans-serif !important; }
+  </style>
+  <![endif]-->
+</head>
+<body style="margin:0; padding:0; background-color:#f4f4f4; font-family:Arial, Helvetica, sans-serif;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" bgcolor="#f4f4f4">
+    <tr>
+      <td align="center" style="padding:40px 20px;">
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" bgcolor="#ffffff" style="max-width:600px; border-radius:8px; overflow:hidden;">
+
+          <!-- Header (Solid color — no gradient) -->
+          <tr>
+            <td bgcolor="#029bba" align="center" style="padding:40px 30px; background-color:#029bba;">
+              <h1 style="color:#ffffff; margin:0; font-size:28px; font-weight:700; font-family:Arial, Helvetica, sans-serif;">Highrise.pk</h1>
+              <p style="color:#ffffff; margin:10px 0 0; font-size:14px; font-family:Arial, Helvetica, sans-serif;">Pakistan's Trusted Property Platform</p>
+            </td>
+          </tr>
+
+          <!-- Content -->
+          <tr>
+            <td style="padding:40px 30px;">
+              <h2 style="color:#004063; margin:0 0 20px; font-size:22px; font-family:Arial, Helvetica, sans-serif;">Verify Your Email</h2>
+              <p style="color:#555555; font-size:16px; line-height:1.6; margin:0 0 30px; font-family:Arial, Helvetica, sans-serif;">
+                Thank you for registering with Highrise.pk! Please use the verification code below to complete your registration:
+              </p>
+
+              <!-- OTP CODE BOX (Table-based, solid bgcolor, digits spaced with &nbsp;) -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0">
+                <tr>
+                  <td align="center" bgcolor="#004063" style="background-color:#004063; padding:30px 20px; border-radius:8px;">
+                    <p style="color:#029bba; margin:0 0 12px; font-size:13px; font-weight:700; letter-spacing:2px; font-family:Arial, Helvetica, sans-serif; text-transform:uppercase;">
+                      Your Verification Code
+                    </p>
+                    <p style="color:#ffffff; margin:0; font-size:36px; font-weight:700; font-family:'Courier New', Courier, monospace; line-height:1.2;">
+                      ${code.split('').join('&nbsp;&nbsp;')}
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Expiry Warning -->
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin-top:24px;">
+                <tr>
+                  <td bgcolor="#fff8e6" style="background-color:#fff8e6; padding:15px 20px; border-left:4px solid #f0ad4e; border-radius:4px;">
+                    <p style="color:#856404; margin:0; font-size:14px; font-family:Arial, Helvetica, sans-serif;">
+                      <strong>&#9200; This code expires in ${OTP_EXPIRY_MINUTES} minutes.</strong> Please do not share it with anyone.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              <p style="color:#888888; font-size:13px; line-height:1.6; margin:30px 0 0; font-family:Arial, Helvetica, sans-serif;">
+                If you didn't request this verification code, you can safely ignore this email. Your account is secure.
+              </p>
+
+              <p style="color:#888888; font-size:13px; line-height:1.6; margin:20px 0 0; font-family:Arial, Helvetica, sans-serif;">
+                Need help? Contact us at
+                <a href="mailto:info@highrise.pk" style="color:#029bba; text-decoration:none; font-weight:600;">info@highrise.pk</a>
+                or call <a href="tel:+923335877106" style="color:#029bba; text-decoration:none; font-weight:600;">+92 333 5877106</a>
+              </p>
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td bgcolor="#f8f9fa" align="center" style="background-color:#f8f9fa; padding:30px;">
+              <p style="color:#888888; margin:0 0 8px; font-size:12px; font-family:Arial, Helvetica, sans-serif;">
+                &copy; ${new Date().getFullYear()} Highrise.pk &mdash; All rights reserved
+              </p>
+              <p style="color:#888888; margin:0; font-size:12px; font-family:Arial, Helvetica, sans-serif;">
+                Pakistan's Most Trusted Property Platform
+              </p>
+            </td>
+          </tr>
+
+        </table>
+
+        <!-- Plain text fallback for accessibility -->
+        <table role="presentation" width="600" cellspacing="0" cellpadding="0" border="0" style="max-width:600px; margin-top:20px;">
+          <tr>
+            <td align="center" style="padding:0 20px;">
+              <p style="color:#999999; font-size:11px; line-height:1.5; margin:0; font-family:Arial, Helvetica, sans-serif;">
+                Your verification code: <strong style="color:#004063; font-family:'Courier New', monospace; letter-spacing:2px;">${code}</strong>
+              </p>
+            </td>
+          </tr>
+        </table>
+
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    await transporter.sendMail({
+      from: `"Highrise.pk" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: email,
+      subject: `Your Highrise.pk verification code: ${code}`,
+      html,
+      text: `Highrise.pk - Email Verification
+
+Thank you for registering with Highrise.pk!
+
+Your verification code is: ${code}
+
+This code expires in ${OTP_EXPIRY_MINUTES} minutes. Please do not share it with anyone.
+
+If you didn't request this code, you can safely ignore this email.
+
+Need help? Email info@highrise.pk or call +92 333 5877106
+
+© ${new Date().getFullYear()} Highrise.pk
+Pakistan's Trusted Property Platform`,
+    });
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 MAIN HANDLER
+// ═══════════════════════════════════════════════════════════════
+
+export default async function handler(
+  req: NextApiRequest,
+  res: NextApiResponse
+) {
+  const requestId = getRequestId(req);
+  setSecurityHeaders(res, requestId);
+
+  // ✅ Method check
+  if (req.method !== "POST") {
+    return sendError(res, 405, "Method not allowed", requestId, "METHOD_NOT_ALLOWED");
+  }
+
+  const ip = getClientIp(req);
+  const userAgent = String(req.headers["user-agent"] || "").slice(0, 200);
+
+  try {
+    // ═══════════════════════════════════════════════════════════
+    // STEP 1: Rate Limiting (Enterprise)
+    // ═══════════════════════════════════════════════════════════
+    const rateLimitResult = await rateLimitSignup(req);
+    if (!rateLimitResult.ok) {
+      res.setHeader("Retry-After", rateLimitResult.retryAfter || 60);
+
+      await logSignupAttempt({
+        ip,
+        userAgent,
+        action: "rate_limited",
+        success: false,
+        reason: "Too many signup attempts",
+        requestId,
+      });
+
+      return sendError(
+        res,
+        429,
+        "Too many signup attempts. Please try again later.",
+        requestId,
+        "RATE_LIMITED"
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 2: Connect to Database
+    // ═══════════════════════════════════════════════════════════
+    await dbConnect();
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 3: Parse Request Body
+    // ═══════════════════════════════════════════════════════════
+    const contentType = String(req.headers["content-type"] || "").toLowerCase();
+
+    // Block multipart (file uploads not allowed on this endpoint)
+    if (contentType.includes("multipart/form-data")) {
+      await logSignupAttempt({
+        ip,
+        userAgent,
+        action: "invalid_content_type",
+        success: false,
+        reason: "Multipart not allowed",
+        requestId,
+      });
+
+      return sendError(
+        res,
+        415,
+        "File uploads are not allowed on this endpoint",
+        requestId,
+        "INVALID_CONTENT_TYPE"
+      );
+    }
+
+    // Parse JSON body
+    let body: any = {};
+    if (contentType.includes("application/json")) {
+      body = req.body || {};
+    } else {
+      // Try to parse raw body
+      try {
+        const chunks: Buffer[] = [];
+        for await (const chunk of req) {
+          chunks.push(Buffer.from(chunk));
+        }
+        const raw = Buffer.concat(chunks).toString("utf8");
+        body = raw ? JSON.parse(raw) : {};
+      } catch {
+        body = {};
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 4: Extract and Validate Fields
+    // ═══════════════════════════════════════════════════════════
+
+    // Required fields (V6.0.0 — CNIC removed from signup)
+    const email = normalizeEmail(body.email);
+    const fullName = sanitize(body.fullName, 100);
+    const password = String(body.password || "");
+    const phone = String(body.phone || "").trim();
+    const turnstileToken = String(body.turnstileToken || "").trim();
+
+    // CNIC no longer collected at signup — required only at role upgrade
+    // (owner/verify, agent/register, developer/register, labour/register)
+    const cnicRaw = "";
+    const cnicName = "";
+
+    // Optional fields
+    const accountType = sanitize(body.accountType || "individual", 30).toLowerCase();
+    const country = sanitize(body.country || "Pakistan", 60);
+    const city = sanitize(body.city || "", 60);
+    const homeAddress = sanitize(body.homeAddress || "", 200);
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 5: Turnstile CAPTCHA Verification
+    // ═══════════════════════════════════════════════════════════
+    if (!turnstileToken) {
+      await logSignupAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "captcha_missing",
+        success: false,
+        reason: "No captcha token",
+        requestId,
+      });
+
+      return sendError(
+        res,
+        400,
+        "Please complete the security verification",
+        requestId,
+        "CAPTCHA_REQUIRED"
+      );
+    }
+
+    const captchaValid = await verifyTurnstile(turnstileToken, ip);
+    if (!captchaValid) {
+      await logSignupAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "captcha_failed",
+        success: false,
+        reason: "Captcha verification failed",
+        requestId,
+      });
+
+      return sendError(
+        res,
+        400,
+        "Security verification failed. Please try again.",
+        requestId,
+        "CAPTCHA_FAILED"
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 6: Validate Required Fields
+    // ═══════════════════════════════════════════════════════════
+
+    // Email validation
+    if (!email) {
+      return sendError(res, 400, "Email is required", requestId, "EMAIL_REQUIRED");
+    }
+
+    if (!isValidEmail(email)) {
+      await logSignupAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "invalid_email_format",
+        success: false,
+        reason: "Invalid email format",
+        requestId,
+      });
+
+      return sendError(res, 400, "Please enter a valid email address", requestId, "INVALID_EMAIL");
+    }
+
+    // Disposable email check
+    if (isDisposableEmail(email)) {
+      await logSignupAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "disposable_email",
+        success: false,
+        reason: "Disposable email blocked",
+        requestId,
+      });
+
+      return sendError(
+        res,
+        400,
+        "Temporary/disposable email addresses are not allowed. Please use a real email.",
+        requestId,
+        "DISPOSABLE_EMAIL"
+      );
+    }
+
+    // Full name validation
+    if (!fullName || fullName.length < 2) {
+      return sendError(res, 400, "Full name is required", requestId, "NAME_REQUIRED");
+    }
+
+    // Password validation
+    if (!password) {
+      return sendError(res, 400, "Password is required", requestId, "PASSWORD_REQUIRED");
+    }
+
+    const passwordCheck = validatePassword(password);
+    if (!passwordCheck.valid) {
+      return sendError(res, 400, passwordCheck.reason || "Invalid password", requestId, "WEAK_PASSWORD");
+    }
+
+    // Phone validation (optional but if provided, must be valid)
+    let normalizedPhone: string | null = null;
+    if (phone) {
+      normalizedPhone = normalizePhone(phone);
+      if (!normalizedPhone) {
+        return sendError(
+          res,
+          400,
+          "Please enter a valid Pakistan phone number (e.g., 03001234567)",
+          requestId,
+          "INVALID_PHONE"
+        );
+      }
+    }
+
+    // CNIC validation REMOVED at signup (V6.0.0)
+    // CNIC is collected at role-specific onboarding pages:
+    //   /owner/verify → for Verified Owner (CNIC required)
+    //   /agent/register → for Property Agents
+    //   /developer/register → for Property Developers
+    //   /labour/register → for Skilled Labour (CNIC + police cert)
+    // This makes signup faster and only collects CNIC when actually needed.
+
+    // Set null values for downstream code (CNIC not yet collected)
+    const normalizedCnic: string | null = null;
+
+    // STEP 7: Org validation removed — role upgraded via dashboard onboarding
+    // All users sign up as 'user' and upgrade via role selection flow
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 8: Check for Existing User (Anti-Enumeration)
+    // ═══════════════════════════════════════════════════════════
+    const existingUser = await User.findOne({
+      email,
+      isDeleted: { $ne: true },
+    })
+      .select("_id")
+      .lean();
+
+    if (existingUser) {
+      await logSignupAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "existing_user",
+        success: false,
+        reason: "User already exists",
+        requestId,
+      });
+
+      // Clean up any old signup codes
+      await SignupCode.deleteMany({ email }).catch(() => {});
+
+      return sendError(
+        res,
+        409,
+        "This email is already registered. Please sign in or reset your password.",
+        requestId,
+        "EMAIL_ALREADY_REGISTERED"
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 9: CNIC Uniqueness Check — SKIPPED at signup (V6.0.0)
+    // ═══════════════════════════════════════════════════════════
+    // CNIC uniqueness is now checked at role-specific verification:
+    //   /api/owner/submit-verification (owner CNIC uniqueness)
+    //   /api/agent/register (agent CNIC uniqueness)
+    //   /api/developer/register (developer CNIC uniqueness)
+    // No CNIC collected here, so no uniqueness check needed.
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 10: Clean Old Codes & Check Pending Limit
+    // ═══════════════════════════════════════════════════════════
+
+    // Delete expired codes
+    await SignupCode.deleteMany({
+      expiresAt: { $lt: new Date() },
+    }).catch(() => {});
+
+    // Delete old codes for this email
+    await SignupCode.deleteMany({ email }).catch(() => {});
+
+    // Check pending codes limit per IP (abuse prevention)
+    const pendingCodesCount = await SignupCode.countDocuments({
+      "meta.ip": ip,
+      expiresAt: { $gt: new Date() },
+    });
+
+    if (pendingCodesCount >= MAX_SIGNUP_ATTEMPTS_PER_IP_DAILY) {
+      await logSignupAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "too_many_pending",
+        success: false,
+        reason: "Too many pending signup codes from IP",
+        requestId,
+      });
+
+      return sendError(
+        res,
+        429,
+        "Too many signup attempts. Please try again later.",
+        requestId,
+        "TOO_MANY_ATTEMPTS"
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 11: Generate OTP and Store
+    // ═══════════════════════════════════════════════════════════
+    const otpCode = generateSecureOTP();
+    const otpHash = hashOtp(email, otpCode);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    // Encrypt password for temp storage
+    const passwordEnc = encryptTempPassword(password);
+
+    // Create signup code record (V6.0.0 — no CNIC at signup)
+    await SignupCode.create({
+      email,
+      code: otpHash, // ✅ Hashed, not plaintext
+      expiresAt,
+      attempts: 0,
+      maxAttempts: 5,
+      formData: {
+        email,
+        fullName,
+        phone: normalizedPhone || "",
+        country,
+        accountType,
+        city,
+        homeAddress,
+        passwordEnc,
+        // CNIC fields intentionally NOT stored at signup
+        // Collected at role-specific onboarding pages
+      },
+      meta: {
+        ip,
+        userAgent,
+        createdAt: new Date(),
+        requestId,
+        codeAlgo: "hmac-sha256",
+        pwAlgo: "aes-256-gcm",
+      },
+    });
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 12: Send Verification Email
+    // ═══════════════════════════════════════════════════════════
+    const emailSent = await sendVerificationEmail(email, otpCode);
+
+    if (!emailSent) {
+      // Clean up the code if email failed
+      await SignupCode.deleteMany({ email }).catch(() => {});
+
+      await logSignupAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "email_failed",
+        success: false,
+        reason: "Failed to send verification email",
+        requestId,
+      });
+
+      return sendError(
+        res,
+        500,
+        "Unable to send verification email. Please try again.",
+        requestId,
+        "EMAIL_FAILED"
+      );
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    // STEP 13: Success
+    // ═══════════════════════════════════════════════════════════
+    await logSignupAttempt({
+      email,
+      ip,
+      userAgent,
+      action: "code_sent",
+      success: true,
+      requestId,
+    });
+
+    return sendSuccess(res, requestId);
+  } catch (error: any) {
+    await logSignupAttempt({
+      ip,
+      userAgent,
+      action: "server_error",
+      success: false,
+      reason: error.message,
+      requestId,
+    });
+
+    return sendError(
+      res,
+      500,
+      "Unable to process your request. Please try again.",
+      requestId,
+      "SERVER_ERROR"
+    );
+  }
+}
+
+// ========== END OF FILE ==========

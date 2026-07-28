@@ -1,0 +1,42 @@
+[
+  {
+    "id": 1,
+    "name": "DHA Lahore",
+    "description": "Defence Housing Authority Lahore - Pakistan's most trusted real estate developer",
+    "logo": "https://images.unsplash.com/photo-1600585154340-be6161a56a56a0c?w=100",
+    "status": "Trusted Developer",
+    "projects": 45
+  },
+  {
+    "id": 2,
+    "name": "Bahria Town",
+    "description": "Pakistan's largest and most successful real estate developer",
+    "logo": "https://images.unsplash.com/photo-1600585154340-be6161a56a56a0c?w=100",
+    "status": "Trusted Developer",
+    "projects": 120
+  },
+  {
+    "id": 3,
+    "name": "Capital Developers",
+    "description": "Leading real estate developer in Islamabad",
+    "logo": "https://images.unsplash.com/photo-1600585154340-be6161a56a56a0c?w=100",
+    "status": "Trusted Developer",
+    "projects": 35
+  },
+  {
+    "id": 4,
+    "name": "Private Owner",
+    "description": "Individual property owners and investors",
+    "logo": "https://images.unsplash.com/photo-1600585154340-be6161a56a56a0c?w=100",
+    "status": "Verified",
+    "projects": 200
+  },
+  {
+    "id": 5,
+    "name": "Eden Housing",
+    "description": "Premium real estate developer with focus on luxury properties",
+    "logo": "https://images.unsplash.com/photo-1600585154340-be6161a56a56a0c?w=100",
+    "status": "New Joint Venture",
+    "projects": 15
+  }
+]

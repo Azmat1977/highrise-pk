@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/send-scheduled-campaigns",
+      "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/automation/process",
+      "schedule": "*/30 * * * *"
+    }
+  ]
+}
