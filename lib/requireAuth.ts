@@ -1,8 +1,3 @@
-// ========== FILE: lib/requireAuth.ts ==========
-// 🔒 ENTERPRISE AUTHENTICATION GUARD - HIGHRISE.PK
-// Security Level: MAXIMUM | Token Validation | Role-Based Access | Audit Logging
-// ═══════════════════════════════════════════════════════════════
-
 import crypto from "crypto";
 import type { NextApiRequest, NextApiResponse } from "next";
 import { getToken } from "next-auth/jwt";
@@ -10,20 +5,28 @@ import type { JWT } from "next-auth/jwt";
 import type mongoose from "mongoose";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
+import {
+  capabilityFromLegacyRole,
+  hasPermission as actorHasPermission,
+  isLegacyMarketplaceRole,
+  normalizeCapabilities,
+  normalizePermission,
+  normalizePermissions,
+  normalizeRole,
+  type Actor,
+  type Capability,
+  type LegacyMarketplaceRole,
+  type Permission,
+  type Role,
+} from "@/lib/auth";
 
-// ═══════════════════════════════════════════════════════════════
-// 🔐 TYPE DEFINITIONS
-// ═══════════════════════════════════════════════════════════════
-
-export type UserRole =
-  | "user"
-  | "reader"
-  | "writer"
-  | "editor"
-  | "developer"
-  | "agent"
-  | "society"
-  | "admin";
+export type UserRole = Role | LegacyMarketplaceRole;
+export type OnboardingStatus =
+  | "none"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "info_required";
 
 export interface AuthToken {
   id: string;
@@ -31,15 +34,18 @@ export interface AuthToken {
   name?: string;
   displayName?: string;
   role: UserRole;
+  authorityRole: Role;
+  capabilities: Capability[];
+  permissions: Permission[];
+  actor: Actor;
   isEmailVerified: boolean;
   kycVerified: boolean;
-  onboardingStatus: "none" | "pending" | "approved" | "rejected" | "info_required";
-  onboardingRole?: "agent" | "developer" | "society" | null;
+  onboardingStatus: OnboardingStatus;
+  onboardingRole?: LegacyMarketplaceRole | null;
   tokenVersion: number;
   phone?: string;
   phoneNumber?: string;
   profilePicture?: string | null;
-  permissions?: string[];
   rememberMe?: boolean;
   sessionMaxAgeSeconds?: number;
   lastDbCheckAt?: number;
@@ -65,22 +71,21 @@ export interface AuthError {
   code: string;
 }
 
-type AuthResponse = AuthResult | AuthError;
-
 interface DbUser {
   _id: mongoose.Types.ObjectId | string;
   email?: string;
   name?: string;
   displayName?: string;
-  role?: UserRole;
+  role?: unknown;
   status?: "active" | "pending" | "suspended" | "banned";
   isDeleted?: boolean;
   isVerified?: boolean;
   tokenVersion?: number;
   kycVerified?: boolean;
-  onboardingStatus?: "none" | "pending" | "approved" | "rejected" | "info_required";
-  onboardingRole?: "agent" | "developer" | "society" | null;
-  permissions?: string[];
+  onboardingStatus?: OnboardingStatus;
+  onboardingRole?: LegacyMarketplaceRole | null;
+  capabilities?: unknown[];
+  permissions?: unknown[];
   profilePictureUrl?: string | null;
   phone?: string;
   twoFactorAuth?: {
@@ -89,51 +94,40 @@ interface DbUser {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔐 CONFIGURATION
-// ═══════════════════════════════════════════════════════════════
+const REQUIRE_ADMIN_2FA = process.env.REQUIRE_ADMIN_2FA === "1";
 
-// ✅ Require email verification for these roles
-const REQUIRE_EMAIL_VERIFICATION_ROLES: UserRole[] = [
-  "developer",
-  "agent",
-  "admin",
-];
-
-// ✅ Require 2FA for these roles (future implementation)
-const REQUIRE_2FA_ROLES: UserRole[] = ["admin"];
-
-// NOTE: No in-memory cache — security-critical auth must always
-// reflect current DB state (suspended accounts, deleted users).
-// Mongoose connection pooling handles query performance.
-
-// ═══════════════════════════════════════════════════════════════
-// 🔐 HELPER FUNCTIONS
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * ✅ Get client IP for logging
- */
-function getClientIp(req: NextApiRequest): string {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string") {
-    return forwarded.split(",")[0].trim();
+function firstHeaderValue(value: string | string[] | undefined): string | null {
+  if (Array.isArray(value)) {
+    return value[0]?.trim() || null;
   }
-  const realIp = req.headers["x-real-ip"];
-  if (typeof realIp === "string") {
-    return realIp;
-  }
-  return req.socket?.remoteAddress || "unknown";
+
+  return typeof value === "string" ? value.trim() : null;
 }
 
-/**
- * ✅ Hash IP for privacy-safe logging
- */
-function hashIp(ip: string): string {
+export function getClientIp(req: NextApiRequest): string {
+  const cloudflare = firstHeaderValue(req.headers["cf-connecting-ip"]);
+  if (cloudflare) {
+    return cloudflare;
+  }
+
+  const forwarded = firstHeaderValue(req.headers["x-forwarded-for"]);
+  if (forwarded) {
+    return forwarded.split(",")[0]?.trim() || "unknown";
+  }
+
+  const realIp = firstHeaderValue(req.headers["x-real-ip"]);
+  return realIp || req.socket?.remoteAddress || "unknown";
+}
+
+function hashIp(ip: string): string | undefined {
   const secret =
-    process.env.KYC_HASH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "auth-log-secret";
+    process.env.SECURITY_LOG_HMAC_SECRET ||
+    process.env.NEXTAUTH_SECRET;
+
+  if (!secret) {
+    return undefined;
+  }
+
   return crypto
     .createHmac("sha256", secret)
     .update(ip)
@@ -141,9 +135,6 @@ function hashIp(ip: string): string {
     .slice(0, 16);
 }
 
-/**
- * ✅ Log security event (lightweight, async)
- */
 async function logAuthEvent(data: {
   userId?: string;
   email?: string;
@@ -151,41 +142,34 @@ async function logAuthEvent(data: {
   success: boolean;
   reason?: string;
   ip?: string;
-  userAgent?: string;
 }): Promise<void> {
   try {
-    // Console log (structured for log aggregation)
-    const logEntry = {
+    const entry = {
       timestamp: new Date().toISOString(),
       type: "auth_guard",
       action: data.action,
       success: data.success,
       userId: data.userId,
-      email: data.email ? data.email.replace(/(.{2}).*@/, "$1***@") : undefined,
+      email: data.email
+        ? data.email.replace(/(.{2}).*@/, "$1***@")
+        : undefined,
       reason: data.reason,
-      ip: data.ip ? hashIp(data.ip) : undefined,
+      ipHash: data.ip ? hashIp(data.ip) : undefined,
     };
 
-    // Structured logging — omit console in production
-    // Log aggregation handled at infrastructure level
-    void logEntry; // suppress unused var warning in strict mode
-
-    // SecurityEvent DB logging intentionally omitted from auth guard
-    // to avoid circular dependency and keep auth path lean.
-    // Security events are logged at the [...nextauth].ts level.
+    if (process.env.AUTH_DEBUG === "1") {
+      console.info(JSON.stringify(entry));
+    }
   } catch {
-    // Silent fail — never block auth flow for logging errors
+    // Authentication must not fail because telemetry failed.
   }
 }
 
-/**
- * ✅ Send standardized error response
- */
 function sendError(
   res: NextApiResponse,
   status: number,
   message: string,
-  code: string
+  code: string,
 ): null {
   res.status(status).json({
     success: false,
@@ -195,483 +179,487 @@ function sendError(
   return null;
 }
 
-// Cache intentionally removed — see note above
+function rawRole(value: unknown): UserRole {
+  if (isLegacyMarketplaceRole(value)) {
+    return value;
+  }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔐 CORE AUTHENTICATION FUNCTION
-// ═══════════════════════════════════════════════════════════════
+  return normalizeRole(value);
+}
 
-/**
- * ✅ Validate authentication token and user status
- * 
- * Features:
- * - JWT token validation
- * - Token version check (logout-all-devices support)
- * - User status validation (active, not deleted)
- * - Email verification enforcement
- * - 2FA enforcement (for admin)
- * - Audit logging
- * - Response caching (performance)
- */
+function buildCapabilities(user: DbUser): Capability[] {
+  const capabilities = normalizeCapabilities(user.capabilities);
+
+  if (isLegacyMarketplaceRole(user.role)) {
+    capabilities.push(capabilityFromLegacyRole(user.role));
+  }
+
+  if (
+    user.onboardingStatus === "approved" &&
+    user.onboardingRole &&
+    isLegacyMarketplaceRole(user.onboardingRole)
+  ) {
+    capabilities.push(
+      capabilityFromLegacyRole(user.onboardingRole),
+    );
+  }
+
+  return [...new Set(capabilities)];
+}
+
+function isAdminAuthority(role: Role): role is "admin" | "superadmin" {
+  return role === "admin" || role === "superadmin";
+}
+
+function hasCapability(
+  token: AuthToken,
+  capability: Capability,
+): boolean {
+  return token.capabilities.includes(capability);
+}
+
 export async function requireAuth(
   req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
 ): Promise<AuthToken | null> {
   const ip = getClientIp(req);
-  const userAgent = req.headers["user-agent"] || "unknown";
 
   try {
-    // ═══════════════════════════════════════════════════════════
-    // STEP 1: Extract and validate JWT token
-    // ═══════════════════════════════════════════════════════════
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    }) as JWT | null;
+    const secret = process.env.NEXTAUTH_SECRET;
+
+    if (!secret) {
+      await logAuthEvent({
+        action: "auth_configuration_error",
+        success: false,
+        reason: "NEXTAUTH_SECRET is missing",
+        ip,
+      });
+      return sendError(
+        res,
+        500,
+        "Authentication is temporarily unavailable",
+        "AUTH_CONFIGURATION_ERROR",
+      );
+    }
+
+    const token = (await getToken({ req, secret })) as JWT | null;
 
     if (!token) {
-      await logAuthEvent({
-        action: "token_missing",
-        success: false,
-        reason: "No JWT token found",
-        ip,
-        userAgent,
-      });
-      return sendError(res, 401, "Authentication required", "AUTH_REQUIRED");
+      return sendError(
+        res,
+        401,
+        "Authentication required",
+        "AUTH_REQUIRED",
+      );
     }
 
-    // ✅ Validate token has a user ID
     if (!token.id || typeof token.id !== "string") {
-      await logAuthEvent({
-        action: "token_invalid",
-        success: false,
-        reason: "Token missing user ID",
-        ip,
-        userAgent,
-      });
-      return sendError(res, 401, "Invalid authentication token", "TOKEN_INVALID");
+      return sendError(
+        res,
+        401,
+        "Invalid authentication token",
+        "TOKEN_INVALID",
+      );
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 2: Validate user in database
-    // ═══════════════════════════════════════════════════════════
-    
     await dbConnect();
 
     const user = (await User.findById(token.id)
       .select(
-        "email name displayName role status isDeleted isVerified tokenVersion kycVerified onboardingStatus onboardingRole permissions profilePictureUrl phone twoFactorAuth"
+        "email name displayName role status isDeleted isVerified tokenVersion kycVerified onboardingStatus onboardingRole capabilities permissions profilePictureUrl phone twoFactorAuth",
       )
       .lean()) as DbUser | null;
 
     if (!user) {
-      await logAuthEvent({
-        userId: token.id as string,
-        email: token.email ?? undefined,
-        action: "user_not_found",
-        success: false,
-        reason: "User not found in database",
-        ip,
-        userAgent,
-      });
-      return sendError(res, 401, "User not found", "USER_NOT_FOUND");
+      return sendError(
+        res,
+        401,
+        "User not found",
+        "USER_NOT_FOUND",
+      );
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 3: Check user status
-    // ═══════════════════════════════════════════════════════════
-
-    // ✅ Check if deleted
     if (user.isDeleted) {
-      await logAuthEvent({
-        userId: token.id as string,
-        email: user.email,
-        action: "user_deleted",
-        success: false,
-        reason: "User account deleted",
-        ip,
-        userAgent,
-      });
-      return sendError(res, 403, "Account has been removed", "ACCOUNT_DELETED");
+      return sendError(
+        res,
+        403,
+        "Account has been removed",
+        "ACCOUNT_DELETED",
+      );
     }
 
-    // ✅ Check account status
     if (user.status !== "active") {
-      const statusMessages: Record<string, string> = {
+      const messages: Record<string, string> = {
         pending: "Account is pending activation",
         suspended: "Account has been suspended",
         banned: "Account has been banned",
       };
 
-      await logAuthEvent({
-        userId: token.id,
-        email: user.email,
-        action: "user_inactive",
-        success: false,
-        reason: `Status: ${user.status}`,
-        ip,
-        userAgent,
-      });
-
       return sendError(
         res,
         403,
-        statusMessages[user.status || ""] || "Account is not active",
-        "ACCOUNT_INACTIVE"
+        messages[user.status || ""] || "Account is not active",
+        "ACCOUNT_INACTIVE",
       );
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 4: Token version check (logout-all-devices)
-    // ═══════════════════════════════════════════════════════════
-    const dbTokenVersion = typeof user.tokenVersion === "number" ? user.tokenVersion : 0;
-    const jwtTokenVersion = typeof token.tokenVersion === "number" ? token.tokenVersion : 0;
+    const dbTokenVersion =
+      typeof user.tokenVersion === "number" ? user.tokenVersion : 0;
+    const jwtTokenVersion =
+      typeof token.tokenVersion === "number" ? token.tokenVersion : 0;
 
     if (dbTokenVersion !== jwtTokenVersion) {
-      await logAuthEvent({
-        userId: token.id,
-        email: user.email,
-        action: "token_version_mismatch",
-        success: false,
-        reason: `DB: ${dbTokenVersion}, JWT: ${jwtTokenVersion}`,
-        ip,
-        userAgent,
-      });
-
       return sendError(
         res,
         401,
         "Session expired. Please login again.",
-        "SESSION_EXPIRED"
+        "SESSION_EXPIRED",
       );
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 5: Email verification check (for specific roles)
-    // ═══════════════════════════════════════════════════════════
-    const userRole = (user.role || "user") as UserRole;
+    const role = rawRole(user.role);
+    const authorityRole = normalizeRole(user.role);
+    const capabilities = buildCapabilities(user);
+    const permissions = normalizePermissions(user.permissions);
 
-    if (REQUIRE_EMAIL_VERIFICATION_ROLES.includes(userRole)) {
-      if (!user.isVerified) {
-        await logAuthEvent({
-          userId: token.id,
-          email: user.email,
-          action: "email_not_verified",
-          success: false,
-          reason: "Email verification required for role",
-          ip,
-          userAgent,
-        });
+    const requiresVerifiedEmail =
+      authorityRole !== "user" || isLegacyMarketplaceRole(role);
 
-        return sendError(
-          res,
-          403,
-          "Email verification required. Please verify your email.",
-          "EMAIL_NOT_VERIFIED"
-        );
-      }
+    if (requiresVerifiedEmail && !user.isVerified) {
+      return sendError(
+        res,
+        403,
+        "Email verification required. Please verify your email.",
+        "EMAIL_NOT_VERIFIED",
+      );
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 6: 2FA check (for admin roles)
-    // ═══════════════════════════════════════════════════════════
-    if (REQUIRE_2FA_ROLES.includes(userRole)) {
-      const is2FAEnabled = user.twoFactorAuth?.enabled === true;
-      const is2FAVerified = user.twoFactorAuth?.verifiedAt != null;
-
-      // ✅ If 2FA is required but not set up, allow access but warn
-      // (You might want to force 2FA setup instead)
-      if (is2FAEnabled && !is2FAVerified) {
-        // For now, just log - you can make this stricter
-        await logAuthEvent({
-          userId: token.id,
-          email: user.email,
-          action: "2fa_not_verified",
-          success: true, // Allow for now
-          reason: "2FA enabled but not verified this session",
-          ip,
-          userAgent,
-        });
-      }
+    if (
+      REQUIRE_ADMIN_2FA &&
+      isAdminAuthority(authorityRole) &&
+      user.twoFactorAuth?.enabled !== true
+    ) {
+      return sendError(
+        res,
+        403,
+        "Two-factor authentication is required for admin access",
+        "2FA_REQUIRED",
+      );
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 7: Build and return authenticated token
-    // ═══════════════════════════════════════════════════════════
-     const authToken: AuthToken = {
-      id: token.id as string,
+    const actor: Actor = {
+      id: token.id,
+      role: authorityRole,
+      capabilities,
+      directPermissions: permissions,
+      tokenVersion: dbTokenVersion,
+      isActive: true,
+    };
+
+    return {
+      id: token.id,
       email: user.email ?? token.email ?? undefined,
       name: user.name ?? token.name ?? undefined,
-      displayName: user.displayName ?? token.name ?? undefined,
-      role: userRole,
-      isEmailVerified: user.isVerified ?? false,  // Map isVerified → isEmailVerified for JWT
+      displayName: user.displayName ?? user.name ?? token.name ?? undefined,
+      role,
+      authorityRole,
+      capabilities,
+      permissions,
+      actor,
+      isEmailVerified: user.isVerified ?? false,
       kycVerified: user.kycVerified ?? false,
       onboardingStatus: user.onboardingStatus ?? "none",
       onboardingRole: user.onboardingRole ?? null,
       tokenVersion: dbTokenVersion,
       phone: user.phone ?? token.phone ?? undefined,
-      permissions: user.permissions ?? [],
+      phoneNumber: user.phone ?? token.phoneNumber ?? undefined,
       profilePicture: user.profilePictureUrl ?? null,
     };
-
-    // ✅ Log successful authentication (only in debug mode)
-    if (process.env.AUTH_DEBUG === "1") {
-      await logAuthEvent({
-        userId: token.id,
-        email: user.email,
-        action: "auth_success",
-        success: true,
-        ip,
-        userAgent,
-      });
-    }
-
-    return authToken;
   } catch (error) {
-     await logAuthEvent({
+    await logAuthEvent({
       action: "auth_error",
       success: false,
-      reason: (error as Error).message,
+      reason: error instanceof Error ? error.message : "Unknown error",
       ip,
-      userAgent,
-    });
-
-    return sendError(res, 500, "Authentication error", "AUTH_ERROR");
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 🔐 ROLE-BASED ACCESS CONTROL
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * ✅ Require specific role(s) to access endpoint
- * 
- * Usage:
- * ```typescript
- * const token = await requireRole(req, res, ["admin", "agent"]);
- * if (!token) return; // Response already sent
- * ```
- */
-export async function requireRole(
-  req: NextApiRequest,
-  res: NextApiResponse,
-  allowedRoles: UserRole[]
-): Promise<AuthToken | null> {
-  const token = await requireAuth(req, res);
-  if (!token) return null;
-
-  if (!allowedRoles.includes(token.role)) {
-    await logAuthEvent({
-      userId: token.id,
-      email: token.email,
-      action: "role_forbidden",
-      success: false,
-      reason: `Required: ${allowedRoles.join(", ")}, Got: ${token.role}`,
-      ip: getClientIp(req),
     });
 
     return sendError(
       res,
+      500,
+      "Authentication error",
+      "AUTH_ERROR",
+    );
+  }
+}
+
+export async function requireRole(
+  req: NextApiRequest,
+  res: NextApiResponse,
+  allowedRoles: readonly UserRole[],
+): Promise<AuthToken | null> {
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
+
+  const directlyAllowed = allowedRoles.includes(token.role);
+  const authorityAllowed = allowedRoles.includes(token.authorityRole);
+  const superadminForAdmin =
+    token.authorityRole === "superadmin" &&
+    allowedRoles.includes("admin");
+
+  if (!directlyAllowed && !authorityAllowed && !superadminForAdmin) {
+    return sendError(
+      res,
       403,
-      "You don't have permission to access this resource",
-      "FORBIDDEN"
+      "You do not have permission to access this resource",
+      "FORBIDDEN",
     );
   }
 
   return token;
 }
 
-/**
- * Permission-based access control
- * Currently role-based only — granular permissions reserved for future use.
- * Use requireRole() for access control.
- */
 export async function requirePermission(
   req: NextApiRequest,
   res: NextApiResponse,
-  _requiredPermission: string
+  requiredPermission: string,
 ): Promise<AuthToken | null> {
-  // Admin always has all permissions
-  // For other roles, fall through to requireAuth only
-  // Granular permission system will be implemented in Section 8
-  return requireAuth(req, res);
+  const permission = normalizePermission(requiredPermission);
+
+  if (!permission) {
+    return sendError(
+      res,
+      403,
+      "Permission denied",
+      "UNKNOWN_PERMISSION",
+    );
+  }
+
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
+
+  if (!actorHasPermission(token.actor, permission)) {
+    return sendError(
+      res,
+      403,
+      "You do not have permission to perform this action",
+      "PERMISSION_DENIED",
+    );
+  }
+
+  return token;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔐 CONVENIENCE ROLE GUARDS
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * ✅ Require admin role
- */
 export async function requireAdmin(
   req: NextApiRequest,
-  res: NextApiResponse
-): Promise<AuthToken | null> {
-  return requireRole(req, res, ["admin"]);
-}
-
-/**
- * ✅ Require agent role (or admin)
- */
-export async function requireAgent(
-  req: NextApiRequest,
-  res: NextApiResponse
-): Promise<AuthToken | null> {
-  return requireRole(req, res, ["agent", "admin"]);
-}
-
-/**
- * ✅ Require developer role (or admin)
- */
-export async function requireDeveloper(
-  req: NextApiRequest,
-  res: NextApiResponse
-): Promise<AuthToken | null> {
-  return requireRole(req, res, ["developer", "admin"]);
-}
-
-/**
- * ✅ Require society role (or admin)
- */
-export async function requireSociety(
-  req: NextApiRequest,
-  res: NextApiResponse
-): Promise<AuthToken | null> {
-  return requireRole(req, res, ["society", "admin"]);
-}
-
-/**
- * ✅ Require agent OR developer (or admin)
- */
-export async function requireAgentOrDeveloper(
-  req: NextApiRequest,
-  res: NextApiResponse
-): Promise<AuthToken | null> {
-  return requireRole(req, res, ["agent", "developer", "admin"]);
-}
-
-/**
- * ✅ Require verified user (email verified)
- */
-export async function requireVerified(
-  req: NextApiRequest,
-  res: NextApiResponse
+  res: NextApiResponse,
 ): Promise<AuthToken | null> {
   const token = await requireAuth(req, res);
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
+
+  if (!isAdminAuthority(token.authorityRole)) {
+    return sendError(
+      res,
+      403,
+      "Admin access required",
+      "ADMIN_REQUIRED",
+    );
+  }
+
+  return token;
+}
+
+export async function requireSuperAdmin(
+  req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<AuthToken | null> {
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
+
+  if (token.authorityRole !== "superadmin") {
+    return sendError(
+      res,
+      403,
+      "Superadmin access required",
+      "SUPERADMIN_REQUIRED",
+    );
+  }
+
+  return token;
+}
+
+export async function requireAgent(
+  req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<AuthToken | null> {
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
+
+  if (
+    !isAdminAuthority(token.authorityRole) &&
+    !hasCapability(token, "real_estate_agent")
+  ) {
+    return sendError(res, 403, "Agent access required", "AGENT_REQUIRED");
+  }
+
+  return token;
+}
+
+export async function requireDeveloper(
+  req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<AuthToken | null> {
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
+
+  if (
+    !isAdminAuthority(token.authorityRole) &&
+    !hasCapability(token, "property_developer")
+  ) {
+    return sendError(
+      res,
+      403,
+      "Developer access required",
+      "DEVELOPER_REQUIRED",
+    );
+  }
+
+  return token;
+}
+
+export async function requireSociety(
+  req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<AuthToken | null> {
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
+
+  if (
+    !isAdminAuthority(token.authorityRole) &&
+    !hasCapability(token, "housing_society")
+  ) {
+    return sendError(
+      res,
+      403,
+      "Society access required",
+      "SOCIETY_REQUIRED",
+    );
+  }
+
+  return token;
+}
+
+export async function requireAgentOrDeveloper(
+  req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<AuthToken | null> {
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
+
+  if (
+    !isAdminAuthority(token.authorityRole) &&
+    !hasCapability(token, "real_estate_agent") &&
+    !hasCapability(token, "property_developer")
+  ) {
+    return sendError(
+      res,
+      403,
+      "Agent or developer access required",
+      "MARKETPLACE_ROLE_REQUIRED",
+    );
+  }
+
+  return token;
+}
+
+export async function requireVerified(
+  req: NextApiRequest,
+  res: NextApiResponse,
+): Promise<AuthToken | null> {
+  const token = await requireAuth(req, res);
+  if (!token) {
+    return null;
+  }
 
   if (!token.isEmailVerified) {
-    await logAuthEvent({
-      userId: token.id,
-      email: token.email,
-      action: "not_verified",
-      success: false,
-      reason: "Email verification required",
-      ip: getClientIp(req),
-    });
-
     return sendError(
       res,
       403,
       "Please verify your email to access this feature",
-      "NOT_VERIFIED"
+      "NOT_VERIFIED",
     );
   }
 
   return token;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔐 OWNERSHIP VERIFICATION
-// ═══════════════════════════════════════════════════════════════
-
-/**
- * ✅ Check if user owns a resource (or is admin)
- * 
- * Usage:
- * ```typescript
- * const token = await requireOwnership(req, res, property.userId.toString());
- * if (!token) return; // Response already sent
- * ```
- */
 export async function requireOwnership(
   req: NextApiRequest,
   res: NextApiResponse,
-  resourceOwnerId: string
+  resourceOwnerId: string,
 ): Promise<AuthToken | null> {
   const token = await requireAuth(req, res);
-  if (!token) return null;
+  if (!token) {
+    return null;
+  }
 
-  // ✅ Admin can access any resource
-  if (token.role === "admin") return token;
-
-  // ✅ Check ownership
-  if (token.id !== resourceOwnerId) {
-    await logAuthEvent({
-      userId: token.id,
-      email: token.email,
-      action: "ownership_denied",
-      success: false,
-      reason: `User ${token.id} tried to access resource owned by ${resourceOwnerId}`,
-      ip: getClientIp(req),
-    });
-
+  if (
+    !isAdminAuthority(token.authorityRole) &&
+    token.id !== resourceOwnerId
+  ) {
     return sendError(
       res,
       403,
-      "You don't have permission to access this resource",
-      "NOT_OWNER"
+      "You do not have permission to access this resource",
+      "NOT_OWNER",
     );
   }
 
   return token;
 }
 
-/**
- * ✅ Check if user owns resource OR has specific role
- */
 export async function requireOwnershipOrRole(
   req: NextApiRequest,
   res: NextApiResponse,
   resourceOwnerId: string,
-  allowedRoles: UserRole[]
+  allowedRoles: readonly UserRole[],
 ): Promise<AuthToken | null> {
   const token = await requireAuth(req, res);
-  if (!token) return null;
-
-  // ✅ Check role first
-  if (allowedRoles.includes(token.role)) {
-    return token;
+  if (!token) {
+    return null;
   }
 
-  // ✅ Check ownership
-  if (token.id === resourceOwnerId) {
-    return token;
+  const hasAllowedRole =
+    allowedRoles.includes(token.role) ||
+    allowedRoles.includes(token.authorityRole) ||
+    (token.authorityRole === "superadmin" &&
+      allowedRoles.includes("admin"));
+
+  if (!hasAllowedRole && token.id !== resourceOwnerId) {
+    return sendError(
+      res,
+      403,
+      "You do not have permission to access this resource",
+      "FORBIDDEN",
+    );
   }
 
-  await logAuthEvent({
-    userId: token.id,
-    email: token.email,
-    action: "ownership_or_role_denied",
-    success: false,
-    reason: `Required owner: ${resourceOwnerId} or roles: ${allowedRoles.join(", ")}`,
-    ip: getClientIp(req),
-  });
-
-  return sendError(
-    res,
-    403,
-    "You don't have permission to access this resource",
-    "FORBIDDEN"
-  );
+  return token;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔐 UTILITY EXPORTS
-// ═══════════════════════════════════════════════════════════════
-
-export { getClientIp };
-
-// ========== END OF FILE ==========
+export type { Permission };

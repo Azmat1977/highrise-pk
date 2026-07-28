@@ -14,6 +14,7 @@ import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import SecurityEvent from "@/models/SecurityEvent";
 import type { DefaultSession, DefaultUser } from "next-auth";
+import { normalizePermissions } from "@/lib/auth";
 
 // ✅ Security imports
 import { rateLimitAuthAll, rateLimitCredentials } from "@/lib/rateLimit";
@@ -398,75 +399,6 @@ type DbUser = {
   save?: () => Promise<any>;
 };
 
-declare module "next-auth" {
-  interface User extends DefaultUser {
-    role?: UserRole;
-    isVerified?: boolean;
-    kycVerified?: boolean;
-    isVerifiedOwner?: boolean;
-    ownerVerificationStatus?: "none" | "pending" | "approved" | "rejected" | "suspended" | "info_required";
-    isVerifiedAgent?: boolean;
-    agentVerificationStatus?: "none" | "pending" | "approved" | "rejected" | "suspended" | "info_required";
-    onboardingStatus?: "none" | "pending" | "approved" | "rejected" | "info_required";
-    onboardingRole?: "agent" | "developer" | "society" | null;
-    phoneNumber?: string;
-    profilePicture?: string | null;
-    permissions?: string[];
-    tokenVersion?: number;
-    displayName?: string;
-    rememberMe?: boolean;
-  }
-
-  interface Session {
-    user: {
-      id?: string;
-      role?: UserRole;
-      isVerified?: boolean;
-      kycVerified?: boolean;
-      isVerifiedOwner?: boolean;
-      ownerVerificationStatus?: "none" | "pending" | "approved" | "rejected" | "suspended" | "info_required";
-      isVerifiedAgent?: boolean;
-      agentVerificationStatus?: "none" | "pending" | "approved" | "rejected" | "suspended" | "info_required";
-      onboardingStatus?: "none" | "pending" | "approved" | "rejected" | "info_required";
-      onboardingRole?: "agent" | "developer" | "society" | null;
-      phoneNumber?: string;
-      // 🆕 V6.9.0 — Social Login Lead Capture
-      isPhoneVerified?: boolean;
-      needsPhone?: boolean;
-      profilePicture?: string | null;
-      permissions?: string[];
-      tokenVersion?: number;
-      displayName?: string;
-    } & DefaultSession["user"];
-  }
-}
-
-declare module "next-auth/jwt" {
-  interface JWT {
-    id?: string;
-    role?: UserRole;
-    isVerified?: boolean;
-    kycVerified?: boolean;
-    isVerifiedOwner?: boolean;
-    ownerVerificationStatus?: "none" | "pending" | "approved" | "rejected" | "suspended" | "info_required";
-    isVerifiedAgent?: boolean;
-    agentVerificationStatus?: "none" | "pending" | "approved" | "rejected" | "suspended" | "info_required";
-    onboardingStatus?: "none" | "pending" | "approved" | "rejected" | "info_required";
-    onboardingRole?: "agent" | "developer" | "society" | null;
-    phoneNumber?: string;
-    // 🆕 V6.9.0 — Social Login Lead Capture
-    isPhoneVerified?: boolean;
-    needsPhone?: boolean;
-    profilePicture?: string | null;
-    permissions?: string[];
-    tokenVersion?: number;
-    displayName?: string;
-    rememberMe?: boolean;
-    sessionMaxAgeSeconds?: number;
-    lastDbCheckAt?: number;
-    isInvalid?: boolean;
-  }
-}
 
 // ═══════════════════════════════════════════════════════════════
 // ✅ NEXTAUTH CONFIGURATION - ENTERPRISE HARDENED
@@ -813,7 +745,7 @@ export const authOptions: AuthOptions = {
             onboardingRole: (user as any).onboardingRole ?? null,
             phoneNumber: user.phone || "",
             profilePicture: user.profilePictureUrl || null,
-            permissions: user.permissions || [],
+            permissions: normalizePermissions(user.permissions),
             tokenVersion:
               typeof user.tokenVersion === "number" ? user.tokenVersion : 0,
             rememberMe,
@@ -1090,18 +1022,7 @@ export const authOptions: AuthOptions = {
       }
 
       // ✅ Session update (profile changes)
-      if (trigger === "update" && session) {
-        const sUser: any = session.user || {};
-        if (typeof sUser.name === "string") token.name = sUser.name;
-        if (typeof sUser.displayName === "string")
-          token.displayName = sUser.displayName;
-        if (typeof sUser.phoneNumber === "string")
-          token.phoneNumber = sUser.phoneNumber;
-        if (typeof sUser.profilePicture === "string")
-          token.profilePicture = sUser.profilePicture;
-        if (Array.isArray(sUser.permissions))
-          token.permissions = sUser.permissions;
-      }
+      { /* Client-controlled session claim updates are disabled. */ }
 
       // ✅ Periodic DB check (every 5 minutes)
       try {

@@ -1,71 +1,129 @@
-// types/next-auth.d.ts
-// Highrise.pk - NextAuth Type Augmentation
-// Synced with pages/api/auth/[...nextauth].ts JWT & session callbacks
-// Strict mode compliant - no silent undefined fields
+import type { DefaultSession, DefaultUser } from "next-auth";
+import type {
+  Capability,
+  LegacyMarketplaceRole,
+  Permission,
+  Role,
+} from "@/lib/auth";
 
-import { DefaultSession, DefaultUser } from "next-auth";
-import { DefaultJWT } from "next-auth/jwt";
+type HighriseRole = Role | LegacyMarketplaceRole;
 
-// Session & User Augmentation
+type OnboardingStatus =
+  | "none"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "info_required";
+
+type VerificationStatus =
+  | "none"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "suspended"
+  | "info_required";
 
 declare module "next-auth" {
   interface Session {
     user: {
-      // Core identity
       id: string;
+      role: HighriseRole;
+      authorityRole?: Role;
+      capabilities?: Capability[];
+      permissions?: Permission[];
+      displayName?: string;
 
-      // Role system - use this, not isDeveloper/isAgent flags
-      role?: string;
-
-      // Account state - set by JWT callback from User model
-      status?: string;
+      isVerified?: boolean;
       isEmailVerified?: boolean;
+      kycVerified?: boolean;
 
-      // Token versioning - for forced re-login after role change
-      tokenVersion?: number;
+      isVerifiedOwner?: boolean;
+      ownerVerificationStatus?: VerificationStatus;
 
-      // Contact
+      isVerifiedAgent?: boolean;
+      agentVerificationStatus?: VerificationStatus;
+
+      onboardingStatus?: OnboardingStatus;
+      onboardingRole?: LegacyMarketplaceRole | null;
+
       phone?: string;
+      phoneNumber?: string;
+      isPhoneVerified?: boolean;
+      needsPhone?: boolean;
 
-      // Inherited from DefaultSession["user"]:
-      // name, email, image
+      profilePicture?: string | null;
+      tokenVersion?: number;
     } & DefaultSession["user"];
+
+    rememberMe?: boolean;
+    sessionMaxAgeSeconds?: number;
+    isInvalid?: boolean;
   }
 
   interface User extends DefaultUser {
-    // Core identity - id comes from DefaultUser
-    role?: string;
-    status?: string;
+    id: string;
+    role: HighriseRole;
+    authorityRole?: Role;
+    capabilities?: Capability[];
+    permissions?: Permission[];
+    displayName?: string;
+
+    isVerified?: boolean;
     isEmailVerified?: boolean;
-    tokenVersion?: number;
+    kycVerified?: boolean;
+
+    isVerifiedOwner?: boolean;
+    ownerVerificationStatus?: VerificationStatus;
+
+    isVerifiedAgent?: boolean;
+    agentVerificationStatus?: VerificationStatus;
+
+    onboardingStatus?: OnboardingStatus;
+    onboardingRole?: LegacyMarketplaceRole | null;
+
     phone?: string;
+    phoneNumber?: string;
+    isPhoneVerified?: boolean;
+    needsPhone?: boolean;
+
+    profilePicture?: string | null;
+    tokenVersion?: number;
+    rememberMe?: boolean;
   }
 }
-
-// JWT Token Augmentation
 
 declare module "next-auth/jwt" {
-  interface JWT extends DefaultJWT {
-    // Core identity
+  interface JWT {
     id?: string;
+    role?: HighriseRole;
+    authorityRole?: Role;
+    capabilities?: Capability[];
+    permissions?: Permission[];
+    displayName?: string;
 
-    // Role system
-    role?: string;
-
-    // Account state
-    status?: string;
+    isVerified?: boolean;
     isEmailVerified?: boolean;
-    isDeleted?: boolean;
-    accountLocked?: boolean;
+    kycVerified?: boolean;
 
-    // Token versioning - increment forces re-login
-    tokenVersion?: number;
+    isVerifiedOwner?: boolean;
+    ownerVerificationStatus?: VerificationStatus;
 
-    // Contact
+    isVerifiedAgent?: boolean;
+    agentVerificationStatus?: VerificationStatus;
+
+    onboardingStatus?: OnboardingStatus;
+    onboardingRole?: LegacyMarketplaceRole | null;
+
     phone?: string;
+    phoneNumber?: string;
+    isPhoneVerified?: boolean;
+    needsPhone?: boolean;
 
-    // Inherited from DefaultJWT:
-    // name, email, picture, sub, iat, exp, jti
+    profilePicture?: string | null;
+    tokenVersion?: number;
+    rememberMe?: boolean;
+    sessionMaxAgeSeconds?: number;
+    lastDbCheckAt?: number;
+    isInvalid?: boolean;
   }
 }
-export {};

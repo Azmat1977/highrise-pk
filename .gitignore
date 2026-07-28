@@ -43,3 +43,9 @@ next-env.d.ts
 # project backups and user uploads
 /_backup_v641_cleanup/
 /public/uploads/
+
+# Local implementation bundles and automatic backups
+/.highrise-backups/
+/highrise-auth-foundation/
+/highrise-auth-foundation*.zip
+/highrise-auth-foundation-*.zip

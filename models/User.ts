@@ -7,6 +7,8 @@
 import mongoose, { Schema, model, models, Document, Model } from "mongoose";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { CAPABILITY_VALUES } from "@/lib/auth";
+import type { Capability, LegacyMarketplaceRole, Permission, Role } from "@/lib/auth";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 SECURITY CONSTANTS
@@ -58,7 +60,7 @@ export interface IUser extends Document {
   slug?: string;
   email: string;
   password?: string;
-  role: "user" | "reader" | "writer" | "editor" | "developer" | "agent" | "society" | "admin";
+  role: Role | LegacyMarketplaceRole;
   accountType?: "individual" | "company";
   
   // Social Login
@@ -261,8 +263,8 @@ export interface IUser extends Document {
     tiktok?: string;
   };
 
-  permissions?: string[];
-  
+  capabilities?: Capability[];
+  permissions?: Permission[];
   // ✅ ENTERPRISE SECURITY FIELD
   security?: IUserSecurity;
 
@@ -476,7 +478,7 @@ const UserSchema = new Schema<IUser>(
     slug: { type: String, unique: true, sparse: true, lowercase: true, trim: true, index: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, validate: { validator: isValidEmail, message: "Invalid email" }, index: true },
     password: { type: String, required: false, select: false, minlength: 12 },
-    role: { type: String, enum: ["user", "reader", "writer", "editor", "developer", "agent", "society", "admin"], default: "user", index: true },
+    role: { type: String, enum: ["user", "reader", "writer", "editor", "moderator", "finance", "admin", "superadmin", "developer", "agent", "society"], default: "user", index: true },
     accountType: { type: String, enum: ["individual", "company"], default: "individual" },
     
     // Social
@@ -685,6 +687,13 @@ const UserSchema = new Schema<IUser>(
       tiktok: { type: String, trim: true },
     },
 
+    capabilities: [{
+      type: String,
+      enum: CAPABILITY_VALUES,
+    }],
+
+    // Legacy permission aliases remain readable during migration.
+    // New writes are normalized by the authorization service.
     permissions: [{ type: String, trim: true }],
 
         // ✅ ENTERPRISE SECURITY (V6.8.2: null-safe enums)
