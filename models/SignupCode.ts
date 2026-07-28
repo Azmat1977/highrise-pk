@@ -4,7 +4,12 @@
 // ═══════════════════════════════════════════════════════════════
 
 import mongoose, { Schema, Document } from "mongoose";
-import crypto from "crypto";
+import {
+  generateSignupOtp,
+  hashSecurityIdentifier,
+  hashSignupOtp,
+  timingSafeEqualDigest,
+} from "@/lib/auth/signupVerification";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 TYPE DEFINITIONS
@@ -94,29 +99,14 @@ export interface ISignupCode extends Document {
  * ✅ Hash IP address for privacy
  */
 function hashIp(ip: string): string {
-  const secret =
-    process.env.KYC_HASH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "signup-code-secret";
-  return crypto
-    .createHmac("sha256", secret)
-    .update(ip || "unknown")
-    .digest("hex")
-    .slice(0, 16);
+  return hashSecurityIdentifier(ip);
 }
 
 /**
  * ✅ Constant-time string comparison (prevents timing attacks)
  */
 function constantTimeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-
-  let result = 0;
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-
-  return result === 0;
+  return timingSafeEqualDigest(a, b);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -258,10 +248,11 @@ SignupCodeSchema.index({ email: 1, createdAt: -1 });
 
 SignupCodeSchema.pre("save", function (next) {
   // ✅ Hash IP address in metadata if present
-  if (this.meta && this.meta.ip && !this.meta.ipHash) {
-    this.meta.ipHash = hashIp(this.meta.ip);
-    // Don't store raw IP (optional: you can delete it)
-    // delete this.meta.ip;
+  if (this.meta && this.meta.ip) {
+    if (!this.meta.ipHash) {
+      this.meta.ipHash = hashIp(this.meta.ip);
+    }
+    delete this.meta.ip;
   }
 
   // ✅ Sanitize user agent (limit length)
@@ -288,24 +279,14 @@ SignupCodeSchema.pre("save", function (next) {
  * ✅ Generate cryptographically secure OTP
  */
 function generateOtpCode(length: number = 6): string {
-  const min = Math.pow(10, length - 1);
-  const max = Math.pow(10, length) - 1;
-  return crypto.randomInt(min, max + 1).toString();
+  return generateSignupOtp(length);
 }
 
 /**
  * ✅ Hash OTP code (for storage) — pepper + email binding
  */
 function hashOtpCode(email: string, code: string): string {
-  const pepper =
-    process.env.OTP_PEPPER ||
-    process.env.NEXTAUTH_SECRET ||
-    "otp_pepper_secure";
-  const normalized = String(email || "").trim().toLowerCase();
-  return crypto
-    .createHmac("sha256", pepper)
-    .update(`${normalized}:${code}`)
-    .digest("hex");
+  return hashSignupOtp(email, code);
 }
 
 /**

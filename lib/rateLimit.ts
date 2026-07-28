@@ -8,6 +8,7 @@ import type { NextApiRequest, NextApiResponse } from "next";
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import crypto from "crypto";
+import { requireServerSecret } from "@/lib/security/serverSecrets";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 TYPE DEFINITIONS
@@ -27,6 +28,7 @@ export type RateLimitConfig = {
   requests: number;
   window: string; // e.g., "1 m", "5 m", "1 h", "1 d"
   prefix: string;
+  distributedRequired?: boolean;
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -36,12 +38,12 @@ export type RateLimitConfig = {
 // ✅ Rate limit configurations by endpoint type
 const RATE_LIMITS = {
   // Authentication (strictest)
-  AUTH_ALL: { requests: 30, window: "5 m", prefix: "hr:rl:auth_all" },
-  AUTH_CREDENTIALS: { requests: 5, window: "15 m", prefix: "hr:rl:auth_creds" },
-  AUTH_SIGNUP: { requests: 3, window: "1 h", prefix: "hr:rl:auth_signup" },
-  AUTH_PASSWORD_RESET: { requests: 3, window: "1 h", prefix: "hr:rl:auth_reset" },
-  AUTH_VERIFY_CODE: { requests: 5, window: "10 m", prefix: "hr:rl:auth_verify" },
-  AUTH_RESEND_CODE: { requests: 3, window: "30 m", prefix: "hr:rl:auth_resend" },
+  AUTH_ALL: { requests: 30, window: "5 m", prefix: "hr:rl:auth_all", distributedRequired: true },
+  AUTH_CREDENTIALS: { requests: 5, window: "15 m", prefix: "hr:rl:auth_creds", distributedRequired: true },
+  AUTH_SIGNUP: { requests: 3, window: "1 h", prefix: "hr:rl:auth_signup", distributedRequired: true },
+  AUTH_PASSWORD_RESET: { requests: 3, window: "1 h", prefix: "hr:rl:auth_reset", distributedRequired: true },
+  AUTH_VERIFY_CODE: { requests: 5, window: "10 m", prefix: "hr:rl:auth_verify", distributedRequired: true },
+  AUTH_RESEND_CODE: { requests: 3, window: "30 m", prefix: "hr:rl:auth_resend", distributedRequired: true },
 
   // API Endpoints (moderate)
   API_GENERAL: { requests: 100, window: "1 m", prefix: "hr:rl:api_general" },
@@ -68,7 +70,7 @@ const RATE_LIMITS = {
   CONTACT_FORM: { requests: 5, window: "1 h", prefix: "hr:rl:contact" },
   NEWSLETTER_SUBSCRIBE: { requests: 3, window: "1 h", prefix: "hr:rl:newsletter" },
     CHAT_MESSAGE: { requests: 60, window: "1 m", prefix: "hr:rl:chat" },
-  
+
   // 🆕 AI Chat Rate Limiting
   AI_CHAT_GLOBAL: { requests: 15, window: "1 m", prefix: "hr:rl:ai_global" },
   AI_CHAT_HOURLY: { requests: 10, window: "1 h", prefix: "hr:rl:ai_hourly" },
@@ -97,22 +99,21 @@ const BLOCKED_IPS = new Set<string>([
   // Add known bad actors here
 ]);
 
-// ✅ Trusted proxy headers (in priority order)
-const TRUSTED_HEADERS = [
-  "cf-connecting-ip", // Cloudflare
-  "x-real-ip", // Nginx
-  "x-forwarded-for", // Standard proxy
-  "x-vercel-forwarded-for", // Vercel
-  "true-client-ip", // Akamai/Cloudflare Enterprise
-  "x-client-ip", // Apache
-] as const;
+// Proxy headers are selected by the deployment platform. Do not trust every
+// forwarding header supplied by a public client.
+const VERCEL_HEADERS = ["x-vercel-forwarded-for", "x-forwarded-for"] as const;
+const CLOUDFLARE_HEADERS = ["cf-connecting-ip", "x-forwarded-for"] as const;
+const LOCAL_PROXY_HEADERS = ["x-forwarded-for", "x-real-ip"] as const;
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 HELPER FUNCTIONS
 // ═══════════════════════════════════════════════════════════════
 
 function isDisabled(): boolean {
-  return process.env.RATE_LIMIT_DISABLED === "1";
+  return (
+    process.env.NODE_ENV !== "production" &&
+    process.env.RATE_LIMIT_DISABLED === "1"
+  );
 }
 
 function hasUpstash(): boolean {
@@ -123,12 +124,10 @@ function hasUpstash(): boolean {
 }
 
 function getHashSecret(): string {
-  const secret = process.env.RATE_LIMIT_KEY_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!secret) {
-    console.warn("[RateLimit] WARNING: Using fallback secret. Set RATE_LIMIT_KEY_SECRET in production!");
-    return "hr_rate_limit_secret_2025_change_me";
-  }
-  return secret;
+  return requireServerSecret(
+    ["RATE_LIMIT_KEY_SECRET", "NEXTAUTH_SECRET"],
+    "Rate-limit key secret"
+  );
 }
 
 function hashValue(value: string): string {
@@ -143,7 +142,7 @@ function normalizeIp(ip: string): string {
   let normalized = String(ip || "").trim().toLowerCase();
   if (normalized.startsWith("::ffff:")) normalized = normalized.replace("::ffff:", "");
   if (normalized === "::1") return "127.0.0.1";
-  
+
   const ipv4Regex = /^(\d{1,3}\.){3}\d{1,3}$/;
   if (ipv4Regex.test(normalized)) return normalized;
 
@@ -154,7 +153,13 @@ function normalizeIp(ip: string): string {
 }
 
 export function getClientIp(req: NextApiRequest): string {
-  for (const header of TRUSTED_HEADERS) {
+  const headers = process.env.VERCEL === "1"
+    ? VERCEL_HEADERS
+    : process.env.CF_PAGES === "1" || process.env.CLOUDFLARE === "1"
+      ? CLOUDFLARE_HEADERS
+      : LOCAL_PROXY_HEADERS;
+
+  for (const header of headers) {
     const value = req.headers[header];
     if (typeof value === "string" && value.length > 0) {
       const firstIp = value.split(",")[0].trim();
@@ -162,8 +167,8 @@ export function getClientIp(req: NextApiRequest): string {
       if (normalized !== "0.0.0.0") return normalized;
     }
   }
-  const socketIp = req.socket?.remoteAddress;
-  return normalizeIp(socketIp || "0.0.0.0");
+
+  return normalizeIp(req.socket?.remoteAddress || "0.0.0.0");
 }
 
 function getUserAgent(req: NextApiRequest): string {
@@ -325,7 +330,7 @@ function parseWindow(window: string): number {
 
 async function rateLimit(req: NextApiRequest, config: RateLimitConfig, identifier?: string): Promise<RateLimitResult> {
   if (isDisabled()) return { ok: true, limit: 0, remaining: 0, reset: Date.now() };
-  
+
   const ip = getClientIp(req);
   if (isBlockedIp(ip)) {
     return { ok: false, limit: 0, remaining: 0, reset: Date.now() + 86400000, blocked: true, reason: "ip_blocked" };
@@ -354,9 +359,28 @@ async function rateLimit(req: NextApiRequest, config: RateLimitConfig, identifie
         await logRateLimitViolation({ ip, endpoint: config.prefix, limit: config.requests, windowMs: parseWindow(config.window) });
       }
       return response;
-    } catch (error) {
-      console.error("[RateLimit] Upstash error, fallback to memory");
+    } catch {
+      console.error("[RateLimit] Distributed rate limiter unavailable");
+      if (process.env.NODE_ENV === "production" && config.distributedRequired) {
+        return {
+          ok: false,
+          limit: config.requests,
+          remaining: 0,
+          reset: Date.now() + 60_000,
+          retryAfter: 60,
+          reason: "rate_limiter_unavailable",
+        };
+      }
     }
+  } else if (process.env.NODE_ENV === "production" && config.distributedRequired) {
+    return {
+      ok: false,
+      limit: config.requests,
+      remaining: 0,
+      reset: Date.now() + 60_000,
+      retryAfter: 60,
+      reason: "rate_limiter_unavailable",
+    };
   }
 
   const windowMs = parseWindow(config.window);
@@ -369,9 +393,9 @@ async function rateLimit(req: NextApiRequest, config: RateLimitConfig, identifie
 
 export async function rateLimitAuthAll(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_ALL); }
 export async function rateLimitCredentials(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_CREDENTIALS, extractEmailFromRequest(req) || undefined); }
-export async function rateLimitSignup(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_SIGNUP); }
+export async function rateLimitSignup(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_SIGNUP, extractEmailFromRequest(req) || undefined); }
 export async function rateLimitPasswordReset(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_PASSWORD_RESET, extractEmailFromRequest(req) || undefined); }
-export async function rateLimitVerifyCode(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_VERIFY_CODE); }
+export async function rateLimitVerifyCode(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_VERIFY_CODE, extractEmailFromRequest(req) || undefined); }
 export async function rateLimitResendCode(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AUTH_RESEND_CODE, extractEmailFromRequest(req) || undefined); }
 
 export async function rateLimitApi(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.API_GENERAL); }

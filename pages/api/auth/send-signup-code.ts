@@ -10,6 +10,13 @@ import dbConnect from "@/lib/dbConnect";
 import SignupCode from "@/models/SignupCode";
 import User from "@/models/User";
 import { rateLimitSignup, getClientIp } from "@/lib/rateLimit";
+import {
+  SIGNUP_CODE_TYPE,
+  encryptSignupPassword,
+  generateSignupOtp,
+  hashSecurityIdentifier,
+  hashSignupOtp,
+} from "@/lib/auth/signupVerification";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 CONFIGURATION
@@ -157,12 +164,7 @@ function setSecurityHeaders(res: NextApiResponse, requestId: string): void {
  * ✅ Hash IP for logging (privacy)
  */
 function hashIp(ip: string): string {
-  const secret = process.env.NEXTAUTH_SECRET || "signup-log-secret";
-  return crypto
-    .createHmac("sha256", secret)
-    .update(ip)
-    .digest("hex")
-    .slice(0, 16);
+  return hashSecurityIdentifier(ip);
 }
 
 /**
@@ -181,15 +183,15 @@ function normalizeEmail(email: string): string {
 function isValidEmail(email: string): boolean {
   // RFC 5322 compliant regex (simplified)
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-  
+
   if (!emailRegex.test(email)) return false;
   if (email.length < 5 || email.length > 254) return false;
-  
+
   const [local, domain] = email.split("@");
   if (!local || !domain) return false;
   if (local.length > 64) return false; // RFC 5321
   if (domain.length > 253) return false;
-  
+
   return true;
 }
 
@@ -308,51 +310,21 @@ function validatePassword(password: string): { valid: boolean; reason?: string }
  * ✅ Generate cryptographically secure OTP
  */
 function generateSecureOTP(): string {
-  // Use crypto.randomInt for cryptographically secure random
-  const min = Math.pow(10, OTP_LENGTH - 1);
-  const max = Math.pow(10, OTP_LENGTH) - 1;
-  return crypto.randomInt(min, max + 1).toString();
+  return generateSignupOtp(OTP_LENGTH);
 }
 
 /**
  * ✅ Hash OTP for storage (never store plaintext)
  */
 function hashOtp(email: string, code: string): string {
-  const pepper = process.env.OTP_PEPPER || process.env.NEXTAUTH_SECRET || "otp_pepper_secure";
-  const normalized = normalizeEmail(email);
-  return crypto
-    .createHmac("sha256", pepper)
-    .update(`${normalized}:${code}`)
-    .digest("hex");
+  return hashSignupOtp(email, code);
 }
 
 /**
- * ✅ Get encryption key for temp password storage
- */
-function getSignupTempSecretKey(): Buffer {
-  const raw = process.env.SIGNUP_TEMP_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!raw || raw.length < 32) {
-    throw new Error("SIGNUP_TEMP_SECRET must be at least 32 characters");
-  }
-  return crypto.createHash("sha256").update(raw).digest();
-}
-
-/**
- * ✅ Encrypt password for temp storage (never store plaintext)
+ * ✅ Encrypt password for temporary storage
  */
 function encryptTempPassword(password: string): string {
-  const key = getSignupTempSecretKey();
-  const iv = crypto.randomBytes(12); // GCM IV
-  const cipher = crypto.createCipheriv("aes-256-gcm", key, iv);
-
-  const encrypted = Buffer.concat([
-    cipher.update(password, "utf8"),
-    cipher.final(),
-  ]);
-  const tag = cipher.getAuthTag();
-
-  // Format: iv.ciphertext.tag (all base64)
-  return `${iv.toString("base64")}.${encrypted.toString("base64")}.${tag.toString("base64")}`;
+  return encryptSignupPassword(password);
 }
 
 /**
@@ -427,7 +399,7 @@ function sanitizeAlphaNum(input: string, maxLength: number = 40): string {
 function sendSuccess(res: NextApiResponse, requestId: string): void {
   res.status(200).json({
     success: true,
-    message: "If the email is valid, a verification code has been sent.",
+    message: "If the request is eligible, instructions have been sent to the email address.",
     requestId,
   });
 }
@@ -601,6 +573,37 @@ Pakistan's Trusted Property Platform`,
     return true;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Send a neutral security notice when the address already has an account.
+ * The API response remains identical to a new signup request.
+ */
+async function sendExistingAccountNotice(email: string): Promise<void> {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST,
+      port: Number(process.env.EMAIL_PORT) || 587,
+      secure: process.env.EMAIL_SECURE === "true",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASSWORD,
+      },
+      tls: {
+        rejectUnauthorized: process.env.NODE_ENV === "production",
+      },
+    });
+
+    await transporter.sendMail({
+      from: `"Highrise.pk" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "A signup was attempted for your Highrise.pk account",
+      text: `A signup was attempted using this email address. Your Highrise.pk account already exists. Sign in normally or use the password-reset option if you need access. If this was not you, no action is required.`,
+      html: `<p>A signup was attempted using this email address.</p><p>Your Highrise.pk account already exists. Sign in normally or use the password-reset option if you need access.</p><p>If this was not you, no action is required.</p>`,
+    });
+  } catch {
+    // Do not change the public response or reveal account existence.
   }
 }
 
@@ -867,21 +870,18 @@ export default async function handler(
         ip,
         userAgent,
         action: "existing_user",
-        success: false,
-        reason: "User already exists",
+        success: true,
+        reason: "Existing account handled without enumeration",
         requestId,
       });
 
-      // Clean up any old signup codes
-      await SignupCode.deleteMany({ email }).catch(() => {});
+      await SignupCode.deleteMany({
+        email,
+        codeType: SIGNUP_CODE_TYPE,
+      }).catch(() => {});
+      await sendExistingAccountNotice(email);
 
-      return sendError(
-        res,
-        409,
-        "This email is already registered. Please sign in or reset your password.",
-        requestId,
-        "EMAIL_ALREADY_REGISTERED"
-      );
+      return sendSuccess(res, requestId);
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -897,17 +897,19 @@ export default async function handler(
     // STEP 10: Clean Old Codes & Check Pending Limit
     // ═══════════════════════════════════════════════════════════
 
-    // Delete expired codes
+    // Delete expired signup-verification codes only.
     await SignupCode.deleteMany({
+      codeType: SIGNUP_CODE_TYPE,
       expiresAt: { $lt: new Date() },
     }).catch(() => {});
 
-    // Delete old codes for this email
-    await SignupCode.deleteMany({ email }).catch(() => {});
+    const ipHash = hashIp(ip);
 
-    // Check pending codes limit per IP (abuse prevention)
+    // Check pending codes per privacy-preserving IP hash.
     const pendingCodesCount = await SignupCode.countDocuments({
-      "meta.ip": ip,
+      codeType: SIGNUP_CODE_TYPE,
+      isVerified: false,
+      "meta.ipHash": ipHash,
       expiresAt: { $gt: new Date() },
     });
 
@@ -941,34 +943,61 @@ export default async function handler(
     // Encrypt password for temp storage
     const passwordEnc = encryptTempPassword(password);
 
-    // Create signup code record (V6.0.0 — no CNIC at signup)
-    await SignupCode.create({
+    const previousSignupCode = await SignupCode.findOne({
       email,
-      code: otpHash, // ✅ Hashed, not plaintext
-      expiresAt,
-      attempts: 0,
-      maxAttempts: 5,
-      formData: {
-        email,
-        fullName,
-        phone: normalizedPhone || "",
-        country,
-        accountType,
-        city,
-        homeAddress,
-        passwordEnc,
-        // CNIC fields intentionally NOT stored at signup
-        // Collected at role-specific onboarding pages
+      codeType: SIGNUP_CODE_TYPE,
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
+      .lean();
+
+    // Atomically replace the pending email-verification challenge.
+    const signupCodeRecord = await SignupCode.findOneAndUpdate(
+      { email, codeType: SIGNUP_CODE_TYPE },
+      {
+        $set: {
+          code: otpHash,
+          expiresAt,
+          codeType: SIGNUP_CODE_TYPE,
+          isVerified: false,
+          verifiedAt: null,
+          attempts: 0,
+          maxAttempts: 5,
+          lastAttemptAt: null,
+          resendCount: 0,
+          maxResends: 5,
+          lastResentAt: null,
+          formData: {
+            email,
+            fullName,
+            phone: normalizedPhone || "",
+            country,
+            accountType,
+            city,
+            homeAddress,
+            passwordEnc,
+          },
+          meta: {
+            ipHash,
+            userAgent,
+            createdAt: new Date(),
+            requestId,
+            codeAlgo: "hmac-sha256",
+            pwAlgo: "aes-256-gcm",
+          },
+        },
       },
-      meta: {
-        ip,
-        userAgent,
-        createdAt: new Date(),
-        requestId,
-        codeAlgo: "hmac-sha256",
-        pwAlgo: "aes-256-gcm",
-      },
-    });
+      {
+        upsert: true,
+        new: true,
+        runValidators: true,
+        setDefaultsOnInsert: true,
+        sort: { updatedAt: -1, createdAt: -1 },
+      }
+    );
+
+    if (!signupCodeRecord) {
+      throw new Error("Unable to create signup verification challenge");
+    }
 
     // ═══════════════════════════════════════════════════════════
     // STEP 12: Send Verification Email
@@ -976,8 +1005,39 @@ export default async function handler(
     const emailSent = await sendVerificationEmail(email, otpCode);
 
     if (!emailSent) {
-      // Clean up the code if email failed
-      await SignupCode.deleteMany({ email }).catch(() => {});
+      if (previousSignupCode) {
+        // Restore the previous usable challenge only when this request still
+        // owns the current hash. A newer concurrent request always wins.
+        await SignupCode.updateOne(
+          {
+            _id: signupCodeRecord._id,
+            code: otpHash,
+            codeType: SIGNUP_CODE_TYPE,
+          },
+          {
+            $set: {
+              code: String((previousSignupCode as any).code || ""),
+              expiresAt: (previousSignupCode as any).expiresAt,
+              isVerified: Boolean((previousSignupCode as any).isVerified),
+              verifiedAt: (previousSignupCode as any).verifiedAt || null,
+              attempts: Number((previousSignupCode as any).attempts || 0),
+              maxAttempts: Number((previousSignupCode as any).maxAttempts || 5),
+              lastAttemptAt: (previousSignupCode as any).lastAttemptAt || null,
+              resendCount: Number((previousSignupCode as any).resendCount || 0),
+              maxResends: Number((previousSignupCode as any).maxResends || 5),
+              lastResentAt: (previousSignupCode as any).lastResentAt || null,
+              formData: (previousSignupCode as any).formData || {},
+              meta: (previousSignupCode as any).meta || {},
+            },
+          }
+        ).catch(() => {});
+      } else {
+        await SignupCode.deleteOne({
+          _id: signupCodeRecord._id,
+          code: otpHash,
+          codeType: SIGNUP_CODE_TYPE,
+        }).catch(() => {});
+      }
 
       await logSignupAttempt({
         email,

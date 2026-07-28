@@ -4,13 +4,20 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import mongoose from "mongoose";
 import nodemailer from "nodemailer";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import SignupCode from "@/models/SignupCode";
 import { rateLimitVerifyCode, getClientIp } from "@/lib/rateLimit";
+import {
+  SIGNUP_CODE_TYPE,
+  decryptSignupPassword,
+  hashSecurityIdentifier,
+  hashSignupOtp,
+  timingSafeEqualDigest,
+} from "@/lib/auth/signupVerification";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 CONFIGURATION
@@ -108,12 +115,7 @@ function setSecurityHeaders(res: NextApiResponse, requestId: string): void {
  * ✅ Hash IP for logging
  */
 function hashIp(ip: string): string {
-  const secret = process.env.NEXTAUTH_SECRET || "verify-log-secret";
-  return crypto
-    .createHmac("sha256", secret)
-    .update(ip)
-    .digest("hex")
-    .slice(0, 16);
+  return hashSecurityIdentifier(ip);
 }
 
 /**
@@ -164,53 +166,14 @@ function isDisposableEmail(email: string): boolean {
  * ✅ Hash OTP (must match send-signup-code.ts)
  */
 function hashOtp(email: string, code: string): string {
-  const pepper = process.env.OTP_PEPPER || process.env.NEXTAUTH_SECRET || "otp_pepper_secure";
-  const normalized = normalizeEmail(email);
-  return crypto
-    .createHmac("sha256", pepper)
-    .update(`${normalized}:${code}`)
-    .digest("hex");
+  return hashSignupOtp(email, code);
 }
 
 /**
- * ✅ Get decryption key for temp password
- */
-function getSignupTempSecretKey(): Buffer {
-  const raw = process.env.SIGNUP_TEMP_SECRET || process.env.NEXTAUTH_SECRET;
-  if (!raw || raw.length < 32) {
-    throw new Error("SIGNUP_TEMP_SECRET must be at least 32 characters");
-  }
-  return crypto.createHash("sha256").update(raw).digest();
-}
-
-/**
- * ✅ Decrypt temp password
+ * ✅ Decrypt temporary signup password
  */
 function decryptTempPassword(encrypted: string): string {
-  try {
-    const parts = String(encrypted || "").split(".");
-    if (parts.length !== 3) {
-      throw new Error("Invalid encrypted format");
-    }
-
-    const [ivB64, ciphertextB64, tagB64] = parts;
-    const iv = Buffer.from(ivB64, "base64");
-    const ciphertext = Buffer.from(ciphertextB64, "base64");
-    const tag = Buffer.from(tagB64, "base64");
-
-    const key = getSignupTempSecretKey();
-    const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv);
-    decipher.setAuthTag(tag);
-
-    const decrypted = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ]);
-
-    return decrypted.toString("utf8");
-  } catch (error) {
-    throw new Error("Failed to decrypt password");
-  }
+  return decryptSignupPassword(encrypted);
 }
 
 /**
@@ -653,7 +616,7 @@ export default async function handler(
     // STEP 4: Disposable Email Check
     // ═══════════════════════════════════════════════════════════
     if (isDisposableEmail(email)) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
+      await SignupCode.deleteMany({ email, codeType: SIGNUP_CODE_TYPE }).catch(() => {});
 
       await logVerifyAttempt({
         email,
@@ -669,10 +632,14 @@ export default async function handler(
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 5: Fetch Signup Code Record
+    // STEP 5: Fetch the pending email-verification challenge
     // ═══════════════════════════════════════════════════════════
-    const record = await SignupCode.findOne({ email })
-      .sort({ createdAt: -1 })
+    const record = await SignupCode.findOne({
+      email,
+      codeType: SIGNUP_CODE_TYPE,
+      isVerified: false,
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
       .lean();
 
     if (!record) {
@@ -682,18 +649,19 @@ export default async function handler(
         userAgent,
         action: "code_not_found",
         success: false,
-        reason: "No signup code found",
+        reason: "No pending signup challenge",
         requestId,
       });
       return sendSafeFailure(res, requestId);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 6: Check Expiry
-    // ═══════════════════════════════════════════════════════════
-    const expiresAt = (record as any).expiresAt;
-    if (expiresAt && new Date(expiresAt).getTime() < Date.now()) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
+    const recordId = (record as any)._id;
+    const expiresAt = new Date((record as any).expiresAt || 0);
+    if (!Number.isFinite(expiresAt.getTime()) || expiresAt.getTime() <= Date.now()) {
+      await SignupCode.deleteOne({
+        _id: recordId,
+        codeType: SIGNUP_CODE_TYPE,
+      }).catch(() => {});
 
       await logVerifyAttempt({
         email,
@@ -704,26 +672,19 @@ export default async function handler(
         reason: "Verification code expired",
         requestId,
       });
-
       return sendSafeFailure(res, requestId);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 7: Check Max Attempts
-    // ═══════════════════════════════════════════════════════════
-    const attempts = Number((record as any).meta?.attempts || 0);
-    if (attempts >= MAX_VERIFICATION_ATTEMPTS) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
-
-      await logVerifyAttempt({
-        email,
-        ip,
-        userAgent,
-        action: "max_attempts_exceeded",
-        success: false,
-        reason: `Exceeded ${MAX_VERIFICATION_ATTEMPTS} attempts`,
-        requestId,
-      });
+    const maxAttempts = Math.max(
+      1,
+      Number((record as any).maxAttempts || MAX_VERIFICATION_ATTEMPTS)
+    );
+    const attempts = Math.max(0, Number((record as any).attempts || 0));
+    if (attempts >= maxAttempts) {
+      await SignupCode.deleteOne({
+        _id: recordId,
+        codeType: SIGNUP_CODE_TYPE,
+      }).catch(() => {});
 
       return sendError(
         res,
@@ -735,22 +696,30 @@ export default async function handler(
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 8: Verify OTP
+    // STEP 6: Verify the OTP with a constant-time digest comparison
     // ═══════════════════════════════════════════════════════════
     const storedHash = String((record as any).code || "");
     const computedHash = hashOtp(email, codeRaw);
 
-    if (!storedHash || storedHash !== computedHash) {
-      // ✅ Increment attempt counter
-      await SignupCode.updateOne(
-        { _id: (record as any)._id },
+    if (!timingSafeEqualDigest(storedHash, computedHash)) {
+      const updatedRecord = await SignupCode.findOneAndUpdate(
         {
-          $set: { "meta.lastAttemptAt": new Date() },
-          $inc: { "meta.attempts": 1 },
-        }
-      ).catch(() => {});
+          _id: recordId,
+          email,
+          codeType: SIGNUP_CODE_TYPE,
+          isVerified: false,
+          expiresAt: { $gt: new Date() },
+          attempts: { $lt: maxAttempts },
+        },
+        {
+          $set: { lastAttemptAt: new Date() },
+          $inc: { attempts: 1 },
+        },
+        { new: true }
+      ).lean();
 
-      const remainingAttempts = MAX_VERIFICATION_ATTEMPTS - (attempts + 1);
+      const updatedAttempts = Number((updatedRecord as any)?.attempts || maxAttempts);
+      const remainingAttempts = Math.max(0, maxAttempts - updatedAttempts);
 
       await logVerifyAttempt({
         email,
@@ -762,8 +731,11 @@ export default async function handler(
         requestId,
       });
 
-      if (remainingAttempts <= 0) {
-        await SignupCode.deleteMany({ email }).catch(() => {});
+      if (!updatedRecord || remainingAttempts <= 0) {
+        await SignupCode.deleteOne({
+          _id: recordId,
+          codeType: SIGNUP_CODE_TYPE,
+        }).catch(() => {});
         return sendError(
           res,
           400,
@@ -777,57 +749,15 @@ export default async function handler(
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 9: Extract Form Data
+    // STEP 7: Decrypt and validate the server-stored signup data
     // ═══════════════════════════════════════════════════════════
     const data: any = (record as any).formData || {};
-
-    // ═══════════════════════════════════════════════════════════
-    // STEP 10: Check for Existing User
-    // ═══════════════════════════════════════════════════════════
-    const existingUser = await User.findOne({
-      email,
-      isDeleted: { $ne: true },
-    })
-      .select("_id")
-      .lean();
-
-    if (existingUser) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
-
-      await logVerifyAttempt({
-        email,
-        ip,
-        userAgent,
-        action: "user_exists",
-        success: true,
-        reason: "User already exists",
-        requestId,
-      });
-
-      // ✅ Anti-enumeration: Return success
-      return res.status(200).json({
-        success: true,
-        message: "Account created successfully!",
-        requestId,
-      });
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    // STEP 11: CNIC Processing — SKIPPED at signup (V6.0.0)
-    // ═══════════════════════════════════════════════════════════
-    // CNIC is collected at role-specific verification pages:
-    //   /owner/verify → for Verified Owner listings
-    //   /agent/register → for Property Agents
-    //   /developer/register → for Property Developers
-    //   /labour/register → for Skilled Labour
-    // No CNIC fields to process here — user created without CNIC.
-
-    // ═══════════════════════════════════════════════════════════
-    // STEP 12: Decrypt and Validate Password
-    // ═══════════════════════════════════════════════════════════
     const passwordEnc = String(data.passwordEnc || "");
     if (!passwordEnc) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
+      await SignupCode.deleteOne({
+        _id: recordId,
+        codeType: SIGNUP_CODE_TYPE,
+      }).catch(() => {});
       return sendError(
         res,
         400,
@@ -840,8 +770,11 @@ export default async function handler(
     let password: string;
     try {
       password = decryptTempPassword(passwordEnc);
-    } catch (error) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
+    } catch {
+      await SignupCode.deleteOne({
+        _id: recordId,
+        codeType: SIGNUP_CODE_TYPE,
+      }).catch(() => {});
 
       await logVerifyAttempt({
         email,
@@ -849,7 +782,7 @@ export default async function handler(
         userAgent,
         action: "password_decrypt_failed",
         success: false,
-        reason: "Failed to decrypt temp password",
+        reason: "Temporary signup data could not be decrypted",
         requestId,
       });
 
@@ -862,20 +795,12 @@ export default async function handler(
       );
     }
 
-    // ✅ SECURITY: Validate password strength (defense-in-depth)
     const passwordCheck = isStrongPassword(password);
     if (!passwordCheck.valid) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
-
-      await logVerifyAttempt({
-        email,
-        ip,
-        userAgent,
-        action: "weak_password_rejected",
-        success: false,
-        reason: passwordCheck.reason || "Password policy violation",
-        requestId,
-      });
+      await SignupCode.deleteOne({
+        _id: recordId,
+        codeType: SIGNUP_CODE_TYPE,
+      }).catch(() => {});
 
       return sendError(
         res,
@@ -886,13 +811,8 @@ export default async function handler(
       );
     }
 
-    // ✅ Store plain password - User model middleware will hash it
-    // (Middleware runs on .create() and ensures proper hashing)
-
     // ═══════════════════════════════════════════════════════════
-    // STEP 13: Prepare User Data
-    // V5.9.0: All users created as 'user' — role upgraded via
-    // admin-approved onboarding flow from dashboard (Rule 19)
+    // STEP 8: Prepare the least-privileged user record
     // ═══════════════════════════════════════════════════════════
     const fullName = String(data.fullName || "User").trim();
     const displayName = fullName.split(" ")[0] || "User";
@@ -901,59 +821,125 @@ export default async function handler(
       name: fullName,
       displayName,
       email,
-      password,                    // Plain password — hashed by User model pre-save middleware
-      role: "user",                // Always 'user' at signup — upgrade via onboarding
+      password,
+      role: "user",
       status: "active",
       isVerified: true,
       isDeleted: false,
-
-      // CNIC fields NOT set at signup (V6.0.0)
-      // Collected later at role-specific verification pages:
-      //   /owner/verify (Verified Owner)
-      //   /agent/register (Property Agent)
-      //   /developer/register (Property Developer)
-      //   /labour/register (Skilled Labour)
-
       accountType: "individual",
-
       city: String(data.city || "").slice(0, 60) || "Not Specified",
       country: String(data.country || "Pakistan").slice(0, 60),
-
-      // ✅ Onboarding: only set status, NOT role
-      // onboardingRole enum doesn't include 'null' — leave it undefined
-      // Mongoose default will be applied by the schema
       onboardingStatus: "none",
       kycVerified: false,
-
       verification: {
         email: true,
         verifiedAt: new Date(),
       },
-
       auditTrail: {
         createdVia: "web",
-        createdByIp: ip,
+        createdByIp: hashIp(ip),
       },
     };
 
-    // Optional phone
     const phone = String(data.phone || "").trim();
     if (phone) userData.phone = phone;
-
-    // Optional home address
     if (data.homeAddress) {
       userData.homeAddress = String(data.homeAddress).slice(0, 200);
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 14: Create User Account
+    // STEP 9: Atomically consume the challenge and create the user
     // ═══════════════════════════════════════════════════════════
-    const newUser = await User.create(userData);
+    const session = await mongoose.startSession();
+    let newUser: any = null;
 
-    // ═══════════════════════════════════════════════════════════
-    // STEP 15: Cleanup Signup Code
-    // ═══════════════════════════════════════════════════════════
-    await SignupCode.deleteMany({ email }).catch(() => {});
+    try {
+      await session.withTransaction(
+        async () => {
+          const claimedCode = await SignupCode.findOneAndUpdate(
+            {
+              _id: recordId,
+              email,
+              codeType: SIGNUP_CODE_TYPE,
+              isVerified: false,
+              code: storedHash,
+              expiresAt: { $gt: new Date() },
+              attempts: { $lt: maxAttempts },
+            },
+            {
+              $set: {
+                isVerified: true,
+                verifiedAt: new Date(),
+              },
+            },
+            { new: true, session }
+          );
+
+          if (!claimedCode) {
+            const conflict = new Error("Signup challenge already consumed") as Error & {
+              code?: string;
+            };
+            conflict.code = "SIGNUP_CHALLENGE_CONSUMED";
+            throw conflict;
+          }
+
+          const existingUser = await User.findOne({
+            email,
+            isDeleted: { $ne: true },
+          })
+            .select("_id")
+            .session(session)
+            .lean();
+
+          if (existingUser) {
+            const conflict = new Error("Account already exists") as Error & {
+              code?: string;
+            };
+            conflict.code = "ACCOUNT_ALREADY_EXISTS";
+            throw conflict;
+          }
+
+          const createdUsers = await User.create([userData], { session });
+          newUser = createdUsers[0];
+
+          await SignupCode.deleteOne(
+            { _id: claimedCode._id, codeType: SIGNUP_CODE_TYPE },
+            { session }
+          );
+        },
+        {
+          readConcern: { level: "snapshot" },
+          writeConcern: { w: "majority" },
+        }
+      );
+    } catch (error: any) {
+      if (error?.code === "SIGNUP_CHALLENGE_CONSUMED") {
+        return sendSafeFailure(res, requestId);
+      }
+
+      if (error?.code === "ACCOUNT_ALREADY_EXISTS" || error?.code === 11000) {
+        await SignupCode.deleteMany({
+          email,
+          codeType: SIGNUP_CODE_TYPE,
+        }).catch(() => {});
+
+        return sendError(
+          res,
+          409,
+          "An account with this email already exists. Please sign in or reset your password.",
+          requestId,
+          "ACCOUNT_ALREADY_EXISTS"
+        );
+      }
+
+      throw error;
+    } finally {
+      await session.endSession();
+    }
+
+    if (!newUser) {
+      throw new Error("Signup transaction completed without creating a user");
+    }
 
     // ═══════════════════════════════════════════════════════════
     // STEP 16: Send Welcome Email (async, don't block)
@@ -994,33 +980,21 @@ export default async function handler(
       requestId,
     });
   } catch (error: any) {
-    // ✅ TEMPORARY DEBUG — remove after fix
-    console.error("═══════════════════════════════════════");
-    console.error("🔴 VERIFY-SIGNUP-CODE ERROR:");
-    console.error("Message:", error?.message);
-    console.error("Code:", error?.code);
-    console.error("Name:", error?.name);
-    console.error("Stack:", error?.stack);
-    console.error("Full error:", error);
-    console.error("═══════════════════════════════════════");
+    console.error("[Auth][VerifySignup] Request failed", {
+      requestId,
+      code: typeof error?.code === "string" || typeof error?.code === "number"
+        ? error.code
+        : "UNKNOWN",
+      name: typeof error?.name === "string" ? error.name : "Error",
+    });
 
-    // Check for duplicate key error
     if (error?.code === 11000) {
-      await logVerifyAttempt({
-        ip,
-        userAgent,
-        action: "duplicate_key",
-        success: false,
-        reason: "Duplicate email or CNIC",
-        requestId,
-      });
-
       return sendError(
         res,
-        400,
-        "An account with this email or CNIC already exists.",
+        409,
+        "An account with this email already exists. Please sign in or reset your password.",
         requestId,
-        "DUPLICATE_ACCOUNT"
+        "ACCOUNT_ALREADY_EXISTS"
       );
     }
 
@@ -1029,7 +1003,7 @@ export default async function handler(
       userAgent,
       action: "server_error",
       success: false,
-      reason: error.message,
+      reason: typeof error?.code === "string" ? error.code : "UNEXPECTED_ERROR",
       requestId,
     });
 

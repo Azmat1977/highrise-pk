@@ -10,6 +10,12 @@ import dbConnect from "@/lib/dbConnect";
 import SignupCode from "@/models/SignupCode";
 import User from "@/models/User";
 import { rateLimitResendCode, getClientIp } from "@/lib/rateLimit";
+import {
+  SIGNUP_CODE_TYPE,
+  generateSignupOtp,
+  hashSecurityIdentifier,
+  hashSignupOtp,
+} from "@/lib/auth/signupVerification";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 CONFIGURATION
@@ -84,12 +90,7 @@ function setSecurityHeaders(res: NextApiResponse, requestId: string): void {
  * ✅ Hash IP for logging
  */
 function hashIp(ip: string): string {
-  const secret = process.env.NEXTAUTH_SECRET || "resend-log-secret";
-  return crypto
-    .createHmac("sha256", secret)
-    .update(ip)
-    .digest("hex")
-    .slice(0, 16);
+  return hashSecurityIdentifier(ip);
 }
 
 /**
@@ -107,10 +108,10 @@ function normalizeEmail(email: string): string {
  */
 function isValidEmail(email: string): boolean {
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
-  
+
   if (!emailRegex.test(email)) return false;
   if (email.length < 5 || email.length > 254) return false;
-  
+
   return true;
 }
 
@@ -152,21 +153,14 @@ function isDisposableEmail(email: string): boolean {
  * ✅ Generate cryptographically secure OTP
  */
 function generateSecureOTP(): string {
-  const min = Math.pow(10, OTP_LENGTH - 1);
-  const max = Math.pow(10, OTP_LENGTH) - 1;
-  return crypto.randomInt(min, max + 1).toString();
+  return generateSignupOtp(OTP_LENGTH);
 }
 
 /**
  * ✅ Hash OTP (must match send-signup-code and verify-signup-code)
  */
 function hashOtp(email: string, code: string): string {
-  const pepper = process.env.OTP_PEPPER || process.env.NEXTAUTH_SECRET || "otp_pepper_secure";
-  const normalized = normalizeEmail(email);
-  return crypto
-    .createHmac("sha256", pepper)
-    .update(`${normalized}:${code}`)
-    .digest("hex");
+  return hashSignupOtp(email, code);
 }
 
 /**
@@ -282,7 +276,7 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
                       <p style="color: #e0e0e0; margin: 10px 0 0; font-size: 14px;">Pakistan's Trusted Property Platform</p>
                     </td>
                   </tr>
-                  
+
                   <!-- Content -->
                   <tr>
                     <td style="padding: 40px 30px;">
@@ -290,26 +284,26 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
                       <p style="color: #666666; font-size: 16px; line-height: 1.6; margin: 0 0 30px;">
                         You requested a new verification code. Please use the code below to complete your registration:
                       </p>
-                      
+
                       <!-- OTP Code -->
                       <div style="background: linear-gradient(135deg, #0b1220 0%, #1a2a40 100%); padding: 30px; border-radius: 12px; text-align: center; margin: 30px 0;">
                         <p style="color: #029bba; margin: 0 0 10px; font-size: 14px; text-transform: uppercase; letter-spacing: 2px;">Your Verification Code</p>
                         <p style="color: #ffffff; margin: 0; font-size: 42px; font-weight: 700; letter-spacing: 12px; font-family: 'Courier New', monospace;">${code}</p>
                       </div>
-                      
+
                       <!-- Expiry Warning -->
                       <div style="background-color: #fff8e6; border-left: 4px solid #f0ad4e; padding: 15px 20px; border-radius: 4px; margin: 20px 0;">
                         <p style="color: #856404; margin: 0; font-size: 14px;">
                           ⏰ This code expires in <strong>${OTP_EXPIRY_MINUTES} minutes</strong>. Please do not share it with anyone.
                         </p>
                       </div>
-                      
+
                       <p style="color: #999999; font-size: 14px; line-height: 1.6; margin: 30px 0 0;">
                         If you didn't request this verification code, you can safely ignore this email.
                       </p>
                     </td>
                   </tr>
-                  
+
                   <!-- Footer -->
                   <tr>
                     <td style="background-color: #f8f9fa; padding: 30px; border-radius: 0 0 16px 16px; text-align: center;">
@@ -421,7 +415,7 @@ export default async function handler(
     // STEP 4: Disposable Email Check
     // ═══════════════════════════════════════════════════════════
     if (isDisposableEmail(email)) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
+      await SignupCode.deleteMany({ email, codeType: SIGNUP_CODE_TYPE }).catch(() => {});
 
       await logResendAttempt({
         email,
@@ -491,7 +485,7 @@ export default async function handler(
       .lean();
 
     if (existingUser) {
-      await SignupCode.deleteMany({ email }).catch(() => {});
+      await SignupCode.deleteMany({ email, codeType: SIGNUP_CODE_TYPE }).catch(() => {});
 
       await logResendAttempt({
         email,
@@ -509,8 +503,13 @@ export default async function handler(
     // ═══════════════════════════════════════════════════════════
     // STEP 7: Fetch Existing Signup Code
     // ═══════════════════════════════════════════════════════════
-    const existingCode = await SignupCode.findOne({ email })
-      .sort({ createdAt: -1 })
+    const existingCode = await SignupCode.findOne({
+      email,
+      codeType: SIGNUP_CODE_TYPE,
+      isVerified: false,
+      expiresAt: { $gt: new Date() },
+    })
+      .sort({ updatedAt: -1, createdAt: -1 })
       .lean();
 
     if (!existingCode) {
@@ -531,7 +530,7 @@ export default async function handler(
     // ═══════════════════════════════════════════════════════════
     // STEP 8: Check Resend Count Limit
     // ═══════════════════════════════════════════════════════════
-    const resendCount = Number((existingCode as any).meta?.resendCount || 0);
+    const resendCount = Number((existingCode as any).resendCount || 0);
     if (resendCount >= MAX_RESENDS_PER_SESSION) {
       await logResendAttempt({
         email,
@@ -555,7 +554,7 @@ export default async function handler(
     // ═══════════════════════════════════════════════════════════
     // STEP 9: Enforce Cooldown Between Resends
     // ═══════════════════════════════════════════════════════════
-    const lastResentAt = (existingCode as any).meta?.lastResentAt;
+    const lastResentAt = (existingCode as any).lastResentAt;
     if (lastResentAt) {
       const timeSinceLastResend = Date.now() - new Date(lastResentAt).getTime();
       const cooldownMs = MIN_RESEND_INTERVAL_SECONDS * 1000;
@@ -591,26 +590,56 @@ export default async function handler(
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 11: Update Signup Code Record
+    // STEP 11: Atomically rotate the pending signup code
     // ═══════════════════════════════════════════════════════════
-    await SignupCode.deleteMany({ email }).catch(() => {});
+    const now = new Date();
+    const cooldownBefore = new Date(
+      now.getTime() - MIN_RESEND_INTERVAL_SECONDS * 1000
+    );
+    const ipHash = hashIp(ip);
 
-    await SignupCode.create({
-      email,
-      code: newCodeHash,
-      expiresAt,
-      formData: (existingCode as any).formData || {}, // Preserve original data
-      meta: {
-        ip,
-        userAgent,
-        createdAt: new Date(),
-        reason: "resend",
-        resendCount: resendCount + 1,
-        lastResentAt: new Date(),
-        codeAlgo: "hmac-sha256",
-        pwAlgo: "aes-256-gcm",
+    const previousCode = await SignupCode.findOneAndUpdate(
+      {
+        _id: (existingCode as any)._id,
+        email,
+        codeType: SIGNUP_CODE_TYPE,
+        isVerified: false,
+        expiresAt: { $gt: now },
+        resendCount: { $lt: MAX_RESENDS_PER_SESSION },
+        $or: [
+          { lastResentAt: { $exists: false } },
+          { lastResentAt: null },
+          { lastResentAt: { $lte: cooldownBefore } },
+        ],
       },
-    });
+      {
+        $set: {
+          code: newCodeHash,
+          expiresAt,
+          attempts: 0,
+          lastAttemptAt: null,
+          lastResentAt: now,
+          "meta.ipHash": ipHash,
+          "meta.userAgent": userAgent,
+          "meta.requestId": requestId,
+          "meta.reason": "resend",
+          "meta.codeAlgo": "hmac-sha256",
+          "meta.pwAlgo": "aes-256-gcm",
+        },
+        $inc: { resendCount: 1 },
+      },
+      { new: false, runValidators: true }
+    );
+
+    if (!previousCode) {
+      return sendError(
+        res,
+        429,
+        "Please wait before requesting another verification code.",
+        requestId,
+        "RESEND_NOT_AVAILABLE"
+      );
+    }
 
     // ═══════════════════════════════════════════════════════════
     // STEP 12: Send Verification Email
@@ -618,17 +647,37 @@ export default async function handler(
     const emailSent = await sendVerificationEmail(email, newCode);
 
     if (!emailSent) {
+      // Restore the previous usable code only when this request still owns
+      // the rotation. This avoids destroying a newer concurrent resend.
+      await SignupCode.updateOne(
+        {
+          _id: (previousCode as any)._id,
+          code: newCodeHash,
+          codeType: SIGNUP_CODE_TYPE,
+        },
+        {
+          $set: {
+            code: String((previousCode as any).code || ""),
+            expiresAt: (previousCode as any).expiresAt,
+            attempts: Number((previousCode as any).attempts || 0),
+            lastAttemptAt: (previousCode as any).lastAttemptAt || null,
+            resendCount: Number((previousCode as any).resendCount || 0),
+            lastResentAt: (previousCode as any).lastResentAt || null,
+            meta: (previousCode as any).meta || {},
+          },
+        }
+      ).catch(() => {});
+
       await logResendAttempt({
         email,
         ip,
         userAgent,
         action: "email_failed",
         success: false,
-        reason: "Failed to send email",
+        reason: "Failed to send email; previous code restored",
         requestId,
       });
 
-      // ✅ Still return success (don't reveal email failure)
       return sendSuccess(res, requestId);
     }
 

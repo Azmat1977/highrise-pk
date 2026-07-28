@@ -486,7 +486,6 @@ const LoginOrSignupForm = ({
   const [isLocked, setIsLocked]                 = useState(false);
   const [failedLoginCount, setFailedLoginCount] = useState(0);
   const [rememberMe, setRememberMe]             = useState(false);
-  const [emailExistsPrompt, setEmailExistsPrompt] = useState(false);
 
   const [copiedSignupPw, setCopiedSignupPw]     = useState(false);
   const [copiedResetPw, setCopiedResetPw]       = useState(false);
@@ -640,7 +639,14 @@ const LoginOrSignupForm = ({
         code: otp,
       });
       if (!verifyResult.ok) {
-        // ✅ Show ACTUAL server error message (not generic)
+        const apiCode = (verifyResult.data as ApiErrorResponse).code;
+        if (verifyResult.status === 409 && apiCode === "ACCOUNT_ALREADY_EXISTS") {
+          setSuccess("This email already has an account. Please sign in or reset your password.");
+          setMode("login");
+          setLoading(false);
+          return;
+        }
+
         const serverMsg = getErrorMessage(verifyResult.data);
         setError(
           verifyResult.status === 429 ? MSG_RATE_LIMITED :
@@ -687,7 +693,6 @@ const LoginOrSignupForm = ({
     setCopiedSignupPw(false);
     setCopiedResetPw(false);
     clearNotices();
-    setEmailExistsPrompt(false);
     if (name === "email" || name === "password") setIsLocked(false);
   }, [clearNotices]);
 
@@ -704,7 +709,7 @@ const LoginOrSignupForm = ({
   // ─── Handlers ─────────────────────────────────────────────────
 
   const handleSignup = useCallback(async (opts?: { forResend?: boolean }) => {
-    clearNotices(); setLoading(true); setEmailExistsPrompt(false);
+    clearNotices(); setLoading(true);
     if (!signupPayload.fullName) { setError("Please enter your name"); setLoading(false); return; }
     if (!signupPayload.email)    { setError("Please enter your email"); setLoading(false); return; }
     if (!signupPayload.password) { setError("Password is required"); setLoading(false); return; }
@@ -727,14 +732,10 @@ const LoginOrSignupForm = ({
     if (result.ok) {
       resetTurnstile(); setOtp(""); setMode("otp");
       setOtpResendTurnstileToken(""); setOtpCooldown(30);
-      setSuccess("✅ Verification code sent! Check your email inbox (and spam folder if not found).");
+      setSuccess("Check your email for the next step. Existing users can sign in or reset their password.");
     } else {
-      const apiCode    = (result.data as ApiErrorResponse).code;
       const apiMessage = getErrorMessage(result.data);
-      if (result.status === 409 && apiCode === "EMAIL_ALREADY_REGISTERED") {
-        setError(apiMessage || "This email is already registered.");
-        setEmailExistsPrompt(true);
-      } else if (result.status === 429) {
+      if (result.status === 429) {
         setError(MSG_RATE_LIMITED);
       } else {
         setError(apiMessage || MSG_GENERIC_SIGNUP);
@@ -751,6 +752,14 @@ const LoginOrSignupForm = ({
       code: otp,
     });
     if (!verifyResult.ok) {
+      const apiCode = (verifyResult.data as ApiErrorResponse).code;
+      if (verifyResult.status === 409 && apiCode === "ACCOUNT_ALREADY_EXISTS") {
+        setSuccess("This email already has an account. Please sign in or reset your password.");
+        setMode("login");
+        setLoading(false);
+        return;
+      }
+
       setError(verifyResult.status === 429 ? MSG_RATE_LIMITED :
         getErrorMessage(verifyResult.data) || MSG_GENERIC_OTP);
       setLoading(false); return;
@@ -1224,19 +1233,7 @@ const LoginOrSignupForm = ({
             )}
           </div>
 
-          {/* Email exists prompt */}
-          {emailExistsPrompt && (
-            <div className="bg-amber-50 border-2 border-amber-200 rounded-xl p-3 text-sm">
-              <p className="font-semibold text-amber-900">This email is already registered.</p>
-              <button type="button"
-                onClick={() => { setEmailExistsPrompt(false); clearNotices(); setMode("login"); }}
-                className="font-bold text-[#029bba] hover:underline underline-offset-2 mt-1">
-                Sign in instead →
-              </button>
-            </div>
-          )}
-
-          {error && !emailExistsPrompt && (
+          {error && (
             <div className="bg-red-50 border-2 border-red-200 text-red-800 p-3 text-sm rounded-xl text-center font-medium flex items-center justify-center gap-2">
               <AlertTriangle className="w-4 h-4 flex-shrink-0" /> {error}
             </div>
@@ -1361,7 +1358,7 @@ const LoginOrSignupForm = ({
                 turnstileToken: otpResendTurnstileToken,
               });
               if (result.ok) {
-                setSuccess("Code sent to your email.");
+                setSuccess("Check your email for the next step.");
                 setOtpCooldown(30); setOtpResendTurnstileToken("");
                 try { const ts = getTurnstile(); if (ts && otpWidgetIdRef.current) ts.reset(otpWidgetIdRef.current); } catch { /* removed */ }
               } else {
@@ -1371,8 +1368,18 @@ const LoginOrSignupForm = ({
             }}>
             {loading ? "Resending..." : otpCooldown > 0 ? `Resend (${otpCooldown}s)` : "Resend code"}
           </Btn>
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button type="button" onClick={() => { clearNotices(); setMode("login"); }}
+              className="h-10 text-sm font-semibold text-[#029bba] hover:text-[#004063] hover:underline underline-offset-4">
+              Sign in
+            </button>
+            <button type="button" onClick={() => { clearNotices(); setMode("forgot"); }}
+              className="h-10 text-sm font-semibold text-[#029bba] hover:text-[#004063] hover:underline underline-offset-4">
+              Reset password
+            </button>
+          </div>
           <button type="button" onClick={() => { clearNotices(); setMode("signup"); }}
-            className="w-full h-10 mt-2 text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline underline-offset-4">
+            className="w-full h-10 text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline underline-offset-4">
             ← Edit details
           </button>
         </div>
