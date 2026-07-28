@@ -41,6 +41,7 @@
     "node_modules",
     "_backup_v641_cleanup",
     ".highrise-backups",
-    "highrise-auth-foundation"
+    "highrise-auth-foundation",
+    "highrise-trusted-auth-sessions*"
   ]
 }

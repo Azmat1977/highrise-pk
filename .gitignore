@@ -49,3 +49,5 @@ next-env.d.ts
 /highrise-auth-foundation/
 /highrise-auth-foundation*.zip
 /highrise-auth-foundation-*.zip
+/highrise-trusted-auth-sessions*/
+/highrise-trusted-auth-sessions*.zip

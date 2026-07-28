@@ -45,3 +45,10 @@ export {
   type AuthorizationDecision,
   type AuthorizationFailureReason,
 } from "./authorization";
+
+export {
+  buildTrustedSessionClaims,
+  type SessionRole,
+  type TrustedSessionClaimSource,
+  type TrustedSessionClaims,
+} from "./sessionClaims";

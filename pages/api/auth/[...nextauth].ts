@@ -14,7 +14,11 @@ import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import SecurityEvent from "@/models/SecurityEvent";
 import type { DefaultSession, DefaultUser } from "next-auth";
-import { normalizePermissions } from "@/lib/auth";
+import {
+  buildTrustedSessionClaims,
+  type LegacyMarketplaceRole,
+  type Role,
+} from "@/lib/auth";
 
 // ✅ Security imports
 import { rateLimitAuthAll, rateLimitCredentials } from "@/lib/rateLimit";
@@ -347,15 +351,7 @@ function setAuthSecurityHeaders(res: NextApiResponse): void {
 // ═══════════════════════════════════════════════════════════════
 // 🔐 TYPESCRIPT TYPES
 // ═══════════════════════════════════════════════════════════════
-type UserRole =
-  | "user"
-  | "reader"
-  | "writer"
-  | "editor"
-  | "developer"
-  | "agent"
-  | "society"
-  | "admin";
+type UserRole = Role | LegacyMarketplaceRole;
 
 type DbUser = {
   _id: any;
@@ -376,7 +372,8 @@ type DbUser = {
   onboardingRole?: "agent" | "developer" | "society" | null;
   phone?: string;
   profilePictureUrl?: string | null;
-  permissions?: string[];
+  capabilities?: unknown[];
+  permissions?: unknown[];
   displayName?: string;
   tokenVersion?: number;
   loginAttempts?: number;
@@ -516,7 +513,7 @@ export const authOptions: AuthOptions = {
             isDeleted: { $ne: true },
           })
             .select(
-  "name displayName email role status statusReason isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone profilePictureUrl permissions tokenVersion +password +security loginAttempts lockUntil verification"
+  "name displayName email role status statusReason isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone profilePictureUrl capabilities permissions tokenVersion +password +security loginAttempts lockUntil verification"
 )
             .lean()) as DbUser | null;
 
@@ -729,12 +726,16 @@ export const authOptions: AuthOptions = {
               ? user.displayName.trim()
               : safeName.split(" ")[0]) || "User";
 
+          const trustedClaims = buildTrustedSessionClaims(user);
+
           return {
             id: user._id.toString(),
             email: user.email,
             name: safeName,
             displayName: safeDisplay,
-            role: user.role || "user",
+            role: trustedClaims.role,
+            authorityRole: trustedClaims.authorityRole,
+            capabilities: trustedClaims.capabilities,
             isVerified: Boolean(user.isVerified),
             kycVerified: Boolean((user as any).kycVerified),
             isVerifiedOwner: Boolean((user as any).isVerifiedOwner),
@@ -745,7 +746,7 @@ export const authOptions: AuthOptions = {
             onboardingRole: (user as any).onboardingRole ?? null,
             phoneNumber: user.phone || "",
             profilePicture: user.profilePictureUrl || null,
-            permissions: normalizePermissions(user.permissions),
+            permissions: trustedClaims.permissions,
             tokenVersion:
               typeof user.tokenVersion === "number" ? user.tokenVersion : 0,
             rememberMe,
@@ -845,7 +846,7 @@ export const authOptions: AuthOptions = {
           let dbUser = (await User.findOne({
             email,
             isDeleted: { $ne: true },
-          }).select("+security tokenVersion")) as unknown as DbUser | null;
+          }).select("email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification authProvider socialId +security")) as unknown as DbUser | null;
 
           if (!dbUser) {
             // ✅ NEW USER - Auto-create with verified status
@@ -860,6 +861,8 @@ export const authOptions: AuthOptions = {
               isVerified: true, // ✅ Auto-verify social logins
               isDeleted: false,
               role: "user",
+              capabilities: [],
+              permissions: [],
               status: "active",
               tokenVersion: 0,
               verification: {
@@ -955,15 +958,19 @@ export const authOptions: AuthOptions = {
           if (!dbUser) return false;
 
           // ✅ Inject data into NextAuth user object
+          const trustedClaims = buildTrustedSessionClaims(dbUser);
+
           (user as any).id = dbUser._id.toString();
-          (user as any).role = dbUser.role;
+          (user as any).role = trustedClaims.role;
+          (user as any).authorityRole = trustedClaims.authorityRole;
+          (user as any).capabilities = trustedClaims.capabilities;
           (user as any).isVerified = dbUser.isVerified;
           (user as any).phoneNumber = dbUser.phone;
           // 🆕 V6.9.0 — Phone verification flags for lead capture
           (user as any).isPhoneVerified = Boolean((dbUser as any).isPhoneVerified);
           (user as any).needsPhone = !dbUser.phone;
           (user as any).profilePicture = dbUser.profilePictureUrl;
-          (user as any).permissions = dbUser.permissions || [];
+          (user as any).permissions = trustedClaims.permissions;
           (user as any).tokenVersion =
             typeof dbUser.tokenVersion === "number" ? dbUser.tokenVersion : 0;
           (user as any).rememberMe = true; // ✅ Social logins default to "Remember me"
@@ -990,8 +997,12 @@ export const authOptions: AuthOptions = {
     async jwt({ token, user, trigger, session }: any) {
       // ✅ Initial sign-in
       if (user) {
+        const trustedClaims = buildTrustedSessionClaims(user);
+
         token.id = user.id;
-        token.role = user.role;
+        token.role = trustedClaims.role;
+        token.authorityRole = trustedClaims.authorityRole;
+        token.capabilities = trustedClaims.capabilities;
         token.isVerified = user.isVerified;
         token.kycVerified = user.kycVerified ?? false;
                 token.isVerifiedOwner = (user as any).isVerifiedOwner ?? false;
@@ -1005,7 +1016,7 @@ export const authOptions: AuthOptions = {
         token.isPhoneVerified = (user as any).isPhoneVerified ?? false;
         token.needsPhone = (user as any).needsPhone ?? false;
         token.profilePicture = user.profilePicture;
-        token.permissions = user.permissions || [];
+        token.permissions = trustedClaims.permissions;
         token.tokenVersion =
           typeof user.tokenVersion === "number" ? user.tokenVersion : 0;
         token.name = user.name || token.name || null;
@@ -1034,7 +1045,7 @@ export const authOptions: AuthOptions = {
           await dbConnect();
 
           const dbUser = await User.findById(token.id)
-            .select("tokenVersion status isDeleted name displayName role isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified")
+            .select("tokenVersion status isDeleted name displayName role capabilities permissions isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified")
             .lean();
 
           token.lastDbCheckAt = now;
@@ -1068,6 +1079,12 @@ export const authOptions: AuthOptions = {
           }
 
           // ✅ Self-heal missing fields
+          const trustedClaims = buildTrustedSessionClaims(dbUser);
+          token.role = trustedClaims.role;
+          token.authorityRole = trustedClaims.authorityRole;
+          token.capabilities = trustedClaims.capabilities;
+          token.permissions = trustedClaims.permissions;
+
           const dbName = (dbUser as any)?.name;
           const dbDisplay = (dbUser as any)?.displayName;
           const dbRole = (dbUser as any)?.role;
@@ -1134,11 +1151,6 @@ export const authOptions: AuthOptions = {
             token.onboardingRole = (dbUser as any).onboardingRole ?? null;
           }
 
-          // ✅ Refresh role — catches admin-approved tier upgrades
-          if (typeof (dbUser as any).role === "string" && (dbUser as any).role.trim()) {
-            token.role = (dbUser as any).role as UserRole;
-          }
-
           // 🆕 V6.9.0 — Refresh phone verification status
           // Reflects when user verifies phone after login (max 5 min lag)
           if (typeof (dbUser as any).isPhoneVerified === "boolean") {
@@ -1178,6 +1190,8 @@ export const authOptions: AuthOptions = {
 
       session.user.id = token.id;
       session.user.role = token.role;
+      session.user.authorityRole = token.authorityRole;
+      session.user.capabilities = token.capabilities || [];
       session.user.isVerified = token.isVerified;
       session.user.kycVerified = token.kycVerified ?? false;
       session.user.isVerifiedOwner = token.isVerifiedOwner ?? false;
