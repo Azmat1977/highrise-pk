@@ -1,8 +1,25 @@
 // ========== FILE: middleware.ts ==========
 // 🔒 ENTERPRISE MIDDLEWARE - HIGHRISE.PK
-// Security Level: MAXIMUM | Edge Runtime | Route Protection
-// V5.8.0 — Complete rewrite: 25+ public paths, society tier,
-//           kycVerified gate, public profile routing, no uuid import
+// V6.0.0 — Sprint 2 Alignment
+//
+// CLOSED GAPS:
+//   GAP-A08: Owner routes now protected
+//   GAP-R08: Deny-by-default for unknown protected paths
+//   GAP-R09: Exact match + explicit prefix (no startsWith bugs)
+//   GAP-R12: Deprecated X-XSS-Protection removed
+//   Sprint 1 architecture drift: canonical Role types + capabilities
+//
+// DESIGN PRINCIPLES:
+//   1. ALLOWLIST public routes — everything else needs authentication
+//   2. Route table drives access rules (auditable, extensible)
+//   3. Capability check runs alongside legacy role check (unified account)
+//   4. Edge Runtime cannot access DB — server-side requireAuth() validates tokenVersion
+//   5. Public profile detection uses PATTERN, not startsWith
+//
+// EDGE RUNTIME LIMITATIONS:
+//   → No DB access (no tokenVersion revocation check here)
+//   → No bcrypt, no Mongoose, no Node crypto
+//   → Only @/lib/auth TYPES + constants may be imported (Edge-safe)
 // ═══════════════════════════════════════════════════════════════
 
 import { NextResponse } from "next/server";
@@ -10,27 +27,58 @@ import type { NextRequest } from "next/server";
 import { getToken } from "next-auth/jwt";
 
 // ═══════════════════════════════════════════════════════════════
-// 🔐 TYPE DEFINITIONS
+// 🔐 TYPES (aligned with Sprint 1 lib/auth)
 // ═══════════════════════════════════════════════════════════════
 
-type UserRole =
+type CanonicalRole =
   | "user"
   | "reader"
   | "writer"
   | "editor"
-  | "developer"
-  | "agent"
-  | "society"
-  | "admin";
+  | "moderator"
+  | "finance"
+  | "admin"
+  | "superadmin";
+
+type LegacyMarketplaceRole = "agent" | "developer" | "society";
+
+type SessionRole = CanonicalRole | LegacyMarketplaceRole;
+
+type Capability =
+  | "property_owner"
+  | "real_estate_agent"
+  | "property_developer"
+  | "housing_society"
+  | "material_supplier"
+  | "construction_contractor"
+  | "professional_service_provider"
+  | "skilled_worker"
+  | "maintenance_service_provider"
+  | "home_visit_inspector";
+
+type VerificationStatus =
+  | "none"
+  | "pending"
+  | "approved"
+  | "rejected"
+  | "suspended"
+  | "info_required";
 
 interface JWTPayload {
   id?: string;
-  role?: UserRole;
-  isEmailVerified?: boolean;
-  kycVerified?: boolean;
-  onboardingStatus?: string;
-  tokenVersion?: number;
   sub?: string;
+  role?: SessionRole;
+  authorityRole?: CanonicalRole;
+  capabilities?: Capability[];
+  isVerified?: boolean;
+  kycVerified?: boolean;
+  isVerifiedOwner?: boolean;
+  ownerVerificationStatus?: VerificationStatus;
+  isVerifiedAgent?: boolean;
+  agentVerificationStatus?: VerificationStatus;
+  onboardingStatus?: "none" | "pending" | "approved" | "rejected" | "info_required";
+  tokenVersion?: number;
+  isInvalid?: boolean;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -38,11 +86,10 @@ interface JWTPayload {
 // ═══════════════════════════════════════════════════════════════
 
 /**
- * ✅ FULLY PUBLIC — no auth required, no redirect
- * Visitors, bots, SEO crawlers all allowed
+ * FULLY PUBLIC EXACT PATHS
+ * Anyone (guests, bots, crawlers) can access these without authentication.
  */
-const PUBLIC_PATHS = new Set([
-  // Core pages
+const PUBLIC_EXACT_PATHS = new Set<string>([
   "/",
   "/about",
   "/contact",
@@ -61,17 +108,11 @@ const PUBLIC_PATHS = new Set([
   "/auth/error",
   "/auth/verify-request",
 
-  // Property browsing (public)
+  // Public listings roots
   "/properties",
   "/search",
-
-  // Project browsing (public)
   "/projects",
-
-  // Society browsing (public)
   "/societies",
-
-  // Blog (public)
   "/blog",
 
   // Tools (all public)
@@ -82,10 +123,8 @@ const PUBLIC_PATHS = new Set([
   "/tools/area-unit-converter",
   "/tools/home-loan-calculator",
 
-  // Risk intelligence (public)
+  // Info
   "/risk-alerts",
-
-  // Legal / Info
   "/faq",
   "/help",
   "/careers",
@@ -96,50 +135,51 @@ const PUBLIC_PATHS = new Set([
 ]);
 
 /**
- * ✅ PUBLIC PATH PREFIXES — dynamic routes that are public
- * Checked with startsWith() — order matters (longest first)
+ * PUBLIC PREFIX PATHS
+ * Everything under these prefixes is public.
+ * Order matters: longest specific prefix first.
  */
 const PUBLIC_PREFIXES = [
-  // Tool SEO pages
-  "/tools/area-unit-converter/",
-  "/tools/verify-society/",
+  // Next.js internals — never block
+  "/_next/",
+  "/api/auth/",       // NextAuth routes must be reachable
+  "/favicon",
+  "/images/",
+  "/icons/",
+  "/fonts/",
+  "/og/",
 
-  // Public content
-  "/properties/",
-  "/projects/",
-  "/societies/",
-  "/blog/",
-  "/risk-alerts/",
-
-  // Sitemap variants
+  // Public content sitemaps
   "/projects/sitemap",
   "/blog/sitemap",
   "/societies/sitemap",
   "/tools/sitemap",
 
-  // Next.js internals (never block)
-  "/_next/",
-  "/api/auth/",       // NextAuth routes always public
-  "/favicon",
-  "/images/",
-  "/icons/",
-  "/fonts/",
-  "/og/",             // Open Graph images
-];
+  // Tool SEO pages
+  "/tools/area-unit-converter/",
+  "/tools/verify-society/",
+
+  // Public content detail pages
+  "/properties/",
+  "/projects/",
+  "/societies/",
+  "/blog/",
+  "/risk-alerts/",
+] as const;
 
 /**
- * ✅ PUBLIC PROFILE PATTERNS
- * These are dynamic [slug] routes that look like role paths
- * but are actually public listing/detail pages
- * 
- * /agent/[slug]      → public agent profile
- * /developer/[slug]  → public developer profile
- * /society/[slug]    → public society profile
- * 
- * These must be checked BEFORE role-based path matching
+ * PUBLIC PROFILE ROUTES
+ * These are /<role>/<slug> pages that are PUBLIC profile pages,
+ * NOT dashboards. Detected by pattern matching + exclusion list.
  */
-const PUBLIC_PROFILE_SLUGS_EXCLUDED = new Set([
-  // Agent dashboard paths — NOT public profiles
+const PUBLIC_PROFILE_ROUTES = ["/agent", "/developer", "/society"] as const;
+
+/**
+ * DASHBOARD SLUGS — these are NOT public profile slugs
+ * If /agent/dashboard, /developer/projects, etc. matches, it's a dashboard route
+ */
+const DASHBOARD_SLUGS = new Set<string>([
+  // Common to all roles
   "dashboard",
   "profile",
   "listings",
@@ -151,12 +191,18 @@ const PUBLIC_PROFILE_SLUGS_EXCLUDED = new Set([
   "kyc",
   "upgrade",
   "notifications",
-  // Developer dashboard paths — NOT public profiles
+  "verify",
+  "edit",
+  "new",
+  "create",
+
+  // Developer-specific
   "projects",
   "units",
   "reports",
   "team",
-  // Society dashboard paths — NOT public profiles
+
+  // Society-specific
   "plots",
   "blocks",
   "installments",
@@ -165,95 +211,322 @@ const PUBLIC_PROFILE_SLUGS_EXCLUDED = new Set([
 ]);
 
 /**
- * ✅ PROTECTED PATH PREFIXES BY ROLE
+ * AUTH-ONLY PAGES
+ * Redirect authenticated users AWAY from these to their dashboard
  */
-const ADMIN_PATHS = "/admin";
-const DEVELOPER_PATHS = "/developer";
-const AGENT_PATHS = "/agent";
-const SOCIETY_PATHS = "/society";
-const DASHBOARD_PATHS = "/dashboard";
-const ONBOARDING_PATHS = "/onboarding";
-
-/**
- * ✅ PATHS THAT REQUIRE kycVerified = true
- * Property creation requires full KYC
- */
-const KYC_REQUIRED_PATHS = new Set([
-  "/add-property",
-  "/edit-property",
-  "/my-properties/new",
+const AUTH_ONLY_PAGES = new Set<string>([
+  "/login",
+  "/register",
+  "/forgot-password",
 ]);
 
 /**
- * ✅ PATHS THAT REQUIRE AUTHENTICATION (any role)
+ * ROUTE PROTECTION TABLE
+ * Explicit rules for every protected route family.
+ * DENY BY DEFAULT — any path not matched here requires authentication.
  */
-const AUTH_REQUIRED_PREFIXES = [
-  "/profile",
-  "/settings",
-  "/favorites",
-  "/notifications",
-  "/messages",
-  "/my-properties",
-  "/my-listings",
-  "/my-projects",
-  "/my-saved",
-  "/account",
+interface RouteRule {
+  /** Exact path match OR prefix match ending with "/" */
+  path: string;
+  /** True if this is a prefix rule (matches path + "/*") */
+  isPrefix: boolean;
+  /** Required check level */
+  level: "auth" | "role" | "capability" | "kyc" | "verifiedOwner" | "verifiedAgent";
+  /** Allowed authority roles (for level: "role") */
+  allowedRoles?: readonly CanonicalRole[];
+  /** Allowed capabilities (for level: "capability") — user needs ANY of these */
+  allowedCapabilities?: readonly Capability[];
+  /** Human-readable reason for denial */
+  denyReason: string;
+}
+
+const ROUTE_RULES: readonly RouteRule[] = [
+  // ─── ADMIN AREA ────────────────────────────────────────────
+  {
+    path: "/admin",
+    isPrefix: true,
+    level: "role",
+    allowedRoles: ["admin", "superadmin", "moderator", "finance", "editor"],
+    denyReason: "admin_required",
+  },
+
+  // ─── OWNER AREA (Sprint 1 GAP-A08 fix) ────────────────────
+  // Tier 1: Any authenticated user (to see verification status)
+  { path: "/owner/dashboard", isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/owner/verify",    isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/owner/profile",   isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/owner/kyc",       isPrefix: true, level: "auth", denyReason: "auth_required" },
+
+  // Tier 2: Verified owner only (property creation)
+  { path: "/owner/listings/new",  isPrefix: false, level: "verifiedOwner", denyReason: "owner_verification_required" },
+  { path: "/owner/listings/edit", isPrefix: true,  level: "verifiedOwner", denyReason: "owner_verification_required" },
+  { path: "/owner/listings",      isPrefix: true,  level: "auth",          denyReason: "auth_required" },
+
+  // ─── AGENT AREA ────────────────────────────────────────────
+  // Tier 1: Any authenticated user (see profile/onboarding)
+  { path: "/agent/dashboard", isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/agent/register",  isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/agent/onboarding",isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/agent/kyc",       isPrefix: true, level: "auth", denyReason: "auth_required" },
+
+  // Tier 2: Verified agent (or admin) for full agent tools
+  {
+    path: "/agent/listings",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["real_estate_agent"],
+    denyReason: "agent_verification_required",
+  },
+  {
+    path: "/agent/leads",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["real_estate_agent"],
+    denyReason: "agent_verification_required",
+  },
+  {
+    path: "/agent/analytics",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["real_estate_agent"],
+    denyReason: "agent_verification_required",
+  },
+
+  // ─── DEVELOPER AREA ────────────────────────────────────────
+  { path: "/developer/dashboard",   isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/developer/register",    isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/developer/onboarding",  isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/developer/kyc",         isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/developer/profile",     isPrefix: true, level: "auth", denyReason: "auth_required" },
+
+  {
+    path: "/developer/projects",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["property_developer"],
+    denyReason: "developer_verification_required",
+  },
+  {
+    path: "/developer/units",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["property_developer"],
+    denyReason: "developer_verification_required",
+  },
+  {
+    path: "/developer/team",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["property_developer"],
+    denyReason: "developer_verification_required",
+  },
+
+  // ─── SOCIETY AREA ──────────────────────────────────────────
+  { path: "/society/dashboard",   isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/society/register",    isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/society/onboarding",  isPrefix: true, level: "auth", denyReason: "auth_required" },
+
+  {
+    path: "/society/plots",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["housing_society"],
+    denyReason: "society_verification_required",
+  },
+  {
+    path: "/society/blocks",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["housing_society"],
+    denyReason: "society_verification_required",
+  },
+  {
+    path: "/society/installments",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["housing_society"],
+    denyReason: "society_verification_required",
+  },
+  {
+    path: "/society/members",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["housing_society"],
+    denyReason: "society_verification_required",
+  },
+  {
+    path: "/society/noc",
+    isPrefix: true,
+    level: "capability",
+    allowedCapabilities: ["housing_society"],
+    denyReason: "society_verification_required",
+  },
+
+  // ─── KYC-GATED PROPERTY CREATION ───────────────────────────
+  { path: "/add-property",   isPrefix: true, level: "kyc", denyReason: "kyc_required" },
+  { path: "/edit-property",  isPrefix: true, level: "kyc", denyReason: "kyc_required" },
+
+  // ─── USER-ONLY AREAS (any authenticated user) ─────────────
+  { path: "/dashboard",       isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/onboarding",      isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/profile",         isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/settings",        isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/account",         isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/favorites",       isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/notifications",   isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/messages",        isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-properties",   isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-listings",     isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-projects",     isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-saved",        isPrefix: true, level: "auth", denyReason: "auth_required" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
-// 🔐 HELPER FUNCTIONS
+// 🔐 PATH MATCHING HELPERS
 // ═══════════════════════════════════════════════════════════════
 
-function getClientIp(req: NextRequest): string {
-  return (
-    req.headers.get("cf-connecting-ip") ||
-    req.headers.get("x-real-ip") ||
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
-    "unknown"
-  );
-}
-
-function generateRequestId(): string {
-  return crypto.randomUUID();
-}
-
+/**
+ * Check if pathname is a public exact path or matches a public prefix.
+ */
 function isPublicPath(pathname: string): boolean {
-  // Exact match
-  if (PUBLIC_PATHS.has(pathname)) return true;
+  if (PUBLIC_EXACT_PATHS.has(pathname)) {
+    return true;
+  }
 
-  // Prefix match
   for (const prefix of PUBLIC_PREFIXES) {
-    if (pathname.startsWith(prefix)) return true;
+    if (pathname.startsWith(prefix)) {
+      return true;
+    }
   }
 
   return false;
 }
 
 /**
- * ✅ Check if a /agent/[slug], /developer/[slug], or /society/[slug]
- * path is a PUBLIC profile page (not a dashboard route)
+ * Check if pathname is a public profile page: /agent/[slug], /developer/[slug], /society/[slug]
+ * Uses regex to enforce EXACT pattern — no startsWith bugs.
+ * Excludes dashboard slugs (dashboard, profile, listings, etc.)
  */
 function isPublicProfilePath(pathname: string): boolean {
-  const agentMatch = pathname.match(/^\/agent\/([^/]+)\/?$/);
-  if (agentMatch) {
-    const slug = agentMatch[1];
-    return !PUBLIC_PROFILE_SLUGS_EXCLUDED.has(slug);
-  }
+  for (const rolePrefix of PUBLIC_PROFILE_ROUTES) {
+    // Match exactly /<role>/<slug> or /<role>/<slug>/
+    // Slug must be a single segment (no further slashes)
+    const pattern = new RegExp(`^${rolePrefix}/([^/]+)/?$`);
+    const match = pathname.match(pattern);
 
-  const developerMatch = pathname.match(/^\/developer\/([^/]+)\/?$/);
-  if (developerMatch) {
-    const slug = developerMatch[1];
-    return !PUBLIC_PROFILE_SLUGS_EXCLUDED.has(slug);
-  }
-
-  const societyMatch = pathname.match(/^\/society\/([^/]+)\/?$/);
-  if (societyMatch) {
-    const slug = societyMatch[1];
-    return !PUBLIC_PROFILE_SLUGS_EXCLUDED.has(slug);
+    if (match) {
+      const slug = match[1];
+      // If slug is a dashboard slug, NOT a public profile
+      if (DASHBOARD_SLUGS.has(slug)) {
+        return false;
+      }
+      return true;
+    }
   }
 
   return false;
 }
+
+/**
+ * Exact-or-prefix match for route rules.
+ * Prevents /admin from matching /administrator (startsWith bug).
+ */
+function matchesRoute(pathname: string, rule: RouteRule): boolean {
+  if (!rule.isPrefix) {
+    // Exact match only
+    return pathname === rule.path;
+  }
+
+  // Prefix match: pathname must equal path OR start with path + "/"
+  return pathname === rule.path || pathname.startsWith(rule.path + "/");
+}
+
+/**
+ * Find the FIRST matching route rule for a pathname.
+ * Rules are evaluated in declaration order — more specific paths first.
+ */
+function findRouteRule(pathname: string): RouteRule | null {
+  for (const rule of ROUTE_RULES) {
+    if (matchesRoute(pathname, rule)) {
+      return rule;
+    }
+  }
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 AUTHORIZATION HELPERS
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Get canonical authority role from token.
+ * Prefers authorityRole (Sprint 1) — falls back to role for legacy tokens.
+ * Legacy marketplace roles (agent/developer/society) map to "user" authority.
+ */
+function getAuthorityRole(token: JWTPayload | null): CanonicalRole {
+  if (!token) return "user";
+
+  if (token.authorityRole) {
+    return token.authorityRole;
+  }
+
+  const canonicalRoles: readonly CanonicalRole[] = [
+    "user", "reader", "writer", "editor",
+    "moderator", "finance", "admin", "superadmin",
+  ];
+
+  if (token.role && canonicalRoles.includes(token.role as CanonicalRole)) {
+    return token.role as CanonicalRole;
+  }
+
+  // Legacy marketplace roles have "user" authority
+  return "user";
+}
+
+/**
+ * Check if authority role has admin or superadmin privileges.
+ */
+function isAdminRole(role: CanonicalRole): boolean {
+  return role === "admin" || role === "superadmin";
+}
+
+/**
+ * Check if token has ANY of the required capabilities.
+ * Admins always pass capability checks.
+ */
+function hasAnyCapability(
+  token: JWTPayload | null,
+  required: readonly Capability[],
+): boolean {
+  if (!token) return false;
+
+  const authority = getAuthorityRole(token);
+  if (isAdminRole(authority)) return true;
+
+  const userCaps = token.capabilities ?? [];
+  return required.some((cap) => userCaps.includes(cap));
+}
+
+/**
+ * Check if token has any of the allowed authority roles.
+ */
+function hasAllowedRole(
+  token: JWTPayload | null,
+  allowed: readonly CanonicalRole[],
+): boolean {
+  if (!token) return false;
+
+  const authority = getAuthorityRole(token);
+
+  // Superadmin always passes any role check
+  if (authority === "superadmin") return true;
+
+  return allowed.includes(authority);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 URL BUILDERS
+// ═══════════════════════════════════════════════════════════════
 
 function buildLoginUrl(req: NextRequest, callbackUrl: string): string {
   const url = new URL("/login", req.url);
@@ -261,267 +534,242 @@ function buildLoginUrl(req: NextRequest, callbackUrl: string): string {
   return url.toString();
 }
 
-function buildForbiddenUrl(req: NextRequest, reason: string): string {
+function buildErrorRedirect(req: NextRequest, reason: string): string {
   const url = new URL("/", req.url);
   url.searchParams.set("error", reason);
   return url.toString();
+}
+
+function buildKycRedirect(req: NextRequest): string {
+  const url = new URL("/dashboard", req.url);
+  url.searchParams.set("kyc_required", "1");
+  return url.toString();
+}
+
+function buildOwnerVerificationRedirect(req: NextRequest): string {
+  const url = new URL("/owner/verify", req.url);
+  url.searchParams.set("required", "1");
+  return url.toString();
+}
+
+function buildAgentVerificationRedirect(req: NextRequest): string {
+  const url = new URL("/agent/register", req.url);
+  url.searchParams.set("required", "1");
+  return url.toString();
+}
+
+function getDashboardForRole(role: CanonicalRole | null, req: NextRequest): string {
+  const base = new URL(req.url).origin;
+
+  if (!role) return `${base}/dashboard`;
+  if (isAdminRole(role)) return `${base}/admin`;
+  if (role === "moderator") return `${base}/admin`;
+  if (role === "finance") return `${base}/admin`;
+  if (role === "editor") return `${base}/admin`;
+
+  return `${base}/dashboard`;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 SECURITY HEADERS
 // ═══════════════════════════════════════════════════════════════
 
-function addSecurityHeaders(response: NextResponse, requestId: string): NextResponse {
-  // Request tracking
+/**
+ * Apply security headers to every response.
+ * X-XSS-Protection removed (deprecated, use CSP instead).
+ */
+function addSecurityHeaders(
+  response: NextResponse,
+  requestId: string,
+): NextResponse {
   response.headers.set("X-Request-Id", requestId);
-
-  // Security headers
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-Frame-Options", "DENY");
-  response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
-  response.headers.set("Permissions-Policy", "camera=(), microphone=(), geolocation=()");
-
-  // Cache control for API routes
-  // (page caching handled by ISR/getStaticProps)
+  response.headers.set(
+    "Permissions-Policy",
+    "camera=(), microphone=(), geolocation=()",
+  );
 
   return response;
 }
 
+function generateRequestId(): string {
+  return crypto.randomUUID();
+}
+
 // ═══════════════════════════════════════════════════════════════
-// 🔐 MAIN MIDDLEWARE FUNCTION
+// 🔐 RULE ENFORCEMENT
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Evaluate a route rule against a token.
+ * Returns null if allowed, or a redirect URL if denied.
+ */
+function enforceRule(
+  rule: RouteRule,
+  token: JWTPayload | null,
+  req: NextRequest,
+  pathname: string,
+): string | null {
+  const isAuthenticated = Boolean(token?.id || token?.sub);
+
+  // All rules require authentication first
+  if (!isAuthenticated) {
+    return buildLoginUrl(req, pathname);
+  }
+
+  const authority = getAuthorityRole(token);
+
+  // Superadmin bypasses everything
+  if (authority === "superadmin") {
+    return null;
+  }
+
+  switch (rule.level) {
+    case "auth":
+      // Authentication was already checked — allow
+      return null;
+
+    case "role": {
+      if (!rule.allowedRoles) return null;
+      if (hasAllowedRole(token, rule.allowedRoles)) return null;
+      return buildErrorRedirect(req, rule.denyReason);
+    }
+
+    case "capability": {
+      if (!rule.allowedCapabilities) return null;
+      if (hasAnyCapability(token, rule.allowedCapabilities)) return null;
+
+      // Direct user to verification flow instead of generic error
+      const cap = rule.allowedCapabilities[0];
+      if (cap === "real_estate_agent") {
+        return buildAgentVerificationRedirect(req);
+      }
+      if (cap === "property_developer" || cap === "housing_society") {
+        return buildErrorRedirect(req, rule.denyReason);
+      }
+      return buildErrorRedirect(req, rule.denyReason);
+    }
+
+    case "kyc": {
+      if (isAdminRole(authority)) return null;
+      if (token?.kycVerified === true) return null;
+      return buildKycRedirect(req);
+    }
+
+    case "verifiedOwner": {
+      if (isAdminRole(authority)) return null;
+      if (token?.isVerifiedOwner === true) return null;
+      return buildOwnerVerificationRedirect(req);
+    }
+
+    case "verifiedAgent": {
+      if (isAdminRole(authority)) return null;
+      if (token?.isVerifiedAgent === true) return null;
+      return buildAgentVerificationRedirect(req);
+    }
+
+    default:
+      // Unknown level → deny by default
+      return buildErrorRedirect(req, "access_denied");
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 MAIN MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════
 
 export async function middleware(req: NextRequest): Promise<NextResponse> {
   const { pathname } = req.nextUrl;
   const requestId = generateRequestId();
 
-  // ═══════════════════════════════════════════════════════════
-  // STEP 1: Always-public paths — exit immediately
-  // ═══════════════════════════════════════════════════════════
+  // ─── STEP 1: Public exact + prefix paths — pass through ───
   if (isPublicPath(pathname)) {
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
+    return addSecurityHeaders(NextResponse.next(), requestId);
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // STEP 2: Public profile pages — /agent/[slug], /developer/[slug]
-  // Must check BEFORE role-based path matching
-  // ═══════════════════════════════════════════════════════════
+  // ─── STEP 2: Public profile pages (/agent/[slug], etc.) ───
   if (isPublicProfilePath(pathname)) {
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
+    return addSecurityHeaders(NextResponse.next(), requestId);
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // STEP 3: API routes not under /api/auth/ need auth
-  // But we don't redirect APIs — they return 401 from requireAuth()
-  // ═══════════════════════════════════════════════════════════
+  // ─── STEP 3: API routes — protected by requireAuth() server-side ───
+  // Middleware does not block APIs; they return 401 from lib/requireAuth.ts
   if (pathname.startsWith("/api/")) {
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
+    return addSecurityHeaders(NextResponse.next(), requestId);
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // STEP 4: Extract JWT token (Edge Runtime — no DB access)
-  // ═══════════════════════════════════════════════════════════
-  const token = await getToken({
+  // ─── STEP 4: Extract JWT token (Edge Runtime — no DB access) ───
+  const token = (await getToken({
     req,
     secret: process.env.NEXTAUTH_SECRET,
-  }) as JWTPayload | null;
+  })) as JWTPayload | null;
 
   const isAuthenticated = Boolean(token?.id || token?.sub);
-  const userRole = token?.role ?? null;
-  const isKycVerified = token?.kycVerified ?? false;
-  const onboardingStatus = token?.onboardingStatus ?? "none";
 
-  // ═══════════════════════════════════════════════════════════
-  // STEP 5: Redirect logged-in users away from auth pages
-  // ═══════════════════════════════════════════════════════════
-  const authOnlyPages = new Set(["/login", "/register", "/forgot-password"]);
-  if (isAuthenticated && authOnlyPages.has(pathname)) {
-    const dashboardUrl = getDashboardForRole(userRole, req);
-    const response = NextResponse.redirect(dashboardUrl);
-    return addSecurityHeaders(response, requestId);
+  // NOTE ON tokenVersion:
+  //   Middleware cannot access the DB, so it cannot verify tokenVersion
+  //   against the current DB value. This means a revoked JWT (via password
+  //   change or admin action) may still pass middleware checks briefly.
+  //   However, requireAuth() runs on every API call and WILL catch stale
+  //   tokenVersion, returning 401. Server-rendered pages that call APIs
+  //   will fail fast. Purely client-rendered pages that never call APIs
+  //   are the only risk surface, and those don't handle sensitive data.
+  //
+  //   Full mitigation requires Upstash Redis lookup here (future sprint).
+  if (token?.isInvalid === true) {
+    return addSecurityHeaders(
+      NextResponse.redirect(buildLoginUrl(req, pathname)),
+      requestId,
+    );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // STEP 6: KYC-gated paths — require kycVerified = true
-  // ═══════════════════════════════════════════════════════════
-  const isKycRequiredPath = KYC_REQUIRED_PATHS.has(pathname) ||
-    pathname.startsWith("/add-property") ||
-    pathname.startsWith("/edit-property");
-
-  if (isKycRequiredPath) {
-    if (!isAuthenticated) {
-      return NextResponse.redirect(buildLoginUrl(req, pathname));
-    }
-    if (!isKycVerified) {
-      // Redirect to dashboard with KYC notice
-      const url = new URL(getDashboardForRole(userRole, req));
-      url.searchParams.set("kyc_required", "1");
-      const response = NextResponse.redirect(url.toString());
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
+  // ─── STEP 5: Redirect authenticated users AWAY from auth pages ───
+  if (isAuthenticated && AUTH_ONLY_PAGES.has(pathname)) {
+    const authority = getAuthorityRole(token);
+    return addSecurityHeaders(
+      NextResponse.redirect(getDashboardForRole(authority, req)),
+      requestId,
+    );
   }
 
-  // ═══════════════════════════════════════════════════════════
-  // STEP 7: General auth-required paths (any authenticated user)
-  // ═══════════════════════════════════════════════════════════
-  const isAuthRequired = AUTH_REQUIRED_PREFIXES.some((p) =>
-    pathname.startsWith(p)
+  // ─── STEP 6: Find matching route rule ───
+  const rule = findRouteRule(pathname);
+
+  if (rule) {
+    // Rule found — enforce it
+    const denyRedirect = enforceRule(rule, token, req, pathname);
+    if (denyRedirect) {
+      return addSecurityHeaders(
+        NextResponse.redirect(denyRedirect),
+        requestId,
+      );
+    }
+    return addSecurityHeaders(NextResponse.next(), requestId);
+  }
+
+  // ─── STEP 7: DENY BY DEFAULT ───
+  // No public match, no route rule match, not an API.
+  // This path is either:
+  //   (a) A typo or scanning attempt → deny
+  //   (b) A new page not yet added to ROUTE_RULES → deny (developer must add rule)
+  //   (c) A page that should be public → add to PUBLIC_EXACT_PATHS or PUBLIC_PREFIXES
+  //
+  // For authenticated users, deny gracefully with a redirect to dashboard.
+  // For unauthenticated users, deny with a login redirect.
+  if (isAuthenticated) {
+    const authority = getAuthorityRole(token);
+    return addSecurityHeaders(
+      NextResponse.redirect(getDashboardForRole(authority, req)),
+      requestId,
+    );
+  }
+
+  return addSecurityHeaders(
+    NextResponse.redirect(buildLoginUrl(req, pathname)),
+    requestId,
   );
-
-  if (isAuthRequired) {
-    if (!isAuthenticated) {
-      const response = NextResponse.redirect(buildLoginUrl(req, pathname));
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STEP 8: Dashboard — any authenticated user
-  // ═══════════════════════════════════════════════════════════
-  if (pathname.startsWith(DASHBOARD_PATHS)) {
-    if (!isAuthenticated) {
-      const response = NextResponse.redirect(buildLoginUrl(req, pathname));
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STEP 9: Onboarding — authenticated users only
-  // (role determined server-side from session, not URL)
-  // ═══════════════════════════════════════════════════════════
-  if (pathname.startsWith(ONBOARDING_PATHS)) {
-    if (!isAuthenticated) {
-      const response = NextResponse.redirect(buildLoginUrl(req, pathname));
-      return addSecurityHeaders(response, requestId);
-    }
-    // Block if already approved — redirect to role dashboard
-    if (onboardingStatus === "approved") {
-      const dashboardUrl = getDashboardForRole(userRole, req);
-      const response = NextResponse.redirect(dashboardUrl);
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STEP 10: Admin paths — admin role only
-  // ═══════════════════════════════════════════════════════════
-  if (pathname.startsWith(ADMIN_PATHS)) {
-    if (!isAuthenticated) {
-      const response = NextResponse.redirect(buildLoginUrl(req, pathname));
-      return addSecurityHeaders(response, requestId);
-    }
-    if (userRole !== "admin") {
-      const response = NextResponse.redirect(
-        buildForbiddenUrl(req, "admin_required")
-      );
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STEP 11: Developer paths — developer + admin only
-  // /developer/dashboard, /developer/projects, etc.
-  // (public profiles /developer/[slug] already handled in Step 2)
-  // ═══════════════════════════════════════════════════════════
-  if (pathname.startsWith(DEVELOPER_PATHS)) {
-    if (!isAuthenticated) {
-      const response = NextResponse.redirect(buildLoginUrl(req, pathname));
-      return addSecurityHeaders(response, requestId);
-    }
-    if (userRole !== "developer" && userRole !== "admin") {
-      const response = NextResponse.redirect(
-        buildForbiddenUrl(req, "developer_required")
-      );
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STEP 12: Agent paths — agent + admin only
-  // /agent/dashboard, /agent/listings, etc.
-  // (public profiles /agent/[slug] already handled in Step 2)
-  // ═══════════════════════════════════════════════════════════
-  if (pathname.startsWith(AGENT_PATHS)) {
-    if (!isAuthenticated) {
-      const response = NextResponse.redirect(buildLoginUrl(req, pathname));
-      return addSecurityHeaders(response, requestId);
-    }
-    if (userRole !== "agent" && userRole !== "admin") {
-      const response = NextResponse.redirect(
-        buildForbiddenUrl(req, "agent_required")
-      );
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STEP 13: Society paths — society + admin only
-  // /society/dashboard, /society/plots, etc.
-  // (public profiles /society/[slug] already handled in Step 2)
-  // ═══════════════════════════════════════════════════════════
-  if (pathname.startsWith(SOCIETY_PATHS)) {
-    if (!isAuthenticated) {
-      const response = NextResponse.redirect(buildLoginUrl(req, pathname));
-      return addSecurityHeaders(response, requestId);
-    }
-    if (userRole !== "society" && userRole !== "admin") {
-      const response = NextResponse.redirect(
-        buildForbiddenUrl(req, "society_required")
-      );
-      return addSecurityHeaders(response, requestId);
-    }
-    const response = NextResponse.next();
-    return addSecurityHeaders(response, requestId);
-  }
-
-  // ═══════════════════════════════════════════════════════════
-  // STEP 14: Default — allow through
-  // Any unmatched path is public by default
-  // Add to specific sections above if protection is needed
-  // ═══════════════════════════════════════════════════════════
-  const response = NextResponse.next();
-  return addSecurityHeaders(response, requestId);
-}
-
-// ═══════════════════════════════════════════════════════════════
-// 🔐 ROLE → DASHBOARD MAPPING
-// ═══════════════════════════════════════════════════════════════
-
-function getDashboardForRole(
-  role: UserRole | null,
-  req: NextRequest
-): string {
-  const base = new URL(req.url).origin;
-  switch (role) {
-    case "admin":
-      return `${base}/admin`;
-    case "developer":
-      return `${base}/developer/dashboard`;
-    case "agent":
-      return `${base}/agent/dashboard`;
-    case "society":
-      return `${base}/society/dashboard`;
-    default:
-      return `${base}/dashboard`;
-  }
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -531,11 +779,8 @@ function getDashboardForRole(
 export const config = {
   matcher: [
     /*
-     * Match all paths EXCEPT:
-     * - _next/static (static files)
-     * - _next/image (image optimization)
-     * - favicon.ico
-     * - public folder files
+     * Run middleware on all paths EXCEPT static assets.
+     * The middleware itself decides public vs protected.
      */
     "/((?!_next/static|_next/image|favicon.ico|images/|icons/|fonts/|og/).*)",
   ],
