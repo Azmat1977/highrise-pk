@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\auth\capabilities.ts
 import type { LegacyMarketplaceRole } from "./roles";
 
 export const CAPABILITY_VALUES = [

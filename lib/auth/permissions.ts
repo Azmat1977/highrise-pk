@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\auth\permissions.ts
 import type { Capability } from "./capabilities";
 import type { Role } from "./roles";
 

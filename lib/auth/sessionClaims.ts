@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\auth\sessionClaims.ts
 import {
   capabilityFromLegacyRole,
   normalizeCapabilities,

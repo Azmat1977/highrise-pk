@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\auth\roles.ts
 export const ROLE_VALUES = [
   "user",
   "reader",

@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\auth\index.ts
 export {
   type Actor,
   isUsableActor,

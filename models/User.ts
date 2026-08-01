@@ -406,13 +406,20 @@ function hmacSha256(value: string, secret: string): string {
 
 function getEncKeyBytes(): Buffer {
   const raw = process.env.KYC_ENC_KEY;
-  if (!raw) {
-    console.warn("⚠️ KYC_ENC_KEY missing! Using fallback for development only.");
-    // Fallback key for DEV ONLY to prevent crash (DO NOT USE IN PRODUCTION)
-    return Buffer.alloc(32, 'a'); 
+  if (!raw || raw.trim().length === 0) {
+    throw new Error(
+      "KYC_ENC_KEY is not configured. " +
+      "Set KYC_ENC_KEY to a base64-encoded 32-byte secret. " +
+      "Generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
+    );
   }
-  const key = Buffer.from(raw, "base64");
-  if (key.length !== 32) throw new Error("KYC_ENC_KEY must be 32 bytes");
+  const key = Buffer.from(raw.trim(), "base64");
+  if (key.length !== 32) {
+    throw new Error(
+      `KYC_ENC_KEY must decode to exactly 32 bytes (got ${key.length}). ` +
+      "Re-generate with: node -e \"console.log(require('crypto').randomBytes(32).toString('base64'))\""
+    );
+  }
   return key;
 }
 

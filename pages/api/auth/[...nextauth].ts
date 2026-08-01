@@ -90,7 +90,13 @@ function getUserAgent(req?: NextApiRequest): string {
  * ✅ Generate device fingerprint
  */
 function generateDeviceFingerprint(ip: string, userAgent: string): string {
-  const secret = process.env.NEXTAUTH_SECRET || "fallback-secret";
+  const secret = process.env.NEXTAUTH_SECRET;
+  if (!secret) {
+    // NEXTAUTH_SECRET is already required by NextAuth itself.
+    // If we reach here without it, NextAuth would have already failed.
+    // Return a non-identifying placeholder rather than a predictable fingerprint.
+    return "no-secret-configured";
+  }
   return crypto
     .createHmac("sha256", secret)
     .update(`${ip}:${userAgent}`)
@@ -110,13 +116,20 @@ function sleep(ms: number): Promise<void> {
 function hashValue(value: string): string {
   const secret =
     process.env.SECURITY_LOG_HASH_SECRET ||
-    process.env.NEXTAUTH_SECRET ||
-    "security-fallback-2025";
+    process.env.NEXTAUTH_SECRET;
+
+  if (!secret) {
+    // Cannot produce a meaningful hash without a secret.
+    // Return a fixed placeholder so logs remain consistent
+    // but contain no information derived from a known key.
+    return "no-secret-00000000";
+  }
+
   return crypto
     .createHmac("sha256", secret)
     .update(value || "unknown")
     .digest("hex")
-    .slice(0, 16); // ✅ Shortened for storage efficiency
+    .slice(0, 16);
 }
 
 /**
@@ -270,7 +283,7 @@ async function handleFailedLogin(
       $set: {
         "security.accountLockedAt": new Date(),
         "security.accountLockedUntil": lockUntil,
-        "security.lockReason": "too_many_failed_attempts",
+        "security.lockReason": "too_many_attempts",
         lockUntil: lockUntil,
       },
     }).catch(() => {});

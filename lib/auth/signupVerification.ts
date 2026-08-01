@@ -35,6 +35,23 @@ function getIdentifierHashSecret(): string {
   );
 }
 
+/**
+ * Hash a plaintext password with bcrypt for safe storage in SignupCode.formData.
+ *
+ * CORRECT SIGNUP FLOW (Sprint 3):
+ *   send-signup-code.ts   → hashSignupPasswordForStorage(password) → store hash
+ *   verify-signup-code.ts → read hash → User.create({ password: hash })
+ *                         → pre-save hook detects already-hashed → skips re-hash
+ *
+ * The plaintext password never touches MongoDB in any form.
+ */
+export async function hashSignupPasswordForStorage(
+  password: string
+): Promise<string> {
+  const bcrypt = await import("bcryptjs");
+  return bcrypt.hash(String(password || ""), 12);
+}
+
 export function generateSignupOtp(length: number = SIGNUP_OTP_LENGTH): string {
   if (!Number.isInteger(length) || length < 4 || length > 10) {
     throw new Error("OTP length must be an integer between 4 and 10");
@@ -80,6 +97,18 @@ function getTemporaryPasswordKey(): Buffer {
     .digest();
 }
 
+/**
+ * @deprecated GAP-S09 — Reversible password storage is a security violation.
+ * Authentication passwords must never be recoverable.
+ *
+ * MIGRATION (Sprint 3 Batch B):
+ *   send-signup-code.ts   → hash password with bcrypt at send time
+ *   verify-signup-code.ts → read hash directly, skip decryption entirely
+ *   After migration: delete encryptSignupPassword, decryptSignupPassword,
+ *   getTemporaryPasswordSecret, getTemporaryPasswordKey from this file.
+ *
+ * DO NOT use these functions in any new code.
+ */
 export function encryptSignupPassword(password: string): string {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv(
@@ -96,6 +125,10 @@ export function encryptSignupPassword(password: string): string {
   return `${iv.toString("base64")}.${ciphertext.toString("base64")}.${tag.toString("base64")}`;
 }
 
+/**
+ * @deprecated GAP-S09 — See encryptSignupPassword deprecation notice above.
+ * This function will be removed in Sprint 3 Batch B.
+ */
 export function decryptSignupPassword(payload: string): string {
   const parts = String(payload || "").split(".");
   if (parts.length !== 3) {

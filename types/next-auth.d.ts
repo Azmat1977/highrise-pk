@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\types\next-auth.d.ts
 import type { DefaultSession, DefaultUser } from "next-auth";
 import type {
   Capability,
