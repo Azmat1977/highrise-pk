@@ -48,7 +48,13 @@ export {
 } from "./authorization";
 
 export {
+  applySafeSessionUpdate,
   buildTrustedSessionClaims,
+  isPrivilegeEscalationAttempt,
+  SAFE_SESSION_UPDATE_FIELDS,
+  type SafeSessionUpdateField,
+  type SafeSessionUpdatePayload,
+  type SafeSessionUpdateResult,
   type SessionRole,
   type TrustedSessionClaimSource,
   type TrustedSessionClaims,

@@ -15,7 +15,9 @@ import User from "@/models/User";
 import SecurityEvent from "@/models/SecurityEvent";
 import type { DefaultSession, DefaultUser } from "next-auth";
 import {
+  applySafeSessionUpdate,
   buildTrustedSessionClaims,
+  isPrivilegeEscalationAttempt,
   type LegacyMarketplaceRole,
   type Role,
 } from "@/lib/auth";
@@ -1045,8 +1047,52 @@ export const authOptions: AuthOptions = {
         token.isInvalid = false;
       }
 
-      // ✅ Session update (profile changes)
-      { /* Client-controlled session claim updates are disabled. */ }
+      // ═══════════════════════════════════════════════════════════
+      // ✅ SESSION UPDATE — SAFE FIELD ALLOWLIST (Sprint 2 Batch B)
+      // ═══════════════════════════════════════════════════════════
+      // Client calls useSession().update({ ... }) → NextAuth invokes
+      // this callback with trigger === "update" and session === payload.
+      //
+      // We MUST NOT copy privileged fields (role, permissions,
+      // capabilities, kycVerified, tokenVersion, etc.) from the client
+      // payload. Those are database-owned and refreshed only via the
+      // periodic DB check below.
+      //
+      // Only fields listed in SAFE_SESSION_UPDATE_FIELDS are accepted.
+      // Any attempt to mutate other fields is logged as a security event.
+      if (trigger === "update" && session && typeof session === "object") {
+        const sanitized = applySafeSessionUpdate(session);
+
+        if (sanitized.updates.displayName !== undefined) {
+          token.displayName = sanitized.updates.displayName;
+        }
+
+        if (sanitized.updates.profilePicture !== undefined) {
+          token.profilePicture = sanitized.updates.profilePicture;
+        }
+
+        // Log privilege escalation attempts (never block auth for logging)
+        if (isPrivilegeEscalationAttempt(sanitized)) {
+          try {
+            await SecurityEvent.create({
+              userId: token.id,
+              email: typeof token.email === "string" ? token.email : undefined,
+              role: typeof token.role === "string" ? token.role : undefined,
+              type: "session_update_privilege_attempt",
+              ip: "no-secret-00000000",
+              userAgent: "no-secret-00000000",
+              metadata: {
+                rejectedFields: sanitized.rejectedFields,
+                trigger: "session_update",
+                tokenId: token.id,
+              },
+              createdAt: new Date(),
+            });
+          } catch {
+            // Silent fail — never block auth for logging
+          }
+        }
+      }
 
       // ✅ Periodic DB check (every 5 minutes)
       try {
