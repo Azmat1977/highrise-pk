@@ -13,6 +13,7 @@ import crypto from "crypto";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import SecurityEvent from "@/models/SecurityEvent";
+import AdminAuditLog from "@/models/AdminAuditLog";
 import type { DefaultSession, DefaultUser } from "next-auth";
 import {
   applySafeSessionUpdate,
@@ -406,11 +407,118 @@ type DbUser = {
     email?: boolean;
     verifiedAt?: Date;
   };
+  // Sprint 2 Batch C: Per-provider social account IDs
+  googleId?: string;
+  facebookId?: string;
+  // Legacy fields (deprecated Sprint 2 Batch C — kept for read compatibility)
   authProvider?: string;
   socialId?: string;
   save?: () => Promise<any>;
 };
 
+
+// ═══════════════════════════════════════════════════════════════
+// 🔐 SIGN-IN HELPERS (Sprint 2 Batch C)
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Update database record for a returning social login user.
+ * Trust anchor: providerAccountId matched an existing user's socialId.
+ */
+async function handleReturningSocialLogin(
+  dbUser: DbUser,
+  provider: "google" | "facebook",
+  oauthUser: any
+): Promise<void> {
+  const updateData: Record<string, unknown> = {
+    isVerified: true,
+    "verification.email": true,
+    "security.failedLoginAttempts": 0,
+    "security.accountLockedUntil": null,
+    "security.accountLockedAt": null,
+    "security.lockReason": null,
+    loginAttempts: 0,
+    lockUntil: null,
+    lastLoginAt: new Date(),
+  };
+
+  if (!dbUser.verification?.verifiedAt) {
+    updateData["verification.verifiedAt"] = new Date();
+  }
+
+  if (!dbUser.displayName && dbUser.name) {
+    updateData.displayName = dbUser.name.split(" ")[0];
+  }
+
+  if (!dbUser.profilePictureUrl && oauthUser.image) {
+    updateData.profilePictureUrl = oauthUser.image;
+  }
+
+  if (typeof dbUser.tokenVersion !== "number") {
+    updateData.tokenVersion = 0;
+  }
+
+  await User.findByIdAndUpdate(
+    dbUser._id,
+    {
+      $set: updateData,
+      $inc: { "security.totalSuccessfulLogins": 1 },
+    },
+    { new: true }
+  ).catch(() => {});
+
+  await logSecurityEvent({
+    userId: dbUser._id.toString(),
+    email: dbUser.email,
+    role: dbUser.role,
+    type: "login_success",
+    metadata: {
+      provider,
+      isNewUser: false,
+      matchedBy: "socialId",
+    },
+  });
+}
+
+/**
+ * Inject trusted session claims from DB user into the NextAuth user object.
+ * The NextAuth user object flows into the jwt callback.
+ */
+function injectSessionClaimsIntoUser(user: any, dbUser: DbUser): void {
+  const trustedClaims = buildTrustedSessionClaims(dbUser);
+
+  user.id = dbUser._id.toString();
+  user.role = trustedClaims.role;
+  user.authorityRole = trustedClaims.authorityRole;
+  user.capabilities = trustedClaims.capabilities;
+  user.isVerified = dbUser.isVerified;
+  user.kycVerified = Boolean((dbUser as any).kycVerified);
+  user.isVerifiedOwner = Boolean((dbUser as any).isVerifiedOwner);
+  user.ownerVerificationStatus =
+    (dbUser as any).ownerVerificationStatus ?? "none";
+  user.isVerifiedAgent = Boolean((dbUser as any).isVerifiedAgent);
+  user.agentVerificationStatus =
+    (dbUser as any).agentVerificationStatus ?? "none";
+  user.onboardingStatus = (dbUser as any).onboardingStatus ?? "none";
+  user.onboardingRole = (dbUser as any).onboardingRole ?? null;
+  user.phoneNumber = dbUser.phone;
+  user.isPhoneVerified = Boolean((dbUser as any).isPhoneVerified);
+  user.needsPhone = !dbUser.phone;
+  user.profilePicture = dbUser.profilePictureUrl;
+  user.permissions = trustedClaims.permissions;
+  user.tokenVersion =
+    typeof dbUser.tokenVersion === "number" ? dbUser.tokenVersion : 0;
+  user.rememberMe = true;
+  user.name = dbUser.name || user.name || "User";
+  user.displayName =
+    dbUser.displayName ||
+    (dbUser.name ? dbUser.name.split(" ")[0] : null) ||
+    "User";
+
+  if (dbUser.profilePictureUrl) {
+    user.image = dbUser.profilePictureUrl;
+  }
+}
 
 // ═══════════════════════════════════════════════════════════════
 // ✅ NEXTAUTH CONFIGURATION - ENTERPRISE HARDENED
@@ -838,172 +946,287 @@ export const authOptions: AuthOptions = {
     },
 
     // ═══════════════════════════════════════════════════════════════
-    // ✅ SIGN-IN CALLBACK - SOCIAL LOGIN HANDLING
+    // ✅ SIGN-IN CALLBACK — STRICT SOCIAL ACCOUNT MATCHING
+    // ═══════════════════════════════════════════════════════════════
+    //
+    // GAP-C01 (Sprint 2 Batch C): Prevents account takeover via
+    // email-based auto-linking of social accounts.
+    //
+    // RULES:
+    //   1. New email + new social ID  → Create fresh account
+    //   2. Existing email + matching social ID → Allow login
+    //   3. Existing email + no linked social  → REFUSE (auto-link disabled)
+    //   4. Existing email + different social ID → REFUSE (conflict detected)
+    //
+    // For cases 3 and 4, the user must:
+    //   - Log in with their existing credentials, then
+    //   - Explicitly link the social account from their dashboard
+    //
+    // All refusals and conflicts are logged to both SecurityEvent
+    // (for rate limiting / analysis) and AdminAuditLog (for audit trail).
     // ═══════════════════════════════════════════════════════════════
     async signIn({ user, account }: any) {
-      if (account?.provider === "google" || account?.provider === "facebook") {
-        try {
-          await dbConnect();
+      // Non-social providers (credentials) — no linking logic
+      if (account?.provider !== "google" && account?.provider !== "facebook") {
+        return true;
+      }
 
-          const email = user.email?.toLowerCase();
-          if (!email) {
+      const provider = account.provider as "google" | "facebook";
+      const providerAccountId = String(account.providerAccountId || "").trim();
+
+      try {
+        await dbConnect();
+
+        const email = user.email?.toLowerCase().trim();
+
+        // ─── Guard: OAuth provider must return email ───
+        if (!email) {
+          await logSecurityEvent({
+            email: "unknown",
+            type: "login_failed",
+            metadata: {
+              reason: "no_email_from_provider",
+              provider,
+            },
+          });
+          return false;
+        }
+
+        // ─── Guard: OAuth provider must return stable account ID ───
+        if (!providerAccountId) {
+          await logSecurityEvent({
+            email,
+            type: "login_failed",
+            metadata: {
+              reason: "no_provider_account_id",
+              provider,
+            },
+          });
+          return false;
+        }
+
+        const socialIdField = provider === "google" ? "googleId" : "facebookId";
+
+        // ─── STEP 1: Find user by SOCIAL ID first (most trustworthy) ───
+        const userBySocialId = (await User.findOne({
+          [socialIdField]: providerAccountId,
+          isDeleted: { $ne: true },
+        }).select(
+          "email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification googleId facebookId +security"
+        )) as unknown as DbUser | null;
+
+        // ─── STEP 2: Find user by EMAIL (may or may not match) ───
+        const userByEmail = (await User.findOne({
+          email,
+          isDeleted: { $ne: true },
+        }).select(
+          "email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification googleId facebookId +security"
+        )) as unknown as DbUser | null;
+
+        // ═══════════════════════════════════════════════════════════
+        // CASE A: Social ID matches existing user
+        // → Trusted login (this is the returning user)
+        // ═══════════════════════════════════════════════════════════
+        if (userBySocialId) {
+          // Sanity check: email from provider must match user's stored email
+          // (Provider could theoretically change email — treat as conflict)
+          if (userBySocialId.email.toLowerCase() !== email) {
             await logSecurityEvent({
-              email: "unknown",
-              type: "login_failed",
+              userId: userBySocialId._id.toString(),
+              email,
+              type: "login_blocked",
               metadata: {
-                reason: "no_email_from_provider",
-                provider: account.provider,
+                reason: "social_email_mismatch",
+                provider,
+                storedEmail: userBySocialId.email,
+                providerEmail: email,
               },
             });
+
+            await AdminAuditLog.create({
+              action: "social_account_conflict_detected",
+              entityType: "security",
+              entityId: userBySocialId._id,
+              entityLabel: userBySocialId.email,
+              outcome: "failed",
+              severity: "critical",
+              reason: `${provider} account email changed from ${userBySocialId.email} to ${email}`,
+              meta: {
+                provider,
+                providerAccountId,
+                storedEmail: userBySocialId.email,
+                providerEmail: email,
+              },
+            }).catch(() => {});
+
             return false;
           }
 
-          let dbUser = (await User.findOne({
-            email,
-            isDeleted: { $ne: true },
-          }).select("email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification authProvider socialId +security")) as unknown as DbUser | null;
-
-          if (!dbUser) {
-            // ✅ NEW USER - Auto-create with verified status
-            const name = user.name || email.split("@")[0];
-            const displayName = name.split(" ")[0];
-
-            dbUser = (await User.create({
-              email,
-              name,
-              displayName,
-              profilePictureUrl: user.image || "",
-              isVerified: true, // ✅ Auto-verify social logins
-              isDeleted: false,
-              role: "user",
-              capabilities: [],
-              permissions: [],
-              status: "active",
-              tokenVersion: 0,
-              verification: {
-                email: true,
-                verifiedAt: new Date(),
-              },
-              security: {
-                totalSuccessfulLogins: 1,
-                lastSuccessfulLoginAt: new Date(),
-                failedLoginAttempts: 0,
-                accountLockedUntil: null,
-                accountLockedAt: null,
-                lockReason: null,
-              },
-              auditTrail: { createdVia: "social_login" },
-              authProvider: account.provider,
-              socialId: account.providerAccountId,
-            } as any)) as unknown as DbUser;
-
-            if (!dbUser) return false;
-
-            await logSecurityEvent({
-              userId: dbUser._id.toString(),
-              email: dbUser.email,
-              role: dbUser.role,
-              type: "login_success",
-              metadata: {
-                provider: account.provider,
-                isNewUser: true,
-                registrationMethod: "social_login",
-              },
-            });
-          } else {
-            // ✅ EXISTING USER
-            if (dbUser.status && dbUser.status !== "active") return false;
-            if (isAccountLocked(dbUser)) return false;
-
-            // ✅ Prepare update object
-            const updateData: any = {
-              isVerified: true,
-              "verification.email": true,
-              "security.failedLoginAttempts": 0,
-              "security.accountLockedUntil": null,
-              "security.accountLockedAt": null,
-              "security.lockReason": null,
-              loginAttempts: 0,
-              lockUntil: null,
-              lastLoginAt: new Date(),
-            };
-
-            // ✅ Set verifiedAt only if not already set
-            if (!dbUser.verification?.verifiedAt) {
-              updateData["verification.verifiedAt"] = new Date();
-            }
-
-            // ✅ Update displayName if missing
-            if (!dbUser.displayName && dbUser.name) {
-              updateData.displayName = dbUser.name.split(" ")[0];
-            }
-
-            // ✅ Update profile picture if missing
-            if (!dbUser.profilePictureUrl && user.image) {
-              updateData.profilePictureUrl = user.image;
-            }
-
-            // ✅ Ensure tokenVersion exists
-            if (typeof dbUser.tokenVersion !== "number") {
-              updateData.tokenVersion = 0;
-            }
-
-            // ✅ Single atomic update
-            await User.findByIdAndUpdate(
-              dbUser._id,
-              {
-                $set: updateData,
-                $inc: { "security.totalSuccessfulLogins": 1 },
-              },
-              { new: true }
-            );
-
-            await logSecurityEvent({
-              userId: dbUser._id.toString(),
-              email: dbUser.email,
-              role: dbUser.role,
-              type: "login_success",
-              metadata: {
-                provider: account.provider,
-                isNewUser: false,
-              },
-            });
+          if (userBySocialId.status && userBySocialId.status !== "active") {
+            return false;
           }
 
-          if (!dbUser) return false;
+          if (isAccountLocked(userBySocialId)) {
+            return false;
+          }
 
-          // ✅ Inject data into NextAuth user object
-          const trustedClaims = buildTrustedSessionClaims(dbUser);
+          await handleReturningSocialLogin(
+            userBySocialId,
+            provider,
+            user
+          );
 
-          (user as any).id = dbUser._id.toString();
-          (user as any).role = trustedClaims.role;
-          (user as any).authorityRole = trustedClaims.authorityRole;
-          (user as any).capabilities = trustedClaims.capabilities;
-          (user as any).isVerified = dbUser.isVerified;
-          (user as any).phoneNumber = dbUser.phone;
-          // 🆕 V6.9.0 — Phone verification flags for lead capture
-          (user as any).isPhoneVerified = Boolean((dbUser as any).isPhoneVerified);
-          (user as any).needsPhone = !dbUser.phone;
-          (user as any).profilePicture = dbUser.profilePictureUrl;
-          (user as any).permissions = trustedClaims.permissions;
-          (user as any).tokenVersion =
-            typeof dbUser.tokenVersion === "number" ? dbUser.tokenVersion : 0;
-          (user as any).rememberMe = true; // ✅ Social logins default to "Remember me"
-          (user as any).name = dbUser.name || user.name || "User";
-          (user as any).displayName =
-            dbUser.displayName ||
-            (dbUser.name ? dbUser.name.split(" ")[0] : null) ||
-            "User";
-
-          user.image = dbUser.profilePictureUrl || user.image;
-
+          injectSessionClaimsIntoUser(user, userBySocialId);
           return true;
-        } catch {
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        // CASE B: No user with this social ID
+        // BUT email exists with DIFFERENT (or no) social ID
+        // → REFUSE — potential takeover attempt
+        // ═══════════════════════════════════════════════════════════
+        if (userByEmail) {
+          const existingSocialId = (userByEmail as any)[socialIdField];
+
+          if (existingSocialId && existingSocialId !== providerAccountId) {
+            // Different social ID already linked for this provider
+            // Definitely a takeover attempt or account confusion
+            await logSecurityEvent({
+              userId: userByEmail._id.toString(),
+              email,
+              type: "login_blocked",
+              metadata: {
+                reason: "social_id_mismatch",
+                provider,
+                attemptedProviderAccountId: providerAccountId,
+              },
+            });
+
+            await AdminAuditLog.create({
+              action: "social_account_conflict_detected",
+              entityType: "security",
+              entityId: userByEmail._id,
+              entityLabel: email,
+              outcome: "failed",
+              severity: "critical",
+              reason: `Different ${provider} account attempted login for existing user`,
+              meta: {
+                provider,
+                attemptedProviderAccountId: providerAccountId,
+                existingProviderAccountId: existingSocialId,
+              },
+            }).catch(() => {});
+
+            return false;
+          }
+
+          // No social account linked → refuse auto-link (GAP-C01 core defence)
+          await logSecurityEvent({
+            userId: userByEmail._id.toString(),
+            email,
+            type: "login_blocked",
+            metadata: {
+              reason: "social_auto_link_refused",
+              provider,
+              hint: "User must log in with credentials and link social account manually",
+            },
+          });
+
+          await AdminAuditLog.create({
+            action: "social_account_link_refused",
+            entityType: "security",
+            entityId: userByEmail._id,
+            entityLabel: email,
+            outcome: "failed",
+            severity: "high",
+            reason: `Auto-link refused: existing account has no ${provider} linked. User must link manually from dashboard.`,
+            meta: {
+              provider,
+              providerAccountId,
+              existingProviders: {
+                google: Boolean((userByEmail as any).googleId),
+                facebook: Boolean((userByEmail as any).facebookId),
+              },
+            },
+          }).catch(() => {});
+
           return false;
         }
-      }
 
-      return true;
+        // ═══════════════════════════════════════════════════════════
+        // CASE C: New user (no email, no social ID matches)
+        // → Create fresh account with social ID linked
+        // ═══════════════════════════════════════════════════════════
+        const name = user.name || email.split("@")[0];
+        const displayName = name.split(" ")[0];
+
+        const createData: Record<string, unknown> = {
+          email,
+          name,
+          displayName,
+          profilePictureUrl: user.image || "",
+          isVerified: true,
+          isDeleted: false,
+          role: "user",
+          capabilities: [],
+          permissions: [],
+          status: "active",
+          tokenVersion: 0,
+          verification: {
+            email: true,
+            verifiedAt: new Date(),
+          },
+          security: {
+            totalSuccessfulLogins: 1,
+            lastSuccessfulLoginAt: new Date(),
+            failedLoginAttempts: 0,
+            accountLockedUntil: null,
+            accountLockedAt: null,
+            lockReason: null,
+          },
+          auditTrail: { createdVia: "social_login" },
+        };
+
+        createData[socialIdField] = providerAccountId;
+
+        const newUser = (await User.create(createData)) as unknown as DbUser;
+
+        if (!newUser) {
+          return false;
+        }
+
+        await logSecurityEvent({
+          userId: newUser._id.toString(),
+          email: newUser.email,
+          role: newUser.role,
+          type: "login_success",
+          metadata: {
+            provider,
+            isNewUser: true,
+            registrationMethod: "social_login",
+          },
+        });
+
+        await AdminAuditLog.create({
+          action: "social_account_linked",
+          entityType: "user",
+          entityId: newUser._id,
+          entityLabel: newUser.email,
+          outcome: "success",
+          severity: "low",
+          reason: `${provider} account linked at signup`,
+          meta: {
+            provider,
+            providerAccountId,
+            registrationMethod: "social_login",
+          },
+        }).catch(() => {});
+
+        injectSessionClaimsIntoUser(user, newUser);
+        return true;
+      } catch {
+        return false;
+      }
     },
 
     // ═══════════════════════════════════════════════════════════════

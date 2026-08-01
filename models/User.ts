@@ -488,9 +488,11 @@ const UserSchema = new Schema<IUser>(
     role: { type: String, enum: ["user", "reader", "writer", "editor", "moderator", "finance", "admin", "superadmin", "developer", "agent", "society"], default: "user", index: true },
     accountType: { type: String, enum: ["individual", "company"], default: "individual" },
     
-    // Social
-    googleId: { type: String, sparse: true },
-    facebookId: { type: String, sparse: true },
+    // Social — Sprint 2 Batch C
+    // Sparse unique: each social ID can link to at most ONE user
+    // Prevents duplicate accounts + enforces 1:1 provider account mapping
+    googleId: { type: String, sparse: true, unique: true, index: true },
+    facebookId: { type: String, sparse: true, unique: true, index: true },
     
     // Contact
     phone: { type: String, sparse: true },

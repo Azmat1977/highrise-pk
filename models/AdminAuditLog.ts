@@ -74,6 +74,12 @@ export const ADMIN_ACTIONS = [
   "bulk_action_performed",
   "security_alert_reviewed",
   "data_export",
+
+  // ── Social account linking (Sprint 2 Batch C) ──
+  "social_account_linked",
+  "social_account_unlinked",
+  "social_account_link_refused",
+  "social_account_conflict_detected",
 ] as const;
 
 export type AdminAction = (typeof ADMIN_ACTIONS)[number];
@@ -88,6 +94,7 @@ export const AUDIT_ENTITY_TYPES = [
   "project",
   "blog",
   "system",
+  "security",
 ] as const;
 
 export type AuditEntityType = (typeof AUDIT_ENTITY_TYPES)[number];
@@ -166,6 +173,14 @@ export const ACTION_SEVERITY_MAP: Record<AdminAction, AuditSeverityLevel> = {
   property_permanently_deleted: "high",
   project_permanently_deleted: "high",
   blog_permanently_deleted: "high",
+
+  // Social account linking (Sprint 2 Batch C)
+  // Low: routine linking/unlinking by owner
+  social_account_linked: "low",
+  social_account_unlinked: "low",
+  // High: attempted takeover — refusals and conflicts are security-critical
+  social_account_link_refused: "high",
+  social_account_conflict_detected: "critical",
 };
 
 // ─── TypeScript Interface ─────────────────────────────────────────────────────
