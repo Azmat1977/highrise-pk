@@ -59,3 +59,11 @@ export {
   type TrustedSessionClaimSource,
   type TrustedSessionClaims,
 } from "./sessionClaims";
+
+export {
+  validatePassword,
+  assertValidPassword,
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
+  type PasswordValidationResult,
+} from "./passwordPolicy";
