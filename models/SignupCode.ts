@@ -40,7 +40,10 @@ export interface ISignupCode extends Document {
     ntnNumber?: string;
     officeAddress?: string;
     homeAddress?: string;
-    passwordEnc?: string; // ✅ AES-256-GCM encrypted, not plaintext
+    /** @deprecated Sprint 3 Batch B — use passwordHash instead */
+    passwordEnc?: string;
+    /** bcrypt hash stored at send time (Sprint 3 Batch B — GAP-S09 fix) */
+    passwordHash?: string;
     [key: string]: any;
   };
 
@@ -155,8 +158,8 @@ const SignupCodeSchema = new Schema<ISignupCode>(
       required: [true, "Form data is required"],
       validate: {
         validator: function (v: unknown) {
-          // ✅ Reject any formData containing raw `password` field
-          // Correct field is always passwordEnc (AES-256-GCM encrypted)
+          // Reject any formData containing raw `password` field.
+          // Correct field is passwordHash (bcrypt) — never raw plaintext.
           if (
             v !== null &&
             typeof v === "object" &&
@@ -167,7 +170,7 @@ const SignupCodeSchema = new Schema<ISignupCode>(
           return true;
         },
         message:
-          "Raw password field is not allowed in formData. Use passwordEnc (AES-256-GCM encrypted).",
+          "Raw password field is not allowed in formData. Use passwordHash (bcrypt).",
       },
     },
 

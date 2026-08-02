@@ -29,6 +29,10 @@ const OTP_EXPIRY_MINUTES = 10;
 const MAX_PENDING_CODES_PER_EMAIL = 3;
 const MAX_SIGNUP_ATTEMPTS_PER_IP_DAILY = 10;
 
+// ✅ Resend Policy
+const RESEND_COOLDOWN_SECONDS = 60; // Minimum gap between resends
+const MAX_RESENDS = 5;              // Max resends per signup session
+
 // ✅ Pakistan Phone Regex
 const PAKISTAN_PHONE_REGEX = /^(\+92|0)?3\d{9}$/;
 
@@ -884,70 +888,186 @@ export default async function handler(
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 11: Generate OTP and Store
+    // STEP 11: Detect first-send vs resend, enforce resend policy
     // ═══════════════════════════════════════════════════════════
-    const otpCode = generateSecureOTP();
-    const otpHash = hashOtp(email, otpCode);
-    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    // Hash password at send time — stored as bcrypt hash, never as plaintext or
-    // reversible ciphertext. verify-signup-code.ts reads this hash and passes it
-    // directly to User.create() — the pre-save middleware skips re-hashing when
-    // it detects a $2a$/$2b$ prefix. (GAP-S09 FIXED — Sprint 3 Batch B)
-    const BCRYPT_ROUNDS = 12;
-    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
-
-    const previousSignupCode = await SignupCode.findOne({
+    // Check for existing non-expired record for this email
+    const existingRecord = await SignupCode.findOne({
       email,
       codeType: SIGNUP_CODE_TYPE,
+      isVerified: false,
+      expiresAt: { $gt: new Date() },
     })
       .sort({ updatedAt: -1, createdAt: -1 })
       .lean();
 
-    // Atomically replace the pending email-verification challenge.
-    const signupCodeRecord = await SignupCode.findOneAndUpdate(
-      { email, codeType: SIGNUP_CODE_TYPE },
-      {
-        $set: {
-          code: otpHash,
-          expiresAt,
+    const isResend = Boolean(existingRecord);
+
+    if (isResend && existingRecord) {
+      // ── Enforce resend limit ──────────────────────────────────
+      const currentResendCount = Number(
+        (existingRecord as any).resendCount ?? 0
+      );
+
+      if (currentResendCount >= MAX_RESENDS) {
+        await logSignupAttempt({
+          email,
+          ip,
+          userAgent,
+          action: "resend_limit_exceeded",
+          success: false,
+          reason: `Resend limit (${MAX_RESENDS}) reached`,
+          requestId,
+        });
+
+        return sendError(
+          res,
+          429,
+          "Maximum resend limit reached. Please wait for your code to expire and try again.",
+          requestId,
+          "RESEND_LIMIT_EXCEEDED"
+        );
+      }
+
+      // ── Enforce cooldown between resends ─────────────────────
+      const lastResentAt = (existingRecord as any).lastResentAt
+        ? new Date((existingRecord as any).lastResentAt)
+        : null;
+
+      // Also check first send time (createdAt) as the initial "sent" marker
+      const firstSentAt = (existingRecord as any).meta?.createdAt
+        ? new Date((existingRecord as any).meta.createdAt)
+        : null;
+
+      const lastSentMs = Math.max(
+        lastResentAt ? lastResentAt.getTime() : 0,
+        firstSentAt ? firstSentAt.getTime() : 0
+      );
+
+      if (lastSentMs > 0) {
+        const secondsSinceLastSend = Math.floor(
+          (Date.now() - lastSentMs) / 1000
+        );
+
+        if (secondsSinceLastSend < RESEND_COOLDOWN_SECONDS) {
+          const waitSeconds = RESEND_COOLDOWN_SECONDS - secondsSinceLastSend;
+
+          await logSignupAttempt({
+            email,
+            ip,
+            userAgent,
+            action: "resend_cooldown_active",
+            success: false,
+            reason: `Cooldown active, ${waitSeconds}s remaining`,
+            requestId,
+          });
+
+          return sendError(
+            res,
+            429,
+            `Please wait ${waitSeconds} seconds before requesting a new code.`,
+            requestId,
+            "RESEND_COOLDOWN"
+          );
+        }
+      }
+    }
+
+    // ── Generate new OTP ─────────────────────────────────────────
+    const otpCode = generateSecureOTP();
+    const otpHash = hashOtp(email, otpCode);
+    const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
+
+    // Hash password at send time — stored as bcrypt hash, never as plaintext
+    // or reversible ciphertext. verify-signup-code.ts reads this hash and
+    // passes it directly to User.create(). The pre-save middleware detects the
+    // $2a$/$2b$ prefix and skips re-hashing. (GAP-S09 FIXED — Sprint 3 Batch B)
+    const BCRYPT_ROUNDS = 12;
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+
+    // ── Persist challenge (first-send: upsert | resend: $inc resendCount) ──
+    let signupCodeRecord: any;
+
+    if (isResend && existingRecord) {
+      // RESEND: update OTP + increment resendCount + set lastResentAt
+      // Do NOT reset resendCount — preserve the count for limit enforcement
+      signupCodeRecord = await SignupCode.findOneAndUpdate(
+        {
+          email,
           codeType: SIGNUP_CODE_TYPE,
           isVerified: false,
-          verifiedAt: null,
-          attempts: 0,
-          maxAttempts: 5,
-          lastAttemptAt: null,
-          resendCount: 0,
-          maxResends: 5,
-          lastResentAt: null,
-          formData: {
-            email,
-            fullName,
-            phone: normalizedPhone || "",
-            country,
-            accountType,
-            city,
-            homeAddress,
-            passwordHash,
+          expiresAt: { $gt: new Date() },
+        },
+        {
+          $set: {
+            code: otpHash,
+            expiresAt,
+            attempts: 0,
+            lastAttemptAt: null,
+            lastResentAt: new Date(),
+            formData: {
+              email,
+              fullName,
+              phone: normalizedPhone || "",
+              country,
+              accountType,
+              city,
+              homeAddress,
+              passwordHash,
+            },
+            "meta.userAgent": userAgent,
+            "meta.requestId": requestId,
+            "meta.pwAlgo": "bcrypt",
           },
-          meta: {
-            ipHash,
-            userAgent,
-            createdAt: new Date(),
-            requestId,
-            codeAlgo: "hmac-sha256",
-            pwAlgo: "bcrypt",
+          $inc: { resendCount: 1 },
+        },
+        { new: true }
+      );
+    } else {
+      // FIRST SEND: upsert fresh record with resendCount: 0
+      signupCodeRecord = await SignupCode.findOneAndUpdate(
+        { email, codeType: SIGNUP_CODE_TYPE },
+        {
+          $set: {
+            code: otpHash,
+            expiresAt,
+            codeType: SIGNUP_CODE_TYPE,
+            isVerified: false,
+            verifiedAt: null,
+            attempts: 0,
+            maxAttempts: 5,
+            lastAttemptAt: null,
+            resendCount: 0,
+            maxResends: MAX_RESENDS,
+            lastResentAt: null,
+            formData: {
+              email,
+              fullName,
+              phone: normalizedPhone || "",
+              country,
+              accountType,
+              city,
+              homeAddress,
+              passwordHash,
+            },
+            meta: {
+              ipHash,
+              userAgent,
+              createdAt: new Date(),
+              requestId,
+              codeAlgo: "hmac-sha256",
+              pwAlgo: "bcrypt",
+            },
           },
         },
-      },
-      {
-        upsert: true,
-        new: true,
-        runValidators: true,
-        setDefaultsOnInsert: true,
-        sort: { updatedAt: -1, createdAt: -1 },
-      }
-    );
+        {
+          upsert: true,
+          new: true,
+          runValidators: true,
+          setDefaultsOnInsert: true,
+        }
+      );
+    }
 
     if (!signupCodeRecord) {
       throw new Error("Unable to create signup verification challenge");
@@ -959,33 +1079,12 @@ export default async function handler(
     const emailSent = await sendVerificationEmail(email, otpCode);
 
     if (!emailSent) {
-      if (previousSignupCode) {
-        // Restore the previous usable challenge only when this request still
-        // owns the current hash. A newer concurrent request always wins.
-        await SignupCode.updateOne(
-          {
-            _id: signupCodeRecord._id,
-            code: otpHash,
-            codeType: SIGNUP_CODE_TYPE,
-          },
-          {
-            $set: {
-              code: String((previousSignupCode as any).code || ""),
-              expiresAt: (previousSignupCode as any).expiresAt,
-              isVerified: Boolean((previousSignupCode as any).isVerified),
-              verifiedAt: (previousSignupCode as any).verifiedAt || null,
-              attempts: Number((previousSignupCode as any).attempts || 0),
-              maxAttempts: Number((previousSignupCode as any).maxAttempts || 5),
-              lastAttemptAt: (previousSignupCode as any).lastAttemptAt || null,
-              resendCount: Number((previousSignupCode as any).resendCount || 0),
-              maxResends: Number((previousSignupCode as any).maxResends || 5),
-              lastResentAt: (previousSignupCode as any).lastResentAt || null,
-              formData: (previousSignupCode as any).formData || {},
-              meta: (previousSignupCode as any).meta || {},
-            },
-          }
-        ).catch(() => {});
-      } else {
+      // Email delivery failed.
+      // For first-send: delete the record so user can retry cleanly.
+      // For resend: leave the record intact — the previous OTP may still be
+      // valid. The resendCount was already incremented so the user retains
+      // their remaining resend budget.
+      if (!isResend) {
         await SignupCode.deleteOne({
           _id: signupCodeRecord._id,
           code: otpHash,
