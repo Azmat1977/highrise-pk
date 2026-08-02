@@ -91,8 +91,6 @@ interface UserFullDoc {
   isVerified?:       boolean;
   isDeleted?:        boolean;
   deletedAt?:        Date;
-  loginAttempts?:    number;
-  lockUntil?:        Date;
   lastLoginAt?:      Date;
   tokenVersion?:     number;
   createdAt?:        Date;
@@ -107,7 +105,6 @@ interface UserFullDoc {
 
 interface RiskCalcInput {
   status?: string;
-  loginAttempts?: number;
   createdAt?: Date;
   isVerified?: boolean;
   security?: {
@@ -152,7 +149,7 @@ function calculateRiskScore(
   if (user.status === 'suspended') score += 30;
   if (user.status === 'pending')   score += 10;
 
-  const failedAttempts = user.security?.failedLoginAttempts ?? user.loginAttempts ?? 0;
+  const failedAttempts = user.security?.failedLoginAttempts ?? 0;
   if (failedAttempts > 5)      score += 25;
   else if (failedAttempts > 3) score += 15;
   else if (failedAttempts > 0) score += 5;
@@ -280,7 +277,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           account: {
             ageInDays:           accountAgeInDays,
             lastLogin:           user.lastLoginAt?.toISOString() ?? null,
-            failedLoginAttempts: user.security?.failedLoginAttempts ?? user.loginAttempts ?? 0,
+            failedLoginAttempts: user.security?.failedLoginAttempts ?? 0,
             totalSuccessfulLogins: user.security?.totalSuccessfulLogins ?? 0,
             tokenVersion:        user.tokenVersion ?? 0,
             isLocked,
@@ -387,13 +384,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Unlock account
       if (unlockAccount === true) {
-        targetUser.loginAttempts = 0;
-        targetUser.lockUntil = undefined;
-        if (targetUser.security) {
-          targetUser.security.failedLoginAttempts = 0;
-          targetUser.security.accountLockedUntil = undefined;
-          targetUser.security.lockReason = undefined;
-        }
+        // security subdocument is always present after pre("save") initialisation.
+        // Write directly via findByIdAndUpdate to avoid Mongoose cast issues
+        // when the subdocument is undefined on a lean/partial fetch.
+        await User.findByIdAndUpdate(targetUser._id, {
+          $set: {
+            "security.failedLoginAttempts": 0,
+            "security.accountLockedUntil": null,
+            "security.accountLockedAt": null,
+            "security.lockReason": null,
+          },
+        });
         changesAfter.unlockAccount = true;
       }
 

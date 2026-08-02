@@ -222,9 +222,7 @@ export interface IUser extends Document {
   // Legacy Auth Fields
   resetToken?: string;
   resetTokenExpiry?: number;
-  loginAttempts?: number;
-  lockUntil?: Date;
-  
+
   // Session Security
   tokenVersion?: number;
 
@@ -655,8 +653,6 @@ const UserSchema = new Schema<IUser>(
     lastLoginAt: { type: Date },
     resetToken: { type: String, select: false },
     resetTokenExpiry: { type: Number },
-    loginAttempts: { type: Number, default: 0 },
-    lockUntil: { type: Date, default: null },
     tokenVersion: { type: Number, default: 0, index: true },
 
     location: {

@@ -194,53 +194,47 @@ async function checkSuspiciousActivity(ip: string): Promise<boolean> {
 // 🔐 ACCOUNT LOCK HELPERS - UNIFIED
 // ═══════════════════════════════════════════════════════════════
 
-function toMs(d: any): number {
+function toMs(d: unknown): number {
   if (!d) return 0;
-  const ms = new Date(d).getTime();
+  const ms = new Date(d as string).getTime();
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function getUnifiedAttempts(user: any): number {
+// ONE source of truth: security.failedLoginAttempts only
+function getAttempts(user: any): number {
   const a = Number(user?.security?.failedLoginAttempts ?? 0);
-  const b = Number(user?.loginAttempts ?? 0);
-  return Math.max(Number.isFinite(a) ? a : 0, Number.isFinite(b) ? b : 0);
+  return Number.isFinite(a) ? a : 0;
 }
 
-function getUnifiedLockedUntilMs(user: any): number {
-  const newMs = toMs(user?.security?.accountLockedUntil);
-  const legacyMs = toMs(user?.lockUntil);
-  return Math.max(newMs, legacyMs);
+// ONE source of truth: security.accountLockedUntil only
+function getLockedUntilMs(user: any): number {
+  return toMs(user?.security?.accountLockedUntil);
 }
 
 function isAccountLocked(user: any): boolean {
-  const untilMs = getUnifiedLockedUntilMs(user);
+  const untilMs = getLockedUntilMs(user);
   if (!untilMs) return false;
   return Date.now() < untilMs;
 }
 
 function getRemainingLockTimeMinutes(user: any): number {
-  const untilMs = getUnifiedLockedUntilMs(user);
+  const untilMs = getLockedUntilMs(user);
   if (!untilMs) return 0;
   const remaining = untilMs - Date.now();
   return remaining <= 0 ? 0 : Math.ceil(remaining / 60000);
 }
 
+// ONE source of truth: security.lastFailedLoginAt only
 function getLastFailedAtMs(user: any): number {
-  return Math.max(
-    toMs(user?.security?.lastFailedLoginAt),
-    toMs(user?.lastFailedLoginAt),
-    toMs(user?.lastLoginAttemptAt),
-    toMs(user?.lastFailedAt)
-  );
+  return toMs(user?.security?.lastFailedLoginAt);
 }
 
-async function clearExpiredLockAndMaybeReset(userId: any): Promise<void> {
+async function clearExpiredLock(userId: any): Promise<void> {
   await User.findByIdAndUpdate(userId, {
     $set: {
       "security.accountLockedAt": null,
       "security.accountLockedUntil": null,
       "security.lockReason": null,
-      lockUntil: null,
     },
   }).catch(() => {});
 }
@@ -249,7 +243,6 @@ async function resetAttempts(userId: any): Promise<void> {
   await User.findByIdAndUpdate(userId, {
     $set: {
       "security.failedLoginAttempts": 0,
-      loginAttempts: 0,
     },
   }).catch(() => {});
 }
@@ -267,17 +260,16 @@ async function handleFailedLogin(
     {
       $inc: {
         "security.failedLoginAttempts": 1,
-        loginAttempts: 1,
       },
       $set: {
         "security.lastFailedLoginAt": new Date(),
         "security.lastFailedLoginIp": ip,
       },
     },
-    { new: true, select: "security loginAttempts email role" }
+    { new: true, select: "security email role" }
   );
 
-  const attempts = getUnifiedAttempts(updatedUser);
+  const attempts = getAttempts(updatedUser);
 
   if (attempts >= MAX_LOGIN_ATTEMPTS) {
     const lockUntil = new Date(Date.now() + LOCK_DURATION_MINUTES * 60 * 1000);
@@ -287,7 +279,6 @@ async function handleFailedLogin(
         "security.accountLockedAt": new Date(),
         "security.accountLockedUntil": lockUntil,
         "security.lockReason": "too_many_attempts",
-        lockUntil: lockUntil,
       },
     }).catch(() => {});
 
@@ -328,8 +319,6 @@ async function handleSuccessfulLogin(
       "security.lastSuccessfulLoginAt": new Date(),
       "security.lastSuccessfulLoginIp": ip,
       "security.lastSuccessfulLoginDevice": userAgent,
-      loginAttempts: 0,
-      lockUntil: null,
       lastLoginAt: new Date(),
     },
     $inc: { "security.totalSuccessfulLogins": 1 },
@@ -392,8 +381,6 @@ type DbUser = {
   permissions?: unknown[];
   displayName?: string;
   tokenVersion?: number;
-  loginAttempts?: number;
-  lockUntil?: Date | string | null;
   security?: {
     failedLoginAttempts?: number;
     totalSuccessfulLogins?: number;
@@ -658,9 +645,9 @@ export const authOptions: AuthOptions = {
           const nowMs = Date.now();
 
           // ✅ Clear expired locks
-          const lockedUntilMs = getUnifiedLockedUntilMs(user);
+          const lockedUntilMs = getLockedUntilMs(user);
           if (lockedUntilMs && lockedUntilMs > 0 && nowMs > lockedUntilMs) {
-            await clearExpiredLockAndMaybeReset(user._id);
+            await clearExpiredLock(user._id);
             await resetAttempts(user._id);
 
             (user as any).security = (user as any).security || {};
@@ -668,12 +655,10 @@ export const authOptions: AuthOptions = {
             (user as any).security.accountLockedAt = null;
             (user as any).security.lockReason = null;
             (user as any).security.failedLoginAttempts = 0;
-            (user as any).loginAttempts = 0;
-            (user as any).lockUntil = null;
           }
 
           // ✅ Reset stale attempts
-          const attemptsBefore = getUnifiedAttempts(user);
+          const attemptsBefore = getAttempts(user);
           if (attemptsBefore > 0) {
             const lastFailedAtMs = getLastFailedAtMs(user);
             const staleAgeMs =
@@ -688,7 +673,6 @@ export const authOptions: AuthOptions = {
               await resetAttempts(user._id);
               (user as any).security = (user as any).security || {};
               (user as any).security.failedLoginAttempts = 0;
-              (user as any).loginAttempts = 0;
             }
           }
 
