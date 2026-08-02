@@ -13,7 +13,6 @@ import SignupCode from "@/models/SignupCode";
 import { rateLimitVerifyCode, getClientIp } from "@/lib/rateLimit";
 import {
   SIGNUP_CODE_TYPE,
-  decryptSignupPassword,
   hashSecurityIdentifier,
   hashSignupOtp,
   timingSafeEqualDigest,
@@ -27,29 +26,10 @@ const MAX_VERIFICATION_ATTEMPTS = 5;
 const BCRYPT_ROUNDS = 12;
 const CNIC_REGEX = /^\d{13}$/;
 
-/**
- * ✅ Password strength validation (must match backend policy)
- * Enforced: 12+ chars, upper, lower, number, special
- */
-function isStrongPassword(pw: string): { valid: boolean; reason?: string } {
-  const v = String(pw || "");
-  if (v.length < 12) {
-    return { valid: false, reason: "Password must be at least 12 characters" };
-  }
-  if (!/[a-z]/.test(v)) {
-    return { valid: false, reason: "Password must contain lowercase letters" };
-  }
-  if (!/[A-Z]/.test(v)) {
-    return { valid: false, reason: "Password must contain uppercase letters" };
-  }
-  if (!/[0-9]/.test(v)) {
-    return { valid: false, reason: "Password must contain numbers" };
-  }
-  if (!/[^A-Za-z0-9]/.test(v)) {
-    return { valid: false, reason: "Password must contain special characters" };
-  }
-  return { valid: true };
-}
+// Password strength validation removed from this file (Sprint 3 Batch B).
+// Validation now happens at send time in send-signup-code.ts using
+// lib/auth/passwordPolicy.ts. The hash stored in SignupCode.formData.passwordHash
+// is already a validated, bcrypt-hashed password.
 
 // ✅ Disposable email domains (same as send-signup-code)
 const DISPOSABLE_EMAIL_DOMAINS = new Set([
@@ -167,13 +147,6 @@ function isDisposableEmail(email: string): boolean {
  */
 function hashOtp(email: string, code: string): string {
   return hashSignupOtp(email, code);
-}
-
-/**
- * ✅ Decrypt temporary signup password
- */
-function decryptTempPassword(encrypted: string): string {
-  return decryptSignupPassword(encrypted);
 }
 
 /**
@@ -749,28 +722,17 @@ export default async function handler(
     }
 
     // ═══════════════════════════════════════════════════════════
-    // STEP 7: Decrypt and validate the server-stored signup data
+    // STEP 7: Read the bcrypt hash stored at send time
     // ═══════════════════════════════════════════════════════════
+    // GAP-S09 FIXED (Sprint 3 Batch B):
+    // Password was hashed with bcrypt in send-signup-code.ts.
+    // No decryption needed. No re-validation needed.
+    // The hash is passed directly to User.create() — the pre-save
+    // middleware detects the $2a$/$2b$ prefix and skips re-hashing.
     const data: any = (record as any).formData || {};
-    const passwordEnc = String(data.passwordEnc || "");
-    if (!passwordEnc) {
-      await SignupCode.deleteOne({
-        _id: recordId,
-        codeType: SIGNUP_CODE_TYPE,
-      }).catch(() => {});
-      return sendError(
-        res,
-        400,
-        "Invalid signup data. Please restart the signup process.",
-        requestId,
-        "INVALID_DATA"
-      );
-    }
+    const passwordHash = String(data.passwordHash || "");
 
-    let password: string;
-    try {
-      password = decryptTempPassword(passwordEnc);
-    } catch {
+    if (!passwordHash) {
       await SignupCode.deleteOne({
         _id: recordId,
         codeType: SIGNUP_CODE_TYPE,
@@ -780,9 +742,9 @@ export default async function handler(
         email,
         ip,
         userAgent,
-        action: "password_decrypt_failed",
+        action: "password_hash_missing",
         success: false,
-        reason: "Temporary signup data could not be decrypted",
+        reason: "No password hash in signup record — record may be from old flow",
         requestId,
       });
 
@@ -795,19 +757,29 @@ export default async function handler(
       );
     }
 
-    const passwordCheck = isStrongPassword(password);
-    if (!passwordCheck.valid) {
+    // Guard: hash must look like a valid bcrypt hash
+    if (!passwordHash.startsWith("$2a$") && !passwordHash.startsWith("$2b$")) {
       await SignupCode.deleteOne({
         _id: recordId,
         codeType: SIGNUP_CODE_TYPE,
       }).catch(() => {});
 
+      await logVerifyAttempt({
+        email,
+        ip,
+        userAgent,
+        action: "password_hash_invalid",
+        success: false,
+        reason: "Password hash format invalid — possible tampered record",
+        requestId,
+      });
+
       return sendError(
         res,
         400,
-        passwordCheck.reason || "Password does not meet security requirements",
+        "Invalid signup data. Please restart the signup process.",
         requestId,
-        "WEAK_PASSWORD"
+        "INVALID_DATA"
       );
     }
 
@@ -821,7 +793,7 @@ export default async function handler(
       name: fullName,
       displayName,
       email,
-      password,
+      password: passwordHash,
       role: "user",
       status: "active",
       isVerified: true,

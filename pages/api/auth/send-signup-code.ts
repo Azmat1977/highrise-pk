@@ -10,13 +10,14 @@ import dbConnect from "@/lib/dbConnect";
 import SignupCode from "@/models/SignupCode";
 import User from "@/models/User";
 import { rateLimitSignup, getClientIp } from "@/lib/rateLimit";
+import bcrypt from "bcryptjs";
 import {
   SIGNUP_CODE_TYPE,
-  encryptSignupPassword,
   generateSignupOtp,
   hashSecurityIdentifier,
   hashSignupOtp,
 } from "@/lib/auth/signupVerification";
+import { validatePassword as policyValidatePassword } from "@/lib/auth/passwordPolicy";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 CONFIGURATION
@@ -27,9 +28,6 @@ const OTP_LENGTH = 6;
 const OTP_EXPIRY_MINUTES = 10;
 const MAX_PENDING_CODES_PER_EMAIL = 3;
 const MAX_SIGNUP_ATTEMPTS_PER_IP_DAILY = 10;
-
-// ✅ Password Policy (must match User model)
-const MIN_PASSWORD_LENGTH = 12;
 
 // ✅ Pakistan Phone Regex
 const PAKISTAN_PHONE_REGEX = /^(\+92|0)?3\d{9}$/;
@@ -266,47 +264,6 @@ function normalizeCnic(cnic: string): string | null {
 }
 
 /**
- * ✅ Validate password strength (enterprise policy)
- */
-function validatePassword(password: string): { valid: boolean; reason?: string } {
-  const pw = String(password || "");
-
-  if (pw.length < MIN_PASSWORD_LENGTH) {
-    return { valid: false, reason: `Password must be at least ${MIN_PASSWORD_LENGTH} characters` };
-  }
-
-  if (!/[a-z]/.test(pw)) {
-    return { valid: false, reason: "Password must contain lowercase letters" };
-  }
-
-  if (!/[A-Z]/.test(pw)) {
-    return { valid: false, reason: "Password must contain uppercase letters" };
-  }
-
-  if (!/[0-9]/.test(pw)) {
-    return { valid: false, reason: "Password must contain numbers" };
-  }
-
-  if (!/[^a-zA-Z0-9]/.test(pw)) {
-    return { valid: false, reason: "Password must contain special characters" };
-  }
-
-  // Check common passwords
-  const commonPasswords = [
-    "password123!",
-    "pakistan123!",
-    "highrise123!",
-    "admin123456!",
-    "qwerty123456!",
-  ];
-  if (commonPasswords.some((cp) => pw.toLowerCase().includes(cp.toLowerCase()))) {
-    return { valid: false, reason: "Password is too common" };
-  }
-
-  return { valid: true };
-}
-
-/**
  * ✅ Generate cryptographically secure OTP
  */
 function generateSecureOTP(): string {
@@ -318,13 +275,6 @@ function generateSecureOTP(): string {
  */
 function hashOtp(email: string, code: string): string {
   return hashSignupOtp(email, code);
-}
-
-/**
- * ✅ Encrypt password for temporary storage
- */
-function encryptTempPassword(password: string): string {
-  return encryptSignupPassword(password);
 }
 
 /**
@@ -820,7 +770,7 @@ export default async function handler(
       return sendError(res, 400, "Password is required", requestId, "PASSWORD_REQUIRED");
     }
 
-    const passwordCheck = validatePassword(password);
+    const passwordCheck = policyValidatePassword(password);
     if (!passwordCheck.valid) {
       return sendError(res, 400, passwordCheck.reason || "Invalid password", requestId, "WEAK_PASSWORD");
     }
@@ -940,8 +890,12 @@ export default async function handler(
     const otpHash = hashOtp(email, otpCode);
     const expiresAt = new Date(Date.now() + OTP_EXPIRY_MINUTES * 60 * 1000);
 
-    // Encrypt password for temp storage
-    const passwordEnc = encryptTempPassword(password);
+    // Hash password at send time — stored as bcrypt hash, never as plaintext or
+    // reversible ciphertext. verify-signup-code.ts reads this hash and passes it
+    // directly to User.create() — the pre-save middleware skips re-hashing when
+    // it detects a $2a$/$2b$ prefix. (GAP-S09 FIXED — Sprint 3 Batch B)
+    const BCRYPT_ROUNDS = 12;
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
 
     const previousSignupCode = await SignupCode.findOne({
       email,
@@ -974,7 +928,7 @@ export default async function handler(
             accountType,
             city,
             homeAddress,
-            passwordEnc,
+            passwordHash,
           },
           meta: {
             ipHash,
@@ -982,7 +936,7 @@ export default async function handler(
             createdAt: new Date(),
             requestId,
             codeAlgo: "hmac-sha256",
-            pwAlgo: "aes-256-gcm",
+            pwAlgo: "bcrypt",
           },
         },
       },
