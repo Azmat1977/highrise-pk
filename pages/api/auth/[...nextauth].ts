@@ -36,12 +36,14 @@ const THROTTLE_AFTER_ATTEMPTS = 2; // ✅ Reduced from 3 (faster bot detection)
 const THROTTLE_BASE_DELAY_MS = 1500; // ✅ Increased from 800
 const THROTTLE_MAX_DELAY_MS = 8000; // ✅ Increased from 5000
 
-// ✅ Session security
-const REMEMBER_MAX_AGE_SECONDS = 7 * 24 * 60 * 60; // ✅ Reduced from 30 days to 7 days
-const DEFAULT_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // ✅ Reduced from 24h to 8h
-const SESSION_MAX_AGE_SECONDS = REMEMBER_MAX_AGE_SECONDS;
-const SESSION_UPDATE_AGE_SECONDS = 4 * 60 * 60; // ✅ Reduced from 24h to 4h
-const TOKEN_DB_CHECK_INTERVAL_MS = 5 * 60 * 1000; // ✅ Reduced from 10min to 5min
+// ✅ Session policy — canonical constants (Sprint 2 Batch E)
+import {
+  NEXTAUTH_JWT_MAX_AGE_SECONDS,
+  REMEMBER_MAX_AGE_SECONDS,
+  DEFAULT_SESSION_MAX_AGE_SECONDS,
+  SESSION_UPDATE_AGE_SECONDS,
+  TOKEN_DB_CHECK_INTERVAL_MS,
+} from "@/lib/config/sessionPolicy";
 
 // ✅ NEW: Email verification enforcement
 const REQUIRE_EMAIL_VERIFICATION = true;
@@ -1484,12 +1486,12 @@ export const authOptions: AuthOptions = {
 
   session: {
     strategy: "jwt",
-    maxAge: SESSION_MAX_AGE_SECONDS,
+    maxAge: NEXTAUTH_JWT_MAX_AGE_SECONDS,
     updateAge: SESSION_UPDATE_AGE_SECONDS,
   },
 
   jwt: {
-    maxAge: SESSION_MAX_AGE_SECONDS,
+    maxAge: NEXTAUTH_JWT_MAX_AGE_SECONDS,
   },
 
   pages: {
