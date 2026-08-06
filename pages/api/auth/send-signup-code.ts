@@ -9,6 +9,8 @@ import nodemailer from "nodemailer";
 import dbConnect from "@/lib/dbConnect";
 import SignupCode from "@/models/SignupCode";
 import User from "@/models/User";
+import SecurityEvent from "@/models/SecurityEvent";
+import type { SecurityEventType } from "@/models/SecurityEvent";
 import { rateLimitSignup, getClientIp } from "@/lib/rateLimit";
 import bcrypt from "bcryptjs";
 import {
@@ -312,10 +314,28 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
   }
 }
 
+// ─── Action → SecurityEventType map ──────────────────────────
+const SIGNUP_ACTION_EVENT_MAP: Record<string, SecurityEventType> = {
+  rate_limited:           "rate_limit_exceeded",
+  invalid_content_type:   "suspicious_activity",
+  captcha_missing:        "suspicious_activity",
+  captcha_failed:         "suspicious_activity",
+  invalid_email_format:   "suspicious_activity",
+  disposable_email:       "suspicious_activity",
+  existing_user:          "account_created",
+  too_many_pending:       "rate_limit_exceeded",
+  resend_limit_exceeded:  "rate_limit_exceeded",
+  resend_cooldown_active: "rate_limit_exceeded",
+  code_sent:              "email_verified",
+  email_failed:           "system_error",
+  server_error:           "system_error",
+};
+
 /**
- * ✅ Log signup attempt (audit trail)
+ * Log signup attempt to SecurityEvent collection.
+ * Silent fail — never blocks the main flow.
  */
-async function logSignupAttempt(_data: {
+async function logSignupAttempt(data: {
   email?: string;
   ip: string;
   userAgent?: string;
@@ -324,7 +344,26 @@ async function logSignupAttempt(_data: {
   reason?: string;
   requestId: string;
 }): Promise<void> {
-  // Audit trail: integrate with SecurityEvent model in Section 8
+  try {
+    const eventType: SecurityEventType =
+      SIGNUP_ACTION_EVENT_MAP[data.action] ?? "suspicious_activity";
+
+    await SecurityEvent.create({
+      type: eventType,
+      email: data.email,
+      ip: data.ip,
+      userAgent: data.userAgent,
+      requestId: data.requestId,
+      metadata: {
+        action:  data.action,
+        success: data.success,
+        reason:  data.reason,
+        flow:    "signup_send",
+      },
+    });
+  } catch {
+    // Silent fail — logging must never block signup flow
+  }
 }
 
 /**

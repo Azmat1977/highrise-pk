@@ -10,6 +10,8 @@ import nodemailer from "nodemailer";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import SignupCode from "@/models/SignupCode";
+import SecurityEvent from "@/models/SecurityEvent";
+import type { SecurityEventType } from "@/models/SecurityEvent";
 import { rateLimitVerifyCode, getClientIp } from "@/lib/rateLimit";
 import {
   SIGNUP_CODE_TYPE,
@@ -198,10 +200,26 @@ function encryptCnic(cnic: string): string {
   return `${iv.toString("base64")}.${tag.toString("base64")}.${encrypted.toString("base64")}`;
 }
 
+// ─── Action → SecurityEventType map ──────────────────────────
+const VERIFY_ACTION_EVENT_MAP: Record<string, SecurityEventType> = {
+  rate_limited:          "rate_limit_exceeded",
+  missing_email:         "suspicious_activity",
+  invalid_code_format:   "suspicious_activity",
+  disposable_email:      "suspicious_activity",
+  code_not_found:        "login_failed",
+  code_expired:          "login_failed",
+  invalid_code:          "login_failed",
+  password_hash_missing: "system_error",
+  password_hash_invalid: "suspicious_activity",
+  account_created:       "account_created",
+  server_error:          "system_error",
+};
+
 /**
- * ✅ Log verification attempt
+ * Log verification attempt to SecurityEvent collection.
+ * Silent fail — never blocks the main flow.
  */
-async function logVerifyAttempt(_data: {
+async function logVerifyAttempt(data: {
   email?: string;
   ip: string;
   userAgent?: string;
@@ -210,7 +228,26 @@ async function logVerifyAttempt(_data: {
   reason?: string;
   requestId: string;
 }): Promise<void> {
-  // Audit trail: integrate with SecurityEvent model in Section 8
+  try {
+    const eventType: SecurityEventType =
+      VERIFY_ACTION_EVENT_MAP[data.action] ?? "suspicious_activity";
+
+    await SecurityEvent.create({
+      type: eventType,
+      email: data.email,
+      ip: data.ip,
+      userAgent: data.userAgent,
+      requestId: data.requestId,
+      metadata: {
+        action:  data.action,
+        success: data.success,
+        reason:  data.reason,
+        flow:    "signup_verify",
+      },
+    });
+  } catch {
+    // Silent fail — logging must never block verification flow
+  }
 }
 
 /**
