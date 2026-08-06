@@ -32,6 +32,7 @@ interface IUserSecurity {
   resetCodeHash?: string;
   resetCodeExpiresAt?: Date;
   resetRequestedAt?: Date;
+  resetAttempts?: number;
   lastRoleChangeAt?: Date;
   lastRoleChangeBy?: mongoose.Types.ObjectId;
   previousRole?: string;
@@ -717,6 +718,7 @@ const UserSchema = new Schema<IUser>(
       resetCodeHash:      { type: String, select: false },
       resetCodeExpiresAt: { type: Date },
       resetRequestedAt:   { type: Date },
+      resetAttempts:      { type: Number, default: 0, min: 0 },
 
       // Role change history
       lastRoleChangeAt: { type: Date },

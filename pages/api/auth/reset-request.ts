@@ -22,12 +22,16 @@ import { rateLimitApi, getClientIp } from "@/lib/rateLimit";
 import { logSecurityEvent } from "@/lib/security/logSecurityEvent";
 import { sendEmail } from "@/lib/email";
 
+// ─── Constants ────────────────────────────────────────────────
+const RESET_COOLDOWN_SECONDS = 60; // Minimum gap between reset requests
+
 // ─── Types ────────────────────────────────────────────────────
 
 interface IUserSecurity {
   resetCodeHash?: string;
   resetCodeExpiresAt?: Date;
   resetRequestedAt?: Date;
+  resetAttempts?: number;
 }
 
 interface DbUser {
@@ -159,7 +163,7 @@ export default async function handler(
       email: normalizedEmail,
       isDeleted: { $ne: true },
     })
-      .select("_id email name security.resetRequestedAt")
+      .select("_id email name security.resetRequestedAt security.resetAttempts")
       .lean()) as DbUser | null;
 
     if (!user) {
@@ -167,27 +171,67 @@ export default async function handler(
       return safeOk(res, requestId);
     }
 
-    // ── 4. Generate CSPRNG reset code ─────────────────────────
+    // ── 4. Enforce cooldown between reset requests ────────────
+    // Prevents email flooding and limits brute-force window resets.
+    // security.resetRequestedAt is already stored — just check it.
+    const lastRequestedAt = user.security?.resetRequestedAt
+      ? new Date(user.security.resetRequestedAt)
+      : null;
+
+    if (lastRequestedAt) {
+      const secondsSinceLastRequest = Math.floor(
+        (Date.now() - lastRequestedAt.getTime()) / 1000
+      );
+
+      if (secondsSinceLastRequest < RESET_COOLDOWN_SECONDS) {
+        const waitSeconds = RESET_COOLDOWN_SECONDS - secondsSinceLastRequest;
+
+        await logSecurityEvent({
+          type: "rate_limit_exceeded",
+          userId: String(user._id),
+          ip,
+          userAgent,
+          severity: "low",
+          metadata: {
+            reason: "reset_request_cooldown_active",
+            waitSeconds,
+            endpoint: "reset-request",
+            requestId,
+          },
+        });
+
+        // Anti-enumeration: return 200 even on cooldown
+        return safeOk(res, requestId);
+      }
+    }
+
+    // ── 5. Generate CSPRNG reset code ─────────────────────────
     // crypto.randomInt is CSPRNG — safe for security tokens
     const resetCode = crypto.randomInt(100000, 1000000).toString();
     const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-    // ── 5. Hash code and store (findOne + save — never updateOne) ────
+    // ── 6. Hash code and store atomically ─────────────────────
+    // Also resets resetAttempts to 0 — new code = fresh attempt budget.
+    // Uses findByIdAndUpdate for atomic write (no save() race condition).
     const resetCodeHash = hashResetCode(normalizedEmail, resetCode);
 
-    const userDoc = await User.findOne({
-      _id: user._id,
-      isDeleted: { $ne: true },
-    });
+    const updated = await User.findOneAndUpdate(
+      {
+        _id: user._id,
+        isDeleted: { $ne: true },
+      },
+      {
+        $set: {
+          "security.resetCodeHash":      resetCodeHash,
+          "security.resetCodeExpiresAt": expiresAt,
+          "security.resetRequestedAt":   new Date(),
+          "security.resetAttempts":      0,
+        },
+      },
+      { new: true }
+    );
 
-    if (!userDoc) return safeOk(res, requestId);
-
-    if (!userDoc.security) userDoc.set("security", {});
-    userDoc.set("security.resetCodeHash", resetCodeHash);
-    userDoc.set("security.resetCodeExpiresAt", expiresAt);
-    userDoc.set("security.resetRequestedAt", new Date());
-
-    await userDoc.save({ validateBeforeSave: false });
+    if (!updated) return safeOk(res, requestId);
 
     // ── 6. Log security event ─────────────────────────────────
     await logSecurityEvent({

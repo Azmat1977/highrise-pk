@@ -20,6 +20,11 @@ import User from "@/models/User";
 import { rateLimitApi, getClientIp } from "@/lib/rateLimit";
 import { logSecurityEvent } from "@/lib/security/logSecurityEvent";
 import { sendEmail } from "@/lib/email";
+import { validatePassword } from "@/lib/auth/passwordPolicy";
+
+// ─── Constants ────────────────────────────────────────────────
+const MAX_RESET_ATTEMPTS = 5;   // Failed OTP attempts before code is voided
+const BCRYPT_ROUNDS      = 12;
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -27,6 +32,7 @@ interface IUserSecurity {
   resetCodeHash?: string;
   resetCodeExpiresAt?: Date;
   resetRequestedAt?: Date;
+  resetAttempts?: number;
 }
 
 interface DbUserDoc {
@@ -34,13 +40,7 @@ interface DbUserDoc {
   email?: string;
   name?: string;
   security?: IUserSecurity;
-  password?: string;
-  isVerified?: boolean;
   tokenVersion?: number;
-  loginAttempts?: number;
-  lockUntil?: Date | undefined;
-  markEmailVerified?: () => void;
-  save: (opts?: { validateBeforeSave?: boolean }) => Promise<void>;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -94,21 +94,6 @@ function safeFail(res: NextApiResponse, requestId: string) {
     message: "Invalid or expired code. Please request a new one.",
     requestId,
   });
-}
-
-function isStrongPassword(pw: string): { valid: boolean; reason?: string } {
-  const v = String(pw ?? "");
-  if (v.length < 12)
-    return { valid: false, reason: "Password must be at least 12 characters" };
-  if (!/[a-z]/.test(v))
-    return { valid: false, reason: "Must contain lowercase letter" };
-  if (!/[A-Z]/.test(v))
-    return { valid: false, reason: "Must contain uppercase letter" };
-  if (!/[0-9]/.test(v))
-    return { valid: false, reason: "Must contain number" };
-  if (!/[^A-Za-z0-9]/.test(v))
-    return { valid: false, reason: "Must contain special character" };
-  return { valid: true };
 }
 
 /**
@@ -181,7 +166,7 @@ export default async function handler(
   if (!newPassword) return safeFail(res, requestId);
 
   // ── 3. Validate password strength ─────────────────────────
-  const pwCheck = isStrongPassword(newPassword);
+  const pwCheck = validatePassword(newPassword);
   if (!pwCheck.valid) {
     return res.status(400).json({
       success: false,
@@ -199,8 +184,8 @@ export default async function handler(
       email: normalizedEmail,
       isDeleted: { $ne: true },
     }).select(
-      "_id email name password security.resetCodeHash security.resetCodeExpiresAt security.resetRequestedAt isEmailVerified tokenVersion loginAttempts lockUntil"
-    )) as DbUserDoc | null;
+      "_id email name security.resetCodeHash security.resetCodeExpiresAt security.resetAttempts tokenVersion"
+    ).lean()) as DbUserDoc | null;
 
     if (!user) return safeFail(res, requestId);
 
@@ -231,20 +216,31 @@ export default async function handler(
       return safeFail(res, requestId);
     }
 
-    // ── 6. Timing-safe comparison ─────────────────────────
-    const computed = hashResetCode(normalizedEmail, resetCode);
-    const isValid = timingSafeEqualHex(storedHash, computed);
+    // ── 6. Check attempts counter (GAP-S08) ───────────────
+    // Blocks brute-force across the 6-digit OTP space.
+    // Attempts are stored in security.resetAttempts and reset
+    // to 0 each time reset-request.ts issues a new code.
+    const currentAttempts = Number(user.security?.resetAttempts ?? 0);
+    if (currentAttempts >= MAX_RESET_ATTEMPTS) {
+      // Void the code — attacker exhausted their budget
+      await User.findByIdAndUpdate(user._id, {
+        $set: {
+          "security.resetCodeHash":      null,
+          "security.resetCodeExpiresAt": null,
+          "security.resetAttempts":      0,
+        },
+      }).catch(() => {});
 
-    if (!isValid) {
       await logSecurityEvent({
-        type: "suspicious_activity",
+        type: "brute_force_detected",
         userId: String(user._id),
         email: normalizedEmail,
         ip,
         userAgent,
         severity: "high",
         metadata: {
-          reason: "invalid_reset_code_on_completion",
+          reason: "reset_attempts_exceeded",
+          attempts: currentAttempts,
           endpoint: "reset-password",
           requestId,
         },
@@ -252,37 +248,104 @@ export default async function handler(
       return safeFail(res, requestId);
     }
 
-    // ── 7. Hash new password ──────────────────────────────
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
+    // ── 7. Timing-safe comparison ─────────────────────────
+    const computed = hashResetCode(normalizedEmail, resetCode);
+    const isValid = timingSafeEqualHex(storedHash, computed);
 
-    // ── 8. Apply all updates ──────────────────────────────
-    user.password = hashedPassword;
+    if (!isValid) {
+      // Increment attempts counter atomically (GAP-S08)
+      const afterIncrement = await User.findByIdAndUpdate(
+        user._id,
+        { $inc: { "security.resetAttempts": 1 } },
+        { new: true }
+      ).select("security.resetAttempts").lean();
 
-    // Mark email verified — user proved email access by using the reset code
-    if (user.markEmailVerified) {
-      user.markEmailVerified();
-    } else {
-      user.isVerified = true;
+      const attemptsAfter = Number(
+        (afterIncrement as any)?.security?.resetAttempts ?? currentAttempts + 1
+      );
+      const remaining = Math.max(0, MAX_RESET_ATTEMPTS - attemptsAfter);
+
+      await logSecurityEvent({
+        type: "suspicious_activity",
+        userId: String(user._id),
+        email: normalizedEmail,
+        ip,
+        userAgent,
+        severity: "medium",
+        metadata: {
+          reason: "invalid_reset_code",
+          attemptsAfter,
+          remaining,
+          endpoint: "reset-password",
+          requestId,
+        },
+      });
+      return safeFail(res, requestId);
     }
 
-    // Clear ALL reset fields (prevent replay attacks)
-    if (user.security) {
-      user.security.resetCodeHash = undefined;
-      user.security.resetCodeExpiresAt = undefined;
-      user.security.resetRequestedAt = undefined;
+    // ── 8. Hash new password (before atomic claim) ────────
+    // bcrypt is slow — do it before the DB write so the
+    // atomic claim window is as short as possible.
+    const hashedPassword = await bcrypt.hash(newPassword, BCRYPT_ROUNDS);
+
+    // ── 9. Atomic claim — consume the reset code (GAP-S07) ─
+    // findOneAndUpdate with ALL conditions:
+    //   - code must still match (not consumed by concurrent request)
+    //   - code must not be expired
+    //   - attempts must be within limit
+    // Clears the code fields in the same atomic operation.
+    // If 0 documents matched → concurrent request already consumed it.
+    const claimed = await User.findOneAndUpdate(
+      {
+        _id:          user._id,
+        isDeleted:    { $ne: true },
+        "security.resetCodeHash":      storedHash,
+        "security.resetCodeExpiresAt": { $gt: new Date() },
+        "security.resetAttempts":      { $lt: MAX_RESET_ATTEMPTS },
+      },
+      {
+        $set: {
+          // Clear reset code fields — prevents replay
+          "security.resetCodeHash":      null,
+          "security.resetCodeExpiresAt": null,
+          "security.resetRequestedAt":   null,
+          "security.resetAttempts":      0,
+          // Unlock account — reset is valid unlock mechanism
+          "security.failedLoginAttempts": 0,
+          "security.accountLockedUntil":  null,
+          "security.accountLockedAt":     null,
+          "security.lockReason":          null,
+          // Mark email verified — user proved email access
+          isVerified:                    true,
+          "verification.email":          true,
+          // Apply new password
+          password:                      hashedPassword,
+        },
+        // Invalidate ALL existing sessions
+        $inc: { tokenVersion: 1 },
+      },
+      { new: true }
+    );
+
+    if (!claimed) {
+      // Code was consumed by a concurrent request — safe failure
+      await logSecurityEvent({
+        type: "suspicious_activity",
+        userId: String(user._id),
+        email: normalizedEmail,
+        ip,
+        userAgent,
+        severity: "medium",
+        metadata: {
+          reason: "reset_code_already_consumed",
+          endpoint: "reset-password",
+          requestId,
+        },
+      });
+      return safeFail(res, requestId);
     }
 
-    // Unlock account — password reset is a valid unlock mechanism
-    user.loginAttempts = 0;
-    user.lockUntil = undefined;
-
-    // Increment tokenVersion — invalidates ALL existing sessions
-    // Forces re-login on all devices after password change
-    user.tokenVersion = (user.tokenVersion ?? 0) + 1;
-
-    await user.save({ validateBeforeSave: false });
-
-    // ── 9. Log success ────────────────────────────────────
+    // ── 10. Log success ───────────────────────────────────
     await logSecurityEvent({
       type: "password_reset_completed",
       userId: String(user._id),
@@ -293,7 +356,7 @@ export default async function handler(
       metadata: { requestId },
     });
 
-    // ── 10. Send confirmation email ───────────────────────
+    // ── 11. Send confirmation email ───────────────────────
     const safeName = escapeHtml(user.name ?? "there");
 
     const html = `
