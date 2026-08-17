@@ -4,7 +4,7 @@ import dbConnect from '@/lib/dbConnect';
 import Property, { IProperty, VerificationStatus } from '@/models/Property';
 import AgentProfile from '@/models/AgentProfile';
 import DeveloperProfile from '@/models/DeveloperProfile';
-import { requireAuth, type UserRole } from '@/lib/requireAuth';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitApi, rateLimitApiWrite } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import mongoose from 'mongoose';
@@ -909,15 +909,12 @@ const ALLOWED_LISTING_TYPES_POST = new Set([
   'pre_launch',
 ]);
 
-// Allowed roles that can create listings
-// Note: "owner" is not a role — any 'user' can own a property
-// (ownership is determined by property.owner ref, not user role)
-const ALLOWED_CREATE_ROLES: ReadonlySet<UserRole> = new Set<UserRole>([
-  'user',       // any authenticated user can list their own property
-  'agent',      // agents listing on behalf of clients
-  'developer',  // developers listing project units
-  'admin',      // admin can create on behalf of anyone
-]);
+// Any authenticated active user may create a property draft.
+// Capability-specific gates (agent profile approval, developer profile
+// approval) are enforced below. Role-based gate is NOT used here
+// because agents and developers use role='user' + capabilities in our
+// unified account system.
+// Admin/superadmin always pass through.
 
 // Safe number parser — returns undefined if invalid
 function safeNum(
@@ -989,15 +986,10 @@ async function handlePost(
   const auth = await requireAuth(req, res);
   if (!auth) return;
 
-  // ── Role gate ───────────────────────────────────────────────
-if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
-    res.status(403).json({
-      success: false,
-      message: 'Only agents, developers, owners, and admins can create listings.',
-      requestId,
-    });
-    return;
-  }
+  // ── Auth gate ────────────────────────────────────────────────
+  // Any authenticated user may create a property draft.
+  // Capability-specific profile approval checks follow below.
+  // No role gate needed — ownership is tracked via property.owner ref.
 
   // ── Parse JSON body ─────────────────────────────────────────
   const rawBody = req.body as Record<string, unknown>;
@@ -1122,7 +1114,10 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
   let resolvedAgentId:     mongoose.Types.ObjectId | undefined;
   let resolvedDeveloperId: mongoose.Types.ObjectId | undefined;
 
- if (auth.role === 'agent') {
+  // ── Capability-specific profile approval gates ────────────────
+  // Agents and developers must have approved profiles before listing.
+  // Capability check uses our canonical capabilities array, not legacy role.
+  if (auth.capabilities.includes('real_estate_agent')) {
     const agentProfile = await AgentProfile.findOne({ user: auth.id })
       .select('_id status')
       .lean<{ _id: mongoose.Types.ObjectId; status: string }>();
@@ -1148,7 +1143,7 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
     resolvedAgentId = agentProfile._id;
   }
 
-  if (auth.role === 'developer') {
+  if (auth.capabilities.includes('property_developer')) {
     const devProfile = await DeveloperProfile.findOne({ user: auth.id })
       .select('_id status')
       .lean<{ _id: mongoose.Types.ObjectId; status: string }>();
