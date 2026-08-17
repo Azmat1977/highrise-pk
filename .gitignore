@@ -54,3 +54,13 @@ next-env.d.ts
 /section-1c-source.zip
 /highrise-signup-verification-v1/
 /highrise-signup-verification-v1.zip
+
+# Build artifacts and debug logs
+*-lint.json
+dependency-report.txt
+highrise-*.txt
+highrise-*.json
+developer-profile-lint.json
+edit-project-lint.json
+login-form-lint.json
+new-project-lint.json
