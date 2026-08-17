@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\pages\api\properties\[id]\communication.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/dbConnect";
@@ -146,7 +147,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     status: "new",
   });
 
-  await Property.updateOne({ _id: propertyId, ...PUBLIC_PROPERTY_FILTER }, { $inc: { inquiries: 1 } }).catch(() => undefined);
+  await Property.updateOne({ _id: propertyId, ...PUBLIC_PROPERTY_FILTER }, { $inc: { inquiryCount: 1 } }).catch(() => undefined);
 
   return res.status(201).json({
     success: true,

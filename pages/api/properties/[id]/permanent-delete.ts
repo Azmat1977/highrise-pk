@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\pages\api\properties\[id]\permanent-delete.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
 import mongoose from "mongoose";
@@ -95,11 +96,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
     const mediaCleanup = await cleanupOrQueuePropertyAssets(propertyId, assets);
 
+    const xf = req.headers['x-forwarded-for'];
+    const xfRaw = Array.isArray(xf) ? xf[0] : xf;
+    const clientIp = (xfRaw ?? '').split(',')[0]?.trim() || req.socket?.remoteAddress || '0.0.0.0';
+
     await logSecurityEvent({
       type: "property_deleted",
       userId: auth.id,
       role: auth.role,
-      ip: req.socket.remoteAddress || "",
+      ip: clientIp,
       metadata: {
         propertyId,
         action: "permanent_delete_after_grace",

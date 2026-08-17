@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\pages\api\properties\by-slug\[slug].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
@@ -39,20 +40,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!auth) { res.status(404).json({ success: false, message: 'Property not found.', requestId }); return; }
   await dbConnect();
   const identity = mongoose.isValidObjectId(key) ? { _id: key } : { slug: key };
-  const raw = await Property.findOne({ ...identity, isDeleted: { $ne: true } }).lean<Record<string, any>>();
+  const raw = await Property.findOne({ ...identity, isDeleted: { $ne: true } }).lean<Record<string, unknown>>();
   if (!raw) { res.status(404).json({ success: false, message: 'Property not found.', requestId }); return; }
   const ownerId = String(raw.owner ?? '');
   const isAdmin = auth.authorityRole === 'admin' || auth.authorityRole === 'superadmin';
   if (ownerId !== auth.id && !isAdmin) { res.status(404).json({ success: false, message: 'Property not found.', requestId }); return; }
 
-  const actor = await resolvePropertyActor(raw);
+  // Narrow verification object safely
+  const verification = raw.verification && typeof raw.verification === 'object'
+    ? raw.verification as Record<string, unknown>
+    : {};
+
+  const actor = await resolvePropertyActor(raw as Parameters<typeof resolvePropertyActor>[0]);
   const safe = toPublicPropertyDto(raw, publicPropertyActor(actor), buildPropertyTrustSummary(raw, actor?.verified === true));
   safe.verificationSummary = {
-    status: raw.verification?.status ?? 'draft',
-    submittedAt: raw.verification?.submittedAt ?? null,
-    verifiedAt: raw.verification?.verifiedAt ?? null,
-    rejectedAt: raw.verification?.rejectedAt ?? null,
-    rejectionReason: raw.verification?.rejectionReason ?? null,
+    status: verification.status ?? 'draft',
+    submittedAt: verification.submittedAt ?? null,
+    verifiedAt: verification.verifiedAt ?? null,
+    rejectedAt: verification.rejectedAt ?? null,
+    rejectionReason: verification.rejectionReason ?? null,
   };
   safe.preview = true;
   safe.ownerId = ownerId === auth.id ? ownerId : undefined;
