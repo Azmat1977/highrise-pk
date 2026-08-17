@@ -14,10 +14,11 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getToken }   from 'next-auth/jwt';
 import dbConnect      from '@/lib/dbConnect';
 import Property       from '@/models/Property';
 import { rateLimitApi } from '@/lib/rateLimit';
+import { getOptionalAuth } from '@/lib/optionalAuth';
+import { isPublicProperty } from '@/lib/property/publicProperty';
 import mongoose from 'mongoose';
 import crypto   from 'crypto';
 
@@ -124,9 +125,8 @@ function normalizeSlug(raw: string): string {
   return s;
 }
 
-function isPubliclyVisible(property: TrueCostProperty): boolean {
-  return property.verification?.status === 'verified';
-}
+// Canonical visibility check is imported from lib/property/publicProperty.
+// Do not duplicate — one source of truth for "what is public".
 
 // ═══════════════════════════════════════════════════════════════
 // 🚦 MAIN HANDLER
@@ -199,17 +199,15 @@ export default async function handler(
     return;
   }
 
-  // ── Optional auth — getToken() directly (Lesson #16) ─────────
-  // NEVER use requireAuth() with a mock res for optional auth.
-  // getToken() reads JWT cookie directly — no res needed, no 401 forced.
-  const token = await getToken({
-    req,
-    secret: process.env.NEXTAUTH_SECRET ?? '',
-  });
-
-  const isLoggedIn = token !== null;
-  const sessionId  = isLoggedIn ? String(token.sub ?? token.id ?? '') : null;
-  const isAdmin    = isLoggedIn && token.role === 'admin';
+  // ── Optional auth via canonical helper ────────────────────
+  // getOptionalAuth() uses our lib/auth/actor system.
+  // Returns null for unauthenticated visitors (public path).
+  // Returns AuthToken for owner/admin preview path.
+  const optionalAuth = await getOptionalAuth(req);
+  const isLoggedIn = optionalAuth !== null;
+  const sessionId  = optionalAuth?.id ?? null;
+  const isAdmin    = optionalAuth?.authorityRole === 'admin' ||
+                     optionalAuth?.authorityRole === 'superadmin';
 
   try {
     await dbConnect();
@@ -251,7 +249,8 @@ export default async function handler(
     const isOwnerOrAdmin = isOwner || isAdmin;
 
     // ── Visibility gate ───────────────────────────────────────
-    const isPublic = isPubliclyVisible(property);
+    // Uses canonical isPublicProperty from lib/property/publicProperty
+    const isPublic = isPublicProperty(property);
 
     if (!isPublic && !isOwnerOrAdmin) {
       // SEO-safe: non-verified properties are invisible to public
