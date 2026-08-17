@@ -1,0 +1,1969 @@
+{
+  "schemaVersion": 1,
+  "section": "Highrise.pk Section 01 \u2014 Property",
+  "workPackage": "WP10 \u2014 Manual Certification",
+  "generated": "2026-08-12",
+  "prerequisite": {
+    "wp9Required": true,
+    "wp9ExpectedStatus": "PASS",
+    "note": "Final WP10 execution/certificate is blocked until a clean WP9 automated certification PASS exists."
+  },
+  "allowedStatuses": [
+    "NOT_RUN",
+    "PASS",
+    "FAIL",
+    "BLOCKED",
+    "NA_WITH_JUSTIFICATION"
+  ],
+  "testCount": 112,
+  "tests": [
+    {
+      "id": "L01",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Create Property draft",
+      "role": "verified_owner",
+      "surface": "Property create",
+      "action": "Create valid standalone Property and save draft",
+      "expected": "DB/UI remain draft; nothing public; no publication claim",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L02",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Edit saved draft",
+      "role": "verified_owner",
+      "surface": "Property edit",
+      "action": "Change material and non-material draft fields",
+      "expected": "Fields round-trip correctly and remain draft",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L03",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Submit draft to pending",
+      "role": "verified_owner",
+      "surface": "Submit action",
+      "action": "Submit complete draft",
+      "expected": "Status pending; UI success matches DB status and valid slug",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L04",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Admin starts review",
+      "role": "admin",
+      "surface": "Admin moderation",
+      "action": "Move pending to under_review",
+      "expected": "Canonical transition succeeds; review_started audit exists",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L05",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Admin verifies reviewed Property",
+      "role": "admin",
+      "surface": "Admin moderation",
+      "action": "Move under_review to verified",
+      "expected": "Property public only after canonical verification",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L06",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Reject with reason",
+      "role": "admin",
+      "surface": "Admin moderation",
+      "action": "Reject under_review with reason",
+      "expected": "Reason persists; Property non-public; owner sees remediation",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L07",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Rejected edit and resubmit",
+      "role": "verified_owner",
+      "surface": "Owner flow",
+      "action": "Edit rejected Property and resubmit",
+      "expected": "Returns through review lifecycle; no verified bypass",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L08",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Verified material edit triggers re-review",
+      "role": "verified_owner",
+      "surface": "Property edit",
+      "action": "Change price/location/material fact",
+      "expected": "Configured policy removes immediate public verification and requires review",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "public_check"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L09",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Flag and unflag workflow",
+      "role": "admin",
+      "surface": "Moderation",
+      "action": "Flag public Property then resolve",
+      "expected": "Flag removes public visibility; resolution authorized/audited",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "audit",
+        "public_check"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L10",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Trash and restore within grace",
+      "role": "verified_owner",
+      "surface": "My Properties/Trash",
+      "action": "Trash own Property then restore within grace",
+      "expected": "Property leaves public surfaces; restore obeys safe lifecycle",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "public_check"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L11",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Owner purge before grace blocked",
+      "role": "verified_owner",
+      "surface": "Permanent delete",
+      "action": "Attempt purge before 30-day grace",
+      "expected": "Server blocks purge; media/evidence preserved",
+      "requiredEvidence": [
+        "network",
+        "db_state",
+        "media_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "L12",
+      "category": "Lifecycle",
+      "severity": "P0",
+      "title": "Privileged permanent purge audited",
+      "role": "superadmin",
+      "surface": "Admin permanent delete",
+      "action": "Purge eligible Property",
+      "expected": "Dependent cleanup succeeds/queues; privileged action audited",
+      "requiredEvidence": [
+        "network",
+        "db_state",
+        "audit",
+        "media_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A01",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Anonymous public access is least privilege",
+      "role": "anonymous",
+      "surface": "Public detail/API",
+      "action": "Open verified detail and API",
+      "expected": "Public-safe DTO only; no seller PII/private evidence/actor IDs/secrets",
+      "requiredEvidence": [
+        "page_source",
+        "network",
+        "privacy_scan"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A02",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Anonymous cannot preview draft",
+      "role": "anonymous",
+      "surface": "Direct slug/id",
+      "action": "Guess draft slug/id",
+      "expected": "404/non-public response; zero private payload",
+      "requiredEvidence": [
+        "network",
+        "page_source"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A03",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Buyer cannot edit Property",
+      "role": "buyer",
+      "surface": "Direct API",
+      "action": "PATCH another user's Property",
+      "expected": "Denied; no mutation",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A04",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Buyer cannot access ownership evidence",
+      "role": "buyer",
+      "surface": "Evidence endpoint",
+      "action": "Request private proof object/URL",
+      "expected": "Denied; no signed URL/metadata leak",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A05",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Owner can edit own eligible Property",
+      "role": "verified_owner",
+      "surface": "Owner edit/API",
+      "action": "PATCH own eligible Property",
+      "expected": "Allowed exactly by lifecycle/ownership policy",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A06",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Owner cannot edit another owner Property",
+      "role": "verified_owner",
+      "surface": "Direct API",
+      "action": "PATCH Owner B Property as Owner A",
+      "expected": "Denied; no mutation",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A07",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Owner cannot trash another owner Property",
+      "role": "verified_owner",
+      "surface": "Trash API",
+      "action": "Trash Owner B Property as Owner A",
+      "expected": "Denied; no lifecycle/media change",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A08",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Agent access limited to represented Property",
+      "role": "agent",
+      "surface": "Agent dashboard/API",
+      "action": "Use represented then unrelated Property",
+      "expected": "Represented follows permission; unrelated denied",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A09",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Developer access limited to accountable inventory",
+      "role": "developer",
+      "surface": "Developer dashboard/API",
+      "action": "Use own then unrelated inventory",
+      "expected": "Own relationship allowed; unrelated denied",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A10",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Admin moderation requires privilege",
+      "role": "buyer",
+      "surface": "Admin moderation API",
+      "action": "Call admin moderation directly",
+      "expected": "Denied independent of UI visibility",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A11",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Admin canonical transitions work",
+      "role": "admin",
+      "surface": "Admin moderation",
+      "action": "Perform allowed transitions",
+      "expected": "Only allowed transitions succeed and are audited",
+      "requiredEvidence": [
+        "network",
+        "db_state",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A12",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Superadmin purge privilege separated",
+      "role": "admin",
+      "surface": "Permanent purge",
+      "action": "Attempt superadmin-only purge as admin",
+      "expected": "Denied/constrained exactly by policy",
+      "requiredEvidence": [
+        "network",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A13",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Suspended account loses privileged access",
+      "role": "suspended_user",
+      "surface": "Property/contact/lead APIs",
+      "action": "Reuse existing session after suspension",
+      "expected": "DB-current check denies privileged actions",
+      "requiredEvidence": [
+        "network",
+        "session_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "A14",
+      "category": "Roles & Authorization",
+      "severity": "P0",
+      "title": "Revoked/deleted account cannot reuse stale session",
+      "role": "revoked_user",
+      "surface": "Property/contact/lead APIs",
+      "action": "Reuse old session after revocation/deletion",
+      "expected": "Preview/contact/lead/privileged access denied",
+      "requiredEvidence": [
+        "network",
+        "session_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T01",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Full-payment round-trip",
+      "role": "verified_owner",
+      "surface": "Unified form",
+      "action": "Create/edit/resubmit full-payment Property",
+      "expected": "Canonical fields persist and remain discoverable",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "search_result"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T02",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Installment round-trip",
+      "role": "verified_owner",
+      "surface": "Unified form",
+      "action": "Create installment Property then edit",
+      "expected": "Payment fields round-trip without schema drift",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T03",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Rent round-trip",
+      "role": "verified_owner",
+      "surface": "Unified form",
+      "action": "Create rent Property then edit",
+      "expected": "Rent fields persist; sale-only logic not misapplied",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T04",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Pre-launch boundary truthful",
+      "role": "verified_owner",
+      "surface": "Unified form",
+      "action": "Use pre-launch if retained",
+      "expected": "Supported flow works or UI/API clearly rejects unsupported mode",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T05",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Residential category parity",
+      "role": "anonymous",
+      "surface": "Search",
+      "action": "Search Residential and mapped subtypes",
+      "expected": "All intended residential types return through canonical serializer",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "search_result"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T06",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Commercial category parity",
+      "role": "anonymous",
+      "surface": "Search",
+      "action": "Search Commercial and mapped subtypes",
+      "expected": "All intended commercial types return without first-value truncation",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "search_result"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T07",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Plots category parity",
+      "role": "anonymous",
+      "surface": "Search",
+      "action": "Search Plots/Pakistan aliases",
+      "expected": "Create taxonomy and discovery aliases agree",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "search_result"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T08",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Invalid subtype without parent fails closed",
+      "role": "anonymous",
+      "surface": "Search/API",
+      "action": "Submit invalid subtype/type pair",
+      "expected": "Rejected or safely normalized; no unintended broad query",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T09",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Deep-linked filter URL round-trip",
+      "role": "anonymous",
+      "surface": "Search",
+      "action": "Open copied category/type/subtype URL",
+      "expected": "UI state and API query reproduce inventory",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "url"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "T10",
+      "category": "Listing Types & Taxonomy",
+      "severity": "P0",
+      "title": "Project-linked boundary",
+      "role": "verified_owner",
+      "surface": "Property/Project relation",
+      "action": "Exercise project-linked Property/Unit",
+      "expected": "Standalone Property rules do not corrupt Project/Unit boundaries",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M01",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Gallery add/reorder/remove",
+      "role": "verified_owner",
+      "surface": "Property media",
+      "action": "Add/reorder/remove public images",
+      "expected": "DB order/UI match; only authorized media mutate",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "cloudinary"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M02",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Failed replacement preserves old asset",
+      "role": "verified_owner",
+      "surface": "Property media",
+      "action": "Force replacement failure",
+      "expected": "Existing asset/reference remains recoverable",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "cloudinary"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M03",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Cancelled draft upload cleanup",
+      "role": "verified_owner",
+      "surface": "Property form",
+      "action": "Upload temporary media then abandon",
+      "expected": "Orphan is cleaned or safely queued",
+      "requiredEvidence": [
+        "network",
+        "cloudinary",
+        "cleanup_queue"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M04",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Floor-plan image works",
+      "role": "verified_owner",
+      "surface": "Floor plans",
+      "action": "Upload image floor plan",
+      "expected": "Verified public detail renders safely",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M05",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Floor-plan PDF works safely",
+      "role": "verified_owner",
+      "surface": "Floor plans",
+      "action": "Upload allowed PDF floor plan",
+      "expected": "Allowed delivery works without private-evidence confusion",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M06",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Ownership evidence stays private",
+      "role": "verified_owner",
+      "surface": "Ownership proof",
+      "action": "Upload ownership/KYC evidence",
+      "expected": "No public URL/public_id/signature appears publicly",
+      "requiredEvidence": [
+        "network",
+        "page_source",
+        "privacy_scan"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M07",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Authorized admin reviews evidence",
+      "role": "admin",
+      "surface": "Evidence review",
+      "action": "Open protected evidence",
+      "expected": "Authorized short-lived retrieval works and is audited",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M08",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Unauthorized evidence retrieval denied",
+      "role": "buyer",
+      "surface": "Evidence endpoint",
+      "action": "Guess evidence Property ID/URL",
+      "expected": "Denied; no durable private URL revealed",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M09",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Purge cleanup succeeds or queues retry",
+      "role": "superadmin",
+      "surface": "Purge/cleanup",
+      "action": "Purge Property with public/private media",
+      "expected": "Outcome observable; failures persist in retry queue",
+      "requiredEvidence": [
+        "network",
+        "cloudinary",
+        "cleanup_queue",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "M10",
+      "category": "Media & Evidence",
+      "severity": "P0",
+      "title": "Cleanup worker protected",
+      "role": "anonymous",
+      "surface": "Cleanup worker",
+      "action": "Call worker without authorization",
+      "expected": "Denied; no cleanup or queue leakage",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D01",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Search only canonical public inventory",
+      "role": "anonymous",
+      "surface": "/properties",
+      "action": "Search broad inventory",
+      "expected": "Only verified clean non-deleted/non-flagged items appear",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "search_result"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D02",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Progressive filters mobile",
+      "role": "anonymous",
+      "surface": "/properties",
+      "action": "Use More Filters at mobile width",
+      "expected": "Usable/persistent filters; correct focus/touch behavior",
+      "requiredEvidence": [
+        "screenshot",
+        "mobile_video"
+      ],
+      "devices": [
+        "mobile_android",
+        "mobile_ios"
+      ]
+    },
+    {
+      "id": "D03",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Pagination/cursor consistency",
+      "role": "anonymous",
+      "surface": "Search API/UI",
+      "action": "Navigate pages then change filters",
+      "expected": "No stale cursor duplicates/missing rows",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D04",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Property card least privilege",
+      "role": "anonymous",
+      "surface": "Property card",
+      "action": "Inspect list response/card props",
+      "expected": "No seller PII/private IDs/private Cloudinary fields",
+      "requiredEvidence": [
+        "network",
+        "privacy_scan"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D05",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Canonical detail slug direct/refreshed",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Open verified canonical slug",
+      "expected": "200 renders without internal self-fetch dependency",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D06",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Legacy URL policy intentional",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Open supported legacy ID/slug URL",
+      "expected": "Redirect/404 follows canonical policy without leakage",
+      "requiredEvidence": [
+        "network",
+        "url"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D07",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Similar excludes non-public",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Flag/trash a Similar candidate",
+      "expected": "Candidate disappears",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D08",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Favorite add/remove authenticated",
+      "role": "buyer",
+      "surface": "Favorites",
+      "action": "Save/remove verified Property",
+      "expected": "Server/UI stay synchronized",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D09",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Favorite stale cleanup",
+      "role": "buyer",
+      "surface": "Favorites",
+      "action": "Save then flag/trash Property",
+      "expected": "Non-public saved item no longer leaks",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D10",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Guest Favorites migration idempotent",
+      "role": "buyer",
+      "surface": "Guest\u2192login Favorites",
+      "action": "Save as guest then login/repeat sync",
+      "expected": "Adds once; never toggles existing save off",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D11",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Recently Viewed guest flow",
+      "role": "anonymous",
+      "surface": "Recently Viewed",
+      "action": "Visit/remove/revisit public items",
+      "expected": "Local history works; stale non-public reconciles away",
+      "requiredEvidence": [
+        "screenshot",
+        "storage_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D12",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Recently Viewed server authority",
+      "role": "buyer",
+      "surface": "Recently Viewed",
+      "action": "Login with empty server history over local state",
+      "expected": "Server zero clears account-mirrored local state",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "storage_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D13",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Compare mixed add/remove/refresh",
+      "role": "buyer",
+      "surface": "Compare",
+      "action": "Compare Property + Project then remove/refresh",
+      "expected": "Shared state coherent; slot rules hold",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "storage_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D14",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Shared Compare excludes non-public",
+      "role": "anonymous",
+      "surface": "Shared Compare",
+      "action": "Share then flag/trash Property",
+      "expected": "Resolver drops non-public Property",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D15",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Guest\u2192login Compare migration",
+      "role": "buyer",
+      "surface": "Compare",
+      "action": "Create guest compare then login",
+      "expected": "Guest state merges idempotently; account becomes authority",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "storage_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D16",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "True Cost provenance truthful",
+      "role": "buyer",
+      "surface": "True Cost",
+      "action": "Open sale/rent/installment examples",
+      "expected": "Estimated/listing-supplied values labeled; no unsupported official claim",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D17",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Price tracking lifecycle-safe",
+      "role": "verified_owner",
+      "surface": "Price update",
+      "action": "Change verified and under_review price",
+      "expected": "Verified material change re-enters review; under_review blocked",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "D18",
+      "category": "Discovery & Decision State",
+      "severity": "P0",
+      "title": "Map/location public-safe",
+      "role": "anonymous",
+      "surface": "Detail map",
+      "action": "Open map/location",
+      "expected": "Correct locality with no unintended private precision/data",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C01",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Contact reveal requires auth",
+      "role": "anonymous",
+      "surface": "Contact endpoint/UI",
+      "action": "Attempt reveal anonymously",
+      "expected": "Server requires auth; no PII in public HTML/API",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "page_source"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C02",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Seller privacy preference enforced",
+      "role": "buyer",
+      "surface": "Contact endpoint",
+      "action": "Reveal contact with a disabled channel",
+      "expected": "Disabled channel remains blocked server-side",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C03",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Inquiry routes to Owner",
+      "role": "buyer",
+      "surface": "Property inquiry",
+      "action": "Submit on Owner-accountable Property",
+      "expected": "Lead reaches correct Owner dashboard only",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C04",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Inquiry routes to Agent",
+      "role": "buyer",
+      "surface": "Property inquiry",
+      "action": "Submit on Agent-accountable Property",
+      "expected": "Lead reaches correct Agent/agency only",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C05",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Inquiry routes to Developer",
+      "role": "buyer",
+      "surface": "Property inquiry",
+      "action": "Submit on Developer-accountable Property",
+      "expected": "Lead reaches correct Developer only",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C06",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Callback uses canonical routing",
+      "role": "buyer",
+      "surface": "Callback",
+      "action": "Request callback",
+      "expected": "Same server-owned resolver; browser cannot choose recipient",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C07",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Site visit future-date validation",
+      "role": "buyer",
+      "surface": "Site visit",
+      "action": "Submit valid and past dates",
+      "expected": "Valid future accepted; past/out-of-range rejected",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C08",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Recipient override attack rejected",
+      "role": "buyer",
+      "surface": "Communication API",
+      "action": "Inject ownerId/agentId/developerId/assigned fields",
+      "expected": "Unexpected routing keys rejected; server resolves Property actor",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C09",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Cross-recipient lead open denied",
+      "role": "agent",
+      "surface": "Lead API",
+      "action": "Open another actor's Lead by ID",
+      "expected": "Denied except explicit privileged admin path",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C10",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Self-inquiry denied",
+      "role": "verified_owner",
+      "surface": "Inquiry",
+      "action": "Submit inquiry on own accountable Property",
+      "expected": "Rejected by canonical WP8 contract",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C11",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Non-public Property communication blocked",
+      "role": "buyer",
+      "surface": "Inquiry/contact",
+      "action": "Submit after Property becomes flagged/trashed/private",
+      "expected": "Server blocks because Property is not public eligible",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C12",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Report duplicate/abuse resistance",
+      "role": "buyer",
+      "surface": "Report Property",
+      "action": "Repeat same report/alter superficial signals",
+      "expected": "Duplicate abuse constrained; report count alone cannot destroy listing",
+      "requiredEvidence": [
+        "network",
+        "db_state",
+        "risk_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C13",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Risk assessment not destructive by itself",
+      "role": "admin",
+      "surface": "Risk/moderation",
+      "action": "Generate queue/urgent risk signals",
+      "expected": "Assessment does not directly permanently remove listing",
+      "requiredEvidence": [
+        "network",
+        "db_state",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "C14",
+      "category": "Communication & Safety",
+      "severity": "P0",
+      "title": "Moderation remediation/appeal works",
+      "role": "verified_owner",
+      "surface": "Remediation",
+      "action": "Correct requested info and resubmit",
+      "expected": "Owner can remediate; canonical admin decision remains required",
+      "requiredEvidence": [
+        "screenshot",
+        "network",
+        "db_state",
+        "audit"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S01",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Canonical slug metadata",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Inspect canonical tag",
+      "expected": "Canonical URL uses intended slug",
+      "requiredEvidence": [
+        "page_source",
+        "url"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S02",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "JSON-LD matches visible facts",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Compare JSON-LD to visible data",
+      "expected": "No unsupported trust/legal claim; price/location/images/units align",
+      "requiredEvidence": [
+        "page_source",
+        "screenshot"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S03",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Sitemap exact public set",
+      "role": "anonymous",
+      "surface": "Property sitemap",
+      "action": "Compare fixtures vs sitemap",
+      "expected": "Only currently public Properties included",
+      "requiredEvidence": [
+        "network",
+        "sitemap_snapshot"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S04",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Temporary non-public detail behavior",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Open trashed/flagged/private URL",
+      "expected": "Intentional 404/private behavior; no stale ISR data",
+      "requiredEvidence": [
+        "network",
+        "page_source"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S05",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Permanent removal policy",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Open permanently purged URL",
+      "expected": "404/410 policy intentional; absent search/sitemap",
+      "requiredEvidence": [
+        "network",
+        "sitemap_snapshot"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S06",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Desktop Chrome smoke",
+      "role": "anonymous",
+      "surface": "Core journey",
+      "action": "Search\u2192filter\u2192card\u2192detail\u2192contact",
+      "expected": "No broken layout/runtime error/blocked primary action",
+      "requiredEvidence": [
+        "screenshots",
+        "console"
+      ],
+      "devices": [
+        "desktop_chrome"
+      ]
+    },
+    {
+      "id": "S07",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Desktop Edge smoke",
+      "role": "buyer",
+      "surface": "Core journey",
+      "action": "Search\u2192save\u2192compare\u2192detail\u2192contact",
+      "expected": "State remains synchronized",
+      "requiredEvidence": [
+        "screenshots",
+        "console"
+      ],
+      "devices": [
+        "desktop_edge"
+      ]
+    },
+    {
+      "id": "S08",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Desktop Firefox smoke",
+      "role": "buyer",
+      "surface": "Core journey",
+      "action": "Search\u2192detail\u2192modal/form",
+      "expected": "No critical browser-specific failure",
+      "requiredEvidence": [
+        "screenshots",
+        "console"
+      ],
+      "devices": [
+        "desktop_firefox"
+      ]
+    },
+    {
+      "id": "S09",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Android-width mobile smoke",
+      "role": "anonymous",
+      "surface": "Core journey",
+      "action": "Search/filter\u2192detail\u2192sticky actions",
+      "expected": "Responsive; 44px+ targets; no horizontal overflow",
+      "requiredEvidence": [
+        "screenshots",
+        "mobile_video"
+      ],
+      "devices": [
+        "mobile_android"
+      ]
+    },
+    {
+      "id": "S10",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "iPhone-width mobile smoke",
+      "role": "buyer",
+      "surface": "Core journey",
+      "action": "Detail\u2192Save/Compare/Contact",
+      "expected": "Controls reachable; state coherent",
+      "requiredEvidence": [
+        "screenshots",
+        "mobile_video"
+      ],
+      "devices": [
+        "mobile_ios"
+      ]
+    },
+    {
+      "id": "S11",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Keyboard navigation",
+      "role": "anonymous",
+      "surface": "List/detail/modals",
+      "action": "Keyboard-only navigation",
+      "expected": "Logical focus, visible focus, no trap",
+      "requiredEvidence": [
+        "video",
+        "accessibility_notes"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S12",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Modal focus/Escape",
+      "role": "buyer",
+      "surface": "Contact/inquiry/site visit",
+      "action": "Open/tab/Escape/close",
+      "expected": "Focus trapped appropriately and restored",
+      "requiredEvidence": [
+        "video",
+        "accessibility_notes"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S13",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Loading states",
+      "role": "anonymous",
+      "surface": "Search/detail",
+      "action": "Throttle network",
+      "expected": "Stable truthful loading UI",
+      "requiredEvidence": [
+        "screenshots",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S14",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Error states",
+      "role": "anonymous",
+      "surface": "Search/detail/API",
+      "action": "Force safe failures",
+      "expected": "Recoverable error UI; no stack/secrets",
+      "requiredEvidence": [
+        "screenshots",
+        "network",
+        "console"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S15",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Empty states",
+      "role": "anonymous",
+      "surface": "Search/My Properties/Favorites",
+      "action": "Use zero-item valid states",
+      "expected": "Useful truthful empty state with accessible next action",
+      "requiredEvidence": [
+        "screenshots"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S16",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "Image performance smoke",
+      "role": "anonymous",
+      "surface": "List/detail",
+      "action": "Inspect images/layout shift",
+      "expected": "Appropriate optimization; no severe media CLS",
+      "requiredEvidence": [
+        "performance_capture",
+        "screenshots"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S17",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "No unsupported SafeDeal promise",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Inspect SafeDeal copy/link",
+      "expected": "No broken route or uncertified escrow/protection guarantee",
+      "requiredEvidence": [
+        "screenshot",
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "S18",
+      "category": "SEO, Browser & UX",
+      "severity": "P0",
+      "title": "No instant-publish/guarantee copy",
+      "role": "anonymous",
+      "surface": "Create/public UI",
+      "action": "Inspect publication/trust copy",
+      "expected": "Copy accurately reflects review/verification",
+      "requiredEvidence": [
+        "screenshots"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X01",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Direct ID GET blocks draft",
+      "role": "anonymous",
+      "surface": "GET Property by ID",
+      "action": "Request draft ID",
+      "expected": "Non-public response; no private DTO",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X02",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Direct ID GET blocks flagged",
+      "role": "anonymous",
+      "surface": "GET Property by ID",
+      "action": "Request flagged ID",
+      "expected": "Non-public response",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X03",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Direct ID GET blocks trashed",
+      "role": "anonymous",
+      "surface": "GET Property by ID",
+      "action": "Request trashed ID",
+      "expected": "Non-public response",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X04",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Lifecycle mass-assignment rejected",
+      "role": "verified_owner",
+      "surface": "PATCH Property",
+      "action": "Submit verification/isFlagged/deleted/admin fields",
+      "expected": "Server-owned fields cannot be set by owner",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X05",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Ownership mass-assignment rejected",
+      "role": "verified_owner",
+      "surface": "PATCH Property",
+      "action": "Submit owner/agent/developer overrides",
+      "expected": "Cannot steal/reassign Property",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X06",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Object-ID enumeration privacy",
+      "role": "anonymous",
+      "surface": "Property APIs",
+      "action": "Probe random valid-looking IDs",
+      "expected": "No private existence/data leakage beyond policy",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X07",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Contact rate limit",
+      "role": "buyer",
+      "surface": "Contact endpoint",
+      "action": "Rapid sensitive contact requests",
+      "expected": "Rate limit activates without PII leakage",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X08",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Inquiry abuse limit",
+      "role": "buyer",
+      "surface": "Communication endpoint",
+      "action": "Rapid duplicate inquiries",
+      "expected": "Spam protections activate; no uncontrolled duplicate Leads",
+      "requiredEvidence": [
+        "network",
+        "db_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X09",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Report abuse limit",
+      "role": "buyer",
+      "surface": "Report endpoint",
+      "action": "Rapid reports",
+      "expected": "Abuse control activates; no automatic destructive mutation",
+      "requiredEvidence": [
+        "network",
+        "db_state",
+        "risk_state"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X10",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Seller phone absent public source",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Search HTML/Next data for fixture phone",
+      "expected": "Absent until protected reveal",
+      "requiredEvidence": [
+        "page_source",
+        "privacy_scan"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X11",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Seller email absent public source",
+      "role": "anonymous",
+      "surface": "Property detail",
+      "action": "Search HTML/Next data for fixture email",
+      "expected": "Absent until protected reveal",
+      "requiredEvidence": [
+        "page_source",
+        "privacy_scan"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X12",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "WhatsApp absent public source/API",
+      "role": "anonymous",
+      "surface": "Public APIs",
+      "action": "Search fixture WhatsApp",
+      "expected": "No direct WhatsApp leak",
+      "requiredEvidence": [
+        "network",
+        "page_source"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X13",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "KYC/evidence IDs absent secondary endpoints",
+      "role": "anonymous",
+      "surface": "Public/decision APIs",
+      "action": "Search list/detail/compare/favorite/recent responses",
+      "expected": "No private evidence identifiers leak",
+      "requiredEvidence": [
+        "network",
+        "privacy_scan"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X14",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Private Cloudinary identifiers absent",
+      "role": "anonymous",
+      "surface": "Public Property surfaces",
+      "action": "Inspect media objects",
+      "expected": "No signatures/private IDs/secrets cross boundary",
+      "requiredEvidence": [
+        "network",
+        "privacy_scan"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X15",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Errors do not expose secrets/stacks",
+      "role": "anonymous",
+      "surface": "Property APIs",
+      "action": "Trigger validation/auth errors",
+      "expected": "No stack/env/connection string/internal secret leak",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    },
+    {
+      "id": "X16",
+      "category": "Direct API Abuse & Privacy",
+      "severity": "P0",
+      "title": "Canonical/legacy route collision smoke",
+      "role": "anonymous",
+      "surface": "Property routes",
+      "action": "Exercise canonical and retired paths",
+      "expected": "Canonical deterministic; retired cannot mutate",
+      "requiredEvidence": [
+        "network"
+      ],
+      "devices": [
+        "desktop"
+      ]
+    }
+  ]
+}

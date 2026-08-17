@@ -4,13 +4,12 @@
 // =====================================================
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
 import mongoose from "mongoose";
 import crypto from "crypto";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import { sendEmail } from "@/lib/email";
-import { authOptions } from "../../../auth/[...nextauth]";
+import { requireAdmin } from "@/lib/requireAuth";
 
 interface ApiResponse {
   success: boolean;
@@ -70,12 +69,8 @@ export default async function handler(
   }
 
   // ── Admin auth ──
-  const session = await getServerSession(req, res, authOptions);
-  if (!session?.user || session.user.role !== "admin") {
-    return res.status(403).json({
-      success: false, message: "Admin access required", requestId,
-    });
-  }
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   const { userId } = req.query;
   if (typeof userId !== "string" || !mongoose.Types.ObjectId.isValid(userId)) {
@@ -111,7 +106,7 @@ export default async function handler(
         $push: {
           profileChangeResetHistory: {
             resetAt:       new Date(),
-            resetBy:       session.user.id,
+            resetBy:       auth.id,
             reason:        cleanReason,
             previousCount,
           },

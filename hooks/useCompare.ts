@@ -181,14 +181,14 @@ export function useCompare(
         }
       }
 
-      if (serverItems.length > 0) {
-        writeCompareItems(serverItems);
-        const serverIdsForType = serverItems
-          .filter(i => i.entityType === defaultType)
-          .map(i => i.entityId);
-        setCompareIds(serverIdsForType);
-        setTotalCount(serverItems.length);
-      }
+      // Authenticated/server state is authoritative even when empty.
+      // A zero-item response must clear stale local mirrored comparison state.
+      writeCompareItems(serverItems);
+      const serverIdsForType = serverItems
+        .filter(i => i.entityType === defaultType)
+        .map(i => i.entityId);
+      setCompareIds(serverIdsForType);
+      setTotalCount(serverItems.length);
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
         // Fall back to local (already loaded above)

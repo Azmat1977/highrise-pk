@@ -53,6 +53,8 @@ export const ADMIN_ACTIONS = [
   "property_permanently_deleted",
   "property_flagged",
   "property_verified",
+  "property_review_started",
+  "property_unflagged",
 
   // ── Project management ──
   "project_approved",
@@ -156,6 +158,8 @@ export const ACTION_SEVERITY_MAP: Record<AdminAction, AuditSeverityLevel> = {
   property_restored: "medium",
   property_flagged: "medium",
   property_verified: "medium",
+  property_review_started: "medium",
+  property_unflagged: "medium",
   project_approved: "medium",
   project_rejected: "medium",
   project_deleted: "medium",

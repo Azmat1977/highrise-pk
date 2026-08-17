@@ -7,6 +7,7 @@ import City from "@/models/City";
 import { requireAuth } from "@/lib/requireAuth";
 import { checkPermission } from "@/lib/permissions";
 import { rateLimitAdmin } from "@/lib/rateLimit";
+import { deleteFile, isHighrisePublicId } from "@/lib/cloudinary";
 
 const MAX_TIME_MS = 5000;
 const DEFAULT_LIMIT = 30;
@@ -54,6 +55,15 @@ const DeleteSchema = z.object({
   name: CityNameSchema.optional(),
   deleteImageOnly: z.boolean().optional().default(false),
 });
+
+
+function isManagedCityImage(imageUrl: string, publicId: string): boolean {
+  return (
+    imageUrl.startsWith("https://res.cloudinary.com/") &&
+    isHighrisePublicId(publicId) &&
+    publicId.startsWith("highrise-pk/admin/cities/")
+  );
+}
 
 function makeRequestId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -253,6 +263,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const payload = bodyParse.data;
 
+      if (payload.imageUrl && !isManagedCityImage(payload.imageUrl, payload.publicId)) {
+        return res.status(400).json({
+          success: false,
+          message: "City images must be uploaded through the protected Highrise upload service",
+          code: "INVALID_IMAGE_REFERENCE",
+          requestId,
+        });
+      }
+
       // Case-insensitive match to avoid duplicates like "lahore" vs "Lahore"
       const nameRegex = new RegExp(`^${escapeRegex(payload.name)}$`, "i");
 
@@ -325,6 +344,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
+      if (payload.imageUrl && !isManagedCityImage(payload.imageUrl, payload.publicId)) {
+        return res.status(400).json({
+          success: false,
+          message: "City images must be uploaded through the protected Highrise upload service",
+          code: "INVALID_IMAGE_REFERENCE",
+          requestId,
+        });
+      }
+
+      const previousCity: any = await City.findOne(filter)
+        .select("image")
+        .lean()
+        .maxTimeMS(MAX_TIME_MS);
+
       const $set: any = {};
       if (payload.name) $set.name = payload.name;
       if (typeof payload.displayOrder === "number") $set.displayOrder = payload.displayOrder;
@@ -348,6 +381,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           code: "NOT_FOUND",
           requestId,
         });
+      }
+
+      const previousPublicId = String(previousCity?.image?.publicId || "");
+      const nextPublicId = String((city as any)?.image?.publicId || "");
+      if (
+        previousPublicId &&
+        previousPublicId !== nextPublicId &&
+        isHighrisePublicId(previousPublicId)
+      ) {
+        await deleteFile(previousPublicId).catch(() => undefined);
       }
 
       SecurityEvent.create({
@@ -401,6 +444,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     }
 
     if (payload.deleteImageOnly) {
+      const previousCity: any = await City.findOne(filter)
+        .select("image")
+        .lean()
+        .maxTimeMS(MAX_TIME_MS);
+
       const city = await City.findOneAndUpdate(
         filter,
         { $set: { image: { url: "", publicId: "" } } },
@@ -416,6 +464,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           code: "NOT_FOUND",
           requestId,
         });
+      }
+
+      const previousPublicId = String(previousCity?.image?.publicId || "");
+      if (previousPublicId && isHighrisePublicId(previousPublicId)) {
+        await deleteFile(previousPublicId).catch(() => undefined);
       }
 
       SecurityEvent.create({
@@ -444,6 +497,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         code: "NOT_FOUND",
         requestId,
       });
+    }
+
+    const deletedPublicId = String((deleted as any)?.image?.publicId || "");
+    if (deletedPublicId && isHighrisePublicId(deletedPublicId)) {
+      await deleteFile(deletedPublicId).catch(() => undefined);
     }
 
     SecurityEvent.create({

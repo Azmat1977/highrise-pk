@@ -1,211 +1,74 @@
-// pages/api/owner/leads.ts
-// GET   → leads for owner's properties
-// PATCH → update lead status/priority
-
+//C:\dev\highrise-pk\pages\api\owner\leads.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
-import { authOptions }      from "@/pages/api/auth/[...nextauth]";
-import dbConnect            from "@/lib/dbConnect";
-import Property             from "@/models/Property";
-import { rateLimitApi, sendRateLimitResponse }        from "@/lib/rateLimit";
-import mongoose             from "mongoose";
+import mongoose from "mongoose";
+import dbConnect from "@/lib/dbConnect";
+import Lead from "@/models/Lead";
+import { requireAuth } from "@/lib/requireAuth";
+import { rateLimitApi, sendRateLimitResponse } from "@/lib/rateLimit";
+import { buildPropertyLeadDashboardFilter } from "@/lib/property/propertyLeadAccess";
 
-interface SessionUser {
-  id:                        string;
-  role:                      string;
-  isVerifiedOwner?:          boolean;
-  ownerVerificationStatus?:  string;
-}
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse,
-): Promise<void> {
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader("Cache-Control", "private, no-store");
   const rl = await rateLimitApi(req);
-  if (!rl.ok) {
-    sendRateLimitResponse(res, rl);
-    return;
-  }
+  if (!rl.ok) return sendRateLimitResponse(res, rl);
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
-  const session = await getServerSession(req, res, authOptions);
-  const user    = session?.user as SessionUser | undefined;
-
-  if (!user?.id) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
+  const isAdmin = auth.authorityRole === "admin" || auth.authorityRole === "superadmin";
+  if (!isAdmin && !auth.capabilities.includes("property_owner")) {
+    return res.status(403).json({ success: false, error: "Verified owner access required" });
   }
-  if (user.role !== "admin" && !user.isVerifiedOwner) {
-    res.status(403).json({
-      error: "Verified owner access required. Please complete owner verification.",
-      code:  "OWNER_NOT_VERIFIED",
+  await dbConnect();
+
+  const recipientRole = auth.authorityRole === "superadmin"
+    ? "superadmin"
+    : auth.authorityRole === "admin"
+      ? "admin"
+      : "owner";
+
+  const access = buildPropertyLeadDashboardFilter({
+    id: auth.id,
+    role: recipientRole,
+    isActive: true,
+  });
+  if (!access.ok) return res.status(403).json({ success: false, error: "Lead access denied" });
+
+  if (req.method === "GET") {
+    const page = Math.max(1, Number.parseInt(String(req.query.page || "1"), 10) || 1);
+    const limit = Math.min(50, Math.max(1, Number.parseInt(String(req.query.limit || "12"), 10) || 12));
+    const query: Record<string, unknown> = { ...access.filter };
+    const status = String(req.query.status || "all");
+    const priority = String(req.query.priority || "all");
+    if (status !== "all") query.status = status;
+    if (priority !== "all") query.priority = priority;
+
+    const [leads, total, statsAgg] = await Promise.all([
+      Lead.find(query).sort({ createdAt: -1 }).skip((page - 1) * limit).limit(limit).lean(),
+      Lead.countDocuments(query),
+      Lead.aggregate([{ $match: access.filter }, { $group: { _id: "$status", count: { $sum: 1 } } }]),
+    ]);
+    const statsMap = Object.fromEntries((statsAgg as Array<{_id:string;count:number}>).map((x) => [x._id, x.count]));
+    const won = Number(statsMap.won || 0);
+    return res.status(200).json({
+      success: true,
+      data: leads,
+      stats: { all: total, new: Number(statsMap.new || 0), contacted: Number(statsMap.contacted || 0), qualified: Number(statsMap.qualified || 0), won, conversionRate: total ? Math.round((won / total) * 100) : 0 },
+      pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
     });
-    return;
   }
 
-  try {
-    await dbConnect();
-
-    // ── GET ────────────────────────────────────────────────────────────────
-    if (req.method === "GET") {
-      // Get owner's property IDs first
-      const ownerPropertyIds = await Property.find({
-        owner:     user.id,
-        isDeleted: false,
-      })
-        .select("_id")
-        .lean<{ _id: mongoose.Types.ObjectId }[]>();
-
-      const propertyIds = ownerPropertyIds.map((p) => p._id);
-
-      // Try to fetch from Lead/Inquiry model
-      // Graceful degradation if model doesn't exist yet
-      try {
-        // Dynamic import to avoid crash if model missing
-        const Lead = mongoose.models["Lead"] ??
-          mongoose.models["Inquiry"] ??
-          null;
-
-        if (!Lead) {
-          // Lead model not yet built — return empty with 200
-          res.status(200).json({
-            success:    true,
-            data:       [],
-            stats:      { all: 0, new: 0, contacted: 0, qualified: 0, won: 0, conversionRate: 0 },
-            pagination: { page: 1, limit: 12, total: 0, totalPages: 0 },
-            _info:      "Lead model not yet available. Check back after Session 4.",
-          });
-          return;
-        }
-
-        const {
-          page     = "1",
-          limit    = "12",
-          status   = "all",
-          priority = "all",
-          search   = "",
-        } = req.query as Record<string, string>;
-
-        const pageNum  = Math.max(1, parseInt(page, 10));
-        const limitNum = Math.min(50, Math.max(1, parseInt(limit, 10)));
-        const skip     = (pageNum - 1) * limitNum;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const query: Record<string, any> = {
-          "propertySnapshot._id": { $in: propertyIds },
-          isArchived: false,
-        };
-
-        if (status !== "all")   query["status"]   = status;
-        if (priority !== "all") query["priority"]  = priority;
-        if (search?.trim()) {
-          const rx = new RegExp(search.trim(), "i");
-          query["$or"] = [
-            { name:    rx },
-            { phone:   rx },
-            { email:   rx },
-          ];
-        }
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const [leads, total, statsAgg] = await Promise.all([
-          (Lead as mongoose.Model<any>).find(query).sort({ createdAt: -1 }).skip(skip).limit(limitNum).lean(),
-          (Lead as mongoose.Model<any>).countDocuments(query),
-          (Lead as mongoose.Model<any>).aggregate([
-            { $match: { "propertySnapshot._id": { $in: propertyIds }, isArchived: false } },
-            { $group: { _id: "$status", count: { $sum: 1 } } },
-          ]),
-        ]);
-
-        type StatItem = { _id: string; count: number };
-        const sMap = (statsAgg as StatItem[]).reduce<Record<string,number>>(
-          (acc, s) => ({ ...acc, [s._id]: s.count }),
-          {}
-        );
-
-        const allCount = total;
-        const wonCount = sMap["won"] ?? 0;
-
-        res.status(200).json({
-          success: true,
-          data:    leads,
-          stats:   {
-            all:            allCount,
-            new:            sMap["new"]       ?? 0,
-            contacted:      sMap["contacted"] ?? 0,
-            qualified:      sMap["qualified"] ?? 0,
-            won:            wonCount,
-            conversionRate: allCount > 0
-              ? Math.round((wonCount / allCount) * 100)
-              : 0,
-          },
-          pagination: {
-            page:       pageNum,
-            limit:      limitNum,
-            total,
-            totalPages: Math.ceil(total / limitNum),
-          },
-        });
-      } catch {
-        // Any error — return empty gracefully
-        res.status(200).json({
-          success:    true,
-          data:       [],
-          stats:      { all: 0, new: 0, contacted: 0, qualified: 0, won: 0, conversionRate: 0 },
-          pagination: { page: 1, limit: 12, total: 0, totalPages: 0 },
-        });
-      }
-      return;
-    }
-
-    // ── PATCH (update lead status/priority) ────────────────────────────────
-    if (req.method === "PATCH") {
-      const { leadId } = req.query;
-
-      if (!leadId || typeof leadId !== "string" || !mongoose.isValidObjectId(leadId)) {
-        res.status(400).json({ error: "Valid lead ID required" });
-        return;
-      }
-
-      const Lead = mongoose.models["Lead"] ?? mongoose.models["Inquiry"] ?? null;
-
-      if (!Lead) {
-        res.status(404).json({ error: "Lead system not yet available" });
-        return;
-      }
-
-      const { status, priority } = req.body as Record<string, string>;
-
-      const update: Record<string, string> = {};
-      if (status)   update["status"]   = status;
-      if (priority) update["priority"] = priority;
-
-      if (Object.keys(update).length === 0) {
-        res.status(400).json({ error: "No fields to update" });
-        return;
-      }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const lead = await (Lead as mongoose.Model<any>).findOneAndUpdate(
-        {
-          _id:                    leadId,
-          "propertySnapshot._id": { $in: await Property.find({ owner: user.id }).distinct("_id") },
-        },
-        { $set: update },
-        { new: true }
-      ).lean();
-
-      if (!lead) {
-        res.status(404).json({ error: "Lead not found or access denied" });
-        return;
-      }
-
-      res.status(200).json({ success: true, lead });
-      return;
-    }
-
-    res.status(405).json({ error: "Method not allowed" });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Internal server error";
-    res.status(500).json({ error: msg });
+  if (req.method === "PATCH") {
+    const leadId = typeof req.query.leadId === "string" ? req.query.leadId : "";
+    if (!mongoose.Types.ObjectId.isValid(leadId)) return res.status(400).json({ success: false, error: "Valid lead ID required" });
+    const update: Record<string, string> = {};
+    if (typeof req.body?.status === "string") update.status = req.body.status;
+    if (typeof req.body?.priority === "string") update.priority = req.body.priority;
+    if (!Object.keys(update).length) return res.status(400).json({ success: false, error: "No fields to update" });
+    const lead = await Lead.findOneAndUpdate({ _id: leadId, ...access.filter }, { $set: update }, { new: true, runValidators: true }).lean();
+    if (!lead) return res.status(404).json({ success: false, error: "Lead not found or access denied" });
+    return res.status(200).json({ success: true, lead });
   }
+
+  res.setHeader("Allow", ["GET", "PATCH"]);
+  return res.status(405).json({ success: false, error: "Method not allowed" });
 }

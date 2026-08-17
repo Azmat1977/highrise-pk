@@ -1,4 +1,4 @@
-// FILE: pages/developer/projects/new.tsx
+﻿// FILE: pages/developer/projects/new.tsx
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import Head from 'next/head';
@@ -12,18 +12,18 @@ import FileUploader from '@/components/admin/FileUploader';
 import BuildingFloorPlansSection, { BuildingFloorPlan } from '@/components/admin/BuildingFloorPlansSection';
 import UnitPlansSection, { UnitPlan } from '@/components/admin/UnitPlansSection';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-// Form state shape — year is always string (from input)
+// Form state shape â€” year is always string (from input)
 interface CompletedProject {
   name: string;
   type: string;
   location: string;
   year: string;
-  images: string[]; // Cloudinary URLs — uploaded via /api/upload first
+  images: string[]; // Cloudinary URLs â€” uploaded via /api/upload first
 }
 
-// API payload shape — year converted to number | null before sending
+// API payload shape â€” year converted to number | null before sending
 interface CompletedProjectPayload {
   name: string;
   type: string;
@@ -116,7 +116,7 @@ interface ProjectCreateResponse {
   projectId?: string;
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function clampText(v: string, max: number): string {
   const s = String(v ?? '').trim();
@@ -150,7 +150,7 @@ function getFormCheckboxValues(form: HTMLFormElement, name: string): string[] {
   return Array.from(inputs).map((i) => i.value);
 }
 
-// ─── Style constants ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Style constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const inputClass =
   'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 ' +
@@ -178,7 +178,7 @@ const secondaryButtonClass =
   'focus:outline-none focus:ring-4 focus:ring-[#029bba]/20 ' +
   'transition-all duration-200';
 
-// ─── Section wrapper ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Section wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Section({
   title,
@@ -205,7 +205,7 @@ function Section({
   );
 }
 
-// ─── Post-submit action banner ────────────────────────────────────────────────
+// â”€â”€â”€ Post-submit action banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PostSubmitBannerProps {
   projectId: string;
@@ -247,7 +247,7 @@ function PostSubmitBanner({ projectId, onDismiss }: PostSubmitBannerProps): Reac
   );
 }
 
-// ─── Main form ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ProjectForm(): React.ReactElement {
   const router = useRouter();
@@ -257,7 +257,7 @@ function ProjectForm(): React.ReactElement {
   const [submitError,         setSubmitError]         = useState<string | null>(null);
   const [submittedProjectId,  setSubmittedProjectId]  = useState<string | null>(null);
 
-  // ── Approved status guard ─────────────────────────────────
+  // â”€â”€ Approved status guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Only approved developers can create projects
   useEffect(() => {
     if (isLoading) return;
@@ -267,21 +267,13 @@ function ProjectForm(): React.ReactElement {
     }
   }, [profile, isLoading, router]);
 
-  // Show nothing while redirecting
-  if (!isLoading && profile && profile.status !== 'approved') {
-    return (
-      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[#029bba] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   // Classification
   const [projectCategory,     setProjectCategory]     = useState('');
   const [projectNature,       setProjectNature]       = useState('');
   const [developmentProgress, setDevelopmentProgress] = useState(0);
 
-  // Feature image (pre-uploaded via FileUploader → /api/upload)
+  // Feature image (pre-uploaded via FileUploader â†’ /api/upload)
   const [featureImage, setFeatureImage] = useState<CloudinaryRef | null>(null);
 
   // Rich text
@@ -297,7 +289,7 @@ function ProjectForm(): React.ReactElement {
   const [areaSize,  setAreaSize]  = useState('');
   const [areaUnit,  setAreaUnit]  = useState('sqft');
 
-  // Completed projects (metadata only — images uploaded separately)
+  // Completed projects (metadata only â€” images uploaded separately)
   const [completedProjects, setCompletedProjects] = useState<CompletedProject[]>([
     { name: '', type: '', location: '', year: '', images: [] },
   ]);
@@ -307,7 +299,7 @@ function ProjectForm(): React.ReactElement {
   const [buildingFloorPlans, setBuildingFloorPlans] = useState<BuildingFloorPlan[]>([]);
   const [unitPlans,          setUnitPlans]           = useState<UnitPlan[]>([]);
 
-  // ── Static map preview ──────────────────────────────────────────────────────
+  // â”€â”€ Static map preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (!coordinatesRaw || !isValidLatLng(coordinatesRaw)) {
@@ -328,7 +320,7 @@ function ProjectForm(): React.ReactElement {
     );
   }, [coordinatesRaw]);
 
-  // ── Computed ────────────────────────────────────────────────────────────────
+  // â”€â”€ Computed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const pricePerUnit = useMemo(() => {
     const fp = Number(fullPrice);
@@ -337,7 +329,7 @@ function ProjectForm(): React.ReactElement {
     return fp / as;
   }, [fullPrice, areaSize]);
 
-  // ── Completed project handlers ──────────────────────────────────────────────
+  // â”€â”€ Completed project handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleAddProject = useCallback((): void => {
     setCompletedProjects((prev) => [
@@ -359,7 +351,7 @@ function ProjectForm(): React.ReactElement {
     []
   );
 
-  // ── FileUploader change handler ─────────────────────────────────────────────
+  // â”€â”€ FileUploader change handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleFeatureImageChange = useCallback((val: FileUploaderValue | null): void => {
     if (!val) { setFeatureImage(null); return; }
@@ -369,7 +361,7 @@ function ProjectForm(): React.ReactElement {
     });
   }, []);
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Submit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -378,7 +370,7 @@ function ProjectForm(): React.ReactElement {
 
       setSubmitError(null);
 
-      // — Validation —
+      // â€” Validation â€”
       if (!projectCategory || !projectNature) {
         setSubmitError('Please select Project Category and Nature.');
         return;
@@ -403,7 +395,7 @@ function ProjectForm(): React.ReactElement {
       setLoading(true);
 
       try {
-        // — Collect numeric fields safely —
+        // â€” Collect numeric fields safely â€”
         const parsedFullPrice = Number(fullPrice) || 0;
         const parsedAreaSize  = Number(areaSize)  || 0;
         const calcPPU         = parsedAreaSize > 0 ? parsedFullPrice / parsedAreaSize : 0;
@@ -411,7 +403,7 @@ function ProjectForm(): React.ReactElement {
         const getNum = (name: string): number =>
           Number(getFormString(form, name)) || 0;
 
-        // — Completed projects payload —
+        // â€” Completed projects payload â€”
         const completedProjectsPayload: CompletedProjectPayload[] = completedProjects
           .map((proj) => ({
             name:     clampText(proj.name,     80),
@@ -422,7 +414,7 @@ function ProjectForm(): React.ReactElement {
           }))
           .filter((p) => p.name);
 
-        // — Build JSON body — session-scoped, no userId/developerId —
+        // â€” Build JSON body â€” session-scoped, no userId/developerId â€”
         const body: ProjectCreateBody = {
           projectCategory,
           projectNature,
@@ -511,7 +503,7 @@ function ProjectForm(): React.ReactElement {
           return;
         }
 
-        // — Success: show inline post-submit banner —
+        // â€” Success: show inline post-submit banner â€”
         setSubmittedProjectId(data.projectId ?? null);
         // Scroll to top so user sees the banner
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -531,9 +523,17 @@ function ProjectForm(): React.ReactElement {
     ]
   );
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // Show nothing while redirecting
+  if (!isLoading && profile && profile.status !== 'approved') {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#029bba] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  // If submitted — show post-submit banner at top, hide form
+  // If submitted â€” show post-submit banner at top, hide form
   if (submittedProjectId) {
     return (
       <div className="min-h-screen bg-[#f8f9fa]">
@@ -571,19 +571,19 @@ function ProjectForm(): React.ReactElement {
               className="text-[#666666] hover:text-[#333333] text-lg leading-none"
               aria-label="Dismiss error"
             >
-              ×
+              أ—
             </button>
           </div>
         )}
 
-        {/* Form — JSON body, no encType multipart */}
+        {/* Form â€” JSON body, no encType multipart */}
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
 
-          {/* ── Section 1: Classification ─────────────────────────────────── */}
+          {/* â”€â”€ Section 1: Classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Project Classification"
             subtitle="Choose the category and nature of your project"
-            icon="🏗️"
+            icon="ًںڈ—ï¸ڈ"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
@@ -629,11 +629,11 @@ function ProjectForm(): React.ReactElement {
             </div>
           </Section>
 
-          {/* ── Section 2: Basic Info ─────────────────────────────────────── */}
+          {/* â”€â”€ Section 2: Basic Info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Basic Project Info"
             subtitle="Essential details about your project"
-            icon="📍"
+            icon="ًں“چ"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
@@ -737,7 +737,7 @@ function ProjectForm(): React.ReactElement {
                 <textarea
                   id="shortDescription" name="shortDescription"
                   rows={2} className={inputClass}
-                  placeholder="A brief summary (2–3 lines) shown on the project search card..."
+                  placeholder="A brief summary (2â€“3 lines) shown on the project search card..."
                   maxLength={300}
                 />
               </div>
@@ -753,18 +753,18 @@ function ProjectForm(): React.ReactElement {
             </div>
           </Section>
 
-          {/* ── Section 3: Legal Documents ───────────────────────────────── */}
+          {/* â”€â”€ Section 3: Legal Documents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Legal Documents & Approvals"
             subtitle="Project-level approvals from development authorities (CDA, LDA, etc.)"
-            icon="🧾"
+            icon="ًں§¾"
           >
-            {/* Info banner — upload via /api/upload */}
+            {/* Info banner â€” upload via /api/upload */}
             <div className="mb-5 bg-[#eff6ff] border-l-4 border-[#029bba] rounded-xl p-4">
               <p className="text-sm text-[#333333]">
                 <span className="font-semibold">Upload documents separately</span> using the
                 Documents section below. Legal files must be uploaded via the secure upload
-                portal and linked here — never attached directly to this form.
+                portal and linked here â€” never attached directly to this form.
               </p>
             </div>
 
@@ -840,11 +840,11 @@ function ProjectForm(): React.ReactElement {
             projectSlug={projectCategory || 'project'}
           />
 
-          {/* ── Section 4: Scale & Units ──────────────────────────────────── */}
+          {/* â”€â”€ Section 4: Scale & Units â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Project Scale & Units"
             subtitle="Define the size and unit breakdown of your project"
-            icon="📊"
+            icon="ًں“ٹ"
           >
             {!projectCategory && (
               <div className="text-center py-8 text-[#666666] text-sm">
@@ -909,7 +909,7 @@ function ProjectForm(): React.ReactElement {
 
                 {/* Society Facilities */}
                 <div className="rounded-xl bg-[#f8f9fa] p-5">
-                  <h4 className="font-semibold text-[#004063] mb-3">🏞 Society Facilities</h4>
+                  <h4 className="font-semibold text-[#004063] mb-3">ًںڈ‍ Society Facilities</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       { value: 'parks',           label: 'Parks / Playgrounds' },
@@ -950,11 +950,11 @@ function ProjectForm(): React.ReactElement {
             projectSlug={projectCategory || 'project'}
           />
 
-          {/* ── Section 5: Payment ────────────────────────────────────────── */}
+          {/* â”€â”€ Section 5: Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Payment Structure"
             subtitle="Define how buyers can pay for units"
-            icon="💰"
+            icon="ًں’°"
           >
             <div className="mb-6">
               <label className={labelClass} htmlFor="saleMode">
@@ -1051,11 +1051,11 @@ function ProjectForm(): React.ReactElement {
             )}
           </Section>
 
-          {/* ── Section 6: Completed Projects ────────────────────────────── */}
+          {/* â”€â”€ Section 6: Completed Projects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Completed Projects by Developer"
             subtitle="Showcase your past successful developments"
-            icon="🏗"
+            icon="ًںڈ—"
           >
             {completedProjects.map((project, index) => (
               <div
@@ -1118,7 +1118,7 @@ function ProjectForm(): React.ReactElement {
                   </div>
                 </div>
 
-                {/* Images note — uploads handled via DocumentsSection */}
+                {/* Images note â€” uploads handled via DocumentsSection */}
                 <div className="mt-4 bg-[#eff6ff] border-l-4 border-[#029bba] rounded-lg p-3">
                   <p className="text-xs text-[#333333]">
                     To attach images to this past project, use the{' '}
@@ -1139,15 +1139,15 @@ function ProjectForm(): React.ReactElement {
             </button>
           </Section>
 
-          {/* ── Section 7: Visuals & Location ─────────────────────────────── */}
+          {/* â”€â”€ Section 7: Visuals & Location â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Visuals & Location"
             subtitle="Add videos, images, and map location"
-            icon="📷"
+            icon="ًں“·"
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-              {/* Feature image — via FileUploader → /api/upload → URL stored */}
+              {/* Feature image â€” via FileUploader â†’ /api/upload â†’ URL stored */}
               <div className="md:col-span-2">
                 <label className={labelClass}>
                   Main Feature Image (Cover Photo){' '}
@@ -1163,7 +1163,7 @@ function ProjectForm(): React.ReactElement {
                   />
                 </div>
                 <p className="text-xs text-[#666666] mt-2">
-                  High-quality landscape image recommended (1920×1080). This becomes your
+                  High-quality landscape image recommended (1920أ—1080). This becomes your
                   hero image on listing pages.
                 </p>
               </div>
@@ -1204,11 +1204,11 @@ function ProjectForm(): React.ReactElement {
                   onChange={(e) => setCoordinatesRaw(e.target.value)}
                 />
                 <p className="text-xs text-[#666666] mt-1.5">
-                  Right-click on Google Maps → "What's here?" to get coordinates.
+                  Right-click on Google Maps â†’ "What's here?" to get coordinates.
                 </p>
                 {staticMapUrl && (
                   <div className="mt-4">
-                    <p className="text-sm text-[#333333] mb-2">📍 Location Preview:</p>
+                    <p className="text-sm text-[#333333] mb-2">ًں“چ Location Preview:</p>
                     <img
                       src={staticMapUrl}
                       alt="Location preview"
@@ -1220,11 +1220,11 @@ function ProjectForm(): React.ReactElement {
             </div>
           </Section>
 
-          {/* ── Developer profile link ─────────────────────────────────────── */}
+          {/* â”€â”€ Developer profile link â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-[#eff6ff] to-white p-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h3 className="text-base font-semibold text-[#004063]">👥 Developer Profile</h3>
+                <h3 className="text-base font-semibold text-[#004063]">ًں‘¥ Developer Profile</h3>
                 <p className="text-sm text-[#666666] mt-1">
                   Company details and documents are linked from your developer profile.
                 </p>
@@ -1239,7 +1239,7 @@ function ProjectForm(): React.ReactElement {
             </div>
           </div>
 
-          {/* ── Submit bar ────────────────────────────────────────────────── */}
+          {/* â”€â”€ Submit bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
             <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
               <p className="text-sm text-[#666666]">
@@ -1281,13 +1281,13 @@ function ProjectForm(): React.ReactElement {
   );
 }
 
-// ─── Page export ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function NewProjectPage(): React.ReactElement {
   return (
     <DeveloperLayout>
       <Head>
-        <title>Create New Project — Developer Portal | Highrise.pk</title>
+        <title>Create New Project â€” Developer Portal | Highrise.pk</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <ProjectForm />

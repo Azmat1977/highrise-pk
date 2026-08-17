@@ -1,10 +1,12 @@
-// pages/api/projects/[id]/gallery.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import formidable, { Fields, Files, File as FormidableFile } from 'formidable';
+import formidable, { type Fields, type Files, type File as FormidableFile } from 'formidable';
 import mongoose from 'mongoose';
+import { z } from 'zod';
+
 import dbConnect from '@/lib/dbConnect';
-import cloudinary from '@/lib/cloudinary';
+import Project from '@/models/Projects';
 import { requireAuth } from '@/lib/requireAuth';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import {
   rateLimitDeveloper,
   rateLimitApi,
@@ -12,706 +14,286 @@ import {
   setRateLimitHeaders,
 } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
-import { z } from 'zod';
+import { deleteFiles, isHighrisePublicId } from '@/lib/cloudinary';
+import { uploadValidatedTempFile, UploadValidationError } from '@/lib/secureFormidableUpload';
 
-// ════════════════════════════════════════════════════
-// CONFIG
-// ════════════════════════════════════════════════════
+export const config = { api: { bodyParser: false } };
 
-export const config = {
-  api: { bodyParser: false },
-};
+const MAX_GALLERY_IMAGES = 30;
+const MAX_UPLOAD_FILES = 10;
 
-// ════════════════════════════════════════════════════
-// CONSTANTS
-// ════════════════════════════════════════════════════
+const CategorySchema = z.enum([
+  'exterior', 'interior', 'amenity', 'amenities', 'view', 'lobby',
+  'construction', 'render', 'floor_plan', 'aerial', 'other',
+]);
 
-const MAX_GALLERY_IMAGES  = 30;
-const MAX_FILE_SIZE_MB    = 10;
-const ALLOWED_MIME_TYPES  = [
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'image/avif',
-];
-const CLOUDINARY_FOLDER   = 'highrise/projects/gallery';
-
-// ════════════════════════════════════════════════════
-// ZOD SCHEMAS
-// ════════════════════════════════════════════════════
-
-const ReorderSchema = z.object({
-  images: z.array(z.object({
-    url:       z.string().min(1).max(2048),
-    publicId:  z.string().min(1).max(512),
-    caption:   z.string().max(200).optional(),
-    isPrimary: z.boolean().optional(),
-    order:     z.number().min(0).max(10000),
-    category:  z.enum([
-      'exterior', 'interior', 'amenities',
-      'floor_plan', 'construction', 'aerial', 'other',
-    ]).optional(),
-  })).min(1).max(MAX_GALLERY_IMAGES),
-});
-
-const DeleteImageSchema = z.object({
+const GalleryImageSchema = z.object({
+  url: z.string().url().max(2048),
   publicId: z.string().min(1).max(512),
+  caption: z.string().max(200).optional(),
+  isPrimary: z.boolean().optional(),
+  order: z.number().int().min(0).max(10_000),
+  category: CategorySchema.optional(),
 });
 
+const ReorderSchema = z.object({ images: z.array(GalleryImageSchema).max(MAX_GALLERY_IMAGES) }).strict();
+const DeleteImageSchema = z.object({ publicId: z.string().min(1).max(512) }).strict();
 const UpdateCaptionSchema = z.object({
   publicId: z.string().min(1).max(512),
-  caption:  z.string().max(200),
-  category: z.enum([
-    'exterior', 'interior', 'amenities',
-    'floor_plan', 'construction', 'aerial', 'other',
-  ]).optional(),
-});
+  caption: z.string().max(200),
+  category: CategorySchema.optional(),
+}).strict();
 
-// ════════════════════════════════════════════════════
-// TYPES
-// ════════════════════════════════════════════════════
+type GalleryImage = z.infer<typeof GalleryImageSchema> & { uploadedAt?: Date; public_id?: string };
 
-interface GalleryImage {
-  url:       string;
-  publicId:  string;
-  caption?:  string;
-  isPrimary?: boolean;
-  order?:    number;
-  category?: string;
-  uploadedAt?: Date;
+function setSecurityHeaders(res: NextApiResponse): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
 }
 
-// ════════════════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════════════════
-
-async function uploadToCloudinary(
-  file: FormidableFile
-): Promise<{ url: string; publicId: string }> {
-  const result = await cloudinary.uploader.upload(file.filepath, {
-    folder:        CLOUDINARY_FOLDER,
-    resource_type: 'image',
-    quality:       'auto:good',
-    fetch_format:  'auto',
-    transformation: [
-      { width: 1920, height: 1080, crop: 'limit' },
-    ],
-  });
-  return {
-    url:      result.secure_url,
-    publicId: result.public_id,
-  };
+function isProjectPublic(project: { status?: string; verificationStatus?: string; isVerified?: boolean }): boolean {
+  return project.isVerified === true ||
+    (String(project.status ?? '').toLowerCase() === 'verified' &&
+      String(project.verificationStatus ?? '').toLowerCase() === 'verified');
 }
 
-async function deleteFromCloudinary(publicId: string): Promise<boolean> {
-  try {
-    await cloudinary.uploader.destroy(publicId);
-    return true;
-  } catch {
-    return false;
-  }
+function publicIdOf(img: Record<string, unknown>): string {
+  return String(img.publicId ?? img.public_id ?? '');
 }
 
-async function verifyProjectOwnership(
-  projectId: string,
-  authId:    string,
-  role:      string
-): Promise<{
-  ok:      boolean;
-  project: Record<string, unknown> | null;
-  error?:  string;
-  status?: number;
-}> {
-  const Project = mongoose.models.Project as
-    mongoose.Model<mongoose.Document>;
-
-  if (!Project) {
-    return { ok: false, project: null, error: 'Something went wrong', status: 500 };
-  }
-
-  const projectQuery: Record<string, unknown> = {
-    _id:       new mongoose.Types.ObjectId(projectId),
-    isDeleted: { $ne: true },
-  };
-
-  if (role === 'developer') {
-    const DeveloperProfile = mongoose.models.DeveloperProfile as
-      mongoose.Model<mongoose.Document>;
-
-    const devProfile = await DeveloperProfile.findOne(
-      { user: authId },
-      { _id: 1 }
-    ).lean() as { _id: mongoose.Types.ObjectId } | null;
-
-    if (!devProfile) {
-      return { ok: false, project: null, error: 'Developer profile not found', status: 403 };
-    }
-
-    projectQuery.developerId = devProfile._id;
-  }
-
-  const project = await Project.findOne(projectQuery)
-    .select('_id developerId gallery coverImage')
-    .lean() as Record<string, unknown> | null;
-
-  if (!project) {
-    return {
-      ok: false,
-      project: null,
-      error: 'Project not found or you do not have permission',
-      status: 404,
-    };
-  }
-
-  return { ok: true, project };
+async function parseJsonBody(req: NextApiRequest): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  const text = Buffer.concat(chunks).toString('utf8').trim();
+  if (!text) return {};
+  return JSON.parse(text);
 }
 
-// ════════════════════════════════════════════════════
-// HANDLER
-// ════════════════════════════════════════════════════
+async function getProject(projectId: string) {
+  return Project.findOne({ _id: projectId, isDeleted: { $ne: true } })
+    .select('_id developerId gallery featureImageUrl featureImagePublicId projectName slug status verificationStatus isVerified')
+    .lean() as Promise<{
+      _id: mongoose.Types.ObjectId;
+      developerId: mongoose.Types.ObjectId;
+      gallery?: GalleryImage[];
+      featureImageUrl?: string;
+      featureImagePublicId?: string;
+      projectName?: string;
+      slug?: string;
+      status?: string;
+      verificationStatus?: string;
+      isVerified?: boolean;
+    } | null>;
+}
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // ── ID guard ──
-  const { id } = req.query;
-  if (!id || typeof id !== 'string') {
-    return res.status(400).json({ success: false, message: 'Project ID is required' });
-  }
-  if (!mongoose.isValidObjectId(id)) {
-    return res.status(400).json({ success: false, message: 'Invalid project ID' });
-  }
-
-  // ════════════════════════════════════════════════════
-  // GET — Public gallery (no auth required)
-  // ════════════════════════════════════════════════════
-  if (req.method === 'GET') {
-    const rl = await rateLimitApi(req);
-    setRateLimitHeaders(res, rl);
-    if (!rl.ok) return sendRateLimitResponse(res, rl);
-
-    await dbConnect();
-
-    try {
-      const Project = mongoose.models.Project as
-        mongoose.Model<mongoose.Document>;
-
-      if (!Project) {
-        return res.status(500).json({ success: false, message: 'Something went wrong' });
-      }
-
-      const project = await Project.findOne({
-        _id:       new mongoose.Types.ObjectId(id),
-        isDeleted: { $ne: true },
-      })
-        .select('gallery coverImage projectName slug')
-        .lean() as {
-          gallery?:    GalleryImage[];
-          coverImage?: { url: string; publicId: string };
-          projectName?: string;
-          slug?:       string;
-        } | null;
-
-      if (!project) {
-        return res.status(404).json({
-          success: false,
-          message: 'Project not found',
-        });
-      }
-
-      // Sort by order, filter out sensitive fields
-      const gallery = (project.gallery ?? [])
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
-        .map((img) => ({
-          url:       img.url,
-          publicId:  img.publicId,
-          caption:   img.caption,
-          isPrimary: img.isPrimary,
-          order:     img.order,
-          category:  img.category,
-        }));
-
-      res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          gallery,
-          coverImage: project.coverImage ?? null,
-          totalImages: gallery.length,
-        },
-      });
-
-    } catch (error: unknown) {
-      await logSecurityEvent({
-        type:     'system_error',
-        severity: 'medium',
-        metadata: {
-          action:    'project_gallery_fetch_failed',
-          projectId: id,
-          reason:    error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════
-  // AUTH + RATE LIMIT for all mutation methods
-  // ═══════════════════════════════════════════════════
+async function requireProjectOwner(req: NextApiRequest, res: NextApiResponse, projectId: string) {
   const auth = await requireAuth(req, res);
-  if (!auth) return;
+  if (!auth) return null;
+  const isAdmin = ['admin', 'superadmin'].includes(auth.role);
+  if (!isAdmin && auth.role !== 'developer') {
+    res.status(403).json({ success: false, message: 'Access denied.' });
+    return null;
+  }
+  const project = await getProject(projectId);
+  if (!project || (!isAdmin && String(project.developerId) !== auth.id)) {
+    res.status(404).json({ success: false, message: 'Project not found.' });
+    return null;
+  }
+  return { auth, isAdmin, project };
+}
 
-  const role = auth.role as string;
-  if (!['developer', 'admin'].includes(role)) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
+export default async function handler(req: NextApiRequest, res: NextApiResponse): Promise<void> {
+  setSecurityHeaders(res);
+  const id = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    return void res.status(400).json({ success: false, message: 'Valid project ID is required.' });
   }
 
-  const rl = await rateLimitDeveloper(req);
+  const method = (req.method ?? '').toUpperCase();
+  if (!['GET', 'POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) {
+    res.setHeader('Allow', ['GET', 'POST', 'PUT', 'PATCH', 'DELETE']);
+    return void res.status(405).json({ success: false, message: 'Method not allowed.' });
+  }
+
+  const rl = await (method === 'GET' ? rateLimitApi(req) : rateLimitDeveloper(req));
   setRateLimitHeaders(res, rl);
-  if (!rl.ok) return sendRateLimitResponse(res, rl);
+  if (!rl.ok) return void sendRateLimitResponse(res, rl);
 
   await dbConnect();
 
-  // ════════════════════════════════════════════════════
-  // POST — Upload new images to gallery
-  // ════════════════════════════════════════════════════
-  if (req.method === 'POST') {
-    const form = formidable({
-      multiples:      true,
-      keepExtensions: true,
-      maxFileSize:    MAX_FILE_SIZE_MB * 1024 * 1024,
-      maxFiles:       10,
+  if (method === 'GET') {
+    const viewer = await getOptionalAuth(req);
+    const project = await getProject(id);
+    if (!project) return void res.status(404).json({ success: false, message: 'Project not found.' });
+    const isAdmin = !!viewer && ['admin', 'superadmin'].includes(viewer.role);
+    const isOwner = !!viewer && viewer.role === 'developer' && String(project.developerId) === viewer.id;
+    if (!isProjectPublic(project) && !isAdmin && !isOwner) {
+      return void res.status(404).json({ success: false, message: 'Project not found.' });
+    }
+
+    const gallery = [...(project.gallery ?? [])]
+      .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      .map((img) => ({
+        url: img.url,
+        publicId: publicIdOf(img as unknown as Record<string, unknown>),
+        caption: img.caption,
+        isPrimary: img.isPrimary,
+        order: img.order,
+        category: img.category,
+      }));
+    if (!isAdmin && !isOwner) res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+    return void res.status(200).json({
+      success: true,
+      data: {
+        gallery,
+        coverImage: project.featureImageUrl
+          ? { url: project.featureImageUrl, publicId: project.featureImagePublicId ?? '' }
+          : gallery.find((img) => img.isPrimary) ?? gallery[0] ?? null,
+        totalImages: gallery.length,
+      },
     });
+  }
 
-    return form.parse(req, async (err: unknown, fields: Fields, files: Files) => {
-      if (err) {
-        return res.status(400).json({
-          success: false,
-          message: 'Error parsing upload. Maximum file size is 10MB.',
-        });
-      }
+  const access = await requireProjectOwner(req, res, id);
+  if (!access) return;
+  const { auth, project } = access;
 
-      try {
-        // Verify ownership
-        const ownership = await verifyProjectOwnership(id, auth.id, role);
-        if (!ownership.ok) {
-          return res.status(ownership.status ?? 403).json({
-            success: false,
-            message: ownership.error ?? 'Access denied',
-          });
+  try {
+    if (method === 'POST') {
+      const form = formidable({
+        multiples: true,
+        keepExtensions: true,
+        maxFileSize: 5 * 1024 * 1024,
+        maxTotalFileSize: 50 * 1024 * 1024,
+        maxFiles: MAX_UPLOAD_FILES,
+      });
+
+      return void form.parse(req, async (err: unknown, fields: Fields, files: Files) => {
+        if (err) return void res.status(400).json({ success: false, message: 'Invalid upload. Images must be 5MB or smaller.' });
+        const candidate = files.images || files.gallery || files.files;
+        if (!candidate) return void res.status(400).json({ success: false, message: 'No images provided.' });
+        const fileArray = (Array.isArray(candidate) ? candidate : [candidate]) as FormidableFile[];
+        const existing = project.gallery ?? [];
+        if (existing.length + fileArray.length > MAX_GALLERY_IMAGES) {
+          return void res.status(422).json({ success: false, message: `Gallery limit is ${MAX_GALLERY_IMAGES} images.` });
         }
 
-        const existingGallery = (ownership.project as any)?.gallery ?? [];
-
-        // Check gallery limit
-        const imageFiles = files.images || files.gallery || files.files;
-        if (!imageFiles) {
-          return res.status(400).json({
-            success: false,
-            message: 'No images provided',
-          });
-        }
-
-        const fileArray = Array.isArray(imageFiles) ? imageFiles : [imageFiles];
-
-        if (existingGallery.length + fileArray.length > MAX_GALLERY_IMAGES) {
-          return res.status(400).json({
-            success: false,
-            message: `Gallery limit is ${MAX_GALLERY_IMAGES} images. Currently ${existingGallery.length}, trying to add ${fileArray.length}.`,
-          });
-        }
-
-        // Validate mime types
-        for (const file of fileArray) {
-          const f = file as FormidableFile;
-          if (f.mimetype && !ALLOWED_MIME_TYPES.includes(f.mimetype)) {
-            return res.status(400).json({
-              success: false,
-              message: `Invalid file type: ${f.mimetype}. Allowed: JPEG, PNG, WebP, AVIF.`,
+        const uploaded: GalleryImage[] = [];
+        try {
+          for (let i = 0; i < fileArray.length; i++) {
+            const result = await uploadValidatedTempFile(fileArray[i], 'projects', 'image', {
+              tags: ['project-gallery', `project:${id}`],
+            });
+            const captionRaw = fields[`caption_${i}`];
+            const categoryRaw = fields[`category_${i}`];
+            const caption = captionRaw ? String(Array.isArray(captionRaw) ? captionRaw[0] : captionRaw).slice(0, 200) : '';
+            const categoryCandidate = categoryRaw ? String(Array.isArray(categoryRaw) ? categoryRaw[0] : categoryRaw) : 'other';
+            const categoryParsed = CategorySchema.safeParse(categoryCandidate);
+            uploaded.push({
+              url: result.url,
+              publicId: result.publicId,
+              caption,
+              category: categoryParsed.success ? categoryParsed.data : 'other',
+              isPrimary: existing.length === 0 && i === 0,
+              order: existing.length + i,
+              uploadedAt: new Date(),
             });
           }
-        }
-
-        // Upload all files to Cloudinary
-        const uploadedImages: GalleryImage[] = [];
-
-        for (let i = 0; i < fileArray.length; i++) {
-          const file = fileArray[i] as FormidableFile;
-          const uploaded = await uploadToCloudinary(file);
-          uploadedImages.push({
-            url:        uploaded.url,
-            publicId:   uploaded.publicId,
-            caption:    '',
-            isPrimary:  existingGallery.length === 0 && i === 0,
-            order:      existingGallery.length + i,
-            category:   'other',
-            uploadedAt: new Date(),
-          });
-        }
-
-        // Parse optional captions from form fields
-        for (let i = 0; i < uploadedImages.length; i++) {
-          const captionKey = `caption_${i}`;
-          const categoryKey = `category_${i}`;
-          const captionVal = fields[captionKey];
-          const categoryVal = fields[categoryKey];
-
-          if (captionVal) {
-            const caption = Array.isArray(captionVal) ? String(captionVal[0]) : String(captionVal);
-            uploadedImages[i].caption = caption.slice(0, 200);
+        } catch (uploadError) {
+          if (uploaded.length) await deleteFiles(uploaded.map((img) => img.publicId)).catch(() => undefined);
+          if (uploadError instanceof UploadValidationError) {
+            return void res.status(400).json({ success: false, message: uploadError.message });
           }
-          if (categoryVal) {
-            const cat = Array.isArray(categoryVal) ? String(categoryVal[0]) : String(categoryVal);
-            const validCategories = ['exterior', 'interior', 'amenities', 'floor_plan', 'construction', 'aerial', 'other'];
-            if (validCategories.includes(cat)) {
-              uploadedImages[i].category = cat;
-            }
-          }
+          throw uploadError;
         }
 
-        // Update project gallery
-        const Project = mongoose.models.Project as
-          mongoose.Model<mongoose.Document>;
+        const doc = await Project.findById(id);
+        if (!doc) {
+          await deleteFiles(uploaded.map((img) => img.publicId)).catch(() => undefined);
+          return void res.status(404).json({ success: false, message: 'Project not found.' });
+        }
+        const current = ((doc as unknown as Record<string, unknown>).gallery as GalleryImage[] | undefined) ?? [];
+        (doc as unknown as Record<string, unknown>).gallery = [...current, ...uploaded];
+        if (!doc.featureImageUrl && uploaded[0]) {
+          doc.featureImageUrl = uploaded[0].url;
+          doc.featureImagePublicId = uploaded[0].publicId;
+        }
+        await doc.save();
 
-        await Project.findByIdAndUpdate(id, {
-          $push: {
-            gallery: { $each: uploadedImages },
-          },
-        });
+        await logSecurityEvent({ type: 'admin_action', severity: 'low', userId: auth.id, metadata: { action: 'project_gallery_images_uploaded', projectId: id, imagesCount: uploaded.length }, req });
+        return void res.status(201).json({ success: true, message: `${uploaded.length} image${uploaded.length === 1 ? '' : 's'} uploaded successfully.`, data: { uploaded, totalImages: current.length + uploaded.length } });
+      });
+    }
 
-        // Audit log
-        await logSecurityEvent({
-          type:     'admin_action',
-          severity: 'low',
-          userId:   auth.id,
-          metadata: {
-            action:      'project_gallery_images_uploaded',
-            projectId:   id,
-            imagesCount: uploadedImages.length,
-            totalAfter:  existingGallery.length + uploadedImages.length,
-          },
-        });
+    const body = await parseJsonBody(req);
 
-        return res.status(201).json({
-          success: true,
-          message: `${uploadedImages.length} image${uploadedImages.length !== 1 ? 's' : ''} uploaded successfully`,
-          data: {
-            uploaded:    uploadedImages,
-            totalImages: existingGallery.length + uploadedImages.length,
-          },
-        });
-
-      } catch (error: unknown) {
-        await logSecurityEvent({
-          type:     'system_error',
-          severity: 'high',
-          userId:   auth.id,
-          metadata: {
-            action: 'project_gallery_upload_failed',
-            projectId: id,
-            reason: error instanceof Error ? error.message : 'Unknown error',
-          },
-        });
-        return res.status(500).json({
-          success: false,
-          message: 'Something went wrong. Please try again.',
-        });
-      }
-    });
-  }
-
-  // ════════════════════════════════════════════════════
-  // PUT — Reorder / update gallery (full replace)
-  // ════════════════════════════════════════════════════
-  if (req.method === 'PUT') {
-    try {
-      // Parse body manually (bodyParser disabled)
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-
+    if (method === 'PUT') {
       const parsed = ReorderSchema.safeParse(body);
-      if (!parsed.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid gallery data',
-          errors:  parsed.error.flatten().fieldErrors,
-        });
+      if (!parsed.success) return void res.status(422).json({ success: false, message: 'Invalid gallery data.', errors: parsed.error.flatten().fieldErrors });
+      if (parsed.data.images.some((img) => !isHighrisePublicId(img.publicId))) {
+        return void res.status(400).json({ success: false, message: 'Invalid gallery asset reference.' });
       }
-
-      // Verify ownership
-      const ownership = await verifyProjectOwnership(id, auth.id, role);
-      if (!ownership.ok) {
-        return res.status(ownership.status ?? 403).json({
-          success: false,
-          message: ownership.error ?? 'Access denied',
-        });
+      const existingIds = new Set((project.gallery ?? []).map((img) => publicIdOf(img as unknown as Record<string, unknown>)).filter(Boolean));
+      if (parsed.data.images.some((img) => !existingIds.has(img.publicId))) {
+        return void res.status(400).json({ success: false, message: 'Gallery can only be reordered using assets already attached to this project.' });
       }
-
-      // Ensure single primary image
-      const images = parsed.data.images;
-      let hasPrimary = false;
-      for (const img of images) {
-        if (img.isPrimary) {
-          if (hasPrimary) img.isPrimary = false;
-          else hasPrimary = true;
-        }
+      const images = parsed.data.images.map((img, index) => ({ ...img, isPrimary: false, order: index }));
+      if (images.length) {
+        const requested = parsed.data.images.findIndex((img) => img.isPrimary);
+        images[requested >= 0 ? requested : 0].isPrimary = true;
       }
-      if (!hasPrimary && images.length > 0) {
-        images[0].isPrimary = true;
-      }
-
-      // Full replace gallery
-      const Project = mongoose.models.Project as
-        mongoose.Model<mongoose.Document>;
-
-      await Project.findByIdAndUpdate(id, {
-        $set: { gallery: images },
-      });
-
-      // Update cover image to primary
       const primary = images.find((img) => img.isPrimary);
+      const doc = await Project.findById(id);
+      if (!doc) return void res.status(404).json({ success: false, message: 'Project not found.' });
+      (doc as unknown as Record<string, unknown>).gallery = images;
       if (primary) {
-        await Project.findByIdAndUpdate(id, {
-          $set: {
-            coverImage: {
-              url:      primary.url,
-              publicId: primary.publicId,
-            },
-          },
-        });
+        doc.featureImageUrl = primary.url;
+        doc.featureImagePublicId = primary.publicId;
       }
-
-      await logSecurityEvent({
-        type:     'admin_action',
-        severity: 'low',
-        userId:   auth.id,
-        metadata: {
-          action:      'project_gallery_reordered',
-          projectId:   id,
-          imagesCount: images.length,
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Gallery updated successfully',
-        data: {
-          totalImages: images.length,
-        },
-      });
-
-    } catch (error: unknown) {
-      await logSecurityEvent({
-        type:     'system_error',
-        severity: 'medium',
-        userId:   auth.id,
-        metadata: {
-          action:    'project_gallery_reorder_failed',
-          projectId: id,
-          reason:    error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
+      await doc.save();
+      return void res.status(200).json({ success: true, message: 'Gallery updated successfully.', data: { totalImages: images.length } });
     }
-  }
 
-  // ════════════════════════════════════════════════════
-  // PATCH — Update single image caption/category
-  // ════════════════════════════════════════════════════
-  if (req.method === 'PATCH') {
-    try {
-      // Parse body manually
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-
+    if (method === 'PATCH') {
       const parsed = UpdateCaptionSchema.safeParse(body);
-      if (!parsed.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid data',
-          errors:  parsed.error.flatten().fieldErrors,
-        });
-      }
-
-      const { publicId, caption, category } = parsed.data;
-
-      // Verify ownership
-      const ownership = await verifyProjectOwnership(id, auth.id, role);
-      if (!ownership.ok) {
-        return res.status(ownership.status ?? 403).json({
-          success: false,
-          message: ownership.error ?? 'Access denied',
-        });
-      }
-
-      // Update specific image in gallery array
-      const Project = mongoose.models.Project as
-        mongoose.Model<mongoose.Document>;
-
-      const updateFields: Record<string, unknown> = {
-        'gallery.$.caption': caption,
-      };
-      if (category) {
-        updateFields['gallery.$.category'] = category;
-      }
-
-      const result = await Project.findOneAndUpdate(
-        {
-          _id: new mongoose.Types.ObjectId(id),
-          'gallery.publicId': publicId,
-        },
-        { $set: updateFields },
-        { new: true }
-      );
-
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          message: 'Image not found in project gallery',
-        });
-      }
-
-      return res.status(200).json({
-        success: true,
-        message: 'Image updated successfully',
-      });
-
-    } catch (error: unknown) {
-      await logSecurityEvent({
-        type:     'system_error',
-        severity: 'medium',
-        userId:   auth.id,
-        metadata: {
-          action:    'project_gallery_caption_update_failed',
-          projectId: id,
-          reason:    error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
+      if (!parsed.success) return void res.status(422).json({ success: false, message: 'Invalid data.', errors: parsed.error.flatten().fieldErrors });
+      const doc = await Project.findById(id);
+      if (!doc) return void res.status(404).json({ success: false, message: 'Project not found.' });
+      const gallery = (((doc as unknown as Record<string, unknown>).gallery as GalleryImage[] | undefined) ?? []);
+      const image = gallery.find((img) => publicIdOf(img as unknown as Record<string, unknown>) === parsed.data.publicId);
+      if (!image) return void res.status(404).json({ success: false, message: 'Image not found in project gallery.' });
+      image.publicId = publicIdOf(image as unknown as Record<string, unknown>);
+      image.caption = parsed.data.caption;
+      if (parsed.data.category) image.category = parsed.data.category;
+      (doc as unknown as Record<string, unknown>).gallery = gallery;
+      await doc.save();
+      return void res.status(200).json({ success: true, message: 'Image updated successfully.' });
     }
-  }
 
-  // ════════════════════════════════════════════════════
-  // DELETE — Remove image from gallery
-  // ════════════════════════════════════════════════════
-  if (req.method === 'DELETE') {
-    try {
-      // Parse body manually
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-
-      const parsed = DeleteImageSchema.safeParse(body);
-      if (!parsed.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'publicId is required to delete an image',
-        });
-      }
-
-      const { publicId } = parsed.data;
-
-      // Verify ownership
-      const ownership = await verifyProjectOwnership(id, auth.id, role);
-      if (!ownership.ok) {
-        return res.status(ownership.status ?? 403).json({
-          success: false,
-          message: ownership.error ?? 'Access denied',
-        });
-      }
-
-      // Remove from gallery array
-      const Project = mongoose.models.Project as
-        mongoose.Model<mongoose.Document>;
-
-      const result = await Project.findByIdAndUpdate(
-        id,
-        { $pull: { gallery: { publicId } } },
-        { new: true }
-      );
-
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          message: 'Image not found in project gallery',
-        });
-      }
-
-      // Delete from Cloudinary (fire and forget)
-      deleteFromCloudinary(publicId).catch(() => {
-        // Silent — DB is source of truth
-      });
-
-      // If deleted image was cover, set new cover
-      const updatedProject = result.toObject() as { gallery?: GalleryImage[]; coverImage?: { publicId: string } };
-      if (updatedProject.coverImage?.publicId === publicId) {
-        const newCover = updatedProject.gallery?.[0];
-        if (newCover) {
-          await Project.findByIdAndUpdate(id, {
-            $set: {
-              coverImage: { url: newCover.url, publicId: newCover.publicId },
-            },
-          });
-        } else {
-          await Project.findByIdAndUpdate(id, {
-            $unset: { coverImage: '' },
-          });
-        }
-      }
-
-      await logSecurityEvent({
-        type:     'admin_action',
-        severity: 'low',
-        userId:   auth.id,
-        metadata: {
-          action:    'project_gallery_image_deleted',
-          projectId: id,
-          publicId,
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Image deleted successfully',
-      });
-
-    } catch (error: unknown) {
-      await logSecurityEvent({
-        type:     'system_error',
-        severity: 'medium',
-        userId:   auth.id,
-        metadata: {
-          action:    'project_gallery_delete_failed',
-          projectId: id,
-          reason:    error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
+    const parsed = DeleteImageSchema.safeParse(body);
+    if (!parsed.success) return void res.status(422).json({ success: false, message: 'A valid publicId is required.' });
+    const existing = project.gallery ?? [];
+    const match = existing.find((img) => publicIdOf(img as unknown as Record<string, unknown>) === parsed.data.publicId);
+    if (!match || !isHighrisePublicId(parsed.data.publicId)) {
+      return void res.status(404).json({ success: false, message: 'Image not found in project gallery.' });
     }
+    const remaining = existing.filter((img) => publicIdOf(img as unknown as Record<string, unknown>) !== parsed.data.publicId);
+    const doc = await Project.findById(id);
+    if (!doc) return void res.status(404).json({ success: false, message: 'Project not found.' });
+    (doc as unknown as Record<string, unknown>).gallery = remaining;
+    if (doc.featureImagePublicId === parsed.data.publicId) {
+      const nextPrimary = remaining.find((img) => img.isPrimary) ?? remaining[0];
+      doc.featureImageUrl = nextPrimary?.url;
+      doc.featureImagePublicId = nextPrimary ? publicIdOf(nextPrimary as unknown as Record<string, unknown>) : undefined;
+    }
+    await doc.save();
+    await deleteFiles([parsed.data.publicId]).catch(() => undefined);
+    await logSecurityEvent({ type: 'admin_action', severity: 'low', userId: auth.id, metadata: { action: 'project_gallery_image_deleted', projectId: id }, req });
+    return void res.status(200).json({ success: true, message: 'Image deleted successfully.' });
+  } catch (error: unknown) {
+    await logSecurityEvent({ type: 'system_error', severity: 'medium', userId: auth.id, metadata: { action: 'project_gallery_operation_failed', projectId: id, reason: error instanceof Error ? error.message : 'Unknown error' }, req });
+    return void res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
   }
-
-  // ── Method not allowed ──
-  return res.status(405).json({ success: false, message: 'Method not allowed' });
 }

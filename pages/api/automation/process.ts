@@ -35,7 +35,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import nodemailer                                from 'nodemailer';
+import nodemailer                                from 'highrise-nodemailer';
 import mongoose                                  from 'mongoose';
 import dbConnect                                 from '@/lib/db';
 import AutomationSequence                        from '@/models/AutomationSequence';

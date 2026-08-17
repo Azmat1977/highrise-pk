@@ -26,6 +26,14 @@ const UpdateSchema = z.object({
   status: z.enum(ALLOWED_STATUS),
   resolutionNotes: z.string().trim().min(MIN_RESOLUTION_NOTES_LENGTH).max(MAX_RESOLUTION_NOTES_LENGTH).optional(),
   actionTaken: z.enum(['none', 'warning_sent', 'content_removed', 'user_banned', 'escalated']).optional(),
+}).superRefine((value, ctx) => {
+  if ((value.status === 'resolved' || value.status === 'rejected') && !value.resolutionNotes) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['resolutionNotes'],
+      message: 'Resolution notes are required when closing a report.',
+    });
+  }
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -228,6 +236,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const { status, resolutionNotes, actionTaken } = parseResult.data;
 
+      const currentReport: any = await Report.findById(id)
+        .select('status resolvedAt resolvedBy')
+        .lean()
+        .maxTimeMS(MAX_TIME_MS);
+      if (!currentReport) {
+        return res.status(404).json({ success: false, message: 'Report not found', code: 'NOT_FOUND', requestId });
+      }
+
+      const isFinal = currentReport.status === 'resolved' || currentReport.status === 'rejected';
+      const reopening = isFinal && (status === 'open' || status === 'reviewing');
+      if (reopening && !isSuperAdmin) {
+        return res.status(409).json({
+          success: false,
+          message: 'Closed reports can only be reopened by a superadmin.',
+          code: 'FINAL_REPORT_STATE',
+          requestId,
+        });
+      }
+
       // ✅ Atomic Update with $set
       const updatePayload: any = {
         status,
@@ -242,10 +269,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         updatePayload.actionTaken = actionTaken;
       }
 
-      // If status is 'resolved' or 'rejected', track who resolved it
+      // If status is 'resolved' or 'rejected', track who resolved it.
       if (status === 'resolved' || status === 'rejected') {
         updatePayload.resolvedBy = auth.id;
         updatePayload.resolvedAt = new Date();
+      } else if (reopening && isSuperAdmin) {
+        updatePayload.resolvedBy = null;
+        updatePayload.resolvedAt = null;
       }
 
       const updated: any = await Report.findByIdAndUpdate(

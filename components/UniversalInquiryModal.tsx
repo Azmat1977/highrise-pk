@@ -48,6 +48,7 @@ interface FormData {
   phone: string;
   city: string;
   message: string;
+  preferredVisitAt: string;
 }
 
 type SubmitState = 'idle' | 'loading' | 'success' | 'error';
@@ -201,6 +202,7 @@ export default function UniversalInquiryModal({
     phone: '',
     city: '',
     message: '',
+    preferredVisitAt: '',
   });
 
   // ─── Reset form when modal opens ───
@@ -213,6 +215,7 @@ export default function UniversalInquiryModal({
         phone:   session?.user?.phoneNumber || '',
         city:    '',
         message: getDefaultMessage(leadType, entityTitle),
+        preferredVisitAt: '',
       });
       setSubmitState('idle');
       setErrorMsg('');
@@ -247,25 +250,32 @@ export default function UniversalInquiryModal({
     setFieldError('');
     setErrorMsg('');
 
-    // Validation — ALL fields required (except message which is pre-filled)
-    if (!formData.name.trim() || formData.name.trim().length < 3) {
-      setFieldError('Please enter your full name (min 3 characters).');
-      return;
-    }
-    if (!formData.email.trim() || !EMAIL_REGEX.test(formData.email)) {
-      setFieldError('Please enter a valid email address.');
-      return;
-    }
-    if (!formData.phone.trim() || formData.phone.trim().length < 10) {
-      setFieldError('Please enter a valid phone number (min 10 digits).');
-      return;
-    }
-    if (!formData.city.trim()) {
-      setFieldError('Please select your city.');
-      return;
+    // Property communication derives sender identity from the DB-current
+    // authenticated account. Project leads keep their legacy contact form.
+    if (entityType === 'project') {
+      if (!formData.name.trim() || formData.name.trim().length < 3) {
+        setFieldError('Please enter your full name (min 3 characters).');
+        return;
+      }
+      if (!formData.email.trim() || !EMAIL_REGEX.test(formData.email)) {
+        setFieldError('Please enter a valid email address.');
+        return;
+      }
+      if (!formData.phone.trim() || formData.phone.trim().length < 10) {
+        setFieldError('Please enter a valid phone number (min 10 digits).');
+        return;
+      }
+      if (!formData.city.trim()) {
+        setFieldError('Please select your city.');
+        return;
+      }
     }
     if (!formData.message.trim()) {
       setFieldError('Please enter a message.');
+      return;
+    }
+    if (entityType === 'property' && leadType === 'site_visit' && !formData.preferredVisitAt) {
+      setFieldError('Please choose a preferred visit date and time.');
       return;
     }
 
@@ -278,44 +288,55 @@ export default function UniversalInquiryModal({
           ? new URLSearchParams(window.location.search)
           : new URLSearchParams();
 
-      const leadData = {
-        name: formData.name.trim(),
-        email: formData.email.trim(),
-        phone: formData.phone.trim(),
-        // Buyer's home city — sent as tag + in message context
-        // (backend Lead model doesn't have city field, so we embed
-        // it in the message + tag for filter/search)
-        message: `[Buyer City: ${formData.city}]\n\n${formData.message.trim()}`,
-        leadType,
-        source: entityType === 'property' ? 'property_page' : 'project_page',
-        projectId: entityType === 'project' ? entityId : undefined,
-        propertyId: entityType === 'property' ? entityId : undefined,
-        developerId,
-        entitySnapshot: {
-          entityType,
-          title: entityTitle,
-          price: entityPrice,
-          location: entityLocation,
-          image: entityImage,
-          developerName,
-        },
-        utmSource: urlParams.get('utm_source') || undefined,
-        utmMedium: urlParams.get('utm_medium') || undefined,
-        utmCampaign: urlParams.get('utm_campaign') || undefined,
-        utmContent: urlParams.get('utm_content') || undefined,
-        utmTerm: urlParams.get('utm_term') || undefined,
-        referrer:
-          typeof document !== 'undefined' ? document.referrer || undefined : undefined,
-        landingPage:
-          typeof window !== 'undefined' ? window.location.pathname : undefined,
-        deviceType: getDeviceType(),
-        browser: getBrowserInfo(),
-      };
+      const isPropertyCommunication = entityType === 'property';
+      const requestUrl = isPropertyCommunication
+        ? `/api/properties/${encodeURIComponent(entityId)}/communication`
+        : '/api/leads';
 
-      const res = await fetch('/api/leads', {
+      const requestBody = isPropertyCommunication
+        ? {
+            intent: leadType === 'site_visit'
+              ? 'site_visit'
+              : leadType === 'call_back'
+                ? 'callback'
+                : 'inquiry',
+            message: formData.message.trim(),
+            ...(leadType === 'site_visit' && formData.preferredVisitAt
+              ? { preferredVisitAt: new Date(formData.preferredVisitAt).toISOString() }
+              : {}),
+          }
+        : {
+            name: formData.name.trim(),
+            email: formData.email.trim(),
+            phone: formData.phone.trim(),
+            message: `[Buyer City: ${formData.city}]\n\n${formData.message.trim()}`,
+            leadType,
+            source: 'project_page',
+            projectId: entityId,
+            developerId,
+            entitySnapshot: {
+              entityType,
+              title: entityTitle,
+              price: entityPrice,
+              location: entityLocation,
+              image: entityImage,
+              developerName,
+            },
+            utmSource: urlParams.get('utm_source') || undefined,
+            utmMedium: urlParams.get('utm_medium') || undefined,
+            utmCampaign: urlParams.get('utm_campaign') || undefined,
+            utmContent: urlParams.get('utm_content') || undefined,
+            utmTerm: urlParams.get('utm_term') || undefined,
+            referrer: typeof document !== 'undefined' ? document.referrer || undefined : undefined,
+            landingPage: typeof window !== 'undefined' ? window.location.pathname : undefined,
+            deviceType: getDeviceType(),
+            browser: getBrowserInfo(),
+          };
+
+      const res = await fetch(requestUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(leadData),
+        body: JSON.stringify(requestBody),
       });
 
       const data: { success: boolean; message?: string } = await res.json();
@@ -458,7 +479,7 @@ export default function UniversalInquiryModal({
                 Inquiry Submitted!
               </h3>
               <p className="text-gray-500 mb-2">
-                Thank you! Our team will contact you within 24 hours.
+                Your request was sent to the accountable listing representative.
               </p>
               <p className="text-sm text-gray-400">Closing automatically...</p>
             </div>
@@ -510,7 +531,9 @@ export default function UniversalInquiryModal({
                   </div>
                 )}
 
-                {/* Name */}
+                {entityType === 'project' ? (
+                  <>
+                    {/* Name */}
                 <div>
                   <label
                     htmlFor="inq-name"
@@ -628,7 +651,36 @@ export default function UniversalInquiryModal({
                   </div>
                 </div>
 
-                {/* Message */}
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-[#029bba]/20 bg-[#eff6ff] px-4 py-3">
+                    <p className="text-sm font-semibold text-[#004063]">
+                      Your verified Highrise account details will be used for this request.
+                    </p>
+                    <p className="mt-1 text-xs leading-relaxed text-[#386077]">
+                      For your security, the browser cannot choose the seller or alter recipient details. Highrise routes this request to the accountable Owner, Agent, or Developer from the current Property record.
+                    </p>
+                  </div>
+                )}
+
+                {entityType === 'property' && leadType === 'site_visit' && (
+                <div className="mb-4">
+                  <label htmlFor="preferredVisitAt" className="block text-sm font-semibold text-gray-700 mb-1.5">
+                    Preferred visit date & time
+                  </label>
+                  <input
+                    id="preferredVisitAt"
+                    type="datetime-local"
+                    value={formData.preferredVisitAt}
+                    min={new Date(Date.now() + 60_000).toISOString().slice(0, 16)}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, preferredVisitAt: e.target.value }))}
+                    className="w-full rounded-xl border border-gray-200 px-4 py-3 text-sm focus:border-[#029bba] focus:outline-none focus:ring-2 focus:ring-[#029bba]/10"
+                    required
+                  />
+                </div>
+              )}
+
+              {/* Message */}
                 <div>
                   <label
                     htmlFor="inq-message"
@@ -661,7 +713,9 @@ export default function UniversalInquiryModal({
                 {/* Privacy notice */}
                 <div className="bg-[#eff6ff] border border-[#029bba]/20 rounded-xl p-3">
                   <p className="text-xs text-[#004063]">
-                    🔒 Your information is secure. We&apos;ll contact you within 24 hours.
+                    {entityType === 'property'
+                      ? '🔒 Your request is protected. Highrise routes Property requests using server-verified account and listing relationships.'
+                      : '🔒 Your information is protected and used only to process this project inquiry.'}
                   </p>
                 </div>
 

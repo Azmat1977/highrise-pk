@@ -53,7 +53,7 @@ import {
   ExternalLink,
   ChevronRight,
 } from "lucide-react";
-import { DeveloperProvider, useDeveloperContext } from "./DeveloperContext";
+import { useDeveloperContext } from "./DeveloperContext";
 import type { DeveloperStatus } from "./DeveloperContext";
 
 // ============================================
@@ -832,7 +832,7 @@ function DeveloperLayoutInner({
 
 // ============================================
 // PUBLIC EXPORT
-// Wraps inner layout with DeveloperProvider
+// DeveloperProvider is supplied by pages/_app.tsx for /developer routes
 // ============================================
 
 export default function DeveloperLayout({
@@ -840,10 +840,10 @@ export default function DeveloperLayout({
   pageTitle,
 }: DeveloperLayoutProps): React.ReactElement {
   return (
-    <DeveloperProvider>
+    
       <DeveloperLayoutInner pageTitle={pageTitle}>
         {children}
       </DeveloperLayoutInner>
-    </DeveloperProvider>
+    
   );
 }

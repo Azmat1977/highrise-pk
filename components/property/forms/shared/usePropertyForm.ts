@@ -1277,10 +1277,14 @@ export interface ParkingFormState {
 // ═══════════════════════════════════════════════════════════════
 
 export interface UploadedImage {
-  url:       string;
-  publicId:  string;
+  url: string;
+  publicId: string;
+  assetToken?: string;
+  resourceType?: 'image' | 'video' | 'raw';
+  mimeType?: string;
+  isExisting?: boolean;
   isPrimary?: boolean;
-  caption?:  string;
+  caption?: string;
   category?: 'exterior' | 'interior' | 'kitchen' | 'bathroom' | 'bedroom' | 'other';
 }
 
@@ -1473,6 +1477,9 @@ export interface PropertyFormState {
   virtualTourUrl:     string;
   ownershipProofUrl:  string;
   ownershipProofPublicId: string;
+  ownershipProofAssetToken: string;
+  ownershipProofResourceType: 'image' | 'raw' | '';
+  ownershipProofMimeType: string;
 
   contactDetails: {
     name:               string;
@@ -1735,6 +1742,7 @@ export const DEFAULT_FORM_STATE: PropertyFormState = {
   images: [], floorPlanImages: [],
   videoUrl: '', virtualTourUrl: '',
   ownershipProofUrl: '', ownershipProofPublicId: '',
+  ownershipProofAssetToken: '', ownershipProofResourceType: '', ownershipProofMimeType: '',
   contactDetails: {
     name: '', phone: '', whatsapp: '', email: '',
     preferredContact: 'phone', showPhone: true, showEmail: false,
@@ -1851,7 +1859,7 @@ function validateTab(tab: TabId, state: PropertyFormState): TabErrors {
 // BUILD SUBMIT PAYLOAD — Maps nested form state → model fields
 // ═══════════════════════════════════════════════════════════════
 
-function buildSubmitPayload(state: PropertyFormState): Record<string, unknown> {
+export function buildPropertySubmitPayload(state: PropertyFormState): Record<string, unknown> {
   // Merge amenity booleans → amenities array
   const amenityFlags: Record<string, boolean> = {
     'Central AC':           state.centralAC,
@@ -2203,9 +2211,6 @@ function buildSubmitPayload(state: PropertyFormState): Record<string, unknown> {
     floorPlanImages: state.floorPlanImages,
     videoUrl:        state.videoUrl        || undefined,
     virtualTourUrl:  state.virtualTourUrl  || undefined,
-    ownershipProofUrl:      state.ownershipProofUrl      || undefined,
-    ownershipProofPublicId: state.ownershipProofPublicId || undefined,
-
     contactDetails:  state.contactDetails,
     termsAccepted:   state.termsAccepted,
     accuracyConfirmed: state.accuracyConfirmed,
@@ -2215,6 +2220,13 @@ function buildSubmitPayload(state: PropertyFormState): Record<string, unknown> {
 // ═══════════════════════════════════════════════════════════════
 // HOOK RETURN TYPE
 // ═══════════════════════════════════════════════════════════════
+
+export interface UsePropertyFormOptions {
+  mode?: 'create' | 'edit';
+  propertyId?: string;
+  initialForm?: PropertyFormState;
+  currentVerificationStatus?: string;
+}
 
 export interface UsePropertyFormReturn {
   form:             PropertyFormState;
@@ -2226,6 +2238,7 @@ export interface UsePropertyFormReturn {
   submitError:      string;
   submitSuccess:    boolean;
   submittedSlug:    string;
+  submittedStatus:  string;
   isDirty:          boolean;
   lastSaved:        Date | null;
   fieldConfig:      FieldConfig;
@@ -2260,10 +2273,12 @@ export interface UsePropertyFormReturn {
 // THE HOOK
 // ═══════════════════════════════════════════════════════════════
 
-export function usePropertyForm(): UsePropertyFormReturn {
+export function usePropertyForm(options: UsePropertyFormOptions = {}): UsePropertyFormReturn {
   const { data: session } = useSession();
+  const mode = options.mode ?? 'create';
 
   const loadSaved = (): PropertyFormState => {
+    if (mode === 'edit' && options.initialForm) return options.initialForm;
     if (typeof window === 'undefined') return DEFAULT_FORM_STATE;
     try {
       const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -2305,6 +2320,7 @@ export function usePropertyForm(): UsePropertyFormReturn {
   const [submitError, setSubmitError]     = useState('');
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [submittedSlug, setSubmittedSlug] = useState('');
+  const [submittedStatus, setSubmittedStatus] = useState('');
   const [isDirty, setIsDirty]             = useState(false);
   const [lastSaved, setLastSaved]         = useState<Date | null>(null);
   const autoSaveTimer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -2502,6 +2518,11 @@ export function usePropertyForm(): UsePropertyFormReturn {
 
   const saveDraft = useCallback(() => {
     if (typeof window === 'undefined') return;
+    if (mode === 'edit') {
+      setLastSaved(new Date());
+      setIsDirty(false);
+      return;
+    }
     try {
       sessionStorage.setItem(STORAGE_KEY, JSON.stringify(form));
       setLastSaved(new Date());
@@ -2509,9 +2530,16 @@ export function usePropertyForm(): UsePropertyFormReturn {
     } catch {
       // sessionStorage full — ignore
     }
-  }, [form]);
+  }, [form, mode]);
 
   const clearDraft = useCallback(() => {
+    if (mode === 'edit') {
+      setTabErrors({});
+      setTouchedTabs(new Set());
+      setIsDirty(false);
+      setLastSaved(null);
+      return;
+    }
     if (typeof window === 'undefined') return;
     try { sessionStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
     setForm(DEFAULT_FORM_STATE);
@@ -2519,7 +2547,7 @@ export function usePropertyForm(): UsePropertyFormReturn {
     setTouchedTabs(new Set());
     setIsDirty(false);
     setLastSaved(null);
-  }, []);
+  }, [mode]);
 
   // Auto-save every 30s
   useEffect(() => {
@@ -2539,33 +2567,117 @@ export function usePropertyForm(): UsePropertyFormReturn {
       setSubmitError('You must be logged in to submit a property.');
       return;
     }
+    if (mode === 'edit' && !options.propertyId) {
+      setSubmitError('Property ID is missing for edit mode.');
+      return;
+    }
+
     setIsSubmitting(true);
     setSubmitError('');
     try {
-      const payload = buildSubmitPayload(form);
-      const res = await fetch('/api/properties', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
-      });
-      const data = (await res.json()) as {
-        success?: boolean; slug?: string; message?: string; error?: string;
-      };
-      if (!res.ok || !data.success) {
-        setSubmitError(data.message ?? data.error ?? 'Submission failed. Please try again.');
-        return;
+      const payload = buildPropertySubmitPayload(form);
+      let propertyId = options.propertyId ?? '';
+      let slug = '';
+      let verificationStatus = options.currentVerificationStatus ?? 'draft';
+
+      if (mode === 'edit') {
+        const updateRes = await fetch(`/api/properties/${propertyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const updateData = await updateRes.json() as {
+          success?: boolean;
+          message?: string;
+          error?: string;
+          property?: { slug?: string; verificationStatus?: string };
+        };
+        if (!updateRes.ok || !updateData.success) {
+          setSubmitError(updateData.message ?? updateData.error ?? 'Property update failed.');
+          return;
+        }
+        slug = updateData.property?.slug ?? '';
+        verificationStatus = updateData.property?.verificationStatus ?? verificationStatus;
+      } else {
+        const createRes = await fetch('/api/properties', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const createData = await createRes.json() as {
+          success?: boolean;
+          message?: string;
+          error?: string;
+          property?: { _id?: string; slug?: string; verificationStatus?: string };
+        };
+        if (!createRes.ok || !createData.success || !createData.property?._id) {
+          setSubmitError(createData.message ?? createData.error ?? 'Property creation failed.');
+          return;
+        }
+        propertyId = createData.property._id;
+        slug = createData.property.slug ?? '';
+        verificationStatus = createData.property.verificationStatus ?? 'draft';
       }
-      setSubmittedSlug(data.slug ?? '');
+
+      // Private ownership evidence is associated only after the Property exists.
+      // The short-lived preview URL never enters the normal Property mutation payload.
+      if (form.ownershipProofPublicId && form.ownershipProofAssetToken) {
+        const proofRes = await fetch('/api/properties/upload-ownership-proof', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            propertyId,
+            docType: 'title_deed',
+            publicId: form.ownershipProofPublicId,
+            assetToken: form.ownershipProofAssetToken,
+            resourceType: form.ownershipProofResourceType || 'image',
+            mimeType: form.ownershipProofMimeType || 'application/octet-stream',
+          }),
+        });
+        const proofData = await proofRes.json() as {
+          success?: boolean;
+          message?: string;
+          property?: { verificationStatus?: string };
+        };
+        if (!proofRes.ok || !proofData.success) {
+          setSubmitError(proofData.message ?? 'Property saved, but ownership evidence could not be secured.');
+          return;
+        }
+        verificationStatus = proofData.property?.verificationStatus ?? verificationStatus;
+      }
+
+      // The create/edit mutation writes content; publication review is a separate,
+      // explicit lifecycle action. Only draft records are submitted.
+      if (verificationStatus === 'draft') {
+        const submitRes = await fetch(`/api/properties/${propertyId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'submit' }),
+        });
+        const submitData = await submitRes.json() as {
+          success?: boolean;
+          message?: string;
+          error?: string;
+          property?: { slug?: string; verificationStatus?: string };
+        };
+        if (!submitRes.ok || !submitData.success) {
+          setSubmitError(submitData.message ?? submitData.error ?? 'Property saved as draft, but submission for review failed.');
+          return;
+        }
+        slug = submitData.property?.slug ?? slug;
+        verificationStatus = submitData.property?.verificationStatus ?? 'pending';
+      }
+
+      setSubmittedSlug(slug);
+      setSubmittedStatus(verificationStatus);
       setSubmitSuccess(true);
       clearDraft();
     } catch (err: unknown) {
-      setSubmitError(
-        err instanceof Error ? err.message : 'Network error. Please try again.'
-      );
+      setSubmitError(err instanceof Error ? err.message : 'Network error. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
-  }, [form, session, validateAllTabs, clearDraft]);
+  }, [form, session, validateAllTabs, clearDraft, mode, options.propertyId, options.currentVerificationStatus]);
 
   const getTabIndex = useCallback(
     (tab: TabId): number => TABS.findIndex((t) => t.id === tab),
@@ -2575,7 +2687,7 @@ export function usePropertyForm(): UsePropertyFormReturn {
   return {
     form, activeTab, tabErrors, tabStatuses: tabStatuses(),
     touchedTabs, isSubmitting, submitError, submitSuccess,
-    submittedSlug, isDirty, lastSaved, fieldConfig,
+    submittedSlug, submittedStatus, isDirty, lastSaved, fieldConfig,
     setField, setResidentialField, setPlotField,
     setCommercialField, setAgriculturalField,
     setConstructionField, setParkingField,

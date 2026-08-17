@@ -224,7 +224,7 @@ export default async function handler(
 
   // ── Fetch developer profile for completedCount ─
   const devProfile = await DeveloperProfile.findOne({
-    user: proj.developer,
+    user: proj.developerId,
   })
     .select('completedProjectsCount developerBadge status companyName')
     .lean();
@@ -282,7 +282,7 @@ export default async function handler(
 
   if (data.syncToProfile && devProfile) {
     await DeveloperProfile.findOneAndUpdate(
-      { user: proj.developer },
+      { user: proj.developerId },
       {
         $set: {
           developerBadge:    targetBadge,

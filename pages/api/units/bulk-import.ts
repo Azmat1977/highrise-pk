@@ -355,22 +355,8 @@ export default async function handler(
 
     // Developers can only import to their own projects
     if (role === 'developer') {
-      const DeveloperProfile = mongoose.models.DeveloperProfile as
-        mongoose.Model<mongoose.Document>;
-
-      const devProfile = await DeveloperProfile.findOne(
-        { user: auth.id },
-        { _id: 1 }
-      ).lean() as { _id: mongoose.Types.ObjectId } | null;
-
-      if (!devProfile) {
-        return res.status(403).json({
-          success: false,
-          message: 'Developer profile not found',
-        });
-      }
-
-      projectQuery.developerId = devProfile._id;
+      // Canonical Project.developerId stores the authenticated User _id.
+      projectQuery.developerId = new mongoose.Types.ObjectId(auth.id);
     }
 
     const project = await Project.findOne(projectQuery)

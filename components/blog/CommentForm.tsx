@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Loader2, User, Mail, MessageSquare } from 'lucide-react';
 import toast from 'react-hot-toast';
+import TurnstileWidget from '@/components/ui/TurnstileWidget';
 
 interface CommentFormProps {
   blogSlug: string;
@@ -13,6 +14,11 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
   const [email, setEmail] = useState('');
   const [content, setContent] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState('');
+  const [turnstileKey, setTurnstileKey] = useState(0);
+
+  const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
+  const clearTurnstile = useCallback(() => setTurnstileToken(''), []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,6 +49,11 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
       return;
     }
 
+    if (!turnstileToken) {
+      toast.error('Please complete the bot verification');
+      return;
+    }
+
     setSubmitting(true);
 
     try {
@@ -57,6 +68,7 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
             name: name.trim(),
             email: email.trim().toLowerCase(),
           },
+          turnstileToken,
         }),
       });
 
@@ -69,6 +81,8 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
         setName('');
         setEmail('');
         setContent('');
+        setTurnstileToken('');
+        setTurnstileKey((value) => value + 1);
         onCommentAdded?.();
       } else {
         toast.error(data.message || 'Failed to submit comment');
@@ -150,11 +164,21 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
           </div>
         </div>
 
+        <div className="flex justify-center sm:justify-start">
+          <TurnstileWidget
+            key={turnstileKey}
+            onVerify={handleTurnstileVerify}
+            onExpire={clearTurnstile}
+            onError={clearTurnstile}
+            theme="light"
+          />
+        </div>
+
         {/* Submit */}
         <div className="flex justify-end">
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || !turnstileToken}
             className="inline-flex items-center gap-2 px-6 py-2.5 bg-[#029bba] hover:bg-[#027a94] text-white rounded-xl font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? (

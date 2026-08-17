@@ -19,7 +19,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse }   from 'next';
-import nodemailer                                  from 'nodemailer';
+import nodemailer                                  from 'highrise-nodemailer';
 import DOMPurify                                   from 'isomorphic-dompurify';
 import { renderTemplate }                          from '@/lib/email-templates';
 import { requireAdmin }                            from '@/lib/requireAuth';

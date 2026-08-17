@@ -254,8 +254,29 @@ export async function addEntityToCompare(
   writeCompareItemsLocal(newItems);
   dispatchCompareChange();
 
-  // Fire backend sync
-  await addEntityToBackend(entityType, entityId);
+  // Synchronize with backend before reporting success.
+  // Roll back optimistic local state if persistence fails.
+  const backend = await addEntityToBackend(
+    entityType,
+    entityId
+  );
+
+  if (
+    !backend.success &&
+    backend.reason !== 'duplicate'
+  ) {
+    writeCompareItemsLocal(items);
+    dispatchCompareChange();
+
+    return {
+      success: false,
+      reason:
+        backend.reason === 'limit_reached'
+          ? 'limit_reached'
+          : 'error',
+      message: 'Could not save this comparison item.',
+    };
+  }
 
   return { success: true };
 }
@@ -272,7 +293,17 @@ export async function removeEntityFromCompare(
   writeCompareItemsLocal(filtered);
   dispatchCompareChange();
 
-  await removeEntityFromBackend(entityType, entityId);
+  const backendRemoved =
+    await removeEntityFromBackend(
+      entityType,
+      entityId
+    );
+
+  if (!backendRemoved) {
+    // Restore local compare state when backend removal fails.
+    writeCompareItemsLocal(items);
+    dispatchCompareChange();
+  }
 }
 
 /** V2: Clear all compare items */

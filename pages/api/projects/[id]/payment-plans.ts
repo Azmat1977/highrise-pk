@@ -3,6 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
 import { requireAuth } from '@/lib/requireAuth';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import {
   rateLimitApi,
   rateLimitDeveloper,
@@ -123,19 +124,9 @@ async function verifyProjectOwnership(
   };
 
   if (role === 'developer') {
-    const DeveloperProfile = mongoose.models.DeveloperProfile as
-      mongoose.Model<mongoose.Document>;
-
-    const devProfile = await DeveloperProfile.findOne(
-      { user: authId },
-      { _id: 1 }
-    ).lean() as { _id: mongoose.Types.ObjectId } | null;
-
-    if (!devProfile) {
-      return { ok: false, project: null, error: 'Developer profile not found', status: 403 };
-    }
-
-    projectQuery.developerId = devProfile._id;
+    // Project.developerId is the authenticated User _id across the canonical
+    // project creation/dashboard APIs (Project schema ref: User).
+    projectQuery.developerId = new mongoose.Types.ObjectId(authId);
   }
 
   const project = await Project.findOne(projectQuery)
@@ -228,6 +219,7 @@ export default async function handler(
     setRateLimitHeaders(res, rl);
     if (!rl.ok) return sendRateLimitResponse(res, rl);
 
+    const viewer = await getOptionalAuth(req);
     await dbConnect();
 
     try {
@@ -242,12 +234,16 @@ export default async function handler(
         _id:       new mongoose.Types.ObjectId(id),
         isDeleted: { $ne: true },
       })
-        .select('paymentPlans projectName saleMode')
+        .select('paymentPlans projectName saleMode developerId status verificationStatus isVerified')
         .lean() as {
           _id:           mongoose.Types.ObjectId;
           paymentPlans?: Array<Record<string, unknown>>;
           projectName?:  string;
           saleMode?:     string;
+          developerId?:  mongoose.Types.ObjectId;
+          status?:       string;
+          verificationStatus?: string;
+          isVerified?:   boolean;
         } | null;
 
       if (!project) {
@@ -257,10 +253,19 @@ export default async function handler(
         });
       }
 
+      const isAdmin = !!viewer && ['admin', 'superadmin'].includes(viewer.role);
+      const isOwner = !!viewer && viewer.role === 'developer' && String(project.developerId ?? '') === viewer.id;
+      const publicAllowed = project.isVerified === true ||
+        (String(project.status ?? '').toLowerCase() === 'verified' &&
+         String(project.verificationStatus ?? '').toLowerCase() === 'verified');
+      if (!publicAllowed && !isAdmin && !isOwner) {
+        return res.status(404).json({ success: false, message: 'Project not found' });
+      }
+
       // Filter: only active plans for public
       const allPlans = (project.paymentPlans ?? []) as Array<Record<string, unknown>>;
       const activePlans = allPlans
-        .filter((plan) => plan.isActive !== false)
+        .filter((plan) => (isAdmin || isOwner) ? true : plan.isActive !== false)
         .sort((a, b) => {
           // Default plan first, then by order
           if (a.isDefault && !b.isDefault) return -1;
@@ -271,6 +276,7 @@ export default async function handler(
       // Check validity dates
       const now = new Date();
       const validPlans = activePlans.filter((plan) => {
+        if (isAdmin || isOwner) return true;
         if (plan.validFrom) {
           const from = new Date(plan.validFrom as string);
           if (!isNaN(from.getTime()) && from > now) return false;
@@ -282,13 +288,20 @@ export default async function handler(
         return true;
       });
 
-      // Strip internal fields
+      // Public clients should not receive internal audit/user references.
+      // Owners/admins retain the management fields required by the dashboard.
       const publicPlans = validPlans.map((plan) => {
-        const { ...rest } = plan;
+        if (isAdmin || isOwner) return plan;
+        const {
+          createdBy: _createdBy,
+          updatedBy: _updatedBy,
+          __v: _version,
+          ...rest
+        } = plan;
         return rest;
       });
 
-      res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
+      res.setHeader('Cache-Control', isAdmin || isOwner ? 'no-store, max-age=0' : 'public, s-maxage=60, stale-while-revalidate=300');
 
       return res.status(200).json({
         success: true,
@@ -329,7 +342,7 @@ export default async function handler(
   if (!auth) return;
 
   const role = auth.role as string;
-  if (!['developer', 'admin'].includes(role)) {
+  if (!['developer', 'admin', 'superadmin'].includes(role)) {
     return res.status(403).json({ success: false, message: 'Access denied' });
   }
 

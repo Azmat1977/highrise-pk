@@ -4,6 +4,7 @@ import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
 import { rateLimitApi, sendRateLimitResponse } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 
 // ----------------------------------------------------------------------
 // 🛡️ 1. SECURITY & VALIDATION SCHEMA
@@ -60,7 +61,7 @@ export default async function handler(
         path: 'properties',
         select:
           'title price city area areaUnit images propertyType slug bedrooms bathrooms listingType location previousPrice priceDropPercent developer possession',
-        match: { status: 'active' },
+        match: PUBLIC_PROPERTY_FILTER,
       })
       .lean();
 

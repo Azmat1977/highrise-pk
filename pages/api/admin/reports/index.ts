@@ -22,12 +22,12 @@ const DEFAULT_LIMIT = 20;
 const DEFAULT_PAGE = 1;
 
 const ALLOWED_STATUS = new Set(['open', 'reviewing', 'resolved', 'rejected']);
-const ALLOWED_ENTITY_TYPES = new Set(['property', 'comment', 'user', 'developer']);
+const ALLOWED_ENTITY_TYPES = new Set(['property']);
 
 // ✅ Zod Schema for Query Validation
 const QuerySchema = z.object({
   status: z.enum(['open', 'reviewing', 'resolved', 'rejected', '']).optional().default(''),
-  entityType: z.enum(['property', 'comment', 'user', 'developer', '']).optional().default(''),
+  entityType: z.enum(['property', '']).optional().default(''),
   page: z.coerce.number().int().min(1).max(10000).optional().default(DEFAULT_PAGE),
   limit: z.coerce.number().int().min(1).max(MAX_LIMIT).optional().default(DEFAULT_LIMIT),
   q: z.string().trim().max(100).optional().default(''),

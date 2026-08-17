@@ -1,4 +1,5 @@
-// C:\dev\highrise-pk\lib\property\property.ts
+// FILE: lib/property/property.ts
+// COMPLETE FILE REPLACEMENT
 
 export type ListingType = 'full_payment' | 'rent' | 'installment' | '';
 
@@ -15,46 +16,25 @@ export type PropertyImage = { url: string } | string;
 export interface PropertyDTO {
   _id: string;
   slug?: string;
-
   title: string;
-
-  // PK location model (practical + scalable)
   city: string;
   society?: string;
-  area?: string;   // sector / neighborhood / locality
-  location?: string; // free-text fallback
-
-  // Types
-  propertyType?: string;      // "House", "Apartment", ...
-  propertyCategory?: string;  // "residential" | "commercial" | "plots" (optional)
-
-  // Listing
-  listingType?: ListingType;  // full_payment / rent / installment
-  purpose?: string;           // optional legacy
-  status?: string;            // "active" "pending" etc.
-
-  // Price
+  area?: string;
+  location?: string;
+  propertyType?: string;
+  propertyCategory?: string;
+  listingType?: ListingType;
+  purpose?: string;
+  status?: string;
   price: number;
-
-  // Size
-  areaSize?: number;  // canonical numeric size
+  areaSize?: number;
   areaUnit?: AreaUnit;
-
-  // Legacy fallback (some APIs send these)
-  areaValue?: number; // maps from "area"
+  areaValue?: number;
   unit?: AreaUnit;
-
-  // Beds/baths
   bedrooms?: number;
   bathrooms?: number;
-
-  // Media
   images?: PropertyImage[];
-
-  // Flags
   isFeatured?: boolean;
-
-  // Dates
   createdAt?: string;
 }
 
@@ -68,62 +48,62 @@ function safeNum(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-export function normalizeProperty(raw: any): PropertyDTO {
-  const city = safeStr(raw?.city) || 'Pakistan';
+export function normalizeProperty(raw: unknown): PropertyDTO {
+  const r = raw as Record<string, unknown>;
+  const city = safeStr(r?.city) || 'Pakistan';
 
-  // images may be [{url}] or string[]
-  const imagesRaw: any[] = Array.isArray(raw?.images) ? raw.images : [];
+  const imagesRaw: unknown[] = Array.isArray(r?.images) ? r.images : [];
 
   const images = imagesRaw
     .map((img) => {
       if (typeof img === 'string') return img;
-      if (img && typeof img === 'object' && typeof img.url === 'string') return { url: img.url };
+      if (img && typeof img === 'object') {
+        const imgObj = img as Record<string, unknown>;
+        if (typeof imgObj.url === 'string') return { url: imgObj.url };
+      }
       return null;
     })
-    .filter(Boolean) as PropertyImage[];
+    .filter((x): x is PropertyImage => x !== null);
 
-  // size normalization
   const areaSize =
-    safeNum(raw?.areaSize) ??
-    safeNum(raw?.area) ?? // legacy numeric
-    safeNum(raw?.areaValue);
+    safeNum(r?.areaSize) ??
+    safeNum(typeof r?.area === 'number' ? r.area : undefined) ??
+    safeNum(r?.areaValue);
 
   const areaUnit =
-    safeStr(raw?.areaUnit) ??
-    safeStr(raw?.unit) ??
+    safeStr(r?.areaUnit) ??
+    safeStr(r?.unit) ??
     undefined;
 
+  const rawListingType = safeStr(r?.listingType);
+  const listingType: ListingType =
+    rawListingType === 'full_payment' ||
+    rawListingType === 'rent' ||
+    rawListingType === 'installment'
+      ? rawListingType
+      : '';
+
   return {
-    _id: String(raw?._id || raw?.id || ''),
-    slug: safeStr(raw?.slug),
-
-    title: safeStr(raw?.title) || 'Untitled Property',
-
+    _id: String(r?._id ?? r?.id ?? ''),
+    slug: safeStr(r?.slug),
+    title: safeStr(r?.title) || 'Untitled Property',
     city,
-    society: safeStr(raw?.society),
-    area: safeStr(raw?.area) && typeof raw?.area === 'string' ? safeStr(raw?.area) : safeStr(raw?.location) ? undefined : safeStr(raw?.area),
-    location: safeStr(raw?.location),
-
-    propertyType: safeStr(raw?.propertyType) || safeStr(raw?.type),
-    propertyCategory: safeStr(raw?.propertyCategory),
-
-    listingType: (safeStr(raw?.listingType) as any) || '',
-    purpose: safeStr(raw?.purpose),
-    status: safeStr(raw?.status),
-
-    price: safeNum(raw?.price) ?? 0,
-
+    society: safeStr(r?.society),
+    area: typeof r?.area === 'string' ? safeStr(r.area) : undefined,
+    location: safeStr(r?.location),
+    propertyType: safeStr(r?.propertyType) || safeStr(r?.type),
+    propertyCategory: safeStr(r?.propertyCategory),
+    listingType,
+    purpose: safeStr(r?.purpose),
+    status: safeStr(r?.status),
+    price: safeNum(r?.price) ?? 0,
     areaSize,
     areaUnit,
-
-    bedrooms: safeNum(raw?.bedrooms),
-    bathrooms: safeNum(raw?.bathrooms),
-
+    bedrooms: safeNum(r?.bedrooms),
+    bathrooms: safeNum(r?.bathrooms),
     images: images.length ? images : undefined,
-
-    isFeatured: Boolean(raw?.isFeatured),
-
-    createdAt: safeStr(raw?.createdAt),
+    isFeatured: Boolean(r?.isFeatured),
+    createdAt: safeStr(r?.createdAt),
   };
 }
 
@@ -131,12 +111,11 @@ export function getPrimaryImageUrl(p: PropertyDTO): string {
   const first = p.images?.[0];
   if (!first) return 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80';
   if (typeof first === 'string') return first;
-  if (first && typeof first.url === 'string') return first.url;
+  if (typeof first.url === 'string') return first.url;
   return 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800&q=80';
 }
 
 export function getLocationLabel(p: PropertyDTO): string {
-  // PK best practice: Society + Area/Sector + City
   const parts = [p.society, p.area, p.city].filter(Boolean);
   if (parts.length) return parts.join(', ');
   return p.location || p.city || 'Pakistan';
@@ -145,9 +124,7 @@ export function getLocationLabel(p: PropertyDTO): string {
 export function getAreaLabel(p: PropertyDTO): string {
   const size = p.areaSize;
   const unit = p.areaUnit;
-
   if (!size || !unit) return '';
-  // avoid ugly decimals for marla/kanal etc
   const nice = Number.isInteger(size) ? String(size) : size.toFixed(2);
   return `${nice} ${unit}`;
 }
@@ -161,13 +138,12 @@ export function listingTypeLabel(listingType?: ListingType): string {
 export function formatPKR(price: number, listingType?: ListingType): string {
   const suffix = listingType === 'rent' ? '/mo' : '';
   if (!Number.isFinite(price) || price <= 0) return `PKR 0${suffix}`;
-
-  if (price >= 10000000) return `PKR ${(price / 10000000).toFixed(2)} Crore${suffix}`;
-  if (price >= 100000) return `PKR ${(price / 100000).toFixed(2)} Lac${suffix}`;
+  if (price >= 10_000_000) return `PKR ${(price / 10_000_000).toFixed(2)} Crore${suffix}`;
+  if (price >= 100_000) return `PKR ${(price / 100_000).toFixed(2)} Lac${suffix}`;
   return `PKR ${price.toLocaleString()}${suffix}`;
 }
 
-export function normalizePropertiesList(rawList: any[]): PropertyDTO[] {
+export function normalizePropertiesList(rawList: unknown[]): PropertyDTO[] {
   if (!Array.isArray(rawList)) return [];
   return rawList.map(normalizeProperty).filter((p) => p._id);
 }

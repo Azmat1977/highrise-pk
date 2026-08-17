@@ -6,7 +6,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
 import mongoose from "mongoose";
-import nodemailer from "nodemailer";
+import nodemailer from "highrise-nodemailer";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import SignupCode from "@/models/SignupCode";
@@ -295,7 +295,7 @@ async function sendWelcomeEmail(email: string, name: string): Promise<boolean> {
         pass: process.env.EMAIL_PASSWORD,
       },
       tls: {
-        rejectUnauthorized: process.env.NODE_ENV === "production",
+        rejectUnauthorized: true,
       },
     });
 

@@ -12,6 +12,7 @@ import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import { z } from 'zod';
+import { toPrivateKycAssetView } from '@/lib/privateAsset';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 CONSTANTS
@@ -234,6 +235,34 @@ export default async function handler(
           requestId,
         },
       });
+
+      // Sensitive legal/KYC assets are delivered with short-lived signed URLs.
+      // Legacy public-only URLs remain visible to admins temporarily and are
+      // explicitly flagged so they can be migrated to authenticated delivery.
+      const legalDocs = (developer as Record<string, any>).legalDocs;
+      if (legalDocs) {
+        for (const key of [
+          'secpCertificate',
+          'ntnCertificate',
+          'memorandum',
+          'articlesOfAssociation',
+          'authorizedPersonCnicFrontImage',
+          'authorizedPersonCnicBackImage',
+        ]) {
+          if (legalDocs[key]) {
+            legalDocs[key] = toPrivateKycAssetView(legalDocs[key], {
+              allowLegacyAdminUrl: true,
+            });
+          }
+        }
+        if (Array.isArray(legalDocs.pastProjects)) {
+          legalDocs.pastProjects = legalDocs.pastProjects
+            .map((asset: Record<string, unknown>) =>
+              toPrivateKycAssetView(asset, { allowLegacyAdminUrl: true }),
+            )
+            .filter(Boolean);
+        }
+      }
 
       void res.status(200).json({
         success: true,

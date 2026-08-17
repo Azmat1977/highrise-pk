@@ -2,8 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --hr-primary: #029bba;
+  --hr-primary-dark: #017a8a;
+  --hr-secondary: #004063;
+  --hr-success: #10b981;
+  --hr-warning: #f59e0b;
+  --hr-danger: #ef4444;
+  --hr-page-bg: #f8f9fa;
+  --hr-card-bg: #ffffff;
+  --hr-border: #e5e7eb;
+  --hr-text: #333333;
+}
+
 /* Custom global styles for Highrise.pk */
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 
 * {
   margin: 0;
@@ -19,29 +31,29 @@ html {
 
 body {
   font-family: 'Poppins', sans-serif;
-  background-color: #f8f9fa;
-  color: #333;
+  background-color: var(--hr-page-bg);
+  color: var(--hr-text);
 }
 
 /* Brand colors */
 .primary-color {
-  color: #029bba;
+  color: var(--hr-primary);
 }
 
 .secondary-color {
-  color: #004063;
+  color: var(--hr-secondary);
 }
 
 .primary-bg {
-  background-color: #029bba;
+  background-color: var(--hr-primary);
 }
 
 .secondary-bg {
-  background-color: #004063;
+  background-color: var(--hr-secondary);
 }
 
 .primary-border {
-  border-color: #029bba;
+  border-color: var(--hr-primary);
 }
 
 /* ─────────────────────────────── */
@@ -170,12 +182,12 @@ button:hover {
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb {
-  background: #029bba;
+  background: var(--hr-primary);
   border-radius: 10px;
 }
 
 .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-  background: #027a94;
+  background: var(--hr-primary-dark);
 }
 
 /* ─────────────────────────────── */
@@ -206,7 +218,7 @@ button:hover {
 
 /* Jump links active state animation */
 .jump-link-active {
-  @apply bg-[#029bba] text-white shadow-md;
+  @apply bg-primary text-white shadow-md;
   transform: scale(1.02);
 }
 
@@ -244,7 +256,7 @@ button:hover {
   }
 
   .btn-primary {
-    @apply bg-gradient-to-r from-[#029bba] to-[#017a8a]
+    @apply bg-gradient-to-r from-primary to-primaryDark
            text-white shadow-sm hover:shadow-lg hover:brightness-110;
   }
 
@@ -347,7 +359,7 @@ button:hover {
   }
 
   .rich-text-content a {
-    @apply text-[#029bba] underline;
+    @apply text-primary underline;
   }
 
   .rich-text-content strong {
@@ -384,61 +396,39 @@ button:hover {
 }
 
 /* ═══════════════════════════════════════════════════════════════
-    TRUSTED PARTNERS MARQUEE ANIMATION
+   CONTINUOUS MARQUEES — separate distances for ticker and partners
 ═══════════════════════════════════════════════════════════════ */
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-50%);
-  }
+@keyframes market-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
 }
 
-.animate-marquee {
+@keyframes partner-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-market-marquee {
   display: flex;
-  animation: marquee 30s linear infinite;
+  animation: market-marquee 30s linear infinite;
 }
 
-/* Pause on hover */
-.animate-marquee:hover {
+.animate-partner-marquee {
+  display: flex;
+  animation: partner-marquee 40s linear infinite;
+}
+
+.animate-market-marquee:hover,
+.animate-partner-marquee:hover {
   animation-play-state: paused;
 }
 
-/* Slower on mobile */
 @media (max-width: 768px) {
-  .animate-marquee {
-    animation-duration: 20s;
-  }
+  .animate-market-marquee { animation-duration: 20s; }
+  .animate-partner-marquee { animation-duration: 30s; }
 }
 
-/* ═════════════════════════════════════════
-   MARQUEE ANIMATION — Developer Carousel
-   ═════════════════════════════════════════ */
-
-@keyframes marquee {
-  0% {
-    transform: translateX(0);
-  }
-  100% {
-    transform: translateX(-33.333%);
-  }
-}
-
-.animate-marquee {
-  animation: marquee 40s linear infinite;
-}
-
-/* Slower on smaller screens */
-@media (max-width: 768px) {
-  .animate-marquee {
-    animation-duration: 30s;
-  }
-}
-
-/* Respect users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  .animate-marquee {
-    animation: none;
-  }
+  .animate-market-marquee,
+  .animate-partner-marquee { animation: none; }
 }

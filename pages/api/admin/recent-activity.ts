@@ -8,6 +8,7 @@ import Project from '@/models/Projects';
 import DeveloperProfile from '@/models/DeveloperProfile';
 import Lead from '@/models/Lead';
 import User from '@/models/User';
+import { requireAdmin } from '@/lib/requireAuth';
 
 interface ActivityItem {
   id: string;
@@ -50,6 +51,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>
 ) {
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
   if (req.method !== 'GET') {
     return res
       .status(405)

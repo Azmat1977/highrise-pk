@@ -1,5 +1,5 @@
 //C:\dev\highrise-pk\components\blog\CommentCard.tsx
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ThumbsUp,
@@ -19,6 +19,7 @@ import {
   Pencil,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import TurnstileWidget from '@/components/ui/TurnstileWidget';
 
 interface Reply {
   _id: string;
@@ -92,6 +93,11 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
   const [replyName, setReplyName] = useState('');
   const [replyEmail, setReplyEmail] = useState('');
   const [replyContent, setReplyContent] = useState('');
+  const [replyTurnstileToken, setReplyTurnstileToken] = useState('');
+  const [replyTurnstileKey, setReplyTurnstileKey] = useState(0);
+
+  const handleReplyTurnstileVerify = useCallback((token: string) => setReplyTurnstileToken(token), []);
+  const clearReplyTurnstile = useCallback(() => setReplyTurnstileToken(''), []);
 
   const [submittingReply, setSubmittingReply] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
@@ -163,6 +169,11 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
       return;
     }
 
+    if (!replyTurnstileToken) {
+      toast.error('Please complete the bot verification');
+      return;
+    }
+
     setSubmittingReply(true);
 
     try {
@@ -175,6 +186,7 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
             name: replyName.trim(),
             email: replyEmail.trim().toLowerCase(),
           },
+          turnstileToken: replyTurnstileToken,
         }),
       });
 
@@ -185,6 +197,8 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
         setReplyName('');
         setReplyEmail('');
         setReplyContent('');
+        setReplyTurnstileToken('');
+        setReplyTurnstileKey((value) => value + 1);
         setShowReplyForm(false);
         onUpdate?.();
       } else {
@@ -457,6 +471,16 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
               className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/20 outline-none resize-none"
             />
 
+            <div className="flex justify-start">
+              <TurnstileWidget
+                key={replyTurnstileKey}
+                onVerify={handleReplyTurnstileVerify}
+                onExpire={clearReplyTurnstile}
+                onError={clearReplyTurnstile}
+                theme="light"
+              />
+            </div>
+
             <div className="flex items-center gap-2 justify-end">
               <button
                 type="button"
@@ -468,7 +492,7 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
 
               <button
                 type="submit"
-                disabled={submittingReply}
+                disabled={submittingReply || !replyTurnstileToken}
                 className="inline-flex items-center gap-1.5 px-4 py-1.5 bg-[#029bba] hover:bg-[#027a94] text-white text-sm rounded-lg font-medium transition-colors disabled:opacity-50"
               >
                 {submittingReply ? (

@@ -3,7 +3,8 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import formidable, { Fields, Files, File as FormidableFile } from 'formidable';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
-import cloudinary from '@/lib/cloudinary';
+import type { FolderType } from '@/lib/cloudinary';
+import { uploadValidatedTempFile, UploadValidationError } from '@/lib/secureFormidableUpload';
 import Unit from '@/models/Unit';
 import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitDeveloper, sendRateLimitResponse, setRateLimitHeaders } from '@/lib/rateLimit';
@@ -16,15 +17,12 @@ export const config = {
 
 type CloudinaryFile = { url: string; publicId: string };
 
-async function uploadSingle(file: FormidableFile, folder: string): Promise<CloudinaryFile> {
-  const result = await cloudinary.uploader.upload(file.filepath, {
-    folder,
-    resource_type: 'auto',
-  });
-  return { url: result.secure_url, publicId: result.public_id };
+async function uploadSingle(file: FormidableFile, folder: FolderType): Promise<CloudinaryFile> {
+  const result = await uploadValidatedTempFile(file, folder, 'image', { tags: ['unit'] });
+  return { url: result.url, publicId: result.publicId };
 }
 
-async function uploadMultiple(files: FormidableFile[], folder: string): Promise<CloudinaryFile[]> {
+async function uploadMultiple(files: FormidableFile[], folder: FolderType): Promise<CloudinaryFile[]> {
   const uploads: CloudinaryFile[] = [];
   for (const file of files) {
     uploads.push(await uploadSingle(file, folder));
@@ -67,7 +65,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   await dbConnect();
 
   // ── Parse form ──
-  const form = formidable({ multiples: true, keepExtensions: true });
+  const form = formidable({
+    multiples: true,
+    keepExtensions: true,
+    maxFileSize: 5 * 1024 * 1024,
+    maxTotalFileSize: 50 * 1024 * 1024,
+    maxFiles: 12,
+  });
 
   form.parse(req, async (err: unknown, fields: Fields, files: Files) => {
     if (err) {
@@ -164,20 +168,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       if (role === 'developer') {
-        // Find developer profile linked to this user
-        const DeveloperProfile = mongoose.models.DeveloperProfile as mongoose.Model<mongoose.Document>;
-        if (!DeveloperProfile) {
-          return res.status(500).json({ success: false, message: 'Something went wrong' });
-        }
-        const devProfile = await DeveloperProfile.findOne(
-          { user: auth.id },
-          { _id: 1 }
-        ).lean() as { _id: mongoose.Types.ObjectId } | null;
-
-        if (!devProfile) {
-          return res.status(403).json({ success: false, message: 'Developer profile not found' });
-        }
-        projectQuery.developerId = devProfile._id;
+        // Canonical Project.developerId stores the authenticated User _id.
+        projectQuery.developerId = new mongoose.Types.ObjectId(auth.id);
       }
 
       const project = await Project.findOne(projectQuery).lean() as {
@@ -219,19 +211,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const fpFile = files.floorPlanImage;
       if (fpFile) {
         const arr = Array.isArray(fpFile) ? fpFile : [fpFile];
-        floorPlanImage = await uploadSingle(arr[0] as FormidableFile, 'highrise/units/floorplans');
+        floorPlanImage = await uploadSingle(arr[0] as FormidableFile, 'unitFloorplans');
       }
 
       const lyFile = files.layoutImage;
       if (lyFile) {
         const arr = Array.isArray(lyFile) ? lyFile : [lyFile];
-        layoutImage = await uploadSingle(arr[0] as FormidableFile, 'highrise/units/layouts');
+        layoutImage = await uploadSingle(arr[0] as FormidableFile, 'unitLayouts');
       }
 
       const imgFiles = files.images;
       if (imgFiles) {
         const arr = Array.isArray(imgFiles) ? imgFiles : [imgFiles];
-        const uploaded = await uploadMultiple(arr as FormidableFile[], 'highrise/units/images');
+        const uploaded = await uploadMultiple(arr as FormidableFile[], 'unitImages');
         images = uploaded.map((img, i) => ({
           url: img.url,
           publicId: img.publicId,
@@ -407,6 +399,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
     } catch (error: unknown) {
+      if (error instanceof UploadValidationError) {
+        return res.status(400).json({ success: false, message: error.message });
+      }
+
       // Duplicate key (race condition)
       if ((error as { code?: number }).code === 11000) {
         return res.status(409).json({

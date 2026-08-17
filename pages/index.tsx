@@ -464,7 +464,7 @@ function MarketPulseTicker(): React.ReactElement {
 
       {/* Scrolling Strip */}
       <div className="flex-1 overflow-hidden relative">
-        <div className="flex animate-marquee gap-0">
+        <div className="flex animate-market-marquee gap-0">
           {/* Duplicate for seamless loop */}
           {[...MARKET_PULSE_ITEMS, ...MARKET_PULSE_ITEMS].map((item, i) => (
             <div key={i} className="flex items-center gap-3 px-6 border-r border-white/10 flex-shrink-0">
@@ -1746,18 +1746,6 @@ export default function HomePage(): React.ReactElement {
         <meta name="twitter:description" content="Verify, compare, and invest with confidence." />
         <meta name="twitter:image" content="https://highrise.pk/og-image.jpg" />
         <link rel="canonical" href="https://highrise.pk/" />
-        <style>{`
-          @keyframes marquee {
-            0% { transform: translateX(0); }
-            100% { transform: translateX(-50%); }
-          }
-          .animate-marquee {
-            animation: marquee 30s linear infinite;
-          }
-          .animate-marquee:hover {
-            animation-play-state: paused;
-          }
-        `}</style>
       </Head>
 
       <div className="min-h-screen">
@@ -2951,7 +2939,7 @@ export default function HomePage(): React.ReactElement {
                 <div className="absolute left-0 top-0 bottom-0 w-20 bg-gradient-to-r from-[#001927] to-transparent z-10 pointer-events-none" />
                 <div className="absolute right-0 top-0 bottom-0 w-20 bg-gradient-to-l from-[#001927] to-transparent z-10 pointer-events-none" />
 
-                <div className="flex animate-marquee">
+                <div className="flex animate-partner-marquee">
                   {[...Array(2)].map((_, dupIdx) => (
                     <div key={dupIdx} className="flex items-center gap-6 md:gap-8 px-4">
                       {(loadingPartners ? Array(8).fill(null) : trustedPartners.slice(0, 8)).map((partner, index) => (

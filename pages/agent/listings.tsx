@@ -1,5 +1,5 @@
-// ========== FILE: pages/agent/listings.tsx ==========
-// Agent Property Listings — Enterprise Redesign V6.4.3
+﻿// ========== FILE: pages/agent/listings.tsx ==========
+// Agent Property Listings â€” Enterprise Redesign V6.4.3
 // Features: grid/list toggle, filters, search, sort, pagination,
 //           inline delete confirmation, click-to-filter stats
 // ====================================================
@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import AgentLayout from "@/components/agent/AgentLayout";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PropertyImage {
   url:       string;
@@ -68,11 +68,11 @@ interface ListingStats {
   totalViews: number;
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PAGE_SIZE = 12;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function formatPrice(price: number): string {
   if (price >= 10_000_000) return `${(price / 10_000_000).toFixed(2)} Cr`;
@@ -92,7 +92,7 @@ function getStatusValue(property: Property): string {
   return property.verification?.status ?? property.status ?? "draft";
 }
 
-// ─── Config ───────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type StatusKey = "approved" | "verified" | "pending" | "under_review" | "rejected" | "draft" | "flagged";
 
@@ -140,7 +140,7 @@ function ListingTypeBadge({ type }: { type: string }): React.ReactElement | null
   );
 }
 
-// ─── Stat Card ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Stat Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type StatColor = "teal" | "green" | "amber" | "red" | "blue";
 
@@ -202,7 +202,7 @@ function StatCard({
   return content;
 }
 
-// ─── Property Thumbnail ───────────────────────────────────────────────────────
+// â”€â”€â”€ Property Thumbnail â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function PropertyThumbnail({
   src, alt, className,
@@ -231,7 +231,7 @@ function PropertyThumbnail({
   );
 }
 
-// ─── Delete Confirmation Bar ──────────────────────────────────────────────────
+// â”€â”€â”€ Delete Confirmation Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface DeleteConfirmProps {
   onConfirm: () => void;
@@ -271,7 +271,7 @@ function DeleteConfirmBar({ onConfirm, onCancel, deleting }: DeleteConfirmProps)
   );
 }
 
-// ─── Grid Card ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Grid Card â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PropertyCardProps {
   property:          Property;
@@ -408,7 +408,7 @@ function GridCard({
   );
 }
 
-// ─── List Row ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ List Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ListRow({
   property, confirmingDelete, deletingId,
@@ -522,7 +522,7 @@ function ListRow({
   );
 }
 
-// ─── Pagination ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PaginationProps {
   currentPage:  number;
@@ -531,7 +531,6 @@ interface PaginationProps {
 }
 
 function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps): React.ReactElement | null {
-  if (totalPages <= 1) return null;
 
   const pageNumbers = useMemo<number[]>(() => {
     const pages: number[] = [];
@@ -548,6 +547,8 @@ function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps):
     }
     return pages;
   }, [currentPage, totalPages]);
+
+  if (totalPages <= 1) return null;
 
   return (
     <div className="flex items-center justify-center gap-1.5 mt-8">
@@ -596,7 +597,7 @@ function Pagination({ currentPage, totalPages, onPageChange }: PaginationProps):
   );
 }
 
-// ─── Main Content ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main Content â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ListingsContent(): React.ReactElement {
   const [properties, setProperties] = useState<Property[]>([]);
@@ -620,7 +621,7 @@ function ListingsContent(): React.ReactElement {
   const [deletingId, setDeletingId]             = useState<string | null>(null);
   const [deleteError, setDeleteError]           = useState("");
 
-  // ── Fetch ───────────────────────────────────────────────────────────────────
+  // â”€â”€ Fetch â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const fetchProperties = useCallback(async (isRefresh = false) => {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
@@ -659,7 +660,7 @@ function ListingsContent(): React.ReactElement {
     void fetchProperties();
   }, [fetchProperties]);
 
-  // ── Stats ───────────────────────────────────────────────────────────────────
+  // â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const stats = useMemo<ListingStats>(
     () => ({
       total:      properties.length,
@@ -675,7 +676,7 @@ function ListingsContent(): React.ReactElement {
     [properties]
   );
 
-  // ── Filter + Sort ───────────────────────────────────────────────────────────
+  // â”€â”€ Filter + Sort â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const filtered = useMemo<Property[]>(() => {
     let result = [...properties];
 
@@ -734,7 +735,7 @@ function ListingsContent(): React.ReactElement {
     setCurrentPage(1);
   }, [searchQuery, statusFilter, listingTypeFilter, sortBy]);
 
-  // ── Pagination ──────────────────────────────────────────────────────────────
+  // â”€â”€ Pagination â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
 
   const paginated = useMemo<Property[]>(
@@ -742,7 +743,7 @@ function ListingsContent(): React.ReactElement {
     [filtered, currentPage]
   );
 
-  // ── Delete handlers ─────────────────────────────────────────────────────────
+  // â”€â”€ Delete handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleDeleteRequest = useCallback((id: string) => {
     setConfirmingDelete(id);
     setDeleteError("");
@@ -787,7 +788,7 @@ function ListingsContent(): React.ReactElement {
     []
   );
 
-  // ── Stat card filter handler ────────────────────────────────────────────────
+  // â”€â”€ Stat card filter handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const handleStatFilter = useCallback(
     (filter: FilterStatus) => {
       setStatusFilter((prev) => (prev === filter ? "all" : filter));
@@ -795,7 +796,7 @@ function ListingsContent(): React.ReactElement {
     []
   );
 
-  // ── Loading state ───────────────────────────────────────────────────────────
+  // â”€â”€ Loading state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -815,7 +816,7 @@ function ListingsContent(): React.ReactElement {
   return (
     <div className="p-4 md:p-6 pb-16">
 
-      {/* ── Page Header ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Page Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-black text-[#004063] tracking-tight flex items-center gap-2">
@@ -846,7 +847,7 @@ function ListingsContent(): React.ReactElement {
         </div>
       </div>
 
-      {/* ── Fetch Error ───────────────────────────────────────────────────── */}
+      {/* â”€â”€ Fetch Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {fetchError && (
         <div className="mb-6 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -854,7 +855,7 @@ function ListingsContent(): React.ReactElement {
         </div>
       )}
 
-      {/* ── Delete Error ──────────────────────────────────────────────────── */}
+      {/* â”€â”€ Delete Error â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {deleteError && (
         <div className="mb-6 px-4 py-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-sm">
           <AlertTriangle className="w-4 h-4 shrink-0" />
@@ -869,7 +870,7 @@ function ListingsContent(): React.ReactElement {
         </div>
       )}
 
-      {/* ── Stats Row ─────────────────────────────────────────────────────── */}
+      {/* â”€â”€ Stats Row â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
         <StatCard
           label="Total"
@@ -911,7 +912,7 @@ function ListingsContent(): React.ReactElement {
         />
       </div>
 
-      {/* ── Filters Bar ───────────────────────────────────────────────────── */}
+      {/* â”€â”€ Filters Bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6">
         <div className="flex flex-col lg:flex-row gap-4">
           {/* Search */}
@@ -941,7 +942,7 @@ function ListingsContent(): React.ReactElement {
               Filters
             </button>
 
-            {/* Listing Type — desktop always visible, mobile toggle */}
+            {/* Listing Type â€” desktop always visible, mobile toggle */}
             <select
               value={listingTypeFilter}
               onChange={(e) => setListingType(e.target.value)}
@@ -1052,12 +1053,12 @@ function ListingsContent(): React.ReactElement {
         )}
       </div>
 
-      {/* ── Results Count ─────────────────────────────────────────────────── */}
+      {/* â”€â”€ Results Count â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {filtered.length > 0 && (
         <p className="text-sm text-gray-500 mb-4">
           Showing{" "}
           <span className="font-bold text-gray-700">
-            {(currentPage - 1) * PAGE_SIZE + 1}–
+            {(currentPage - 1) * PAGE_SIZE + 1}â€“
             {Math.min(currentPage * PAGE_SIZE, filtered.length)}
           </span>{" "}
           of{" "}
@@ -1066,7 +1067,7 @@ function ListingsContent(): React.ReactElement {
         </p>
       )}
 
-      {/* ── Property Grid / List ──────────────────────────────────────────── */}
+      {/* â”€â”€ Property Grid / List â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       {paginated.length > 0 ? (
         <>
           <div
@@ -1108,7 +1109,7 @@ function ListingsContent(): React.ReactElement {
           />
         </>
       ) : (
-        // ── Empty State ─────────────────────────────────────────────────
+        // â”€â”€ Empty State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-16 text-center">
           <div className="w-16 h-16 bg-gray-50 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-gray-100">
             <Home className="w-8 h-8 text-gray-300" />
@@ -1150,7 +1151,7 @@ function ListingsContent(): React.ReactElement {
   );
 }
 
-// ─── Page Export ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page Export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function AgentListingsPage(): React.ReactElement {
   return (

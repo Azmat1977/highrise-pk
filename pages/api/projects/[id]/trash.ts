@@ -176,7 +176,7 @@ export default async function handler(
   // Include deleted docs so admin can restore already-trashed items
   const project = await Project.findOne({
     _id: new mongoose.Types.ObjectId(String(id)),
-  }).select('_id developer slug projectName status isDeleted deletedAt');
+  }).select('_id developerId slug projectName status isDeleted deletedAt');
 
   // Anti-enumeration: always 404, never 403 for non-owners
   if (!project) {
@@ -188,9 +188,9 @@ export default async function handler(
   }
 
   // ── Ownership check ──────────────────────────
-  // Projects.ts uses 'developer' (ObjectId ref to User), not 'developerId'
+  // Project.developerId is the canonical authenticated User reference.
   const ownerStr = String(
-    (project as unknown as { developer: mongoose.Types.ObjectId }).developer ?? '',
+    (project as unknown as { developerId: mongoose.Types.ObjectId }).developerId ?? '',
   );
   const isOwner = ownerStr === userId;
 

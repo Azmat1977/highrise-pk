@@ -17,7 +17,7 @@ try {
 } catch {
   // Model not registered yet — require it
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  Project = require('@/models/Project').default;
+  Project = require('@/models/Projects').default;
 }
 
 // ─── Response shape ───────────────────────────────────────────
@@ -95,7 +95,7 @@ export default async function handler(
     // ── Ensure model is loaded after dbConnect ────────────────
     if (!mongoose.models['Project']) {
       // eslint-disable-next-line @typescript-eslint/no-var-requires
-      require('@/models/Project');
+      require('@/models/Projects');
     }
     const ProjectModel = mongoose.models['Project'] as mongoose.Model<any>;
 

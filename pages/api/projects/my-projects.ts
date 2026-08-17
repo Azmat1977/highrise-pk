@@ -247,11 +247,11 @@ export default async function handler(
   };
 
   // ── Build filter ─────────────────────────────
-  // Projects.ts uses 'developer' (ObjectId ref to User), not 'developerId'
+  // Projects.ts uses developerId as the canonical authenticated User reference.
   const andClauses: Record<string, unknown>[] = [];
 
   const filter: Record<string, unknown> = {
-    developer: new mongoose.Types.ObjectId(targetDeveloperId),
+    developerId: new mongoose.Types.ObjectId(targetDeveloperId),
   };
 
   // Deleted filter
@@ -290,7 +290,7 @@ export default async function handler(
   if (featuredVal === 'true')  andClauses.push({ isFeatured: true });
   if (featuredVal === 'false') andClauses.push({ isFeatured: { $ne: true } });
 
-  // Search — projects.ts uses 'areaName' not 'area'
+  // Search canonical Project fields.
   const searchVal = getString(search).trim().slice(0, 100);
   if (searchVal) {
     const rx = new RegExp(escapeRegExp(searchVal), 'i');
@@ -298,7 +298,7 @@ export default async function handler(
       $or: [
         { projectName: rx },
         { city: rx },
-        { areaName: rx },    // V5.0.0 field name
+        { area: rx },
         { tagline: rx },
       ],
     });
@@ -347,7 +347,7 @@ export default async function handler(
   // No Cloudinary public_id in list view
   const projection = [
     '_id', 'slug', 'projectName',
-    'city', 'areaName',
+    'city', 'area',
     'projectCategory', 'projectNature',
     'status', 'isFeatured', 'isVerified',
     'developerBadge',

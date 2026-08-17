@@ -23,13 +23,13 @@ export const Button: React.FC<ButtonProps> = ({
   type = "button",
 }) => {
   const baseStyles =
-    "inline-flex items-center justify-center font-medium rounded-lg transition duration-200";
+    "inline-flex min-h-11 items-center justify-center gap-2 font-semibold rounded-xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2";
 
   const variantStyles = {
-    primary: "bg-[#029bba] text-white hover:bg-[#027a94]",
-    secondary: "bg-[#004063] text-white hover:bg-[#003050]",
+    primary: "bg-primary text-white hover:bg-primaryDark shadow-sm hover:shadow-md",
+    secondary: "bg-secondary text-white hover:bg-secondary/90 shadow-sm hover:shadow-md",
     outline:
-      "border-2 border-[#029bba] text-[#029bba] hover:bg-[#029bba] hover:text-white",
+      "border-2 border-primary text-primary hover:bg-primary hover:text-white",
     ghost: "bg-transparent text-gray-700 hover:bg-gray-100",
   };
 

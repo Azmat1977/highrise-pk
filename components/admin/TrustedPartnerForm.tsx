@@ -1,6 +1,5 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { X, Upload, Loader2 } from 'lucide-react';
-import { CldUploadWidget } from 'next-cloudinary';
 
 interface TrustedPartnerFormProps {
   partner?: any | null;
@@ -14,7 +13,46 @@ export default function TrustedPartnerForm({ partner, onClose }: TrustedPartnerF
   const [displayOrder, setDisplayOrder] = useState(partner?.displayOrder || 0);
   const [isActive, setIsActive] = useState(partner?.isActive ?? true);
   const [loading, setLoading] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
   const [error, setError] = useState('');
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      setError('Logo must be 2MB or smaller.');
+      return;
+    }
+
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      setError('Logo must be JPG, PNG, or WebP. SVG is not accepted for security reasons.');
+      return;
+    }
+
+    setError('');
+    setUploadingLogo(true);
+    try {
+      const body = new FormData();
+      body.append('file', file);
+      const response = await fetch('/api/upload?folder=trusted-partners', {
+        method: 'POST',
+        credentials: 'include',
+        body,
+      });
+      const data = await response.json();
+      if (!response.ok || !data?.success || !data?.data?.url || !data?.data?.publicId) {
+        throw new Error(data?.error || 'Logo upload failed');
+      }
+      setLogo({ url: data.data.url, publicId: data.data.publicId });
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : 'Logo upload failed');
+    } finally {
+      setUploadingLogo(false);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -108,36 +146,28 @@ export default function TrustedPartnerForm({ partner, onClose }: TrustedPartnerF
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Company Logo <span className="text-red-500">*</span>
             </label>
-            <CldUploadWidget
-              uploadPreset={process.env.NEXT_PUBLIC_CLOUDINARY_UPLOAD_PRESET}
-              options={{
-                folder: 'trusted-partners',
-                resourceType: 'image',
-                maxFileSize: 2000000, // 2MB
-                clientAllowedFormats: ['png', 'jpg', 'jpeg', 'svg', 'webp'],
-              }}
-              onSuccess={(result: any) => {
-                if (result?.info?.secure_url && result?.info?.public_id) {
-                  setLogo({
-                    url: result.info.secure_url,
-                    publicId: result.info.public_id,
-                  });
-                }
-              }}
+            <input
+              ref={logoInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="hidden"
+              onChange={handleLogoUpload}
+            />
+            <button
+              type="button"
+              onClick={() => logoInputRef.current?.click()}
+              disabled={uploadingLogo}
+              className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#029bba] hover:bg-[#029bba]/5 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {({ open }: { open: () => void }) => (
-                <button
-                  type="button"
-                  onClick={() => open()}
-                  className="w-full px-4 py-3 border-2 border-dashed border-gray-300 rounded-lg hover:border-[#029bba] hover:bg-[#029bba]/5 transition-colors flex items-center justify-center gap-2"
-                >
-                  <Upload className="w-5 h-5 text-gray-400" />
-                  <span className="text-sm text-gray-600">
-                    {logo.url ? 'Change Logo' : 'Upload Logo (PNG, JPG, SVG)'}
-                  </span>
-                </button>
+              {uploadingLogo ? (
+                <Loader2 className="w-5 h-5 text-[#029bba] animate-spin" />
+              ) : (
+                <Upload className="w-5 h-5 text-gray-400" />
               )}
-            </CldUploadWidget>
+              <span className="text-sm text-gray-600">
+                {uploadingLogo ? 'Uploading securely...' : logo.url ? 'Change Logo' : 'Upload Logo (JPG, PNG, WebP)'}
+              </span>
+            </button>
 
             {/* Logo Preview */}
             {logo.url && (
@@ -206,7 +236,7 @@ export default function TrustedPartnerForm({ partner, onClose }: TrustedPartnerF
           <div className="flex items-center gap-3 pt-4">
             <button
               type="submit"
-              disabled={loading}
+              disabled={loading || uploadingLogo}
               className="flex-1 px-4 py-3 bg-[#029bba] hover:bg-[#027a94] text-white font-semibold rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
               {loading ? (

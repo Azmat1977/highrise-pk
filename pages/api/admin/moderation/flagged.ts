@@ -18,18 +18,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const skip = (pageNum - 1) * limitNum;
 
     const query: any = {
-      // Respect soft delete architecture: show flagged/hidden even if not deleted,
-      // but never show deleted unless you intentionally want it in this queue.
-      $and: [{ $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }] }],
+      isDeleted: { $ne: true },
+      $or: [{ isFlagged: true }, { "verification.status": "flagged" }],
     };
 
-    if (filter === "flagged") query.isFlagged = true;
-    if (filter === "hidden") {
-      // if your project uses status or isHidden; we support both
-      query.$or = [{ status: "hidden" }, { isHidden: true }];
-    }
-    if (filter === "both") {
-      query.$or = [{ isFlagged: true }, { status: "hidden" }, { isHidden: true }];
+    // Only the canonical flagged moderation state is supported. "both" is
+    // retained as a harmless UI compatibility value and resolves to flagged.
+    if (!["flagged", "both"].includes(String(filter))) {
+      return res.status(400).json({ ok: false, error: "Invalid filter" });
     }
 
     const [total, properties] = await Promise.all([
@@ -43,12 +39,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const items = await Promise.all(
       properties.map(async (p: any) => {
-        const developerId =
-          p.createdBy?.toString?.() ||
-          p.userId?.toString?.() ||
-          p.ownerId?.toString?.() ||
-          p.developerId?.toString?.() ||
-          null;
+        const developerId = p.developerId?.toString?.() || null;
 
         const cacheKey = `risk:${String(p._id)}:${developerId || "na"}`;
 const cached = getCachedRisk<any>(cacheKey);
@@ -65,14 +56,14 @@ if (!cached) setCachedRisk(cacheKey, risk, 10 * 60 * 1000);
           riskScore: risk.score,
           riskLevel: risk.level,
           uniqueIpCount24h: risk.breakdown.uniqueIpCount24h,
-          reportsTotal: risk.breakdown.totalReports,
+          reportsTotal: risk.breakdown.activeReports,
         };
       })
     );
 
     return res.status(200).json({
       ok: true,
-      filter,
+      filter: "flagged",
       page: pageNum,
       limit: limitNum,
       total,

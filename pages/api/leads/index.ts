@@ -1,31 +1,48 @@
 // pages/api/leads/index.ts
+// Generic lead endpoint is intentionally NON-Property for writes.
+// Property inquiries/callbacks/site-visits must use
+// /api/properties/[id]/communication so recipient assignment is server-owned.
 
 import { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/dbConnect';
 import Lead from '@/models/Lead';
 import Project from '@/models/Projects';
 import User from '@/models/User';
-import Property from '@/models/Property';
 import { sendEmail } from '@/lib/email';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
 import { rateLimitInquiry, rateLimitAgent } from '@/lib/rateLimit';
+import { requireAuth } from '@/lib/requireAuth';
 
-// Auth will be added later - using simple role check for now
+function escapeHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   // ==========================================
-  // POST: Create a new Lead (Public + Logged In Users)
+  // POST: Create a non-Property lead
   // ==========================================
   if (req.method === 'POST') {
-    // V6.8.0: Rate limit lead creation (prevents spam)
-    // 10 inquiries per hour per IP
     const rl = await rateLimitInquiry(req);
     if (!rl.ok) {
       res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
       return res.status(429).json({
         success: false,
         message: `Too many inquiries. Please try again in ${rl.retryAfter ?? 60} seconds.`,
+      });
+    }
+
+    // Property communication has a dedicated authenticated endpoint. Reject
+    // before reading any browser-controlled sender/recipient fields.
+    if (req.body?.propertyId || req.body?.entityType === 'property') {
+      res.setHeader('Cache-Control', 'private, no-store');
+      return res.status(409).json({
+        success: false,
+        code: 'PROPERTY_COMMUNICATION_ROUTE_REQUIRED',
+        message: 'Use the Property communication endpoint for Property inquiries.',
       });
     }
 
@@ -39,7 +56,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         cnic,
         message,
         projectId,
-        propertyId,
         unitId,
         developerId,
         leadType = 'project_interest',
@@ -58,9 +74,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         downloadedBrochure,
         viewedFloorPlan,
         watchedVideo,
-      } = req.body;
+      } = req.body ?? {};
 
-      // VALIDATION
       if (!name || !email || !phone) {
         return res.status(400).json({
           success: false,
@@ -68,157 +83,87 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      if (!projectId && !propertyId) {
+      if (!projectId) {
         return res.status(400).json({
           success: false,
-          message: 'Either projectId or propertyId is required.',
+          message: 'projectId is required for this lead route.',
         });
       }
 
-      let finalDeveloperId = developerId;
-      if (!finalDeveloperId && !projectId && propertyId) {
-        finalDeveloperId = null;
-      } else if (!finalDeveloperId && projectId) {
+      if (!developerId) {
         return res.status(400).json({
           success: false,
           message: 'Developer ID is required for project inquiries.',
         });
       }
 
+      const normalizedEmail = String(email).toLowerCase().trim();
+      const normalizedPhone = String(phone).trim();
+      const normalizedName = String(name).trim();
+      const normalizedMessage = typeof message === 'string' ? message.trim() : '';
+
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email)) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide a valid email address.',
-        });
+      if (!emailRegex.test(normalizedEmail)) {
+        return res.status(400).json({ success: false, message: 'Please provide a valid email address.' });
+      }
+      if (normalizedPhone.length < 10) {
+        return res.status(400).json({ success: false, message: 'Please provide a valid phone number.' });
       }
 
-      if (phone.length < 10) {
-        return res.status(400).json({
-          success: false,
-          message: 'Please provide a valid phone number.',
-        });
+      const project: any = await Project.findById(projectId).select(
+        'projectName slug city area minPrice maxPrice projectCategory projectNature images gallery developerProfile'
+      );
+      if (!project) {
+        return res.status(404).json({ success: false, message: 'Project not found.' });
       }
 
-      // FETCH PROJECT OR PROPERTY (For Snapshot)
-      let project: any = null;
-      let property: any = null;
-      let projectSnapshot: any = null;
-      let propertySnapshot: any = null;
-
-      if (projectId) {
-        project = await Project.findById(projectId).select(
-          'projectName slug city area minPrice maxPrice projectCategory projectNature images gallery developerProfile'
-        );
-
-        if (!project) {
-          return res.status(404).json({
-            success: false,
-            message: 'Project not found.',
-          });
-        }
-
-        let primaryImage = null;
-        if (project.images && project.images.length > 0) {
-          const primary = project.images.find((img: any) => img.isPrimary);
-          primaryImage = primary ? primary.url : project.images[0].url;
-        } else if (project.gallery && project.gallery.length > 0) {
-          primaryImage = project.gallery[0].url;
-        }
-
-        projectSnapshot = {
-          _id: project._id,
-          projectName: project.projectName,
-          slug: project.slug,
-          city: project.city,
-          area: project.area,
-          minPrice: project.minPrice,
-          maxPrice: project.maxPrice,
-          projectCategory: project.projectCategory,
-          projectNature: project.projectNature,
-          primaryImage,
-        };
-        
-      } else if (propertyId) {
-        property = await Property.findById(propertyId).select(
-          'title slug city society locality price images propertyType listingType owner ownerName ownerEmail ownerPhone'
-        );
-        if (!property) {
-          return res.status(404).json({
-            success: false,
-            message: 'Property not found.',
-          });
-        }
-
-        const primaryImage = property.images?.[0]?.url || null;
-
-        // Lead propertySnapshot (IPropertySnapshot shape)
-        propertySnapshot = {
-          _id: property._id,
-          title: property.title || 'Property',
-          slug: property.slug,
-          city: property.city || 'N/A',
-          society: property.society || property.locality || 'N/A',
-          price: property.price || 0,
-          propertyType: property.propertyType || undefined,
-          listingType: property.listingType || undefined,
-          primaryImage,
-          ownerName: (property as any).ownerName || undefined,
-          ownerEmail: (property as any).ownerEmail || undefined,
-          ownerPhone: (property as any).ownerPhone || undefined,
-        };
-
-        if (!finalDeveloperId && property.owner) {
-          finalDeveloperId = property.owner.toString();
-        }
+      let primaryImage: string | null = null;
+      if (project.images?.length) {
+        const primary = project.images.find((img: any) => img.isPrimary);
+        primaryImage = primary ? primary.url : project.images[0]?.url ?? null;
+      } else if (project.gallery?.length) {
+        primaryImage = project.gallery[0]?.url ?? null;
       }
 
-      const developerIdToUse = finalDeveloperId || developerId;
+      const projectSnapshot = {
+        _id: project._id,
+        projectName: project.projectName,
+        slug: project.slug,
+        city: project.city,
+        area: project.area,
+        minPrice: project.minPrice,
+        maxPrice: project.maxPrice,
+        projectCategory: project.projectCategory,
+        projectNature: project.projectNature,
+        primaryImage,
+      };
 
-      if (!developerIdToUse) {
-        return res.status(400).json({
-          success: false,
-          message: 'Could not determine property owner.',
-        });
+      const developer: any = await User.findById(developerId).lean();
+      if (!developer) {
+        return res.status(404).json({ success: false, message: 'Developer not found.' });
       }
 
-      const developer: any = await User.findById(developerIdToUse).lean();
-
-if (!developer) {
-  return res.status(404).json({
-    success: false,
-    message: 'Developer not found.',
-  });
-}
-
-const developerSnapshot = {
-  _id: developer._id,
-  companyName: developer.companyName || 'N/A',
-  email: developer.email,
-  phone: (developer as any).phone || undefined,
-  logo: (developer as any).logo || undefined,
-  website: (developer as any).website || undefined,
-};
+      const developerSnapshot = {
+        _id: developer._id,
+        companyName: developer.companyName || 'N/A',
+        email: developer.email,
+        phone: developer.phone || undefined,
+        logo: developer.logo || undefined,
+        website: developer.website || undefined,
+      };
 
       const lead = await Lead.create({
-        name,
-        email: email.toLowerCase().trim(),
-        phone: phone.trim(),
+        name: normalizedName,
+        email: normalizedEmail,
+        phone: normalizedPhone,
         cnic,
-        message,
+        message: normalizedMessage,
         leadType,
-        // Entity type — required by Lead model schema
-        // Auto-detected from which ID is present
-        entityType: projectId ? 'project' : 'property',
-        // Project lead case
-        project: projectId || undefined,
-        projectSnapshot: projectSnapshot || undefined,
-        // Property lead case
-        property: propertyId || undefined,
-        propertySnapshot: propertySnapshot || undefined,
-        // Unit (if any)
+        entityType: 'project',
+        project: projectId,
+        projectSnapshot,
         unit: unitId || undefined,
-        developer: developerIdToUse,
+        developer: developerId,
         developerSnapshot,
         source,
         utmSource,
@@ -236,144 +181,80 @@ const developerSnapshot = {
         viewedFloorPlan: viewedFloorPlan || false,
         watchedVideo: watchedVideo || false,
         assignedTo: developer.email,
-        assignedToRole: property ? 'agent' : 'developer', // ✅ Auto-detect role
-        assignedToUserId: developerIdToUse, // ✅ Add user ID reference
+        assignedToRole: 'developer',
+        assignedToUserId: developerId,
         status: 'new',
       });
 
-      // Increment inquiries on project/property
-      if (projectId) {
-        await Project.findByIdAndUpdate(projectId, {
-          $inc: { inquiries: 1 },
-        });
-      } else if (propertyId) {
-        await Property.findByIdAndUpdate(propertyId, {
-          $inc: { inquiries: 1 },
-        });
-      }
+      await Project.findByIdAndUpdate(projectId, { $inc: { inquiries: 1 } });
 
-      // ================================
-      // 🤖 AUTOMATION ENROLLMENT (fire & forget)
-      // Enroll new lead into any active 'lead_created'
-      // automation sequences. Non-blocking.
-      // ================================
       try {
         const { enrollRecipient } = await import('@/lib/automation/enrollRecipient');
         enrollRecipient('lead_created', {
-          recipientId:   String(lead._id),
+          recipientId: String(lead._id),
           recipientType: 'lead',
-          email:         lead.email,
-          name:          lead.name,
-          city:
-            projectSnapshot?.city ||
-            propertySnapshot?.city ||
-            '',
+          email: lead.email,
+          name: lead.name,
+          city: projectSnapshot.city || '',
           leadStatus: lead.status,
           leadSource: lead.source,
-          leadType:   lead.leadType,
+          leadType: lead.leadType,
         }).catch((enrollErr: unknown) => {
-          console.error('[Automation] lead_created enroll failed:',
-            enrollErr instanceof Error ? enrollErr.message : enrollErr
-          );
+          console.error('[Automation] lead_created enroll failed:', enrollErr instanceof Error ? enrollErr.message : enrollErr);
         });
       } catch (importErr) {
-        // Dynamic import failed — non-fatal
         console.error('[Automation] Failed to import enrollRecipient:', importErr);
       }
 
-      // ================================
-      // 🔔 Email Notification (Non-blocking)
-      // ================================
       try {
         const siteUrl = process.env.NEXTAUTH_URL || 'https://highrise.pk';
-
-        const isPropertyLead = !!propertyId;
-        const listingTitle =
-          propertySnapshot?.title ||
-          projectSnapshot?.projectName ||
-          'your listing';
-
-        const listingUrl = isPropertyLead
-          ? `${siteUrl}/property/${propertySnapshot?.slug || propertyId}`
-          : `${siteUrl}/projects/${projectSnapshot?.slug || projectId}`;
-
-        const dashboardUrl = propertyId
-          ? `${siteUrl}/agent/leads`
-          : `${siteUrl}/developer/leads`;
+        const listingTitle = projectSnapshot.projectName || 'your project';
+        const listingUrl = `${siteUrl}/projects/${projectSnapshot.slug || projectId}`;
+        const dashboardUrl = `${siteUrl}/developer/leads`;
+        const safeName = escapeHtml(normalizedName);
+        const safeEmail = escapeHtml(normalizedEmail);
+        const safePhone = escapeHtml(normalizedPhone);
+        const safeLeadType = escapeHtml(leadType);
+        const safeSource = escapeHtml(source);
+        const safeMessage = escapeHtml(normalizedMessage);
+        const safeTitle = escapeHtml(listingTitle);
+        const safeCity = escapeHtml(projectSnapshot.city || '');
+        const safeArea = escapeHtml(projectSnapshot.area || '');
 
         const html = `
           <!DOCTYPE html>
-          <html>
-          <head><meta charset="utf-8" /></head>
+          <html><head><meta charset="utf-8" /></head>
           <body style="margin:0;padding:0;font-family:Arial,sans-serif;background:#f5f5f5;">
             <div style="max-width:600px;margin:0 auto;padding:20px;">
               <div style="background:linear-gradient(135deg,#029bba,#027a94);padding:20px 24px;border-radius:12px 12px 0 0;color:white;">
-                <h1 style="margin:0;font-size:20px;">🔔 New Lead Received</h1>
-                <p style="margin:8px 0 0 0;font-size:14px;opacity:0.9;">
-                  You have a new lead on <strong>${listingTitle}</strong> via Highrise.pk
-                </p>
+                <h1 style="margin:0;font-size:20px;">New Lead Received</h1>
+                <p style="margin:8px 0 0;font-size:14px;opacity:.9;">You have a new lead on <strong>${safeTitle}</strong> via Highrise.pk</p>
               </div>
               <div style="background:white;padding:20px 24px;border-radius:0 0 12px 12px;">
-                <h2 style="font-size:16px;margin:0 0 10px 0;">Lead Details</h2>
+                <h2 style="font-size:16px;margin:0 0 10px;">Lead Details</h2>
                 <table style="width:100%;font-size:14px;color:#374151;margin-bottom:16px;">
-                  <tr><td style="padding:4px 0;width:120px;color:#6b7280;">Name:</td><td style="padding:4px 0;font-weight:bold;">${name}</td></tr>
-                  <tr><td style="padding:4px 0;color:#6b7280;">Email:</td><td style="padding:4px 0;">${email}</td></tr>
-                  <tr><td style="padding:4px 0;color:#6b7280;">Phone:</td><td style="padding:4px 0;">${phone}</td></tr>
-                  <tr><td style="padding:4px 0;color:#6b7280;">Type:</td><td style="padding:4px 0;">${leadType}</td></tr>
-                  <tr><td style="padding:4px 0;color:#6b7280;">Source:</td><td style="padding:4px 0;">${source}</td></tr>
+                  <tr><td style="padding:4px 0;width:120px;color:#6b7280;">Name:</td><td style="padding:4px 0;font-weight:bold;">${safeName}</td></tr>
+                  <tr><td style="padding:4px 0;color:#6b7280;">Email:</td><td style="padding:4px 0;">${safeEmail}</td></tr>
+                  <tr><td style="padding:4px 0;color:#6b7280;">Phone:</td><td style="padding:4px 0;">${safePhone}</td></tr>
+                  <tr><td style="padding:4px 0;color:#6b7280;">Type:</td><td style="padding:4px 0;">${safeLeadType}</td></tr>
+                  <tr><td style="padding:4px 0;color:#6b7280;">Source:</td><td style="padding:4px 0;">${safeSource}</td></tr>
                 </table>
-
-                ${
-                  message
-                    ? `
-                <div style="background:#f9fafb;border-radius:8px;padding:12px 14px;margin-bottom:16px;border:1px solid #e5e7eb;">
-                  <strong style="display:block;margin-bottom:4px;font-size:13px;color:#111827;">Message:</strong>
-                  <p style="margin:0;font-size:13px;color:#4b5563;white-space:pre-line;">${message}</p>
-                </div>
-                `
-                    : ''
-                }
-
-                <h2 style="font-size:16px;margin:0 0 10px 0;">Listing Details</h2>
+                ${safeMessage ? `<div style="background:#f9fafb;border-radius:8px;padding:12px 14px;margin-bottom:16px;border:1px solid #e5e7eb;"><strong style="display:block;margin-bottom:4px;font-size:13px;color:#111827;">Message:</strong><p style="margin:0;font-size:13px;color:#4b5563;white-space:pre-line;">${safeMessage}</p></div>` : ''}
+                <h2 style="font-size:16px;margin:0 0 10px;">Project Details</h2>
                 <table style="width:100%;font-size:14px;color:#374151;margin-bottom:20px;">
-                  <tr><td style="padding:4px 0;width:120px;color:#6b7280;">Title:</td><td style="padding:4px 0;font-weight:bold;">${listingTitle}</td></tr>
-                  ${
-                    propertySnapshot?.city || projectSnapshot?.city
-                      ? `<tr><td style="padding:4px 0;color:#6b7280;">City:</td><td style="padding:4px 0;">${
-                          propertySnapshot?.city || projectSnapshot?.city
-                        }</td></tr>`
-                      : ''
-                  }
-                  ${
-                    propertySnapshot?.society || projectSnapshot?.area
-                      ? `<tr><td style="padding:4px 0;color:#6b7280;">Area:</td><td style="padding:4px 0;">${
-                          propertySnapshot?.society || projectSnapshot?.area
-                        }</td></tr>`
-                      : ''
-                  }
+                  <tr><td style="padding:4px 0;width:120px;color:#6b7280;">Title:</td><td style="padding:4px 0;font-weight:bold;">${safeTitle}</td></tr>
+                  ${safeCity ? `<tr><td style="padding:4px 0;color:#6b7280;">City:</td><td style="padding:4px 0;">${safeCity}</td></tr>` : ''}
+                  ${safeArea ? `<tr><td style="padding:4px 0;color:#6b7280;">Area:</td><td style="padding:4px 0;">${safeArea}</td></tr>` : ''}
                 </table>
-
                 <div style="text-align:center;margin-top:10px;">
-                  <a href="${dashboardUrl}" 
-                     style="display:inline-block;margin:0 4px 8px 4px;background:#029bba;color:white;padding:10px 18px;text-decoration:none;border-radius:999px;font-size:14px;font-weight:600;">
-                    View Lead in Dashboard →
-                  </a>
-                  <a href="${listingUrl}" 
-                     style="display:inline-block;margin:0 4px;background:#f3f4f6;color:#111827;padding:10px 18px;text-decoration:none;border-radius:999px;font-size:14px;font-weight:500;">
-                    Open Listing →
-                  </a>
+                  <a href="${dashboardUrl}" style="display:inline-block;margin:0 4px 8px;background:#029bba;color:white;padding:10px 18px;text-decoration:none;border-radius:999px;font-size:14px;font-weight:600;">View Lead in Dashboard →</a>
+                  <a href="${listingUrl}" style="display:inline-block;margin:0 4px;background:#f3f4f6;color:#111827;padding:10px 18px;text-decoration:none;border-radius:999px;font-size:14px;font-weight:500;">Open Project →</a>
                 </div>
-
-                <p style="margin-top:16px;font-size:12px;color:#9ca3af;text-align:center;">
-                  This email was sent by Highrise.pk lead system. Please respond to the client as soon as possible.
-                </p>
               </div>
             </div>
-          </body>
-          </html>
-        `;
+          </body></html>`;
 
-        if (developer?.email) {
+        if (developer.email) {
           await sendEmail({
             to: developer.email,
             subject: `New Lead for ${listingTitle} | Highrise.pk`,
@@ -382,14 +263,12 @@ const developerSnapshot = {
           });
         }
       } catch (emailError) {
-        console.error('[Leads Email Error]', (emailError as any)?.message || emailError);
-        // Email failure should NOT block lead creation
+        console.error('[Leads Email Error]', emailError instanceof Error ? emailError.message : emailError);
       }
 
       return res.status(201).json({
         success: true,
-        message:
-          'Your inquiry has been sent successfully! The developer/agent will contact you soon.',
+        message: 'Your project inquiry has been sent successfully.',
         data: {
           leadId: lead._id,
           leadScore: lead.leadScore,
@@ -397,7 +276,7 @@ const developerSnapshot = {
           status: lead.status,
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('[Leads POST Error]', error);
       return res.status(500).json({
         success: false,
@@ -423,23 +302,16 @@ const developerSnapshot = {
     await dbConnect();
 
     try {
-      // 🔐 Secure: Get user from NextAuth session
-      const session: any = await getServerSession(req, res, authOptions as any);
+      // DB-current auth: suspended/revoked/deleted accounts cannot keep lead access
+      // merely because the browser still has an old session cookie.
+      const auth = await requireAuth(req, res);
+      if (!auth) return;
 
-      if (!session || !session.user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Authentication required',
-        });
-      }
-
-      const currentEmail = session.user.email || '';
-      const currentUserId = (session.user as any).id || (session.user as any)._id || '';
-      const currentRole = (session.user as any).role || 'user';
-
-      // V6.8.0: Session 3 capability flag pattern
-      const isVerifiedAgent = Boolean((session.user as any).isVerifiedAgent);
-      const isVerifiedOwner = Boolean((session.user as any).isVerifiedOwner);
+      const currentEmail = auth.email || '';
+      const currentUserId = auth.id;
+      const currentRole = String(auth.role || 'user');
+      const isVerifiedAgent = currentRole === 'agent' || auth.capabilities.includes('real_estate_agent');
+      const isVerifiedOwner = auth.capabilities.includes('property_owner');
 
       const {
         developerId,
@@ -481,37 +353,25 @@ const developerSnapshot = {
       const isAgent      = currentRole === 'agent' || isVerifiedAgent;
       const isOwner      = isVerifiedOwner;
 
-      if (isAdmin) {
-        // Admin sees all leads, optionally filtered by developerId
-        if (developerId) {
-          filter['developerSnapshot._id'] = developerId;
-        }
+      if (isAdmin || auth.authorityRole === 'superadmin') {
+        if (developerId) filter['developerSnapshot._id'] = developerId;
       } else if (isDeveloper) {
-        // Developer sees only their own project leads
-        if (currentEmail) {
-          filter.$or = [
-            { 'developerSnapshot.email': currentEmail },
-            { assignedTo: currentEmail },
-            { assignedToUserId: currentUserId },
-          ];
-        }
+        // Property leads use exact user-id + role assignment. Non-Property
+        // project leads keep their existing developer compatibility paths.
+        filter.$or = [
+          { entityType: 'property', assignedToUserId: currentUserId, assignedToRole: 'developer' },
+          { entityType: { $ne: 'property' }, 'developerSnapshot.email': currentEmail },
+          { entityType: { $ne: 'property' }, assignedTo: currentEmail },
+          { entityType: { $ne: 'property' }, assignedToUserId: currentUserId },
+        ];
       } else if (isAgent) {
-        // Agent sees only their property leads (matches by owner email/id)
-        if (currentEmail) {
-          filter.$or = [
-            { 'propertySnapshot.ownerEmail': currentEmail },
-            { assignedTo: currentEmail },
-            { assignedToUserId: currentUserId },
-          ];
-        }
+        filter.entityType = 'property';
+        filter.assignedToUserId = currentUserId;
+        filter.assignedToRole = 'agent';
       } else if (isOwner) {
-        // Owner sees only leads on their own property listings
-        if (currentEmail) {
-          filter.$or = [
-            { 'propertySnapshot.ownerEmail': currentEmail },
-            { assignedToUserId: currentUserId },
-          ];
-        }
+        filter.entityType = 'property';
+        filter.assignedToUserId = currentUserId;
+        filter.assignedToRole = 'owner';
       } else {
         // Regular user has no lead access
         return res.status(403).json({

@@ -3,11 +3,14 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/db';
 import NewsletterSubscriber from '@/models/NewsletterSubscriber';
+import { requireAdmin } from '@/lib/requireAuth';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
   await dbConnect();
 
   const { id } = req.query;

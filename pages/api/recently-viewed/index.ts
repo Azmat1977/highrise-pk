@@ -4,6 +4,7 @@ import { authOptions } from '../auth/[...nextauth]';
 import dbConnect from '@/lib/dbConnect';
 import RecentlyViewed from '@/models/RecentlyViewed';
 import mongoose from 'mongoose';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 
 // ═══════════════════════════════════════════════════════════════
 // GET /api/recently-viewed
@@ -58,7 +59,7 @@ export default async function handler(
         path: 'propertyId',
         select:
           'title price city area areaUnit images propertyType slug status bedrooms bathrooms listingType location',
-        match: { status: 'active' }, // Only active properties
+        match: PUBLIC_PROPERTY_FILTER
       })
       .lean();
 

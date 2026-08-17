@@ -504,11 +504,21 @@ function ContactToggle({
 
 // ─── Upload Response Type ─────────────────────────────────────────────────────
 
-interface UploadResponse {
+interface UploadResponseData {
   url: string;
   publicId: string;
   format?: string;
   size?: number;
+  resourceType: 'image' | 'video' | 'raw';
+  mimeType: string;
+  assetToken: string;
+}
+
+interface UploadResponse {
+  success?: boolean;
+  message?: string;
+  error?: string;
+  data?: UploadResponseData;
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -566,7 +576,9 @@ export default function TabMedia({
         formData.append('file', file);
 
         const folder =
-          target === 'ownershipProof' ? 'documents' : 'properties';
+          target === 'ownershipProof' ? 'documents'
+          : target === 'floorPlans' ? 'property-floorplans'
+          : 'properties';
 
         const res = await fetch(`/api/upload?folder=${folder}`, {
           method: 'POST',
@@ -582,7 +594,11 @@ export default function TabMedia({
           );
         }
 
-        const data = (await res.json()) as UploadResponse;
+        const response = (await res.json()) as UploadResponse;
+        const data = response.data;
+        if (!response.success || !data?.url || !data.publicId || !data.assetToken) {
+          throw new Error(response.message ?? response.error ?? 'Upload response was incomplete.');
+        }
 
         if (target === 'images') {
           const isFirst = form.images.length === 0 && i === 0;
@@ -591,17 +607,26 @@ export default function TabMedia({
             publicId: data.publicId,
             isPrimary: isFirst,
             category: 'exterior',
+            assetToken: data.assetToken,
+            resourceType: data.resourceType,
+            mimeType: data.mimeType,
           };
           setField('images', [...form.images, newImage]);
         } else if (target === 'floorPlans') {
           const newImage: UploadedImage = {
             url: data.url,
             publicId: data.publicId,
+            assetToken: data.assetToken,
+            resourceType: data.resourceType,
+            mimeType: data.mimeType,
           };
           setField('floorPlanImages', [...form.floorPlanImages, newImage]);
         } else {
           setField('ownershipProofUrl', data.url);
           setField('ownershipProofPublicId', data.publicId);
+          setField('ownershipProofAssetToken', data.assetToken);
+          setField('ownershipProofResourceType', data.resourceType === 'raw' ? 'raw' : 'image');
+          setField('ownershipProofMimeType', data.mimeType);
         }
 
         setUploadProgress(Math.round(((i + 1) / files.length) * 100));
@@ -648,6 +673,9 @@ export default function TabMedia({
   const removeOwnershipProof = (): void => {
     setField('ownershipProofUrl', '');
     setField('ownershipProofPublicId', '');
+    setField('ownershipProofAssetToken', '');
+    setField('ownershipProofResourceType', '');
+    setField('ownershipProofMimeType', '');
   };
 
   // ── Contact setter
@@ -811,11 +839,23 @@ export default function TabMedia({
                   className="relative group rounded-xl overflow-hidden border border-gray-200 bg-white shadow-sm"
                 >
                   <div className="aspect-video w-full bg-gray-100 flex items-center justify-center">
-                    <img
-                      src={img.url}
-                      alt={`Floor plan ${idx + 1}`}
-                      className="w-full h-full object-contain"
-                    />
+                    {img.resourceType === 'raw' || img.mimeType === 'application/pdf' ? (
+                      <a
+                        href={img.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex h-full w-full flex-col items-center justify-center gap-2 p-4 text-center text-sm text-[#004063] hover:bg-gray-50"
+                      >
+                        <FileText className="h-8 w-8 text-[#029bba]" />
+                        <span className="font-medium">Open floor-plan PDF</span>
+                      </a>
+                    ) : (
+                      <img
+                        src={img.url}
+                        alt={`Floor plan ${idx + 1}`}
+                        className="w-full h-full object-contain"
+                      />
+                    )}
                   </div>
                   <button
                     type="button"

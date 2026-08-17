@@ -31,11 +31,13 @@ export default cloudinary;
 // ═══════════════════════════════════════════════════════════════
 
 export const FILE_SIZE_LIMITS = {
-  image:    5   * 1024 * 1024,
-  document: 10  * 1024 * 1024,
-  video:    100 * 1024 * 1024,
-  avatar:   2   * 1024 * 1024,
-  kyc:      5   * 1024 * 1024,
+  image:             5   * 1024 * 1024,
+  propertyImage:     8   * 1024 * 1024,
+  propertyFloorplan: 10  * 1024 * 1024,
+  document:          10  * 1024 * 1024,
+  video:             100 * 1024 * 1024,
+  avatar:            2   * 1024 * 1024,
+  kyc:               5   * 1024 * 1024,
 } as const;
 
 export const IMAGE_DIMENSION_LIMITS = {
@@ -47,30 +49,43 @@ export const IMAGE_DIMENSION_LIMITS = {
 
 // ✅ No SVG — XSS risk (SVG can contain JavaScript)
 export const ALLOWED_MIME_TYPES = {
-  image:    ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const,
-  document: ['application/pdf'] as const,
-  video:    ['video/mp4', 'video/webm'] as const,
-  avatar:   ['image/jpeg', 'image/png', 'image/webp'] as const,
-  kyc:      ['image/jpeg', 'image/png', 'application/pdf'] as const,
+  image:             ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const,
+  propertyImage:     ['image/jpeg', 'image/png', 'image/webp'] as const,
+  propertyFloorplan: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const,
+  document:          ['application/pdf'] as const,
+  video:             ['video/mp4', 'video/webm'] as const,
+  avatar:            ['image/jpeg', 'image/png', 'image/webp'] as const,
+  kyc:               ['image/jpeg', 'image/png', 'application/pdf'] as const,
 } as const;
 
 export const ALLOWED_EXTENSIONS = {
-  image:    ['.jpg', '.jpeg', '.png', '.webp', '.gif'] as const,
-  document: ['.pdf'] as const,
-  video:    ['.mp4', '.webm'] as const,
-  avatar:   ['.jpg', '.jpeg', '.png', '.webp'] as const,
-  kyc:      ['.jpg', '.jpeg', '.png', '.pdf'] as const,
+  image:             ['.jpg', '.jpeg', '.png', '.webp', '.gif'] as const,
+  propertyImage:     ['.jpg', '.jpeg', '.png', '.webp'] as const,
+  propertyFloorplan: ['.jpg', '.jpeg', '.png', '.webp', '.pdf'] as const,
+  document:          ['.pdf'] as const,
+  video:             ['.mp4', '.webm'] as const,
+  avatar:            ['.jpg', '.jpeg', '.png', '.webp'] as const,
+  kyc:               ['.jpg', '.jpeg', '.png', '.pdf'] as const,
 } as const;
 
 // ✅ Internal Cloudinary folder paths
 export const FOLDERS = {
   properties: 'highrise-pk/properties',
-  projects:   'highrise-pk/projects',
-  developers: 'highrise-pk/developers',
+  propertyFloorplans: 'highrise-pk/properties/floorplans',
+  projects:       'highrise-pk/projects',
+  projectDocuments: 'highrise-pk/projects/documents',
+  unitImages:     'highrise-pk/units/images',
+  unitFloorplans: 'highrise-pk/units/floorplans',
+  unitLayouts:    'highrise-pk/units/layouts',
+  developers:     'highrise-pk/developers',
   agents:     'highrise-pk/agents',
   avatars:    'highrise-pk/avatars',
   kyc:        'highrise-pk/kyc',
   blog:       'highrise-pk/blog',
+  trustedPartners: 'highrise-pk/admin/trusted-partners',
+  cities:          'highrise-pk/admin/cities',
+  heroBannersDesktop: 'highrise-pk/admin/hero-banners/desktop',
+  heroBannersMobile:  'highrise-pk/admin/hero-banners/mobile',
   general:    'highrise-pk/general',
   // ⚠️ temp: internal use only — NOT in UPLOAD_FOLDER_MAP (intentional)
   // /api/upload never routes here. Used only by internal batch jobs.
@@ -81,10 +96,15 @@ export const FOLDERS = {
 export const UPLOAD_FOLDER_MAP: Record<string, keyof typeof FOLDERS> = {
   profiles:   'developers',
   properties: 'properties',
+  'property-floorplans': 'propertyFloorplans',
   documents:  'kyc',
   projects:   'projects',
   agents:     'agents',
   blog:       'blog',
+  'trusted-partners': 'trustedPartners',
+  cities:             'cities',
+  'hero-banners-desktop': 'heroBannersDesktop',
+  'hero-banners-mobile':  'heroBannersMobile',
   general:    'general',
 } as const;
 
@@ -104,6 +124,7 @@ export interface UploadResult {
   width?:     number;
   height?:    number;
   size?:      number;
+  resourceType?: 'image' | 'video' | 'raw';
   error?:     string;
 }
 
@@ -197,11 +218,13 @@ export function validateMagicBytes(
   };
 
   const categorySignatures: Record<FileCategory, string[]> = {
-    image:    [...signatures.jpeg, ...signatures.png, ...signatures.gif, ...signatures.webp],
-    document: [...signatures.pdf],
-    video:    [...signatures.mp4],
-    avatar:   [...signatures.jpeg, ...signatures.png, ...signatures.webp],
-    kyc:      [...signatures.jpeg, ...signatures.png, ...signatures.pdf],
+    image:             [...signatures.jpeg, ...signatures.png, ...signatures.gif, ...signatures.webp],
+    propertyImage:     [...signatures.jpeg, ...signatures.png, ...signatures.webp],
+    propertyFloorplan: [...signatures.jpeg, ...signatures.png, ...signatures.webp, ...signatures.pdf],
+    document:          [...signatures.pdf],
+    video:             [...signatures.mp4],
+    avatar:            [...signatures.jpeg, ...signatures.png, ...signatures.webp],
+    kyc:               [...signatures.jpeg, ...signatures.png, ...signatures.pdf],
   };
 
   const allowed  = categorySignatures[expectedCategory] ?? [];
@@ -314,7 +337,8 @@ export function getUploadOptions(
     unique_filename:  true,
     overwrite:        false,
     invalidate:       true,
-    access_mode:      folder === 'kyc' ? 'authenticated' : 'public',
+    // KYC must use an authenticated delivery type; public assets keep the default upload type.
+    ...(['kyc', 'projectDocuments'].includes(folder) ? { type: 'authenticated' as const } : {}),
     exif:             false,
     colors:           false,
     faces:            false,
@@ -346,6 +370,30 @@ export function getUploadOptions(
     { fetch_format: 'auto' },
   ];
 
+  const trustedPartnerTransform: CloudinaryTransformation[] = [
+    { width: 1200, height: 600, crop: 'limit' },
+    { quality: 'auto:good' },
+    { fetch_format: 'auto' },
+  ];
+
+  const cityTransform: CloudinaryTransformation[] = [
+    { width: 900, height: 1600, crop: 'fill', gravity: 'auto' },
+    { quality: 'auto:good' },
+    { fetch_format: 'auto' },
+  ];
+
+  const heroDesktopTransform: CloudinaryTransformation[] = [
+    { width: 1920, height: 1080, crop: 'fill', gravity: 'auto' },
+    { quality: 'auto:good' },
+    { fetch_format: 'auto' },
+  ];
+
+  const heroMobileTransform: CloudinaryTransformation[] = [
+    { width: 1080, height: 1920, crop: 'fill', gravity: 'auto' },
+    { quality: 'auto:good' },
+    { fetch_format: 'auto' },
+  ];
+
   switch (folder) {
     case 'properties':
     case 'projects':
@@ -356,12 +404,29 @@ export function getUploadOptions(
     case 'agents':
       baseOptions.transformation = avatarTransform;
       break;
-    case 'kyc':
+    case 'propertyFloorplans':
+      // Floor-plan PDFs/raw files must not receive image transformations.
       baseOptions.transformation = [];
-      baseOptions.access_mode    = 'authenticated';
+      break;
+    case 'kyc':
+    case 'projectDocuments':
+      baseOptions.transformation = [];
+      baseOptions.type           = 'authenticated';
       break;
     case 'blog':
       baseOptions.transformation = blogTransform;
+      break;
+    case 'trustedPartners':
+      baseOptions.transformation = trustedPartnerTransform;
+      break;
+    case 'cities':
+      baseOptions.transformation = cityTransform;
+      break;
+    case 'heroBannersDesktop':
+      baseOptions.transformation = heroDesktopTransform;
+      break;
+    case 'heroBannersMobile':
+      baseOptions.transformation = heroMobileTransform;
       break;
     default:
       break;
@@ -412,6 +477,7 @@ export async function uploadBuffer(
       width:     result.width,
       height:    result.height,
       size:      result.bytes,
+      resourceType: result.resource_type as 'image' | 'video' | 'raw',
     };
   } catch (error: unknown) {
     return {
@@ -443,6 +509,7 @@ export async function uploadFromUrl(
       width:     result.width,
       height:    result.height,
       size:      result.bytes,
+      resourceType: result.resource_type as 'image' | 'video' | 'raw',
     };
   } catch (error: unknown) {
     return {
@@ -462,7 +529,7 @@ export async function uploadFromUrl(
 
 export async function deleteFile(
   publicId: string,
-  options?: { resourceType?: 'image' | 'video' | 'raw' },
+  options?: { resourceType?: 'image' | 'video' | 'raw'; deliveryType?: 'upload' | 'authenticated' | 'private' },
 ): Promise<{ success: boolean; error?: string }> {
   try {
     if (!publicId || !/^[a-zA-Z0-9/_-]+$/.test(publicId)) {
@@ -477,6 +544,7 @@ export async function deleteFile(
 
     const result = await cloudinary.uploader.destroy(publicId, {
       resource_type: options?.resourceType ?? 'image',
+      type:           options?.deliveryType ?? 'upload',
       invalidate:    true,
     });
 
@@ -545,12 +613,14 @@ export function getSecureUrl(
 export function getSignedUrl(
   publicId:         string,
   expiresInSeconds: number = 3600,
+  options?: { resourceType?: 'image' | 'video' | 'raw'; deliveryType?: 'authenticated' | 'private' },
 ): string {
   const timestamp = Math.round(Date.now() / 1000) + expiresInSeconds;
   return cloudinary.url(publicId, {
     secure:     true,
     sign_url:   true,
-    type:       'authenticated',
+    type:       options?.deliveryType ?? 'authenticated',
+    resource_type: options?.resourceType ?? 'image',
     expires_at: timestamp,
   });
 }

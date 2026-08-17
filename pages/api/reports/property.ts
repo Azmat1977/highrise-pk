@@ -1,156 +1,193 @@
-// C:\dev\highrise-pk\pages\api\reports\property.ts
-
 import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import dbConnect from "@/lib/dbConnect";
 import Report from "@/models/Report";
-import { applyAutoProtectionForProperty } from "@/lib/autoProtection";
 import Property from "@/models/Property";
+import { assessPropertyRisk } from "@/lib/autoProtection";
+import { getOptionalAuth } from "@/lib/optionalAuth";
+import { rateLimitReport } from "@/lib/rateLimit";
+import { requireServerSecret } from "@/lib/security/serverSecrets";
+import { PUBLIC_PROPERTY_FILTER } from "@/lib/property/publicProperty";
+import { resolvePropertyActor } from "@/lib/property/propertyActor";
 
+type Ok = {
+  ok: true;
+  message: string;
+  reviewPriority: "normal" | "review" | "urgent";
+};
+type Err = { ok: false; error: string; code?: string };
 
-type Ok = { ok: true; message: string };
-type Err = { ok: false; error: string };
+const ALLOWED_REASONS = new Set([
+  "scam_suspicious",
+  "fake_images",
+  "incorrect_price",
+  "wrong_location",
+  "duplicate_listing",
+  "agent_not_owner",
+  "spam",
+  "other",
+]);
 
-function safeText(v: unknown): string {
-  if (typeof v !== "string") return "";
-  return v.trim();
+function safeText(value: unknown, max = 2000) {
+  return typeof value === "string" ? value.trim().slice(0, max) : "";
 }
 
-function normalizeEmail(v: string) {
-  return v.trim().toLowerCase();
+function normalizeEmail(value: string) {
+  return value.trim().toLowerCase().slice(0, 200);
 }
 
-function normalizePhone(v: string) {
-  return (v || "").replace(/\s+/g, "").replace(/[^\d+]/g, "");
+function normalizePhone(value: string) {
+  return value.replace(/\s+/g, "").replace(/[^\d+]/g, "").slice(0, 50);
+}
+
+function clientIp(req: NextApiRequest) {
+  const forwarded = req.headers["x-forwarded-for"];
+  const raw = Array.isArray(forwarded) ? forwarded[0] : forwarded;
+  return raw?.split(",")[0]?.trim() || req.socket.remoteAddress || "unknown";
 }
 
 function hashIp(ip: string) {
-  const salt = process.env.REPORT_IP_SALT || "highrise-report-salt";
-  return crypto.createHash("sha256").update(`${salt}:${ip}`).digest("hex");
+  const secret = requireServerSecret(
+    ["SECURITY_LOG_HMAC_SECRET", "REPORT_IP_SALT", "NEXTAUTH_SECRET"],
+    "Report IP hash secret",
+  );
+  return crypto.createHmac("sha256", secret).update(ip).digest("hex");
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse<Ok | Err>) {
+  res.setHeader("Cache-Control", "private, no-store");
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ ok: false, error: "Method not allowed" });
   }
 
+  const rl = await rateLimitReport(req);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfter ?? 60));
+    return res.status(429).json({ ok: false, error: "Too many reports. Please try again later." });
+  }
+
   try {
     await dbConnect();
 
-    const entityIdRaw = safeText(req.body?.entityId);
-    const entityObjectId =
-      entityIdRaw && mongoose.Types.ObjectId.isValid(entityIdRaw)
-        ? new mongoose.Types.ObjectId(entityIdRaw)
-        : null;
-
-    const reasonRaw = safeText(req.body?.reason);
-    const detailsRaw = safeText(req.body?.details);
-    const honeypot = safeText(req.body?.companyWebsite); // honeypot (should be empty)
-
-    const reporterUserIdRaw = safeText(req.body?.reporterUserId);
-    const reporterEmailRaw = safeText(req.body?.reporterEmail);
-    const reporterPhoneRaw = safeText(req.body?.reporterPhone);
-
-    if (honeypot) {
-      return res.status(400).json({ ok: false, error: "Invalid submission" });
-    }
-
-    if (!entityIdRaw || !entityObjectId) {
+    const entityIdRaw = safeText(req.body?.entityId, 64);
+    if (!mongoose.Types.ObjectId.isValid(entityIdRaw)) {
       return res.status(400).json({ ok: false, error: "Invalid property id" });
     }
+    const entityId = new mongoose.Types.ObjectId(entityIdRaw);
 
-    const allowedReasons = new Set([
-      "scam_suspicious",
-      "fake_images",
-      "incorrect_price",
-      "wrong_location",
-      "duplicate_listing",
-      "agent_not_owner",
-      "spam",
-      "other",
-    ]);
-
-    if (!allowedReasons.has(reasonRaw)) {
+    const reason = safeText(req.body?.reason, 80);
+    const details = safeText(req.body?.details, 2000);
+    const honeypot = safeText(req.body?.companyWebsite, 200);
+    if (honeypot) return res.status(400).json({ ok: false, error: "Invalid submission" });
+    if (!ALLOWED_REASONS.has(reason)) {
       return res.status(400).json({ ok: false, error: "Invalid reason" });
     }
-
-    if (!detailsRaw || detailsRaw.length < 10) {
+    if (details.length < 10) {
       return res.status(400).json({ ok: false, error: "Please provide details (min 10 characters)" });
     }
 
-    // verify property exists and is not soft-deleted (trust-first)
-    const property = await Property.findOne({ _id: entityObjectId, isDeleted: { $ne: true } })
-      .select({ _id: 1 })
-      .lean();
-
+    const property = await Property.findOne({ _id: entityId, ...PUBLIC_PROPERTY_FILTER })
+      .select("_id owner agentId developerId title slug city locality location price listingType")
+      .lean<Record<string, unknown> | null>();
     if (!property) {
       return res.status(404).json({ ok: false, error: "Property not found" });
     }
 
-    // anti-abuse: simple per-IP+entity+day throttle (DB-based)
-    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")?.[0]?.trim() || req.socket.remoteAddress || "";
-    const ipHash = ip ? hashIp(ip) : undefined;
+    // DB-current optional authentication; stale/suspended/revoked sessions become anonymous.
+    const auth = await getOptionalAuth(req);
+    const actor = await resolvePropertyActor(property).catch(() => null);
+    if (auth && actor?.userId === auth.id) {
+      return res.status(400).json({
+        ok: false,
+        error: "You cannot report a listing for which you are the accountable seller.",
+        code: "SELF_REPORT",
+      });
+    }
 
-    const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const recentCount = await Report.countDocuments({
+    const reporterEmail = auth?.email
+      ? ""
+      : normalizeEmail(safeText(req.body?.reporterEmail, 200));
+    const reporterPhone = auth
+      ? ""
+      : normalizePhone(safeText(req.body?.reporterPhone, 50));
+    if (!auth && !reporterEmail && !reporterPhone) {
+      return res.status(400).json({
+        ok: false,
+        error: "Please provide email or phone, or sign in, so our moderation team can follow up.",
+      });
+    }
+
+    const ipHash = hashIp(clientIp(req));
+    const since = new Date(Date.now() - 86_400_000);
+    const duplicateFilter: Record<string, unknown> = {
       entityType: "property",
-      entityId: entityObjectId,
-      ...(ipHash ? { ipHash } : {}),
+      entityId,
       createdAt: { $gte: since },
-    });
-
-    if (recentCount >= 3) {
-      return res.status(429).json({ ok: false, error: "Too many reports from your network. Please try later." });
+    };
+    if (auth?.id && mongoose.Types.ObjectId.isValid(auth.id)) {
+      duplicateFilter.reporterUserId = new mongoose.Types.ObjectId(auth.id);
+    } else {
+      duplicateFilter.ipHash = ipHash;
     }
 
-    const reporterEmail = reporterEmailRaw ? normalizeEmail(reporterEmailRaw) : "";
-    const reporterPhone = reporterPhoneRaw ? normalizePhone(reporterPhoneRaw) : "";
-
-    // If not logged in, require at least one contact method (trust-first follow-up)
-    const reporterUserId =
-      reporterUserIdRaw && mongoose.Types.ObjectId.isValid(reporterUserIdRaw)
-        ? new mongoose.Types.ObjectId(reporterUserIdRaw)
-        : undefined;
-
-    if (!reporterUserId && !reporterEmail && !reporterPhone) {
-      return res.status(400).json({ ok: false, error: "Please provide email or phone (or login) so we can follow up." });
+    if (await Report.exists(duplicateFilter)) {
+      return res.status(409).json({
+        ok: false,
+        error: "A report from you for this property was already recorded recently.",
+        code: "DUPLICATE_REPORT",
+      });
     }
 
-    await Report.create({
+    const location = property.location as Record<string, unknown> | undefined;
+    const report = await Report.create({
       entityType: "property",
-      entityId: new mongoose.Types.ObjectId(entityIdRaw),
-      reason: reasonRaw,
-      details: detailsRaw,
-      reporterUserId,
+      entityId,
+      reason,
+      details,
+      reporterUserId:
+        auth?.id && mongoose.Types.ObjectId.isValid(auth.id)
+          ? new mongoose.Types.ObjectId(auth.id)
+          : undefined,
       reporterEmail: reporterEmail || undefined,
       reporterPhone: reporterPhone || undefined,
-      ipHash: ipHash || undefined,
-      userAgent: safeText(req.headers["user-agent"]),
+      ipHash,
+      userAgent: safeText(req.headers["user-agent"], 500),
       status: "open",
+      propertySnapshot: {
+        title: safeText(property.title, 300),
+        slug: safeText(property.slug, 300),
+        city: safeText(property.city || location?.city, 120),
+        locality: safeText(property.locality || location?.locality || location?.society, 200),
+        price: typeof property.price === "number" ? property.price : undefined,
+        listingType: safeText(property.listingType, 50),
+      },
     });
 
-    // 🔐 AUTO-PROTECTION ENGINE (Defense-in-depth)
-    // 3+ unique ipHash (24h) => reviewing
-    // 5+ unique ipHash (24h) => temporary hide (soft delete) + flagged
+    const assessment = await assessPropertyRisk(
+      entityIdRaw,
+      property.developerId ? String(property.developerId) : null,
+    );
 
-    let uniqueIpCount24h = 0;
-    try {
-      const result = await applyAutoProtectionForProperty(entityObjectId.toString());
-      uniqueIpCount24h = result.uniqueIpCount24h || 0; // ✅ FIXED: Changed from uniqueIpCount to uniqueIpCount24h
-    } catch {
-      // If protection engine fails, report submission still succeeds (trust-first)
+    if (assessment.action !== "none") {
+      // Prioritize this report for human review. The Property itself is never
+      // auto-flagged, hidden, deleted or rejected by report count/risk score.
+      await Report.updateOne({ _id: report._id, status: "open" }, { $set: { status: "reviewing" } });
     }
 
     return res.status(200).json({
       ok: true,
-      message: "Report submitted. Our team will review it.",
-      ...(uniqueIpCount24h ? { uniqueIpCount24h } : {}),
+      message: "Report recorded. It will be assessed by our moderation team; reports are signals, not automatic verdicts.",
+      reviewPriority:
+        assessment.action === "urgent_review"
+          ? "urgent"
+          : assessment.action === "queue_review"
+            ? "review"
+            : "normal",
     });
-
-
-  } catch (e: any) {
+  } catch {
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 }

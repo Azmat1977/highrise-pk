@@ -8,6 +8,11 @@ import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
 import User   from '@/models/User';
+import {
+  isPropertyVerificationStatus,
+  legacyStatusForVerification,
+  ownerEditTargetStatus,
+} from '@/lib/property/propertyLifecycle';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 CONSTANTS
@@ -163,7 +168,7 @@ export default async function handler(
 
     assertUserActive(actor);
 
-    const isAdmin = auth.role === 'admin';
+    const isAdmin = auth.authorityRole === 'admin' || auth.authorityRole === 'superadmin';
 
     // ── Parse body ────────────────────────────────────────
     const body = req.body as PriceUpdateBody;
@@ -237,16 +242,29 @@ export default async function handler(
       return;
     }
 
-    // Verification status guard — canonical field
-    const verStatus = typedDoc.verification?.status ?? 'draft';
-    if (verStatus === 'rejected' && !isAdmin) {
-      res.status(403).json({
-        success: false,
-        message: 'Rejected listings cannot be modified.',
-        code:    'REJECTED_LOCK',
-        requestId,
-      });
-      return;
+    // Canonical lifecycle gate. Price is a material market fact, so an owner
+    // cannot change it while a Property is under review/flagged, and a
+    // verified/pending/rejected Property must return to Draft when edited.
+    const rawVerificationStatus = typedDoc.verification?.status ?? 'draft';
+    const verStatus = isPropertyVerificationStatus(rawVerificationStatus)
+      ? rawVerificationStatus
+      : 'draft';
+
+    let targetVerificationStatus = verStatus;
+    if (!isAdmin) {
+      try {
+        targetVerificationStatus = ownerEditTargetStatus(verStatus, ['price']);
+      } catch (lifecycleError) {
+        res.status(409).json({
+          success: false,
+          message: lifecycleError instanceof Error
+            ? lifecycleError.message
+            : 'Property cannot be edited in its current review state.',
+          code: 'PROPERTY_EDIT_LOCKED',
+          requestId,
+        });
+        return;
+      }
     }
 
     // ── Compute change ────────────────────────────────────
@@ -300,22 +318,45 @@ export default async function handler(
     typedDoc.price     = newPrice;
     typedDoc.updatedBy = new mongoose.Types.ObjectId(auth.id);
 
-    // Audit trail — include reason if provided
-    if (reason) {
-      if (!Array.isArray(typedDoc.auditTrail)) {
-        typedDoc.auditTrail = [];
-      }
-      typedDoc.auditTrail.push({
-        action:        'price_updated',
-        performedBy:   new mongoose.Types.ObjectId(auth.id),
-        role:          auth.role,
-        timestamp:     new Date(),
-        previousValue: String(oldPrice),
-        newValue:      String(newPrice),
-        reason,
-        ip:            ip.slice(0, 64),
-      });
+    const verificationStatusBefore = verStatus;
+    const verificationStatusAfter = targetVerificationStatus;
+    const requiresResubmission = !isAdmin && verificationStatusAfter === 'draft' && verificationStatusBefore !== 'draft';
+
+    if (!isAdmin && verificationStatusAfter !== verificationStatusBefore) {
+      typedDoc.verification.status = verificationStatusAfter;
+      typedDoc.verification.verifiedAt = undefined;
+      typedDoc.verification.verifiedBy = undefined;
+      typedDoc.verification.requiresManualReview = false;
+      typedDoc.lastStatusChangedAt = new Date();
+      typedDoc.isFeatured = false;
+
+      const legacy = legacyStatusForVerification(verificationStatusAfter);
+      typedDoc.status = legacy.status;
+      typedDoc.isVerified = legacy.isVerified;
+      typedDoc.isFlagged = legacy.isFlagged;
     }
+
+    // Price mutations are always auditable, even when the owner gives no
+    // optional reason. The verification transition is recorded in the reason.
+    if (!Array.isArray(typedDoc.auditTrail)) {
+      typedDoc.auditTrail = [];
+    }
+    const auditReasonParts = [
+      reason,
+      verificationStatusAfter !== verificationStatusBefore
+        ? `Verification ${verificationStatusBefore} -> ${verificationStatusAfter}`
+        : undefined,
+    ].filter(Boolean);
+    typedDoc.auditTrail.push({
+      action:        'price_updated',
+      performedBy:   new mongoose.Types.ObjectId(auth.id),
+      role:          auth.role,
+      timestamp:     new Date(),
+      previousValue: String(oldPrice),
+      newValue:      String(newPrice),
+      reason:        auditReasonParts.join(' | ') || 'Price updated',
+      ip:            ip.slice(0, 64),
+    });
 
     // save() triggers pre-save hook chain:
     //   → previousPrice set from current price (hook reads typedDoc.price)
@@ -343,6 +384,9 @@ export default async function handler(
         changeType,
         shouldTrack,
         reason:        reason ?? null,
+        verificationStatusBefore,
+        verificationStatusAfter,
+        requiresResubmission,
         requestId,
       },
     });
@@ -351,8 +395,8 @@ export default async function handler(
       success:      true,
       requestId,
       message:      shouldTrack
-        ? `Price ${changeType === 'decrease' ? 'decreased' : 'increased'} by ${changePercent}%. True cost recalculated.`
-        : 'Price updated (change too small to track in history).',
+        ? `Price ${changeType === 'decrease' ? 'decreased' : 'increased'} by ${changePercent}%. True cost recalculated.${requiresResubmission ? ' Listing returned to Draft and must be resubmitted for verification.' : ''}`
+        : `Price updated (change too small to track in history).${requiresResubmission ? ' Listing returned to Draft and must be resubmitted for verification.' : ''}`,
       propertyId:   propertyIdRaw,
       oldPrice,
       newPrice,
@@ -361,6 +405,9 @@ export default async function handler(
       changeType,
       tracked:      shouldTrack,
       dryRun:       false,
+      verificationStatusBefore,
+      verificationStatusAfter,
+      requiresResubmission,
       // Return updated computed values from model
       trueCost: {
         grandTotalBuyerFiler:    typedDoc.trueCost?.grandTotalBuyerFiler    ?? newPrice,

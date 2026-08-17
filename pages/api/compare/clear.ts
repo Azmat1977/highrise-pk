@@ -78,7 +78,7 @@ export default async function handler(
     // Using $set to instantly empty the array without fetching it first
     const updatedComparison = await Comparison.findOneAndUpdate(
       query,
-      { $set: { properties: [] } },
+      { $set: { properties: [], items: [] } },
       { new: true } // Return updated document
     );
 

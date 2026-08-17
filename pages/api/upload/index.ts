@@ -15,10 +15,12 @@ import cloudinary, {
   getResourceType,
   getMimeTypeFromExtension,
   isHighrisePublicId,
+  getSignedUrl,
 } from '@/lib/cloudinary';
-import { requireAuth } from '@/lib/requireAuth';
+import { requireAuth, requirePermission } from '@/lib/requireAuth';
 import { rateLimitApiWrite } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
+import { createUploadAssetToken } from '@/lib/uploadAssetToken';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 NEXT.JS CONFIG — disable body parser (we parse raw stream)
@@ -33,7 +35,14 @@ export const config = {
 // ═══════════════════════════════════════════════════════════════
 
 // Max raw body size — formidable removed, we enforce this manually
-const MAX_BODY_SIZE = 10 * 1024 * 1024; // 10MB hard ceiling
+const MAX_BODY_SIZE = 12 * 1024 * 1024; // multipart envelope; category limits remain authoritative
+
+const ADMIN_ONLY_UPLOAD_FOLDERS = new Set([
+  'trusted-partners',
+  'cities',
+  'hero-banners-desktop',
+  'hero-banners-mobile',
+]);
 
 // Allowed folder query params — single source of truth: UPLOAD_FOLDER_MAP
 type UploadFolderParam = keyof typeof UPLOAD_FOLDER_MAP;
@@ -43,12 +52,15 @@ type UploadFolderParam = keyof typeof UPLOAD_FOLDER_MAP;
 // ═══════════════════════════════════════════════════════════════
 
 interface UploadResponseData {
-  url:      string;
+  url: string;
   publicId: string;
-  format:   string;
-  size:     number;
-  width?:   number;
-  height?:  number;
+  format: string;
+  size: number;
+  width?: number;
+  height?: number;
+  resourceType: 'image' | 'video' | 'raw';
+  mimeType: string;
+  assetToken: string;
 }
 
 interface ApiResponse {
@@ -286,8 +298,12 @@ export default async function handler(
     return;
   }
 
-  // ── Auth ─────────────────────────────────────────────────────
-  const auth = await requireAuth(req, res);
+  // ── Auth / authorization ─────────────────────────────────────
+  // Admin-managed marketing assets use the same server-side upload path as
+  // normal assets, but require the same permission as their admin APIs.
+  const auth = ADMIN_ONLY_UPLOAD_FOLDERS.has(folderParam)
+    ? await requirePermission(req, res, 'system_manage_settings')
+    : await requireAuth(req, res);
   if (!auth) return;
 
   // ── DB ───────────────────────────────────────────────────────
@@ -323,9 +339,13 @@ export default async function handler(
     const { buffer, filename, mimeType, size } = parsed;
 
     // ── Determine file category from folder ───────────────────
-    // 'documents' → kyc folder → category: 'kyc'
-    // everything else → category: 'image'
-    const fileCategory = folderParam === 'documents' ? 'kyc' : 'image';
+    const fileCategory = folderParam === 'documents'
+      ? 'kyc'
+      : folderParam === 'property-floorplans'
+        ? 'propertyFloorplan'
+        : folderParam === 'properties'
+          ? 'propertyImage'
+          : 'image';
 
     // ── Validate file (mime + extension + size + magic bytes) ─
     // validateFile() from lib/cloudinary.ts — single source of truth
@@ -375,7 +395,7 @@ export default async function handler(
       filename,
       folderKey,
       fileCategory,
-      { tags: [folderParam] },
+      { tags: [folderParam, `user_${auth.id}`] },
     );
 
     if (!uploadResult.success || !uploadResult.publicId) {
@@ -421,12 +441,25 @@ export default async function handler(
     res.status(200).json({
       success: true,
       data: {
-        url:      uploadResult.secureUrl ?? uploadResult.url ?? '',
+        // KYC assets use authenticated delivery. Return a short-lived URL for
+        // immediate preview; callers persist publicId as the durable reference.
+        url:      folderParam === 'documents'
+          ? getSignedUrl(uploadResult.publicId, 15 * 60)
+          : (uploadResult.secureUrl ?? uploadResult.url ?? ''),
         publicId: uploadResult.publicId,
         format:   uploadResult.format   ?? '',
         size:     uploadResult.size     ?? 0,
-        width:    uploadResult.width,
-        height:   uploadResult.height,
+        width: uploadResult.width,
+        height: uploadResult.height,
+        resourceType: uploadResult.resourceType ?? resourceType,
+        mimeType,
+        assetToken: createUploadAssetToken({
+          userId: auth.id,
+          publicId: uploadResult.publicId,
+          folder: folderParam,
+          resourceType: uploadResult.resourceType ?? resourceType,
+          mimeType,
+        }),
       },
       requestId,
     });

@@ -21,6 +21,10 @@ import type {
   UtilityStatus,
 } from '@/models/Property';
 import { PropertyHelpers } from '@/models/Property';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
+import { hasUsablePropertyLocation, normalizePropertyMutationInput } from '@/lib/property/propertyNormalization';
+import { validatePropertyMediaInput, validatePropertyFloorPlanInput } from '@/lib/property/propertyMedia';
+import { normalizeDiscoveryGroup, normalizePropertyType, parsePropertyTypeList, propertyTypesForDiscoveryGroup } from '@/lib/property/propertyTaxonomy';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 CONSTANTS
@@ -44,7 +48,7 @@ const ALLOWED_LISTING_TYPE = new Set([
 ]);
 
 const ALLOWED_PROPERTY_CATEGORY = new Set([
-  'residential', 'commercial', 'all',
+  'residential', 'commercial', 'plots', 'all',
 ]);
 
 const ALLOWED_PROJECT_CATEGORY = new Set([
@@ -73,6 +77,7 @@ const CURSOR_SUPPORTED_SORT = new Set(['', 'newest', 'featured', 'trust_score'])
 
 interface MongoFilter {
   isDeleted:               { $ne: boolean };
+  isFlagged?:              { $ne: boolean };
   'verification.status':   VerificationStatus;
   isFeatured?:             boolean;
   city?:                   { $regex: RegExp };
@@ -536,12 +541,12 @@ async function handleGet(
   const listingPurposeRaw  = allowlisted(getString(q['listingPurpose']),  ALLOWED_LISTING_PURPOSE);
   const conditionRaw       = allowlisted(getString(q['condition']),       ALLOWED_PROPERTY_CONDITION);
 
-  // Multi-value propertyTypes (comma or repeated param)
-  const propertyTypesRaw   = getStringArray(q['propertyTypes'])
-    .flatMap((t) => t.split(','))
-    .map((t) => t.trim())
-    .filter(Boolean)
-    .slice(0, 12);
+  // Multi-value Property type contract accepts both canonical `propertyTypes`
+  // and repeated legacy `propertyType` values from the existing search UI.
+  const propertyTypesRaw = parsePropertyTypeList([
+    ...getStringArray(q['propertyTypes']),
+    ...getStringArray(q['propertyType']),
+  ].flatMap((t) => String(t).split(','))).slice(0, 12);
 
   const limitNum = clampInt(
     parseInt(getString(q['limit']), 10) || DEFAULT_LIMIT,
@@ -577,8 +582,7 @@ async function handleGet(
 
   // ── Build base filter ───────────────────────────────────────
   const baseFilter: MongoFilter = {
-    isDeleted:            { $ne: true },
-    'verification.status': 'verified',
+    ...(PUBLIC_PROPERTY_FILTER as MongoFilter),
   };
 
   // Search (ReDoS-safe)
@@ -615,22 +619,29 @@ async function handleGet(
     };
   }
 
-  // Property types (multi)
-  if (propertyTypesRaw.length > 0) {
+  // Property taxonomy: explicit types win; otherwise a discovery group expands
+  // to every canonical type in that group. This prevents `plots` being mapped to
+  // the legacy residential bucket and losing plot inventory.
+  const requestedGroup = propertyCategoryRaw && propertyCategoryRaw !== 'all'
+    ? normalizeDiscoveryGroup(propertyCategoryRaw)
+    : null;
+  const explicitType = normalizePropertyType(propertyTypeRaw);
+  const selectedTypes = propertyTypesRaw.length > 0
+    ? propertyTypesRaw
+    : explicitType ? [explicitType]
+    : requestedGroup ? propertyTypesForDiscoveryGroup(requestedGroup)
+    : [];
+
+  if (selectedTypes.length > 0) {
     baseFilter.propertyType = {
-      $in: propertyTypesRaw.map(
-        (t) => new RegExp(`^${escapeRegExp(t)}$`, 'i')
-      ),
-    };
-  } else if (propertyTypeRaw && propertyTypeRaw.toLowerCase() !== 'all') {
-    baseFilter.propertyType = {
-      $regex: new RegExp(`^${escapeRegExp(propertyTypeRaw)}$`, 'i'),
+      $in: selectedTypes.map((t) => new RegExp(`^${escapeRegExp(t)}$`, 'i')),
     };
   }
 
-  // Category
-  if (propertyCategoryRaw && propertyCategoryRaw !== 'all') {
-    baseFilter.propertyCategory = propertyCategoryRaw;
+  // Persisted category is kept only as a compatibility filter when no canonical
+  // type/group expansion is available.
+  if (!selectedTypes.length && requestedGroup && requestedGroup !== 'plots') {
+    baseFilter.propertyCategory = requestedGroup;
   }
 
   // Listing type
@@ -989,8 +1000,8 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
   }
 
   // ── Parse JSON body ─────────────────────────────────────────
-  const body = req.body as Record<string, unknown>;
-  if (!body || typeof body !== 'object') {
+  const rawBody = req.body as Record<string, unknown>;
+  if (!rawBody || typeof rawBody !== 'object') {
     res.status(400).json({
       success: false,
       message: 'Request body must be JSON.',
@@ -999,11 +1010,12 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
     return;
   }
 
+  const { data: body } = normalizePropertyMutationInput(rawBody);
+
   // ── Required fields ─────────────────────────────────────────
   const requiredFields = [
     'title', 'description', 'price', 'area',
-    'unit',  'city',        'society',
-    'propertyType', 'listingType',
+    'unit', 'city', 'propertyType', 'listingType',
   ] as const;
 
   for (const field of requiredFields) {
@@ -1054,7 +1066,18 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
   const title       = cap(String(body.title),       150);
   const description = cap(String(body.description), 5000);
   const city        = cap(String(body.city),        60);
-  const society     = cap(String(body.society),     120);
+  const society     = cap(String(body.society ?? ''), 120);
+  const locality    = cap(String(body.locality ?? ''), 80);
+  const completeAddress = cap(String(body.completeAddress ?? ''), 220);
+
+  if (!hasUsablePropertyLocation({ society, locality, completeAddress })) {
+    res.status(400).json({
+      success: false,
+      message: 'Provide a society, locality/area, or complete address.',
+      requestId,
+    });
+    return;
+  }
 
   if (title.length < 10) {
     res.status(400).json({
@@ -1151,41 +1174,50 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
     resolvedDeveloperId = devProfile._id;
   }
 
-  // ── Images (pre-uploaded via /api/upload) ────────────────────
-  // Client sends: images: [{ url, publicId, isPrimary, order, caption, category }]
-  // We validate URLs are Cloudinary HTTPS only
-  const rawImages = Array.isArray(body.images) ? body.images : [];
-  const images: IProperty['images'] = [];
-
-  for (const img of rawImages.slice(0, 30)) {
-    if (!img || typeof img !== 'object') continue;
-    const imgObj = img as Record<string, unknown>;
-
-    const url       = String(imgObj['url']       ?? '').trim();
-    const publicId  = String(imgObj['publicId']  ?? imgObj['public_id'] ?? '').trim();
-
-    if (!isCloudinaryUrl(url)) continue;
-    if (!publicId)             continue;
-
-    const category = imgObj['category'];
-    const allowedCategories = new Set([
-      'exterior','interior','bedroom','bathroom',
-      'kitchen','living','view','amenity','floor_plan','other',
-    ]);
-
-    images.push({
-      url,
-      public_id:  publicId,
-      isPrimary:  imgObj['isPrimary'] === true,
-      order:      safeNum(imgObj['order'], 0, 10000) ?? 0,
-      caption:    safeStr(imgObj['caption'], 140, true) ?? '',
-      category:   (allowedCategories.has(String(category ?? ''))
-                    ? String(category)
-                    : 'other') as IImage['category'],
+  // ── Public media ownership ─────────────────────────────────
+  // New media must carry a short-lived uploader-bound token. This prevents
+  // a browser from attaching an arbitrary Highrise/Cloudinary asset to a new listing.
+  const rawImages = Array.isArray(rawBody.images) ? rawBody.images : [];
+  const canonicalImages = validatePropertyMediaInput({
+    userId: auth.id,
+    folder: 'properties',
+    incoming: rawImages,
+    existing: [],
+    maxItems: 30,
+  });
+  if (canonicalImages.length !== rawImages.length) {
+    res.status(400).json({
+      success: false,
+      message: 'One or more Property images are invalid or not owned by this upload session.',
+      code: 'INVALID_MEDIA_OWNERSHIP',
+      requestId,
     });
+    return;
+  }
+  const images: NonNullable<IProperty['images']> = canonicalImages.map(({ resourceType: _resourceType, mimeType: _mimeType, ...image }, index) => ({
+    ...image,
+    order: index,
+  })) as NonNullable<IProperty['images']>;
+
+  const rawFloorPlans = Array.isArray(rawBody.floorPlanImages)
+    ? rawBody.floorPlanImages
+    : Array.isArray(rawBody.floorPlans) ? rawBody.floorPlans : [];
+  const floorPlans = validatePropertyFloorPlanInput({
+    userId: auth.id,
+    incoming: rawFloorPlans,
+    existing: [],
+    maxItems: 5,
+  });
+  if (floorPlans.length !== rawFloorPlans.length) {
+    res.status(400).json({
+      success: false,
+      message: 'One or more floor plans are invalid or not owned by this upload session.',
+      code: 'INVALID_FLOORPLAN_OWNERSHIP',
+      requestId,
+    });
+    return;
   }
 
-  // Set featureImageUrl from primary image
   const primaryImg = images.find((i) => i?.isPrimary) ?? images[0];
   const featureImageUrl = primaryImg?.url;
   const featureImagePublicId = primaryImg?.public_id;
@@ -2057,6 +2089,9 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
     propertyData.featureImageUrl    = featureImageUrl;
     propertyData.featureImagePublicId = featureImagePublicId;
   }
+  if (floorPlans.length > 0) {
+    propertyData.floorPlans = floorPlans as IProperty['floorPlans'];
+  }
 
   // Video URLs (validated as safe HTTPS)
   const videoFields = [
@@ -2103,7 +2138,7 @@ if (!ALLOWED_CREATE_ROLES.has(auth.role)) {
   // ── Response ──────────────────────────────────────────────────
   res.status(201).json({
     success: true,
-    message: 'Property created successfully. It will be reviewed before going live.',
+    message: 'Property draft created. Submit it for review when the listing is complete.',
     requestId,
     property: {
       _id:                property._id.toString(),

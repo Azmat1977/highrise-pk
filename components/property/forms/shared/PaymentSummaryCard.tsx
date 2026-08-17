@@ -3,7 +3,7 @@
 import { useMemo } from 'react';
 import { Calculator, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react';
 import {
-  Phase1ListingType,
+  ListingType,
   InstallmentPlan,
   RentalDetails,
   formatPKR,
@@ -29,7 +29,7 @@ interface PossessionCharges {
 }
 
 interface PaymentSummaryCardProps {
-  listingType: Phase1ListingType;
+  listingType: ListingType;
 
   // full_payment / pre_launch
   price: number | '';
@@ -388,7 +388,7 @@ interface RentSummaryProps {
 
 function RentSummary({ rental }: RentSummaryProps): React.ReactElement {
   const monthly = safeNum(rental.monthlyRent);
-  const deposit = safeNum(rental.securityDeposit);
+  const deposit = safeNum(rental.securityDepositAmount);
   const advance = safeNum(rental.advanceMonths);
   const advanceTotal = monthly * advance;
   const moveInCost = deposit + advanceTotal;
@@ -482,21 +482,21 @@ export default function PaymentSummaryCard({
   );
 
   // Header label by listing type
-  const headerLabel: Record<Phase1ListingType, string> = {
+  const headerLabel: Record<ListingType, string> = {
     full_payment: 'Payment Summary',
     installment: 'Payment Breakdown',
     rent: 'Rental Summary',
     pre_launch: 'Pre-Launch Summary',
   };
 
-  const headerIcon: Record<Phase1ListingType, React.ReactElement> = {
+  const headerIcon: Record<ListingType, React.ReactElement> = {
     full_payment: <Calculator className="w-4 h-4 text-[#029bba]" />,
     installment: <TrendingUp className="w-4 h-4 text-[#7c3aed]" />,
     rent: <Calculator className="w-4 h-4 text-[#0d9488]" />,
     pre_launch: <TrendingUp className="w-4 h-4 text-[#4f46e5]" />,
   };
 
-  const headerAccent: Record<Phase1ListingType, string> = {
+  const headerAccent: Record<ListingType, string> = {
     full_payment: 'from-[#029bba] to-[#004063]',
     installment: 'from-[#7c3aed] to-[#4f46e5]',
     rent: 'from-[#0d9488] to-[#065f46]',

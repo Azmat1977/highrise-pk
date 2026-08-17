@@ -14,6 +14,7 @@ import { logPropertyAction } from "@/lib/logAdminAction";
 import crypto from "crypto";
 import mongoose from "mongoose";
 import type { IProperty, VerificationStatus } from "@/models/Property";
+import { applyPropertyModeration, type PropertyModerationAction } from "@/lib/property/propertyModeration";
 
 // ── Valid transitions admin can trigger ───────────────────────────────────────
 // These map to the state machine in Property pre-save middleware
@@ -169,55 +170,25 @@ async function handlePatch(
     const previousStatus = property.verification?.status ?? "draft";
     const previousFeatured = property.isFeatured ?? false;
 
-    // ── Apply status change ─────────────────────────────────────
+    // ── Apply canonical moderation transition ─────────────────────
     if (newStatus && newStatus !== previousStatus) {
-      if (!property.verification) {
-        property.verification = { status: "draft" };
+      const actionMap: Record<string, PropertyModerationAction> = {
+        under_review: previousStatus === "flagged" ? "unflag" : "start_review",
+        verified: "verify",
+        rejected: "reject",
+        flagged: "flag",
+      };
+      const moderationAction = actionMap[newStatus];
+      if (!moderationAction) {
+        res.status(400).json({ success: false, error: "Unsupported moderation action" });
+        return;
       }
-
-      property.verification.status = newStatus as VerificationStatus;
-
-      // Set timestamps
-      if (newStatus === "verified") {
-        property.verification.verifiedAt  = new Date();
-        property.verification.verifiedBy  = new mongoose.Types.ObjectId(token.id);
-        property.verification.rejectedAt  = undefined;
-        property.verification.rejectedBy  = undefined;
-      }
-
-      if (newStatus === "rejected") {
-        property.verification.rejectedAt     = new Date();
-        property.verification.rejectedBy     = new mongoose.Types.ObjectId(token.id);
-        property.verification.rejectionReason = reason;
-        property.verification.verifiedAt     = undefined;
-        property.verification.verifiedBy     = undefined;
-      }
-
-      if (newStatus === "flagged") {
-        property.isFlagged  = true;
-        property.flaggedAt  = new Date();
-        property.flagReason = reason || internalNotes;
-      }
-
-      if (newStatus === "under_review") {
-        property.verification.lastReviewedAt        = new Date();
-        property.verification.requiresManualReview  = true;
-
-        // Clear flag state if unflagging (flagged → under_review)
-        if (previousStatus === "flagged") {
-          property.isFlagged   = false;
-          property.flaggedAt   = null;
-          property.flagReason  = null;
-        }
-      }
-
-      // Internal notes
-      if (internalNotes) {
-        property.verification.internalNotes = internalNotes;
-      }
-
-      // Track who updated
-      property.updatedBy = new mongoose.Types.ObjectId(token.id);
+      applyPropertyModeration(property as IProperty, {
+        action: moderationAction,
+        adminId: token.id,
+        reason,
+        internalNotes,
+      });
     }
 
     // ── Apply featured toggle ───────────────────────────────────
@@ -238,6 +209,8 @@ async function handlePatch(
       | "property_rejected"
       | "property_flagged"
       | "property_verified"
+      | "property_review_started"
+      | "property_unflagged"
       | "property_featured"
       | "property_unfeatured"
       | null = null;
@@ -246,13 +219,9 @@ async function handlePatch(
     else if (newStatus === "rejected")     auditAction = "property_rejected";
     else if (newStatus === "flagged")      auditAction = "property_flagged";
     else if (newStatus === "under_review") {
-      // under_review can be triggered from 2 paths:
-      //  1. pending → under_review (initial review)
-      //  2. flagged → under_review (unflag)
-      // Both are workflow-step verifications
       auditAction = previousStatus === "flagged"
-        ? "property_verified"  // unflag treated as verification action
-        : "property_verified";
+        ? "property_unflagged"
+        : "property_review_started";
     }
     else if (isFeatured === true)          auditAction = "property_featured";
     else if (isFeatured === false)         auditAction = "property_unfeatured";
@@ -303,6 +272,7 @@ async function handlePatch(
 
     // Distinguish invalid transition (400) from server error (500)
     const isTransitionError = message.includes("Invalid property lifecycle transition") ||
+                              message.includes("Invalid Property moderation transition") ||
                               message.includes("Rejection reason is required") ||
                               message.includes("Flagging requires");
 

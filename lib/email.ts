@@ -3,7 +3,7 @@
 // Security Level: MAXIMUM | Rate Limiting | Retry Logic | Audit Logging
 // ═══════════════════════════════════════════════════════════════
 
-import nodemailer from "nodemailer";
+import nodemailer from "highrise-nodemailer";
 import crypto from "crypto";
 
 // ═══════════════════════════════════════════════════════════════
@@ -230,9 +230,6 @@ function getTransporter(): nodemailer.Transporter {
   const secureEnv = process.env.EMAIL_SECURE;
   const secure = secureEnv ? secureEnv === "true" : port === 465;
 
- // ✅ CRITICAL FIX: Only disable TLS verification in development
-  const isProduction = process.env.NODE_ENV === "production";
-
   const config = {
     host,
     port,
@@ -241,19 +238,11 @@ function getTransporter(): nodemailer.Transporter {
     connectionTimeout: EMAIL_TIMEOUT_MS,
     greetingTimeout: EMAIL_TIMEOUT_MS,
     socketTimeout: EMAIL_TIMEOUT_MS,
-    tls: isProduction
-      ? {
-          rejectUnauthorized: true, // ✅ ENFORCE SSL verification in production
-          minVersion: "TLSv1.2" as const, // ✅ Minimum TLS version
-        }
-      : {
-          rejectUnauthorized: false, // ⚠️ Development only
-        },
+    tls: {
+      rejectUnauthorized: true,
+      minVersion: "TLSv1.2" as const,
+    },
   };
-
-  if (!isProduction) {
-    console.warn("[Email] ⚠️ TLS verification disabled (development only)");
-  }
 
   cachedTransporter = nodemailer.createTransport(config);
   transporterCreatedAt = now;

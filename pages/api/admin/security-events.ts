@@ -1,8 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
 import dbConnect from "@/lib/dbConnect";
 import SecurityEvent from "@/models/SecurityEvent";
-import { authOptions } from "../auth/[...nextauth]";
+import { requireAdmin } from "@/lib/requireAuth";
 
 function toSafeString(v: unknown, max = 120): string {
   const s = typeof v === "string" ? v : "";
@@ -18,12 +17,8 @@ function toSafeInt(v: unknown, fallback: number, min: number, max: number) {
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
 
-  const session = await getServerSession(req, res, authOptions);
-  const role = (session as any)?.user?.role;
-
-  if (!session || role !== "admin") {
-    return res.status(401).json({ error: "Unauthorized" });
-  }
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   // Security headers (defense-in-depth)
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");

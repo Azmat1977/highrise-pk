@@ -77,10 +77,6 @@ interface CreateBannerForm {
   endDate: string;
 }
 
-interface CloudinaryConfig {
-  cloudName: string;
-  uploadPreset: string;
-}
 
 const defaultForm: CreateBannerForm = {
   title: "",
@@ -99,50 +95,42 @@ const defaultForm: CreateBannerForm = {
   endDate: "",
 };
 
-// ─── Direct Cloudinary Upload (no widget) ───────────────────────────────────
-async function uploadToCloudinary(
+// ─── Protected Highrise Upload (server-side Cloudinary) ──────────────────────
+async function uploadToHighrise(
   file: File,
-  config: CloudinaryConfig,
-  folder: string,
+  folder: 'hero-banners-desktop' | 'hero-banners-mobile',
   onProgress?: (pct: number) => void
 ): Promise<{ url: string; publicId: string }> {
   const formData = new FormData();
-  formData.append("file", file);
-  formData.append("upload_preset", config.uploadPreset);
-  formData.append("folder", folder);
+  formData.append('file', file);
 
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
 
-    xhr.upload.addEventListener("progress", (e) => {
-      if (e.lengthComputable && onProgress) {
-        onProgress(Math.round((e.loaded / e.total) * 100));
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
       }
     });
 
-    xhr.addEventListener("load", () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          resolve({
-            url: data.secure_url,
-            publicId: data.public_id,
-          });
-        } catch {
-          reject(new Error("Invalid response from Cloudinary"));
+    xhr.addEventListener('load', () => {
+      try {
+        const data = JSON.parse(xhr.responseText || '{}');
+        if (xhr.status >= 200 && xhr.status < 300 && data?.success && data?.data?.url && data?.data?.publicId) {
+          resolve({ url: data.data.url, publicId: data.data.publicId });
+          return;
         }
-      } else {
-        reject(new Error(`Upload failed with status ${xhr.status}`));
+        reject(new Error(data?.error || `Upload failed with status ${xhr.status}`));
+      } catch {
+        reject(new Error('Invalid upload response'));
       }
     });
 
-    xhr.addEventListener("error", () => reject(new Error("Network error during upload")));
-    xhr.addEventListener("abort", () => reject(new Error("Upload was aborted")));
+    xhr.addEventListener('error', () => reject(new Error('Network error during upload')));
+    xhr.addEventListener('abort', () => reject(new Error('Upload was aborted')));
 
-    xhr.open(
-      "POST",
-      `https://api.cloudinary.com/v1_1/${config.cloudName}/image/upload`
-    );
+    xhr.open('POST', `/api/upload?folder=${encodeURIComponent(folder)}`);
+    xhr.withCredentials = true;
     xhr.send(formData);
   });
 }
@@ -307,7 +295,6 @@ function HeroBannersContent() {
   const [uploadingMobile, setUploadingMobile] = useState(false);
   const [desktopProgress, setDesktopProgress] = useState(0);
   const [mobileProgress, setMobileProgress] = useState(0);
-  const [cloudinaryConfig, setCloudinaryConfig] = useState<CloudinaryConfig | null>(null);
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -335,23 +322,6 @@ function HeroBannersContent() {
     if (totalImpressions === 0) return "0.00";
     return ((totalClicks / totalImpressions) * 100).toFixed(2);
   }, [totalImpressions, totalClicks]);
-
-  // ── Cloudinary config fetch ────────────────────────────────────────────────
-  useEffect(() => {
-    let mounted = true;
-    fetch("/api/admin/cloudinary-config", { credentials: "include" })
-      .then((r) => r.json())
-      .then((data) => {
-        if (mounted && data?.success && data?.cloudName && data?.uploadPreset) {
-          setCloudinaryConfig({
-            cloudName: data.cloudName,
-            uploadPreset: data.uploadPreset,
-          });
-        }
-      })
-      .catch(() => toast.error("Failed to load upload configuration"));
-    return () => { mounted = false; };
-  }, []);
 
   // ── Fetch banners ──────────────────────────────────────────────────────────
   const fetchBanners = async () => {
@@ -401,10 +371,6 @@ function HeroBannersContent() {
   // ── Direct upload handlers ─────────────────────────────────────────────────
   const handleDesktopFileSelect = useCallback(
     async (file: File) => {
-      if (!cloudinaryConfig) {
-        toast.error("Upload configuration not ready. Please wait.");
-        return;
-      }
       if (file.size > 5 * 1024 * 1024) {
         toast.error("File size must be under 5MB");
         return;
@@ -418,10 +384,9 @@ function HeroBannersContent() {
       setDesktopProgress(0);
 
       try {
-        const result = await uploadToCloudinary(
+        const result = await uploadToHighrise(
           file,
-          cloudinaryConfig,
-          "hero-banners/desktop",
+          'hero-banners-desktop',
           setDesktopProgress
         );
         setForm((prev) => ({ ...prev, imageUrl: result.url }));
@@ -433,15 +398,11 @@ function HeroBannersContent() {
         setDesktopProgress(0);
       }
     },
-    [cloudinaryConfig]
+    []
   );
 
   const handleMobileFileSelect = useCallback(
     async (file: File) => {
-      if (!cloudinaryConfig) {
-        toast.error("Upload configuration not ready. Please wait.");
-        return;
-      }
       if (file.size > 5 * 1024 * 1024) {
         toast.error("File size must be under 5MB");
         return;
@@ -455,10 +416,9 @@ function HeroBannersContent() {
       setMobileProgress(0);
 
       try {
-        const result = await uploadToCloudinary(
+        const result = await uploadToHighrise(
           file,
-          cloudinaryConfig,
-          "hero-banners/mobile",
+          'hero-banners-mobile',
           setMobileProgress
         );
         setForm((prev) => ({ ...prev, mobileImageUrl: result.url }));
@@ -470,7 +430,7 @@ function HeroBannersContent() {
         setMobileProgress(0);
       }
     },
-    [cloudinaryConfig]
+    []
   );
 
   // ── Form helpers ───────────────────────────────────────────────────────────

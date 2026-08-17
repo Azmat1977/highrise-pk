@@ -105,7 +105,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       return res.status(200).json({
         success: true,
-        blog: { ...blog, views: (blog.views || 0) + 1 },
+        blog: { ...blog, content: sanitizeHTML(blog.content || ''), views: (blog.views || 0) + 1 },
         relatedPosts,
         seo: jsonLd
       });

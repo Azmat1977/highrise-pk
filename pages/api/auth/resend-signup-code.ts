@@ -5,7 +5,7 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import crypto from "crypto";
-import nodemailer from "nodemailer";
+import nodemailer from "highrise-nodemailer";
 import dbConnect from "@/lib/dbConnect";
 import SignupCode from "@/models/SignupCode";
 import User from "@/models/User";
@@ -252,7 +252,7 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
         pass: process.env.EMAIL_PASSWORD,
       },
       tls: {
-        rejectUnauthorized: process.env.NODE_ENV === "production",
+        rejectUnauthorized: true,
       },
     });
 

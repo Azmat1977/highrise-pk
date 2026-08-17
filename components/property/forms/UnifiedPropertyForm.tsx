@@ -10,6 +10,7 @@ import {
   TABS,
   LISTING_TYPE_LABELS,
   ListingType,
+  type PropertyFormState,
 } from './shared/usePropertyForm';
 
 import ProgressBar from './shared/ProgressBar';
@@ -225,9 +226,11 @@ function AuthGate({
 
 interface SuccessScreenProps {
   slug: string;
+  verificationStatus: string;
+  mode: 'create' | 'edit';
 }
 
-function SuccessScreen({ slug }: SuccessScreenProps): React.ReactElement {
+function SuccessScreen({ slug, verificationStatus, mode }: SuccessScreenProps): React.ReactElement {
   const router = useRouter();
 
   return (
@@ -237,25 +240,26 @@ function SuccessScreen({ slug }: SuccessScreenProps): React.ReactElement {
           <CheckCircle className="w-10 h-10 text-[#10b981]" />
         </div>
         <h2 className="text-2xl font-bold text-[#004063] mb-2">
-          Property Submitted! 🎉
+          {verificationStatus === 'verified' ? 'Property Updated' : 'Property Submitted for Review'}
         </h2>
         <p className="text-gray-500 text-sm mb-2">
-          Your listing has been submitted for review. Our team will verify it
-          within 24–48 hours.
+          {verificationStatus === 'verified'
+            ? 'Your non-material updates were saved and the current verified publication state was preserved.'
+            : 'Your listing is now pending evidence-based review. It will not be public until Highrise completes verification.'}
         </p>
         <div className="bg-[#eff6ff] border-l-4 border-[#029bba] px-4 py-3 rounded-r-lg text-left my-6">
           <p className="text-xs text-[#004063]">
             <strong>What happens next?</strong>
           </p>
           <ul className="text-xs text-gray-600 mt-1 space-y-1">
-            <li>✅ Our team reviews photos, pricing &amp; documents</li>
-            <li>✅ Verified listings get a trust badge</li>
-            <li>✅ You&apos;ll receive an email when listing goes live</li>
-            <li>✅ Leads &amp; inquiries will appear in your dashboard</li>
+            <li>Highrise reviews the submitted listing and available evidence.</li>
+            <li>Verification is not automatic and does not guarantee legal title.</li>
+            <li>You can track the current lifecycle from My Properties.</li>
+            <li>Public inquiries are available only after the listing is publicly eligible.</li>
           </ul>
         </div>
         <div className="flex flex-col sm:flex-row gap-3">
-          {slug && (
+          {slug && verificationStatus === 'verified' && (
             <button
               type="button"
               onClick={() => router.push(`/property/${slug}`)}
@@ -281,7 +285,7 @@ function SuccessScreen({ slug }: SuccessScreenProps): React.ReactElement {
           </button>
           <button
             type="button"
-            onClick={() => router.reload()}
+            onClick={() => mode === 'edit' && slug ? router.push(`/property/${slug}`) : router.reload()}
             className="
               flex-1 px-5 py-2.5 rounded-xl
               border-2 border-gray-300 text-gray-600 font-semibold text-sm
@@ -368,13 +372,25 @@ import { useState } from 'react';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
-export default function UnifiedPropertyForm(): React.ReactElement {
+export interface UnifiedPropertyFormProps {
+  mode?: 'create' | 'edit';
+  propertyId?: string;
+  initialForm?: PropertyFormState;
+  currentVerificationStatus?: string;
+}
+
+export default function UnifiedPropertyForm({
+  mode = 'create',
+  propertyId,
+  initialForm,
+  currentVerificationStatus,
+}: UnifiedPropertyFormProps = {}): React.ReactElement {
   const { data: session, status } = useSession();
   const role = (session?.user as { role?: string } | undefined)?.role ?? 'user';
 
   const { profileStatus, profileLoading } = useProfileApproval(role);
 
-  const hook = usePropertyForm();
+  const hook = usePropertyForm({ mode, propertyId, initialForm, currentVerificationStatus });
 
   const {
     form,
@@ -386,6 +402,7 @@ export default function UnifiedPropertyForm(): React.ReactElement {
     submitError,
     submitSuccess,
     submittedSlug,
+    submittedStatus,
     isDirty,
     lastSaved,
     fieldConfig,
@@ -425,7 +442,7 @@ export default function UnifiedPropertyForm(): React.ReactElement {
 
   // ── Success screen
   if (submitSuccess) {
-    return <SuccessScreen slug={submittedSlug} />;
+    return <SuccessScreen slug={submittedSlug} verificationStatus={submittedStatus} mode={mode} />;
   }
 
   // ── Render active tab
@@ -543,7 +560,7 @@ export default function UnifiedPropertyForm(): React.ReactElement {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl sm:text-2xl font-bold text-[#004063]">
-              Add New Property
+              {mode === 'edit' ? 'Edit Property' : 'Add New Property'}
             </h1>
             <p className="text-sm text-gray-500 mt-1">
               Listing as{' '}

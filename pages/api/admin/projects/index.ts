@@ -8,7 +8,7 @@
  * Supports: 12 filters, 6 sort options, dual pagination, bulk stats.
  *
  * V5.0.0 — requireAdmin, Upstash rate limit, logSecurityEvent,
- *           Projects.ts aligned (status/badge/developer field names)
+ *           Projects.ts aligned (status/badge/developerId field names)
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
@@ -97,7 +97,7 @@ const SORT_OPTIONS: Record<string, Record<string, 1 | -1>> = {
   updated:      { updatedAt: -1, _id: -1 },
   price_asc:    { minPrice:   1, _id:  1 },
   price_desc:   { minPrice:  -1, _id: -1 },
-  most_viewed:  { 'unitTypeBreakdown.viewCount': -1, _id: -1 },
+  most_viewed:  { views: -1, _id: -1 },
 };
 
 const DEFAULT_SORT = SORT_OPTIONS.newest;
@@ -252,7 +252,7 @@ export default async function handler(
   const primarySortField = sortKey === 'updated'   ? 'updatedAt' :
                            sortKey === 'price_asc'  ? 'minPrice'  :
                            sortKey === 'price_desc' ? 'minPrice'  :
-                           sortKey === 'most_viewed'? 'unitTypeBreakdown.viewCount' :
+                           sortKey === 'most_viewed'? 'views' :
                            'createdAt';
 
   // ── Build filter ─────────────────────────────
@@ -303,7 +303,7 @@ export default async function handler(
   const devIdVal = getString(developerId).trim();
   if (devIdVal && isValidObjectId(devIdVal)) {
     andClauses.push({
-      developer: new mongoose.Types.ObjectId(devIdVal),
+      developerId: new mongoose.Types.ObjectId(devIdVal),
     });
   }
 
@@ -344,7 +344,7 @@ export default async function handler(
       $or: [
         { projectName: rx },
         { city: rx },
-        { areaName: rx },
+        { area: rx },
         { tagline: rx },
         { slug: rx },
       ],
@@ -394,18 +394,18 @@ export default async function handler(
   // ── Projection (admin gets full detail) ──────
   const projection = [
     '_id', 'slug', 'projectName',
-    'city', 'areaName',
+    'city', 'area',
     'projectCategory', 'projectNature',
     'status', 'isFeatured', 'isVerified',
     'developerBadge', 'badgeAssignedAt',
-    'developer',
+    'developerId',
     'featureImageUrl', 'images.url', 'images.isPrimary',
     'minPrice', 'maxPrice', 'priceRangeText',
     'totalUnits',
     'unitTypeBreakdown.availableUnits',
     'unitTypeBreakdown.soldUnits',
     'unitTypeBreakdown.reservedUnits',
-    'unitTypeBreakdown.viewCount',
+    'views', 'inquiries',
     'unitTypeBreakdown.inquiryCount',
     'unitTypeBreakdown.isFastSelling',
     'developmentProgress',
@@ -439,7 +439,7 @@ export default async function handler(
   const developerIds = Array.from(
     new Set(
       rows
-        .map((p) => String((p as unknown as Record<string, unknown>).developer ?? ''))
+        .map((p) => String((p as unknown as Record<string, unknown>).developerId ?? ''))
         .filter((id) => isValidObjectId(id)),
     ),
   ).map((id) => new mongoose.Types.ObjectId(id));
@@ -462,7 +462,7 @@ export default async function handler(
   const projects = rows.map((p) => {
     const proj  = p as unknown as Record<string, unknown>;
     const badge = String(proj.developerBadge ?? 'new_entrant');
-    const devId = String(proj.developer ?? '');
+    const devId = String(proj.developerId ?? '');
 
     return {
       ...proj,

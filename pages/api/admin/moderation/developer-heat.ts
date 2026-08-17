@@ -28,7 +28,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       createdAt: { $gte: since30 },
       $or: [{ isDeleted: { $ne: true } }, { isDeleted: { $exists: false } }],
     })
-      .select("_id createdBy userId ownerId developerId isFlagged status isHidden")
+      .select("_id developerId isFlagged verification.status")
       .lean();
 
     // Group by developer
@@ -38,11 +38,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     >();
 
     for (const p of properties as any[]) {
-      const developerId =
-        p.createdBy?.toString?.() ||
-        p.userId?.toString?.() ||
-        p.ownerId?.toString?.() ||
-        p.developerId?.toString?.();
+      const developerId = p.developerId?.toString?.();
 
       if (!developerId) continue;
 
@@ -57,8 +53,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const b = buckets.get(developerId)!;
       b.propertyIds.push(String(p._id));
 
-      const hidden = p.status === "hidden" || p.isHidden === true;
-      if (p.isFlagged || hidden) b.flaggedOrHiddenCount += 1;
+      const flagged = p.isFlagged === true || p.verification?.status === "flagged";
+      if (flagged) b.flaggedOrHiddenCount += 1;
     }
 
     const results: any[] = [];
@@ -86,7 +82,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         avgRisk: Math.round(avgRisk * 10) / 10,
         maxRisk: Math.round(maxRisk * 10) / 10,
         // ✅ Future rule (admin review): threshold indicator only
-        suggestedSuspension: b.flaggedOrHiddenCount >= 3,
+        suggestedReviewPriority: b.flaggedOrHiddenCount >= 3 ? "high" : "normal",
       });
     }
 

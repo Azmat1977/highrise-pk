@@ -4,9 +4,11 @@
 // city/category/listing-type landing pages, verified-priority weighting
 
 import React from "react";
+import crypto from "crypto";
 import type { GetServerSideProps } from "next";
 import dbConnect from "@/lib/dbConnect";
 import Property from "@/models/Property";
+import { PUBLIC_PROPERTY_FILTER } from "@/lib/property/publicProperty";
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
@@ -158,10 +160,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
     // ── 1. MAIN PROPERTIES PAGE ─────────────────────────────────────────────
     // Find the most recent property update to use as the page's lastmod
-    const latestProperty = (await Property.findOne({
-      status: { $in: ["approved", "verified"] },
-      isDeleted: { $ne: true },
-    })
+    const latestProperty = (await Property.findOne(PUBLIC_PROPERTY_FILTER)
       .sort({ updatedAt: -1 })
       .select("updatedAt")
       .lean()) as { updatedAt?: Date } | null;
@@ -202,10 +201,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     }
 
     // ── 4. INDIVIDUAL PROPERTIES ────────────────────────────────────────────
-    const properties = (await Property.find({
-      status: { $in: ["approved", "verified"] },
-      isDeleted: { $ne: true },
-    })
+    const properties = (await Property.find(PUBLIC_PROPERTY_FILTER)
       .sort({ updatedAt: -1 })
       .select(
         "slug title city propertyType listingType isVerified images updatedAt createdAt"
@@ -241,10 +237,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
     // ── 5. CITY-FILTERED LANDING PAGES ──────────────────────────────────────
     const cities = (await Property.aggregate([
       {
-        $match: {
-          status: { $in: ["approved", "verified"] },
-          isDeleted: { $ne: true },
-        },
+        $match: PUBLIC_PROPERTY_FILTER,
       },
       {
         $group: {

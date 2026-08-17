@@ -6,7 +6,7 @@ import Lead from '@/models/Lead';
 import Property from '@/models/Property';
 import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import nodemailer from 'nodemailer';
+import nodemailer from 'highrise-nodemailer';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import { checkPermission } from '@/lib/permissions';

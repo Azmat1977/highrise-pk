@@ -113,6 +113,8 @@ const PUBLIC_EXACT_PATHS = new Set<string>([
   "/search",
   "/projects",
   "/societies",
+  "/developers",
+  "/agents",
   "/blog",
 
   // Tools (all public)
@@ -125,6 +127,11 @@ const PUBLIC_EXACT_PATHS = new Set<string>([
 
   // Info
   "/risk-alerts",
+  "/compare",
+  "/coming-soon",
+  "/newsletter/error",
+  "/newsletter/verified",
+  "/unsubscribed",
   "/faq",
   "/help",
   "/careers",
@@ -150,7 +157,10 @@ const PUBLIC_PREFIXES = [
   "/og/",
 
   // Public content sitemaps
+  "/properties/sitemap",
   "/projects/sitemap",
+  "/developers/sitemap",
+  "/agents/sitemap",
   "/blog/sitemap",
   "/societies/sitemap",
   "/tools/sitemap",
@@ -160,8 +170,12 @@ const PUBLIC_PREFIXES = [
   "/tools/verify-society/",
 
   // Public content detail pages
+  "/property/",
   "/properties/",
   "/projects/",
+  "/developers/",
+  "/agents/",
+  "/compare/",
   "/societies/",
   "/blog/",
   "/risk-alerts/",

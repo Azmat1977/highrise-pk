@@ -7,17 +7,37 @@ import dbConnect from '@/lib/db';
 import Blog from '@/models/Blog';
 import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import cloudinary from '@/lib/cloudinary';
+import cloudinary, { uploadBuffer } from '@/lib/cloudinary';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import { checkPermission } from '@/lib/permissions';
 import { rateLimitAdmin } from '@/lib/rateLimit';
+import { z } from 'zod';
+import { parseBlogImageDataUrl, sanitizeBlogHtml } from '@/lib/blogSecurity';
 
 export const config = {
   api: { bodyParser: { sizeLimit: '15mb' } },
 };
 
 const MAX_TIME_MS = 5000;
+
+const UpdateBlogSchema = z.object({
+  title: z.string().trim().min(5).max(200).optional(),
+  excerpt: z.string().trim().min(10).max(500).optional(),
+  content: z.string().trim().min(50).optional(),
+  category: z.string().trim().max(100).optional(),
+  authorName: z.string().trim().max(120).optional(),
+  imageBase64: z.string().optional(),
+  image: z.object({ url: z.string().url(), public_id: z.string().min(1).max(500) }).optional(),
+  tags: z.array(z.string().trim().max(60)).max(30).optional(),
+  status: z.enum(['draft', 'published', 'scheduled']).optional(),
+  featured: z.boolean().optional(),
+  metaTitle: z.string().max(70).optional().nullable(),
+  metaDescription: z.string().max(160).optional().nullable(),
+  scheduledFor: z.string().datetime().optional().nullable(),
+  enableTOC: z.boolean().optional(),
+  allowComments: z.boolean().optional(),
+}).strict();
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket.remoteAddress || '0.0.0.0';
@@ -62,28 +82,38 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const blog: any = await Blog.findById(id);
       if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
 
-      const updates = { ...req.body };
-      delete updates._id;
-
-      // Handle Image Replacement safely
-      if (updates.imageBase64) {
-        try {
-          if (blog.image?.public_id) {
-            await cloudinary.uploader.destroy(blog.image.public_id);
-          }
-          const uploadResult = await cloudinary.uploader.upload(updates.imageBase64, {
-            folder: 'highrise-pk/blog',
-            transformation: [{ width: 1200, height: 630, crop: 'fill' }, { format: 'webp' }],
-          });
-          updates.image = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-        } catch (uploadError) {
-          console.error('Cloudinary error:', uploadError);
-          return res.status(500).json({ success: false, message: 'Failed to upload new image' });
-        }
+      const parsedUpdate = UpdateBlogSchema.safeParse(req.body);
+      if (!parsedUpdate.success) {
+        return res.status(400).json({ success: false, message: 'Invalid blog update', error: parsedUpdate.error.format() });
       }
 
-      updates.lastEditedBy = admin._id;
-      updates.lastEditedAt = new Date();
+      const { imageBase64, ...updates } = parsedUpdate.data;
+      if (updates.content) updates.content = sanitizeBlogHtml(updates.content);
+
+      // Handle Image Replacement through the centralized validated upload path.
+      if (imageBase64) {
+        const parsedImage = parseBlogImageDataUrl(imageBase64);
+        if (!parsedImage) {
+          return res.status(400).json({ success: false, message: 'Invalid blog cover image' });
+        }
+        const uploadResult = await uploadBuffer(
+          parsedImage.buffer,
+          parsedImage.filename,
+          'blog',
+          'image',
+          { tags: ['blog-cover'] },
+        );
+        if (!uploadResult.success || !uploadResult.secureUrl || !uploadResult.publicId) {
+          return res.status(500).json({ success: false, message: 'Failed to upload new image' });
+        }
+        if (blog.image?.public_id) {
+          await cloudinary.uploader.destroy(blog.image.public_id).catch(() => undefined);
+        }
+        updates.image = { url: uploadResult.secureUrl, public_id: uploadResult.publicId };
+      }
+
+      (updates as Record<string, unknown>).lastEditedBy = admin._id;
+      (updates as Record<string, unknown>).lastEditedAt = new Date();
 
       // Trigger pre-save hooks by saving document instance instead of findOneAndUpdate
       Object.assign(blog, updates);

@@ -1,141 +1,159 @@
 /** @type {import('next').NextConfig} */
+
+const isProd = process.env.NODE_ENV === 'production';
+
+const productionImagePatterns = [
+  {
+    protocol: 'https',
+    hostname: 'res.cloudinary.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'images.unsplash.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'via.placeholder.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'ui-avatars.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'maps.googleapis.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
+    hostname: 'maps.gstatic.com',
+    pathname: '/**',
+  },
+];
+
+const developmentImagePatterns = [
+  {
+    protocol: 'http',
+    hostname: 'localhost',
+    port: '3000',
+    pathname: '/**',
+  },
+  {
+    protocol: 'http',
+    hostname: '127.0.0.1',
+    port: '8000',
+    pathname: '/**',
+  },
+];
+
+function buildCsp() {
+  const directives = [
+    "default-src 'self'",
+    "base-uri 'self'",
+    "object-src 'none'",
+    "frame-ancestors 'none'",
+    "form-action 'self'",
+
+    // Pages Router requires inline framework/JSON-LD scripts when CSP is set
+    // statically in next.config.js. 'unsafe-eval' is development-only.
+    isProd
+      ? "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com"
+      : "script-src 'self' 'unsafe-inline' 'unsafe-eval' http: https:",
+
+    "script-src-attr 'none'",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+    "font-src 'self' data: https://fonts.gstatic.com",
+
+    isProd
+      ? "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://via.placeholder.com https://ui-avatars.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com"
+      : "img-src 'self' data: blob: http: https:",
+
+    isProd
+      ? "connect-src 'self' https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com"
+      : "connect-src 'self' http: https: ws: wss:",
+
+    "frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+    "media-src 'self' blob: https://res.cloudinary.com",
+    "worker-src 'self' blob:",
+    "manifest-src 'self'",
+  ];
+
+  if (isProd) directives.push('upgrade-insecure-requests');
+
+  return directives.join('; ');
+}
+
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  compress: true,
+  productionBrowserSourceMaps: false,
 
   images: {
-    // ✅ Enable modern image formats for better compression
     formats: ['image/webp', 'image/avif'],
-    
-    // ✅ Responsive breakpoints (matches Tailwind defaults)
     deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840],
     imageSizes: [16, 32, 48, 64, 96, 128, 256, 384],
-    
     remotePatterns: [
-      // Cloudinary (for uploaded images)
-      {
-        protocol: "https",
-        hostname: "res.cloudinary.com",
-        pathname: "/**",
-      },
-      // Cloudinary (custom CNAME - if used in future)
-      {
-        protocol: "https",
-        hostname: "cloudinary.com",
-        pathname: "/**",
-      },
-      // Unsplash (for placeholder/stock images)
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-        pathname: "/**",
-      },
-     
-      // Placeholder images
-      {
-        protocol: "https",
-        hostname: "via.placeholder.com",
-        pathname: "/**",
-      },
-      // V6.8.11: Google Static Maps (for office location previews)
-      {
-        protocol: "https",
-        hostname: "maps.googleapis.com",
-        pathname: "/maps/api/staticmap/**",
-      },
-      // Localhost (development)
-      {
-        protocol: "http",
-        hostname: "localhost",
-        port: "3000",
-        pathname: "/**",
-      },
-      // Laravel backend (if used)
-      {
-        protocol: "http",
-        hostname: "127.0.0.1",
-        port: "8000",
-        pathname: "/**",
-      },
+      ...productionImagePatterns,
+      ...(isProd ? [] : developmentImagePatterns),
     ],
+    dangerouslyAllowSVG: false,
+    contentDispositionType: 'attachment',
   },
 
-  // ✅ ESLint ko build ke dauran ignore karein
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // Deliberately do NOT set eslint.ignoreDuringBuilds=true.
+  // Production builds must fail when ESLint finds real errors.
 
-  // ✅ App-wide Security Headers
   async headers() {
-    const isProd = process.env.NODE_ENV === "production";
-
-    // CSP (balanced default)
-    // NOTE: Agar future mein third-party scripts (analytics, maps, chat) add karein,
-    // to CSP mein un domains ko add karna hoga.
-    //
-    // ✅ Turnstile fix:
-    // - Turnstile widget iframe loads from https://challenges.cloudflare.com
-    // - If frame-src isn't set, browser falls back to default-src 'self' and blocks it.
-    const csp = [
-      "default-src 'self'",
-      "base-uri 'self'",
-      "object-src 'none'",
-      "frame-ancestors 'none'",
-
-      // ✅ Allow Turnstile + Cloudinary + Google Maps + YouTube iframes (minimal + safe)
-      "frame-src 'self' https://challenges.cloudflare.com https://upload-widget.cloudinary.com https://widget.cloudinary.com https://www.google.com https://maps.google.com https://www.youtube.com https://www.youtube-nocookie.com",
-
-      "img-src 'self' data: blob: https:",
-      "font-src 'self' data: https:",
-      "style-src 'self' 'unsafe-inline' https:",
-
-      // Next.js dev mode mein eval hota hai, is liye dev mein unsafe-eval allow:
-      // Keep https: for general external scripts, and Turnstile will work fine.
-      `script-src 'self' ${isProd ? "" : "'unsafe-eval' "} https:`,
-
-      // Turnstile verification uses fetch to Cloudflare endpoints; https: already allowed.
-      "connect-src 'self' https:",
-
-      "form-action 'self'",
-      "upgrade-insecure-requests",
-    ]
-      .join("; ")
-      .replace(/\s{2,}/g, " ")
-      .trim();
+    const csp = buildCsp();
 
     return [
       {
-        source: "/(.*)",
+        source: '/(.*)',
         headers: [
-          // Clickjacking protection
-          { key: "X-Frame-Options", value: "DENY" },
-
-          // Prevent MIME sniffing
-          { key: "X-Content-Type-Options", value: "nosniff" },
-
-          // Referrer policy
-          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-
-          // Permissions Policy (comprehensive & secure defaults)
-          // Explicitly disables features not needed by the application.
-          // The 'xr-spatial-tracking' violation (often from browser extensions) is silenced by this.
+          { key: 'X-DNS-Prefetch-Control', value: 'on' },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           {
-            key: "Permissions-Policy",
-            value:
-              "camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=(), accelerometer=(), ambient-light-sensor=(), autoplay=(), battery=(), display-capture=(), document-domain=(), encrypted-media=(), gyroscope=(), magnetometer=(), picture-in-picture=(), publickey-credentials-get=(), screen-wake-lock=(), sync-xhr=(), web-share=(), xr-spatial-tracking=()",
+            key: 'Permissions-Policy',
+            value: [
+              'accelerometer=()',
+              'ambient-light-sensor=()',
+              'autoplay=()',
+              'battery=()',
+              'browsing-topics=()',
+              'camera=()',
+              'display-capture=()',
+              'document-domain=()',
+              'encrypted-media=()',
+              'geolocation=()',
+              'gyroscope=()',
+              'magnetometer=()',
+              'microphone=()',
+              'payment=()',
+              'picture-in-picture=()',
+              'publickey-credentials-get=()',
+              'screen-wake-lock=()',
+              'sync-xhr=()',
+              'usb=()',
+              'web-share=()',
+              'xr-spatial-tracking=()',
+            ].join(', '),
           },
-
-          // HSTS (HTTPS only, production only)
           ...(isProd
             ? [
                 {
-                  key: "Strict-Transport-Security",
-                  value: "max-age=63072000; includeSubDomains; preload",
+                  key: 'Strict-Transport-Security',
+                  value: 'max-age=63072000; includeSubDomains; preload',
                 },
               ]
             : []),
-
-          // Content Security Policy
-          { key: "Content-Security-Policy", value: csp },
+          { key: 'Content-Security-Policy', value: csp },
         ],
       },
     ];

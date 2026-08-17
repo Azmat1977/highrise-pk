@@ -24,10 +24,17 @@ import Property, {
 } from '@/models/Property';
 import User from '@/models/User';
 import { requireAuth } from '@/lib/requireAuth';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import { rateLimitApi, rateLimitApiWrite } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import { isPublicProperty } from '@/lib/property/publicProperty';
+import { normalizePropertyMutationInput } from '@/lib/property/propertyNormalization';
+import { applyNormalizedPropertyMutation } from '@/lib/property/propertyMutation';
+import { ownerCanSubmitProperty, ownerEditTargetStatus } from '@/lib/property/propertyLifecycle';
+import { validatePropertyMediaInput, retiredPropertyMediaPublicIds, validatePropertyFloorPlanInput, retiredFloorPlanPublicIds } from '@/lib/property/propertyMedia';
+import { deleteFile } from '@/lib/cloudinary';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 CONSTANTS
@@ -35,12 +42,6 @@ import crypto from 'crypto';
 
 const MAX_TIME_MS = 2500;
 const CLOUDINARY_PREFIX = 'https://res.cloudinary.com/';
-
-// Fields whose change triggers re-verification
-const MAJOR_EDIT_FIELDS = new Set([
-  'price', 'area', 'city', 'society',
-  'propertyType', 'title', 'description',
-]);
 
 // Allowed owner actions ONLY
 // Admin verification actions live in /api/admin/properties/[propertyId]
@@ -90,6 +91,8 @@ interface PatchBody {
   featureImageUrl?:  string;
   images?:           unknown[];
   gallery?:          unknown[];
+  floorPlanImages?:  unknown[];
+  floorPlans?:       unknown[];
 
   // Owner action only
   action?:           'submit';
@@ -166,23 +169,6 @@ function assertUserActive(
     (e as NodeJS.ErrnoException).code = 'ACCOUNT_INACTIVE';
     throw e;
   }
-}
-
-// Verify lifecycle transition is allowed (must match Property model state machine)
-const ALLOWED_TRANSITIONS: Record<VerificationStatus, VerificationStatus[]> = {
-  draft:        ['pending'],
-  pending:      ['under_review', 'rejected'],
-  under_review: ['verified', 'rejected', 'flagged'],
-  rejected:     ['under_review'],
-  flagged:      ['under_review'],
-  verified:     ['flagged'],
-};
-
-function isAllowedTransition(
-  from: VerificationStatus,
-  to:   VerificationStatus
-): boolean {
-  return (ALLOWED_TRANSITIONS[from] ?? []).includes(to);
 }
 
 // Validate image array against Cloudinary prefix
@@ -275,30 +261,17 @@ async function handleGet(
     return;
   }
 
-  // ── Optional auth (no response side effects) ────────────────
-  // Use getToken directly (NOT requireAuth) to avoid mock-response crashes
-  let isOwnerOrAdmin = false;
-  let isAdmin        = false;
-
-  try {
-    const { getToken } = await import('next-auth/jwt');
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
-
-    if (token?.id && typeof token.id === 'string') {
-      isAdmin = token.role === 'admin';
-      isOwnerOrAdmin =
-        isAdmin || property.owner?.toString() === token.id;
-    }
-  } catch {
-    // Invalid/expired token — treat as public visitor
-  }
+  // ── Optional auth (DB validated, no response side effects) ──
+  const optionalAuth = await getOptionalAuth(req);
+  const isAdmin = optionalAuth?.authorityRole === 'admin' ||
+                  optionalAuth?.authorityRole === 'superadmin';
+  const isOwnerOrAdmin = Boolean(
+    isAdmin || (optionalAuth && property.owner?.toString() === optionalAuth.id),
+  );
 
   // ── Visibility gate ──────────────────────────────────────────
   const verStatus = property.verification?.status;
-  const isPublic  = verStatus === 'verified';
+  const isPublic = isPublicProperty(property);
 
   if (!isPublic && !isOwnerOrAdmin) {
     res.status(404).json({
@@ -318,6 +291,14 @@ async function handleGet(
       .catch(() => {});
   }
 
+  const verificationSummary = isOwnerOrAdmin ? {
+    status: property.verification?.status ?? 'draft',
+    submittedAt: property.verification?.submittedAt ?? null,
+    verifiedAt: property.verification?.verifiedAt ?? null,
+    rejectedAt: property.verification?.rejectedAt ?? null,
+    rejectionReason: property.verification?.rejectionReason ?? null,
+  } : undefined;
+
   // ── Strip internal fields per role ──────────────────────────
   const response = property as unknown as Record<string, unknown>;
   if (!isAdmin) {
@@ -330,6 +311,10 @@ async function handleGet(
   }
   if (!isOwnerOrAdmin) {
     delete response['contactDetails'];
+    delete response['owner'];
+    delete response['createdBy'];
+    delete response['updatedBy'];
+    delete response['deletedBy'];
   }
 
   // ── Cache headers ────────────────────────────────────────────
@@ -344,9 +329,10 @@ async function handleGet(
   }
 
   res.status(200).json({
-    success:   true,
+    success: true,
     requestId,
-    property:  response,
+    property: response,
+    ...(verificationSummary ? { verificationSummary } : {}),
   });
 }
 
@@ -387,8 +373,8 @@ async function handlePatch(
     return;
   }
 
-  const body = req.body as PatchBody;
-  if (!body || typeof body !== 'object') {
+  const rawBody = req.body as PatchBody;
+  if (!rawBody || typeof rawBody !== 'object') {
     res.status(400).json({
       success: false,
       message: 'Request body must be JSON.',
@@ -396,6 +382,8 @@ async function handlePatch(
     });
     return;
   }
+  const { data: normalizedBody, changedFields: normalizedFields } = normalizePropertyMutationInput(rawBody);
+  const body = { ...normalizedBody, action: rawBody.action } as PatchBody;
 
   // ── Verify actor account is active ──────────────────────────
   const actor = await User
@@ -423,7 +411,7 @@ async function handlePatch(
     return;
   }
 
-  const isAdmin = auth.role === 'admin';
+  const isAdmin = auth.authorityRole === 'admin' || auth.authorityRole === 'superadmin';
 
   // ── Load property (full document for save() with pre-save hooks) ──
   const property = await Property
@@ -485,7 +473,7 @@ async function handlePatch(
     // 'submit' — owner submits draft for admin review
     const currentStatus = (prop.verification?.status ?? 'draft') as VerificationStatus;
 
-    if (!isAllowedTransition(currentStatus, 'pending')) {
+    if (!ownerCanSubmitProperty(currentStatus)) {
       res.status(409).json({
         success: false,
         message: `Cannot submit from status "${currentStatus}".`,
@@ -536,22 +524,41 @@ async function handlePatch(
 
   // Edit lock during admin review
   const currentStatus = (prop.verification?.status ?? 'draft') as VerificationStatus;
-  if (currentStatus === 'under_review' && !isAdmin) {
+  if ((currentStatus === 'under_review' || currentStatus === 'flagged') && !isAdmin) {
     res.status(409).json({
       success: false,
-      message: 'Property is currently under review. ' +
-               'Edits are locked until review is complete.',
-      code:    'UNDER_REVIEW',
+      message: currentStatus === 'flagged'
+        ? 'Flagged Property must be resolved by moderation before editing.'
+        : 'Property is currently under review. Edits are locked until review is complete.',
+      code: currentStatus === 'flagged' ? 'PROPERTY_FLAGGED' : 'UNDER_REVIEW',
       requestId,
     });
     return;
   }
 
-  // Detect major edits (triggers reset to draft for owner)
-  const majorEditDetected = Array.from(MAJOR_EDIT_FIELDS).some((field) => {
-    if (body[field] === undefined) return false;
-    return String(body[field]).trim() !== String(prop[field] ?? '').trim();
+  // Apply the complete normalized Unified-form contract first. Media remains
+  // on the ownership-aware path below; contact preferences are owner-editable.
+  const mutationResult = applyNormalizedPropertyMutation(prop, normalizedBody, {
+    allowContact: true,
+    allowMedia: false,
   });
+  const changedFields = [...new Set([...normalizedFields, ...mutationResult.changedFields])];
+
+  let targetOwnerStatus = currentStatus;
+  if (!isAdmin) {
+    try {
+      targetOwnerStatus = ownerEditTargetStatus(currentStatus, changedFields);
+    } catch (error: unknown) {
+      res.status(409).json({
+        success: false,
+        message: error instanceof Error ? error.message : 'Property cannot be edited in its current state.',
+        code: 'EDIT_LOCKED',
+        requestId,
+      });
+      return;
+    }
+  }
+  const majorEditDetected = !isAdmin && targetOwnerStatus === 'draft' && currentStatus !== 'draft';
 
   // ── Apply safe content updates ──────────────────────────────
   if (body.title !== undefined)            prop.title            = cap(body.title, 150);
@@ -657,26 +664,47 @@ async function handlePatch(
     }
   }
 
-  // Images (Cloudinary-validated)
-  if (Array.isArray(body.images)) {
-    prop.images = validateImageArray(body.images, false) as IProperty['images'];
+  // Canonical media ownership: new assets require a short-lived upload token bound
+  // to the authenticated uploader; already-attached DB assets may be retained.
+  let retiredImages: string[] = [];
+  let retiredFloorPlans: Array<{ publicId: string; resourceType: 'image' | 'raw' }> = [];
+  if (Array.isArray(rawBody.images)) {
+    const nextImages = validatePropertyMediaInput({
+      userId: auth.id, folder: 'properties', incoming: rawBody.images, existing: prop.images, maxItems: 30,
+    });
+    if (nextImages.length !== rawBody.images.length) {
+      res.status(400).json({ success: false, message: 'One or more Property images are not owned by this upload session.', code: 'INVALID_MEDIA_OWNERSHIP', requestId });
+      return;
+    }
+    retiredImages = retiredPropertyMediaPublicIds(prop.images, nextImages);
+    prop.images = nextImages.map(({ resourceType: _resourceType, mimeType: _mimeType, ...image }) => image) as IProperty['images'];
   }
 
-  // Gallery (Cloudinary-validated)
+  const incomingFloorPlans = Array.isArray(rawBody.floorPlanImages) ? rawBody.floorPlanImages : rawBody.floorPlans;
+  if (Array.isArray(incomingFloorPlans)) {
+    const nextFloorPlans = validatePropertyFloorPlanInput({
+      userId: auth.id, incoming: incomingFloorPlans, existing: prop.floorPlans, maxItems: 5,
+    });
+    if (nextFloorPlans.length !== incomingFloorPlans.length) {
+      res.status(400).json({ success: false, message: 'One or more floor plans are not owned by this upload session.', code: 'INVALID_FLOORPLAN_OWNERSHIP', requestId });
+      return;
+    }
+    retiredFloorPlans = retiredFloorPlanPublicIds(prop.floorPlans, nextFloorPlans);
+    prop.floorPlans = nextFloorPlans as IProperty['floorPlans'];
+  }
+
+  // Legacy gallery remains server-validated for compatibility; it is not used by the Unified form.
   if (Array.isArray(body.gallery)) {
     prop.gallery = validateImageArray(body.gallery, true) as IProperty['gallery'];
   }
 
-  // Contact details (admin only — full structured update)
-  if (isAdmin && body.contactDetails && typeof body.contactDetails === 'object') {
-    prop.contactDetails = body.contactDetails as IProperty['contactDetails'];
-  }
+  // Contact details were already mapped through the canonical normalized mutation.
 
-  // ── Major edit → reset to draft (owner must resubmit) ───────
-  if (majorEditDetected && !isAdmin) {
+  // ── Lifecycle consequence of owner edits ────────────────────
+  if (!isAdmin && targetOwnerStatus !== currentStatus) {
     prop.verification = {
       ...(prop.verification ?? { status: 'draft' }),
-      status:               'draft',
+      status:               targetOwnerStatus,
       requiresManualReview: true,
       lastReviewedAt:       new Date(),
     };
@@ -687,6 +715,12 @@ async function handlePatch(
   // ── Save (triggers pre-save hooks: trustScore, qualityMetrics,
   //         fraudDetection, status sync) ───────────────────────────
   await property.save();
+
+  // DB first: a failed CDN cleanup leaves only an orphaned object, never a broken current listing.
+  await Promise.all([
+    ...retiredImages.map((publicId) => deleteFile(publicId, { resourceType: 'image' }).catch(() => undefined)),
+    ...retiredFloorPlans.map((asset) => deleteFile(asset.publicId, { resourceType: asset.resourceType }).catch(() => undefined)),
+  ]);
 
   await logSecurityEvent({
     type:   'property_updated',

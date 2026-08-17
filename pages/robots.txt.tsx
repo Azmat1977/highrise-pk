@@ -1,90 +1,60 @@
-// pages/robots.txt.tsx
+import type { GetServerSideProps } from 'next';
 
-import { GetServerSideProps } from 'next';
-
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk';
+const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk').replace(/\/+$/, '');
 
 export const getServerSideProps: GetServerSideProps = async ({ res }) => {
   const robotsTxt = `User-agent: *
 Allow: /
 
-# Sitemap
-Sitemap: ${SITE_URL}/sitemap.xml
-
-# Disallow admin and auth pages
+# Server/admin/auth/account surfaces
 Disallow: /admin/
 Disallow: /api/
 Disallow: /login
 Disallow: /register
-Disallow: /saved-properties
-Disallow: /dashboard/
-Disallow: /my-properties/
-Disallow: /add-property/
-Disallow: /edit-property/
+Disallow: /forgot-password
+Disallow: /reset-password
+Disallow: /verify-email
 Disallow: /account/
-Disallow: /profile/
+Disallow: /saved-properties
+Disallow: /shortlist/
+Disallow: /add-property
+Disallow: /edit-property/
 
-# Disallow deep filtered pages (prevent crawl waste)
-# Allow specific SEO-friendly query params, block rest
-Disallow: /*?*
-Allow: /properties?city=
-Allow: /properties?propertyCategory=
-Allow: /properties?listingType=
-Allow: /properties?sort=
-Allow: /properties?propertyType=
+# Private role dashboards. Keep /agent/<public-slug> crawlable.
+Disallow: /agent/dashboard
+Disallow: /agent/leads/
+Disallow: /agent/listings
+Disallow: /agent/profile
+Disallow: /agent/register
+Disallow: /agent/verify
+Disallow: /developer/
+Disallow: /owner/
 
-# Crawl-delay for polite crawling
-Crawl-delay: 1
+# Search/filter pages are controlled with page-level canonical/noindex rules.
+# Do not blanket-block query strings here; blocked URLs can still remain indexed
+# without Google being able to read their canonical/noindex directives.
 
-# Google specific
-User-agent: Googlebot
-Allow: /
-Allow: /properties
-Allow: /projects
-Allow: /developers
-Allow: /agents
-Allow: /blog
-Allow: /societies
-Allow: /risk-alerts
-Allow: /tools
-Allow: /tools/
-Allow: /about
-Allow: /contact
-Allow: /privacy-policy
-Allow: /terms-of-service
-
-# Image sitemap for property images
 User-agent: Googlebot-Image
-Allow: /
-Allow: /properties
-Allow: /projects
-Allow: /societies
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Slurp
-Allow: /
-
-# Block common bad bots
-User-agent: AhrefsBot
-Disallow: /
-
-User-agent: SemrushBot
-Disallow: /
+Allow: /properties/
+Allow: /property/
+Allow: /projects/
+Allow: /societies/
 
 User-agent: MJ12bot
 Disallow: /
+
+Sitemap: ${SITE_URL}/sitemap.xml
 `;
 
-  res.setHeader('Content-Type', 'text/plain');
-  res.setHeader('Cache-Control', 'public, s-maxage=86400');
+  res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=86400');
   res.write(robotsTxt);
   res.end();
 
   return { props: {} };
 };
 
-export default function Robots() {
+export default function Robots(): null {
   return null;
 }

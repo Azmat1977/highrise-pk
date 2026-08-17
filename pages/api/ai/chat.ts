@@ -6,7 +6,7 @@ import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import dbConnect from '@/lib/db';
 import SecurityEvent from '@/models/SecurityEvent';
 import { rateLimitAI } from '@/lib/rateLimit';
-import { generateAIResponse, getChatModel, getRandomAgent, SYSTEM_PROMPT as GEMINI_SYSTEM_PROMPT } from '@/lib/gemini';
+import { generateAIResponse, getRandomAgent } from '@/lib/gemini';
 import aiCache from '@/lib/aiCache';
 interface GeminiMessage {
   role: 'user' | 'assistant' | 'system';

@@ -1,11 +1,10 @@
 // pages/api/upload/delete.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import cloudinary from '@/lib/cloudinary';
+import cloudinary, { isHighrisePublicId, isHighriseFolderPublicId } from '@/lib/cloudinary';
 import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitApiWrite } from '@/lib/rateLimit';
 import SecurityEvent from '@/models/SecurityEvent';
-import User from '@/models/User';
 import { checkPermission } from '@/lib/permissions';
 import dbConnect from '@/lib/dbConnect';
 
@@ -99,8 +98,8 @@ function validatePublicId(publicId: string): { valid: boolean; error?: string } 
     }
   }
 
-  // Must start with highrise/ for our uploads
-  if (!publicId.startsWith('highrise/')) {
+  // Must belong to one of the canonical Highrise-managed Cloudinary folders.
+  if (!isHighrisePublicId(publicId)) {
     return { valid: false, error: 'Invalid public ID format' };
   }
 
@@ -203,6 +202,7 @@ export default async function handler(
     // 📝 STEP 5: VALIDATE REQUEST BODY
     // =========================================
     const { publicId, resourceType = 'image' }: DeleteRequest = req.body;
+    const deliveryType = isHighriseFolderPublicId(publicId, 'kyc') ? 'authenticated' : 'upload';
 
     // Validate Public ID
     const publicIdValidation = validatePublicId(publicId);
@@ -245,6 +245,7 @@ export default async function handler(
         image_metadata: false,
         colors: false,
         phash: false,
+        type: deliveryType,
       });
     } catch (cloudinaryError: any) {
       // File not found in Cloudinary
@@ -296,10 +297,9 @@ export default async function handler(
     const userTags = resource?.tags || [];
     const isOwner = userTags.includes(`user_${auth.id}`);
 
-    // Check if user is admin
-    const userRecord = await User.findById(auth.id).select('role').lean();
-    const userRole = String(userRecord?.role || 'user').toLowerCase();
-    const isAdmin = userRole === 'admin';
+    // requireAuth already resolved the current DB-backed role.
+    const userRole = String(auth.role || 'user').toLowerCase();
+    const isAdmin = userRole === 'admin' || userRole === 'superadmin';
 
     // Determine if deletion is allowed
     let deleteAllowed = isOwner || isAdmin;
@@ -368,6 +368,7 @@ export default async function handler(
     const deleteResult = await cloudinary.uploader.destroy(publicId, {
       resource_type: resourceType,
       invalidate: true, // Clear CDN cache
+      type: deliveryType,
     });
 
     if (deleteResult.result === 'ok' || deleteResult.result === 'not found') {

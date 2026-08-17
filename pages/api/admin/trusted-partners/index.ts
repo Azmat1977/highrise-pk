@@ -1,5 +1,5 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getSession } from 'next-auth/react';
+import { requireAdmin } from '@/lib/requireAuth';
 import dbConnect from '../../../../lib/dbConnect';
 import TrustedPartner from '../../../../models/TrustedPartner';
 
@@ -11,15 +11,8 @@ export default async function handler(
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const session = await getSession({ req });
-
-  // Admin Check
-  if (!session?.user || (session.user as any).role !== 'admin') {
-    return res.status(401).json({
-      success: false,
-      message: 'Unauthorized - Admin access required',
-    });
-  }
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   try {
     await dbConnect();

@@ -9,6 +9,8 @@ import { rateLimitComment } from '@/lib/rateLimit';
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
 import crypto from 'crypto';
+import { requireAdmin } from '@/lib/requireAuth';
+import { getRequestIp, verifyTurnstileToken } from '@/lib/turnstileServer';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 ENTERPRISE CONSTANTS
@@ -56,7 +58,7 @@ const PostCommentSchema = z.object({
     name: z.string().trim().min(2).max(MAX_NAME_LENGTH),
     email: z.string().email('Invalid email address'),
   }),
-  turnstileToken: z.string().optional(), // Bot protection
+  turnstileToken: z.string().min(1, 'Bot verification is required'),
 });
 
 // ═══════════════════════════════════════════════════════════════
@@ -184,6 +186,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const { blogSlug, page, limit, sortBy, status } = parseResult.data;
+      if (status !== 'approved') {
+        const admin = await requireAdmin(req, res);
+        if (!admin) return;
+      }
       const skip = (page - 1) * limit;
 
       // Build query
@@ -324,7 +330,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
       }
 
-      const { blogSlug, blogId, content, author } = parseResult.data;
+      const { blogSlug, blogId, content, author, turnstileToken } = parseResult.data;
+
+      const captchaOk = await verifyTurnstileToken(turnstileToken, getRequestIp(req));
+      if (!captchaOk) {
+        return res.status(400).json({ success: false, message: 'Bot verification failed', code: 'TURNSTILE_FAILED', requestId });
+      }
 
       // Sanitize content
       const sanitizedContent = sanitizeContent(content);

@@ -366,12 +366,11 @@ export default async function handler(
 
     assertUserActive(actor);
 
-    const isAdmin = auth.role === 'admin';
-
     // ── Parse query params ──────────────────────────────────
     const q = req.query;
 
     const includeDeleted = parseBool(q['includeDeleted']);
+    const deletedOnly    = parseBool(q['deletedOnly']);
     const showFlagged    = parseBool(q['flagged']);
     const showDuplicates = parseBool(q['duplicates']);
 
@@ -421,7 +420,9 @@ export default async function handler(
 
     // Deleted visibility
     // Admin can see all; owner can see own deleted (no extra gate needed)
-    if (!includeDeleted) {
+    if (deletedOnly) {
+      baseFilter.isDeleted = true;
+    } else if (!includeDeleted) {
       baseFilter.isDeleted = { $ne: true };
     }
 
@@ -592,6 +593,7 @@ export default async function handler(
         sortOrder: sortOrder === 1 ? 'asc' : 'desc',
         filters: {
           includeDeleted,
+          deletedOnly,
           verificationStatuses: verificationStatuses.length > 0
             ? verificationStatuses
             : null,

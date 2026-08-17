@@ -17,6 +17,49 @@ const SENSITIVE_MEDIA_KEYS = new Set([
   'accessToken',
 ]);
 
+function normalizePropertyId(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value);
+
+  if (typeof value === 'object') {
+    const obj = value as Record<string, unknown>;
+
+    for (const key of ['$oid', '_id', 'id']) {
+      const nested = obj[key];
+      if (nested != null && nested !== value) {
+        const resolved = normalizePropertyId(nested);
+        if (resolved) return resolved;
+      }
+    }
+
+    const toHexString = (value as { toHexString?: () => unknown }).toHexString;
+    if (typeof toHexString === 'function') {
+      try {
+        const resolved = toHexString.call(value);
+        if (typeof resolved === 'string' && resolved.trim()) {
+          return resolved.trim();
+        }
+      } catch {}
+    }
+
+    const toStringFn = (value as { toString?: () => unknown }).toString;
+    if (typeof toStringFn === 'function') {
+      try {
+        const resolved = toStringFn.call(value);
+        if (
+          typeof resolved === 'string' &&
+          resolved.trim() &&
+          resolved.trim() !== '[object Object]'
+        ) {
+          return resolved.trim();
+        }
+      } catch {}
+    }
+  }
+
+  return '';
+}
 function scrubSensitive(val: any): any {
   if (!val) return val;
   if (Array.isArray(val)) return val.map(scrubSensitive);
@@ -186,11 +229,9 @@ export const PropertyGrid: React.FC<PropertyGridProps> = React.memo(
           const normalizedProperty = {
             ...property,
             _id:
-              typeof (property as any)?._id === 'string'
-                ? (property as any)._id
-                : (property as any)?._id != null
-                ? String((property as any)._id)
-                : undefined,
+              normalizePropertyId((property as any)?._id) ||
+              normalizePropertyId((property as any)?.id) ||
+              undefined,
           };
 
           const safeForCard = pickCardSafeProperty(normalizedProperty);

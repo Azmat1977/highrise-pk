@@ -12,6 +12,7 @@ import Project from '@/models/Projects';
 import mongoose from 'mongoose';
 import { rateLimitApi, sendRateLimitResponse } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 
 const MAX_ITEMS = 4;
 
@@ -105,7 +106,7 @@ export default async function handler(
       propertyIds.length > 0
         ? Property.find({
             _id:    { $in: propertyIds },
-            status: { $in: ['available', 'approved', 'active'] },
+            ...PUBLIC_PROPERTY_FILTER,
           })
             .select('title price city area areaUnit images propertyType slug bedrooms bathrooms listingType location previousPrice priceDropPercent')
             .lean()

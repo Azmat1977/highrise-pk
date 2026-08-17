@@ -10,6 +10,7 @@ import AgentProfile from '@/models/AgentProfile';
 import User from '@/models/User';
 import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
+import { toPrivateKycAssetView } from '@/lib/privateAsset';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import { z } from 'zod';
 // V6.8.4: KYC decrypt helpers for admin display
@@ -309,29 +310,39 @@ export default async function handler(
       const existingDocs = rawAgent.documents ?? {};
 
       const mergedDocuments = {
-        // Profile & cover photos (from AgentProfile only)
+        // Public media stays on normal Cloudinary delivery.
         profilePhoto: existingDocs.profilePhoto,
         coverPhoto:   existingDocs.coverPhoto,
 
-        // CNIC — prefer AgentProfile.documents, fallback to User model
-        cnicFront: existingDocs.cnicFront?.url
-          ? existingDocs.cnicFront
-          : rawAgent.user?.cnicFrontUrl
-          ? { url: rawAgent.user.cnicFrontUrl, uploadedAt: rawAgent.user.cnicLockedAt }
-          : undefined,
+        // Sensitive documents use short-lived authenticated URLs when a
+        // canonical publicId exists. Legacy public-only records are visible
+        // only to this admin endpoint and are flagged for migration.
+        cnicFront: toPrivateKycAssetView(
+          existingDocs.cnicFront?.url
+            ? existingDocs.cnicFront
+            : rawAgent.user?.cnicFrontUrl
+              ? { url: rawAgent.user.cnicFrontUrl, uploadedAt: rawAgent.user.cnicLockedAt }
+              : undefined,
+          { allowLegacyAdminUrl: true },
+        ),
 
-        cnicBack: existingDocs.cnicBack?.url
-          ? existingDocs.cnicBack
-          : rawAgent.user?.cnicBackUrl
-          ? { url: rawAgent.user.cnicBackUrl, uploadedAt: rawAgent.user.cnicLockedAt }
-          : undefined,
+        cnicBack: toPrivateKycAssetView(
+          existingDocs.cnicBack?.url
+            ? existingDocs.cnicBack
+            : rawAgent.user?.cnicBackUrl
+              ? { url: rawAgent.user.cnicBackUrl, uploadedAt: rawAgent.user.cnicLockedAt }
+              : undefined,
+          { allowLegacyAdminUrl: true },
+        ),
 
-        // License — prefer AgentProfile.documents, fallback to licenseDocumentUrl
-        license: existingDocs.license?.url
-          ? existingDocs.license
-          : rawAgent.licenseDocumentUrl
-          ? { url: rawAgent.licenseDocumentUrl, issuer: 'Self-declared' }
-          : undefined,
+        license: toPrivateKycAssetView(
+          existingDocs.license?.url
+            ? existingDocs.license
+            : rawAgent.licenseDocumentUrl
+              ? { url: rawAgent.licenseDocumentUrl, issuer: 'Self-declared' }
+              : undefined,
+          { allowLegacyAdminUrl: true },
+        ),
       };
 
       // ── Build enriched response ────────────────────────────────────

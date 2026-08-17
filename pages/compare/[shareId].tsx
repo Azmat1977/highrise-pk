@@ -345,7 +345,7 @@ export const getServerSideProps: GetServerSideProps<
       propertyIds.length > 0
         ? Property.find({
             _id:    { $in: propertyIds },
-            status: { $in: ['available', 'approved', 'active'] },
+            'verification.status': 'verified',
           })
             // Note: select both `areaUnit` and `unit` — schema uses one or the other
             // depending on data source (legacy vs new listings)

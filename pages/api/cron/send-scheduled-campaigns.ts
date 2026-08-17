@@ -32,14 +32,15 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose                                  from 'mongoose';
-import nodemailer                                from 'nodemailer';
+import nodemailer                                from 'highrise-nodemailer';
 import DOMPurify                                 from 'isomorphic-dompurify';
 import dbConnect                                 from '@/lib/db';
 import NewsletterCampaign                        from '@/models/NewsletterCampaign';
 import NewsletterSubscriber                      from '@/models/NewsletterSubscriber';
 import Lead                                      from '@/models/Lead';
 import CampaignAnalytics                         from '@/models/CampaignAnalytics';
-import { getToken }                              from 'next-auth/jwt';
+import crypto                                    from 'node:crypto';
+import { getOptionalAuth }                       from '@/lib/optionalAuth';
 import { logSecurityEvent }                      from '@/lib/security/logSecurityEvent';
 import {
   fetchRecipients,
@@ -273,31 +274,36 @@ function buildEmailHtml(params: EmailBuildParams): string {
 async function validateCronAuth(
   req: NextApiRequest
 ): Promise<{ ok: boolean; adminId?: string; adminEmail?: string }> {
-
-  // ── Option 1: CRON_SECRET header (Vercel cron) ───────────
   const cronSecret = process.env.CRON_SECRET;
-  const headerSecret = req.headers['x-cron-secret'];
+  const authorization = String(req.headers.authorization ?? '');
+  const bearer = authorization.startsWith('Bearer ') ? authorization.slice(7) : '';
+  const legacyHeader = Array.isArray(req.headers['x-cron-secret'])
+    ? req.headers['x-cron-secret'][0]
+    : String(req.headers['x-cron-secret'] ?? '');
 
-  if (cronSecret && headerSecret === cronSecret) {
+  const safeEqual = (candidate: string): boolean => {
+    if (!cronSecret || !candidate) return false;
+    const a = Buffer.from(cronSecret);
+    const b = Buffer.from(candidate);
+    return a.length === b.length && crypto.timingSafeEqual(a, b);
+  };
+
+  // Vercel Cron sends CRON_SECRET as Authorization: Bearer <secret>.
+  // Keep x-cron-secret temporarily for backwards compatibility with any
+  // external scheduler already configured by the owner.
+  if (safeEqual(bearer) || safeEqual(legacyHeader)) {
     return { ok: true, adminId: 'cron', adminEmail: 'cron@system' };
   }
 
-  // ── Option 2: Admin session (manual trigger from UI) ──────
-  try {
-    const token = await getToken({
-      req,
-      secret: process.env.NEXTAUTH_SECRET,
-    });
-
-    if (token && token.id && token.role === 'admin') {
-      return {
-        ok:         true,
-        adminId:    token.id as string,
-        adminEmail: token.email as string || 'admin',
-      };
-    }
-  } catch {
-    // JWT decode failed — not an admin session
+  // Manual trigger: use the same DB-backed optional session validation as
+  // the rest of the privileged API surface (suspension/tokenVersion aware).
+  const viewer = await getOptionalAuth(req);
+  if (viewer && ['admin', 'superadmin'].includes(viewer.role)) {
+    return {
+      ok: true,
+      adminId: viewer.id,
+      adminEmail: viewer.email || 'admin',
+    };
   }
 
   return { ok: false };

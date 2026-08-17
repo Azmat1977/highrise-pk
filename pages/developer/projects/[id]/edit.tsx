@@ -1,4 +1,4 @@
-// FILE: pages/developer/projects/[id]/edit.tsx
+﻿// FILE: pages/developer/projects/[id]/edit.tsx
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/router';
@@ -20,7 +20,7 @@ import FileUploader from '@/components/admin/FileUploader';
 import BuildingFloorPlansSection, { BuildingFloorPlan } from '@/components/admin/BuildingFloorPlansSection';
 import UnitPlansSection, { UnitPlan } from '@/components/admin/UnitPlansSection';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface CompletedProject {
   name: string;
@@ -76,7 +76,7 @@ interface FileUploaderValue {
   public_id?: string;
 }
 
-// ── Raw API response shapes (from fetch — typed, not any) ──────────────────
+// â”€â”€ Raw API response shapes (from fetch â€” typed, not any) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface RawInstallmentPlan {
   totalPrice?: unknown;
@@ -218,7 +218,7 @@ interface ProjectApiResponse {
   project?: RawProject;
 }
 
-// ── Submit payload ─────────────────────────────────────────────────────────
+// â”€â”€ Submit payload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ProjectUpdateBody {
   isFullUpdate: boolean;
@@ -279,7 +279,7 @@ interface ProjectUpdateBody {
   unitTypeBreakdown: UnitPlan[];
 }
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function safeTrim(v: unknown): string {
   return typeof v === 'string' ? v.trim() : '';
@@ -363,7 +363,7 @@ function isAllowedVideoUrl(input?: string): boolean {
   return false;
 }
 
-// ─── Style constants ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Style constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const inputClass =
   'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 ' +
@@ -390,7 +390,7 @@ const secondaryButtonClass =
   'focus:outline-none focus:ring-4 focus:ring-[#029bba]/20 ' +
   'transition-all duration-200';
 
-// ─── Section wrapper ──────────────────────────────────────────────────────────
+// â”€â”€â”€ Section wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function Section({
   title, subtitle, icon, children,
@@ -410,7 +410,7 @@ function Section({
   );
 }
 
-// ─── Loading state ────────────────────────────────────────────────────────────
+// â”€â”€â”€ Loading state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function LoadingSpinner({ text = 'Loading...' }: { text?: string }): React.ReactElement {
   return (
@@ -423,7 +423,7 @@ function LoadingSpinner({ text = 'Loading...' }: { text?: string }): React.React
   );
 }
 
-// ─── Error state ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Error state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ErrorState({ message }: { message: string }): React.ReactElement {
   return (
@@ -445,21 +445,21 @@ function ErrorState({ message }: { message: string }): React.ReactElement {
   );
 }
 
-// ─── Main form ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Main form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function EditProjectForm({ projectId }: { projectId: string }): React.ReactElement {
   const router = useRouter();
   const { profile, isLoading: profileLoading } = useDeveloperContext();
   const abortRef = useRef<AbortController | null>(null);
 
-  // ── UI state ────────────────────────────────────────────────────────────────
+  // â”€â”€ UI state â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [pageLoading, setPageLoading] = useState(true);
   const [saving,      setSaving]      = useState(false);
   const [loadError,   setLoadError]   = useState<string | null>(null);
   const [saveError,   setSaveError]   = useState<string | null>(null);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  // ── Approved status guard ─────────────────────────────────
+  // â”€â”€ Approved status guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   // Only approved developers can edit projects
   useEffect(() => {
     if (profileLoading) return;
@@ -469,20 +469,12 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     }
   }, [profile, profileLoading, router]);
 
-  // Show spinner while redirecting
-  if (!profileLoading && profile && profile.status !== 'approved') {
-    return (
-      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[#029bba] border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
 
-  // ── Classification ──────────────────────────────────────────────────────────
+  // â”€â”€ Classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [projectCategory, setProjectCategory] = useState('');
   const [projectNature,   setProjectNature]   = useState('');
 
-  // ── Basic info ──────────────────────────────────────────────────────────────
+  // â”€â”€ Basic info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [projectName,            setProjectName]            = useState('');
   const [tagline,                setTagline]                = useState('');
   const [shortDescription,       setShortDescription]       = useState('');
@@ -495,7 +487,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [expectedCompletionDate, setExpectedCompletionDate] = useState('');
   const [possessionStartDate,    setPossessionStartDate]    = useState('');
 
-  // ── Legal ───────────────────────────────────────────────────────────────────
+  // â”€â”€ Legal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [approvalAuthority,         setApprovalAuthority]         = useState('');
   const [isApproved,                setIsApproved]                = useState('');
   const [nocStatus,                 setNocStatus]                 = useState('');
@@ -504,7 +496,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [environmentClearance,      setEnvironmentClearance]      = useState(false);
   const [buildingPlanApproved,      setBuildingPlanApproved]      = useState(false);
 
-  // ── High-rise scale ─────────────────────────────────────────────────────────
+  // â”€â”€ High-rise scale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [totalArea,         setTotalArea]         = useState('');
   const [totalBlocks,       setTotalBlocks]       = useState('');
   const [totalUnits,        setTotalUnits]        = useState('');
@@ -515,7 +507,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [commercialFloors,  setCommercialFloors]  = useState('');
   const [residentialFloors, setResidentialFloors] = useState('');
 
-  // ── Society scale ───────────────────────────────────────────────────────────
+  // â”€â”€ Society scale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [totalLandArea,          setTotalLandArea]          = useState('');
   const [totalResidentialPlots,  setTotalResidentialPlots]  = useState('');
   const [totalCommercialPlots,   setTotalCommercialPlots]   = useState('');
@@ -523,7 +515,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [developmentStatus,      setDevelopmentStatus]      = useState('');
   const [societyFacilities,      setSocietyFacilities]      = useState<string[]>([]);
 
-  // ── Payment ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [saleMode,               setSaleMode]               = useState('');
   const [representativeUnitType, setRepresentativeUnitType] = useState('');
   const [priceDisclaimer,        setPriceDisclaimer]        = useState('');
@@ -562,7 +554,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [earlyBirdValidTill,              setEarlyBirdValidTill]              = useState('');
   const [customOffers,                    setCustomOffers]                    = useState<CustomOffer[]>([]);
 
-  // ── Media ───────────────────────────────────────────────────────────────────
+  // â”€â”€ Media â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [featureImage,    setFeatureImage]    = useState<FeatureImageRef | null>(null);
   const [droneVideoUrl,   setDroneVideoUrl]   = useState('');
   const [virtualTourUrl,  setVirtualTourUrl]  = useState('');
@@ -570,14 +562,14 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [coordinatesRaw,  setCoordinatesRaw]  = useState('');
   const [staticMapUrl,    setStaticMapUrl]    = useState<string | null>(null);
 
-  // ── Lists ───────────────────────────────────────────────────────────────────
+  // â”€â”€ Lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [completedProjects,   setCompletedProjects]   = useState<CompletedProject[]>([{ name: '', type: '', location: '', year: '' }]);
   const [developmentUpdates, setDevelopmentUpdates] = useState<DevelopmentUpdate[]>([]);
   const [projectDocuments,    setProjectDocuments]    = useState<ProjectDocuments>({});
   const [buildingFloorPlans,  setBuildingFloorPlans]  = useState<BuildingFloorPlan[]>([]);
   const [unitPlans,           setUnitPlans]           = useState<UnitPlan[]>([]);
 
-  // ── Computed: installment ───────────────────────────────────────────────────
+  // â”€â”€ Computed: installment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const frequencyStepMap = useMemo<Record<string, number>>(() => ({
     monthly: 1, quarterly: 3, halfYearly: 6, yearly: 12,
@@ -604,7 +596,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const installmentCountNum     = useMemo(() => durationInMonths > 0 ? Math.floor(durationInMonths / frequencyStep) : 0, [durationInMonths, frequencyStep]);
   const installmentAmount       = useMemo(() => installmentCountNum > 0 ? Math.round(remainingForInstallments / installmentCountNum) : 0, [remainingForInstallments, installmentCountNum]);
 
-  // ── Computed: full payment ──────────────────────────────────────────────────
+  // â”€â”€ Computed: full payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const fullPaymentBasePriceNum       = useMemo(() => clamp(safeNum(fullPaymentBasePrice),       0, 9_999_999_999), [fullPaymentBasePrice]);
   const fullPaymentDiscountPercentNum = useMemo(() => clamp(safeNum(fullPaymentDiscountPercent), 0, 80),            [fullPaymentDiscountPercent]);
@@ -614,7 +606,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const fullPaymentPricePerUnit       = useMemo(() => fullPaymentFinalPrice && fullPaymentAreaSizeNum > 0 ? Math.round(fullPaymentFinalPrice / fullPaymentAreaSizeNum) : 0, [fullPaymentFinalPrice, fullPaymentAreaSizeNum]);
   const savingsOnFullPayment          = useMemo(() => totalPriceNum > 0 && fullPaymentFinalPrice > 0 ? totalPriceNum - fullPaymentFinalPrice : fullPaymentDiscountAmount, [totalPriceNum, fullPaymentFinalPrice, fullPaymentDiscountAmount]);
 
-  // ── apiFetch helper ─────────────────────────────────────────────────────────
+  // â”€â”€ apiFetch helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const apiFetch = useCallback(async (
     url: string,
@@ -641,7 +633,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     return { res, data };
   }, [router]);
 
-  // ── Static map preview ──────────────────────────────────────────────────────
+  // â”€â”€ Static map preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (!coordinatesRaw) { setStaticMapUrl(null); return; }
@@ -656,7 +648,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     );
   }, [coordinatesRaw]);
 
-  // ── Fetch project data ──────────────────────────────────────────────────────
+  // â”€â”€ Fetch project data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (!projectId) return;
@@ -886,7 +878,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     };
   }, [projectId, apiFetch]);
 
-  // ── Handlers ────────────────────────────────────────────────────────────────
+  // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleAddDevelopmentUpdate = useCallback((): void => {
     setDevelopmentUpdates((prev) => [
@@ -962,7 +954,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     setFeatureImage({ url: val.url, publicId: val.publicId ?? val.public_id ?? '' });
   }, []);
 
-  // ── Validation ──────────────────────────────────────────────────────────────
+  // â”€â”€ Validation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const validateBeforeSubmit = useCallback((): string | null => {
     if (!safeTrim(projectCategory))  return 'Project Category is required.';
@@ -1009,7 +1001,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     fullPaymentEnabled, fullPaymentBasePriceNum,
   ]);
 
-  // ── Submit ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Submit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleSubmit = useCallback(async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
     e.preventDefault();
@@ -1220,12 +1212,20 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     unitPlans, projectId, apiFetch,
   ]);
 
-  // ── Early returns ───────────────────────────────────────────────────────────
+  // â”€â”€ Early returns â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
+  // Show spinner while redirecting
+  if (!profileLoading && profile && profile.status !== 'approved') {
+    return (
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-[#029bba] border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
   if (pageLoading) return <LoadingSpinner text="Loading project data..." />;
   if (loadError)   return <ErrorState message={loadError} />;
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   return (
     <div className="min-h-screen bg-[#f8f9fa]">
@@ -1273,14 +1273,14 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
               <p className="text-sm text-[#333333] mt-1">{saveError}</p>
             </div>
             <button onClick={() => setSaveError(null)}
-              className="text-[#666666] hover:text-[#333333] text-lg leading-none" aria-label="Dismiss">×</button>
+              className="text-[#666666] hover:text-[#333333] text-lg leading-none" aria-label="Dismiss">أ—</button>
           </div>
         )}
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
 
-          {/* ── Section 1: Classification ─────────────────────────────────── */}
-          <Section title="Project Classification" subtitle="Choose the category and nature of your project" icon="🏗️">
+          {/* â”€â”€ Section 1: Classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          <Section title="Project Classification" subtitle="Choose the category and nature of your project" icon="ًںڈ—ï¸ڈ">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className={labelClass}>Project Category <span className="text-[#ef4444]">*</span></label>
@@ -1305,8 +1305,8 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             </div>
           </Section>
 
-          {/* ── Section 2: Basic Info ─────────────────────────────────────── */}
-          <Section title="Basic Project Info" subtitle="Essential details about your project" icon="📍">
+          {/* â”€â”€ Section 2: Basic Info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          <Section title="Basic Project Info" subtitle="Essential details about your project" icon="ًں“چ">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div className="md:col-span-2">
                 <label className={labelClass}>Project Name <span className="text-[#ef4444]">*</span></label>
@@ -1377,16 +1377,16 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             </div>
           </Section>
 
-          {/* ── Section: Construction Progress ───────────────────────────── */}
+          {/* â”€â”€ Section: Construction Progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
             title="Construction Progress & Site Updates"
             subtitle="Add dated updates with site activity videos so buyers can see real progress."
-            icon="🏗️"
+            icon="ًںڈ—ï¸ڈ"
           >
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <p className="text-sm text-[#666666]">
-                  Time to time yahan per naya update add karein – date, % progress, aur site ki video link ke sath.
+                  Time to time yahan per naya update add karein â€“ date, % progress, aur site ki video link ke sath.
                 </p>
                 <button type="button" onClick={handleAddDevelopmentUpdate} disabled={saving}
                   className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#029bba] text-white hover:bg-[#027a94] transition-colors shadow-sm disabled:opacity-50">
@@ -1397,7 +1397,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
               {developmentUpdates.length === 0 && (
                 <div className="rounded-xl border border-dashed border-gray-200 bg-[#f8f9fa] px-4 py-6 text-center text-sm text-[#666666]">
-                  Abhi koi update nahi hai. Pehla update add karein – e.g. &quot;Grey structure work started&quot; with site video link.
+                  Abhi koi update nahi hai. Pehla update add karein â€“ e.g. &quot;Grey structure work started&quot; with site video link.
                 </div>
               )}
 
@@ -1467,9 +1467,9 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             </div>
           </Section>
 
-          {/* ── Legal ─────────────────────────────────────────────────────── */}
+          {/* â”€â”€ Legal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section title="Legal Documents & Approvals"
-            subtitle="Project-level approvals from development authorities (CDA, LDA, etc.)" icon="🧾">
+            subtitle="Project-level approvals from development authorities (CDA, LDA, etc.)" icon="ًں§¾">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
               <div>
                 <label className={labelClass}>Approval Authority</label>
@@ -1531,8 +1531,8 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           {/* Documents */}
           <DocumentsSection documents={projectDocuments} onChange={setProjectDocuments} projectSlug={projectCategory || 'project'} />
 
-          {/* ── Scale ─────────────────────────────────────────────────────── */}
-          <Section title="Project Scale & Units" subtitle="Define the size and unit breakdown of your project" icon="📊">
+          {/* â”€â”€ Scale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          <Section title="Project Scale & Units" subtitle="Define the size and unit breakdown of your project" icon="ًں“ٹ">
             {!projectCategory && (
               <div className="text-center py-8 text-[#666666] text-sm">
                 Please select a Project Category above to see relevant fields.
@@ -1591,7 +1591,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                 </div>
 
                 <div className="rounded-xl bg-[#f8f9fa] p-5">
-                  <h4 className="font-semibold text-[#004063] mb-3">🏞 Society Facilities</h4>
+                  <h4 className="font-semibold text-[#004063] mb-3">ًںڈ‍ Society Facilities</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       { value: 'parks',          label: 'Parks / Playgrounds' },
@@ -1623,13 +1623,13 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           {/* Unit plans */}
           <UnitPlansSection unitPlans={unitPlans} onChange={setUnitPlans} projectSlug={projectCategory || 'project'} />
 
-          {/* ── Payment ───────────────────────────────────────────────────── */}
-          <Section title="Payment Structure" subtitle="Define pricing, payment options, and special discounts" icon="💰">
+          {/* â”€â”€ Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          <Section title="Payment Structure" subtitle="Define pricing, payment options, and special discounts" icon="ًں’°">
 
             {/* Basic settings */}
             <div className="rounded-xl bg-[#f8f9fa] p-5 border border-gray-200 mb-6">
               <h4 className="font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                <span>📋</span> Basic Settings
+                <span>ًں“‹</span> Basic Settings
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
                 <div>
@@ -1660,7 +1660,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             {(saleMode === 'Installment' || saleMode === 'Both') && (
               <div className="rounded-xl bg-[#eff6ff] p-5 border border-[#029bba]/20 mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold text-[#004063] flex items-center gap-2"><span>💳</span> Installment Plan (Smart Mode)</h4>
+                  <h4 className="font-semibold text-[#004063] flex items-center gap-2"><span>ًں’³</span> Installment Plan (Smart Mode)</h4>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={installmentEnabled} onChange={(e) => setInstallmentEnabled(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-[#029bba] focus:ring-[#029bba]" disabled={saving} />
@@ -1713,7 +1713,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
                     {percentError && (
                       <div className="rounded-lg bg-[#fef2f2] border border-[#ef4444]/20 px-4 py-2 text-xs text-[#ef4444] mb-5">
-                        ⚠️ {percentError}
+                        âڑ ï¸ڈ {percentError}
                       </div>
                     )}
 
@@ -1742,7 +1742,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                           value={installmentCountNum > 0 ? `${installmentCountNum} ${frequencyLabel[installmentFrequency] ?? 'installments'}` : 'Enter duration above'} />
                         {planDurationYearsNum > 0 && (
                           <p className="text-xs text-[#666666] mt-1">
-                            {planDurationYearsNum} yr = {durationInMonths} mo ÷ {frequencyStep} = {installmentCountNum} installments
+                            {planDurationYearsNum} yr = {durationInMonths} mo أ· {frequencyStep} = {installmentCountNum} installments
                           </p>
                         )}
                       </div>
@@ -1751,7 +1751,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                         <input readOnly className={`${inputClass} bg-[#f0fdf4] border-[#10b981]/30 font-bold text-[#10b981]`}
                           value={installmentAmount > 0 ? `Rs. ${installmentAmount.toLocaleString('en-PK')} / ${frequencyLabel[installmentFrequency] ?? 'installment'}` : 'Will be calculated'} />
                         <p className="text-xs text-[#666666] mt-1">
-                          Remaining: Rs. {remainingForInstallments.toLocaleString('en-PK')} ÷ {installmentCountNum || '?'}
+                          Remaining: Rs. {remainingForInstallments.toLocaleString('en-PK')} أ· {installmentCountNum || '?'}
                         </p>
                       </div>
                     </div>
@@ -1770,7 +1770,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             {(saleMode === 'Full Payment' || saleMode === 'Both') && (
               <div className="rounded-xl bg-[#f0fdf4] p-5 border border-[#10b981]/20 mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold text-[#004063] flex items-center gap-2"><span>💵</span> Full Cash Payment</h4>
+                  <h4 className="font-semibold text-[#004063] flex items-center gap-2"><span>ًں’µ</span> Full Cash Payment</h4>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={fullPaymentEnabled} onChange={(e) => setFullPaymentEnabled(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-[#10b981] focus:ring-[#10b981]" disabled={saving} />
@@ -1807,7 +1807,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                         </div>
                         {fullPaymentDiscountAmount > 0 && (
                           <div className="bg-[#10b981] text-white px-4 py-2 rounded-lg text-sm font-semibold">
-                            💰 Customer Saves: Rs. {fullPaymentDiscountAmount.toLocaleString('en-PK')}
+                            ًں’° Customer Saves: Rs. {fullPaymentDiscountAmount.toLocaleString('en-PK')}
                           </div>
                         )}
                       </div>
@@ -1850,7 +1850,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             {(saleMode === 'Installment' || saleMode === 'Both') && (
               <div className="rounded-xl bg-[#fef3c7] p-5 border border-[#f59e0b]/30 mb-6">
                 <h4 className="font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                  <span>🏷️</span> Special Discount Offers
+                  <span>ًںڈ·ï¸ڈ</span> Special Discount Offers
                 </h4>
                 <p className="text-sm text-[#666666] mb-5">Ye offers installment buyers ke liye hain. Enable karein jo applicable hon.</p>
 
@@ -2020,8 +2020,8 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             )}
           </Section>
 
-          {/* ── Completed Projects ────────────────────────────────────────── */}
-          <Section title="Completed Projects by Developer" subtitle="Showcase your past successful developments" icon="🏗">
+          {/* â”€â”€ Completed Projects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          <Section title="Completed Projects by Developer" subtitle="Showcase your past successful developments" icon="ًںڈ—">
             <div className="bg-[#fef3c7] border border-[#f59e0b]/30 rounded-xl p-4 mb-5">
               <p className="text-sm text-[#333333]">
                 <span className="font-semibold">Note:</span> Images for completed projects are managed separately via the Documents section.
@@ -2080,15 +2080,15 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             </button>
           </Section>
 
-          {/* ── Visuals & Location ────────────────────────────────────────── */}
-          <Section title="Visuals & Location" subtitle="Add feature image, videos, and map location" icon="📷">
+          {/* â”€â”€ Visuals & Location â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          <Section title="Visuals & Location" subtitle="Add feature image, videos, and map location" icon="ًں“·">
             <div className="mb-8 border-b border-gray-100 pb-8">
               <label className="block text-base font-semibold text-[#004063] mb-2">
                 Feature Image / Hero Cover <span className="text-[#ef4444]">*</span>
               </label>
               <p className="text-sm text-[#666666] mb-4">
                 This is the <span className="font-semibold">main image</span> shown at the top of your project page.
-                Use a high-quality (1920×1080) exterior shot or render.
+                Use a high-quality (1920أ—1080) exterior shot or render.
               </p>
               <div className="max-w-xl">
                 <FileUploader
@@ -2121,11 +2121,11 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                 <label className={labelClass}>Coordinates (Optional)</label>
                 <input type="text" className={inputClass} placeholder="e.g. 33.6996, 73.0362"
                   value={coordinatesRaw} onChange={(e) => setCoordinatesRaw(e.target.value)} disabled={saving} />
-                <p className="text-xs text-[#666666] mt-1.5">Right-click on Google Maps → &quot;What&apos;s here?&quot;</p>
+                <p className="text-xs text-[#666666] mt-1.5">Right-click on Google Maps â†’ &quot;What&apos;s here?&quot;</p>
               </div>
               {staticMapUrl && (
                 <div className="md:col-span-2">
-                  <p className="text-sm text-[#333333] mb-2">📍 Location Preview:</p>
+                  <p className="text-sm text-[#333333] mb-2">ًں“چ Location Preview:</p>
                   <img src={staticMapUrl} alt="Location preview" loading="lazy" referrerPolicy="no-referrer"
                     className="rounded-xl border border-gray-200 w-full max-w-lg" />
                 </div>
@@ -2133,7 +2133,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             </div>
           </Section>
 
-          {/* ── Submit bar ────────────────────────────────────────────────── */}
+          {/* â”€â”€ Submit bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
             <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
               <p className="text-sm text-[#666666]">Your changes will be saved and the project will be updated.</p>
@@ -2165,7 +2165,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   );
 }
 
-// ─── Page export ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function EditProjectPage(): React.ReactElement {
   const router = useRouter();
@@ -2174,7 +2174,7 @@ export default function EditProjectPage(): React.ReactElement {
   return (
     <DeveloperLayout>
       <Head>
-        <title>Edit Project — Developer Portal | Highrise.pk</title>
+        <title>Edit Project â€” Developer Portal | Highrise.pk</title>
         <meta name="robots" content="noindex, nofollow, noarchive" />
         <meta name="googlebot" content="noindex, nofollow, noarchive" />
         <meta name="referrer" content="same-origin" />

@@ -32,7 +32,7 @@ import {
   Shield,
 } from 'lucide-react';
 
-import { addToCompareSync, removeFromCompareSync, isInCompare } from '@/lib/compare';
+import { addEntityToCompare, removeEntityFromCompare, isInCompareV2 } from '@/lib/compare';
 // import { getOptimizedImageUrl } from "@/utils/cloudinaryTransform"; // Replaced with local version to fix URL bug
 
 // ✅ Local, corrected version to fix Cloudinary 400 error
@@ -180,16 +180,48 @@ const PRIMARY_COLOR = '#029bba';
 // Helpers (Enterprise-grade normalization)
 // ============================================
 
-function toIdString(v: IdLike): string {
+function toIdString(v: unknown): string {
   if (v == null) return '';
   if (typeof v === 'string') return v.trim();
   if (typeof v === 'number') return String(v);
-  try {
-    const s = v?.toString?.();
-    return typeof s === 'string' ? s.trim() : '';
-  } catch {
-    return '';
+
+  if (typeof v === 'object') {
+    const obj = v as Record<string, unknown>;
+
+    for (const key of ['$oid', '_id', 'id']) {
+      const nested = obj[key];
+      if (nested != null && nested !== v) {
+        const resolved = toIdString(nested);
+        if (resolved) return resolved;
+      }
+    }
+
+    const toHexString = (v as { toHexString?: () => unknown }).toHexString;
+    if (typeof toHexString === 'function') {
+      try {
+        const resolved = toHexString.call(v);
+        if (typeof resolved === 'string' && resolved.trim()) {
+          return resolved.trim();
+        }
+      } catch {}
+    }
+
+    const toStringFn = (v as { toString?: () => unknown }).toString;
+    if (typeof toStringFn === 'function') {
+      try {
+        const resolved = toStringFn.call(v);
+        if (
+          typeof resolved === 'string' &&
+          resolved.trim() &&
+          resolved.trim() !== '[object Object]'
+        ) {
+          return resolved.trim();
+        }
+      } catch {}
+    }
   }
+
+  return '';
 }
 
 const formatPrice = (price?: number): string => {
@@ -473,7 +505,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
   // Compare initialize
   useEffect(() => {
     if (!propertyId) return;
-    setIsCompared(isInCompare(propertyId));
+    setIsCompared(isInCompareV2('property', propertyId));
   }, [propertyId]);
 
   // Enterprise: safer JSON parsing (function declaration = hoisted, avoids TS "used before declaration")
@@ -739,38 +771,41 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
     }
   };
 
-  const handleToggleCompare = (e: React.MouseEvent) => {
+  const handleToggleCompare = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+
     if (!propertyId) return;
 
     if (isCompared) {
-      removeFromCompareSync(propertyId);
-      setIsCompared(false);
+      await removeEntityFromCompare('property', propertyId);
+
+      // Reflect actual V2 state in case backend persistence rolled back.
+      setIsCompared(isInCompareV2('property', propertyId));
     } else {
-      const firstImage = currentImage || (allImages[0] ?? null);
+      const result = await addEntityToCompare(
+        'property',
+        propertyId
+      );
 
-      const result = addToCompareSync({
-        _id: propertyId,
-        slug: property.slug,
-        title,
-        price,
-        city,
-        area: area || undefined,
-        areaUnit,
-        bedrooms: bedrooms || undefined,
-        bathrooms: bathrooms || undefined,
-        propertyType,
-        imageUrl: firstImage || undefined,
-        listingType: property.listingType,
-      });
-
-      if (result.success) setIsCompared(true);
-      else if (result.reason === 'limit_reached') alert('You can compare up to 4 properties at a time.');
-      else if (result.reason === 'duplicate') setIsCompared(true);
+      if (result.success) {
+        setIsCompared(true);
+      } else if (result.reason === 'limit_reached') {
+        alert('You can compare up to 4 properties at a time.');
+      } else {
+        showToast(
+          result.message ||
+            'Could not add this property to comparison.',
+          'error'
+        );
+      }
     }
 
-    if (typeof window !== 'undefined') window.dispatchEvent(new Event('compare-updated'));
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new Event('compare-updated')
+      );
+    }
   };
 
   const handlePrevImage = (e: React.MouseEvent) => {

@@ -43,7 +43,7 @@ const RETRY_DELAY_MS = parseInt(
 if (!MONGODB_URI) {
   throw new Error(
     "🚨 MONGODB_URI is not defined. Add it to .env.local\n" +
-    "Example: MONGODB_URI=mongodb+srv://user:pass@cluster.mongodb.net/highrise?retryWrites=true&w=majority"
+    "Set MONGODB_URI to the Atlas connection string stored only in your local/server environment."
   );
 }
 

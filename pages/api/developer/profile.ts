@@ -44,6 +44,7 @@ import {
 } from "@/lib/kycCrypto";
 import mongoose from "mongoose";
 import crypto from "crypto";
+import { toPrivateKycAssetView } from "@/lib/privateAsset";
 
 // ============================================
 // TYPES
@@ -510,30 +511,20 @@ function toPrivateProfile(profile: IDeveloperProfile): Record<string, unknown> {
     // Legal docs — URLs only, no public_ids exposed to developer
     legalDocs: profile.legalDocs
       ? {
-          secpCertificate: profile.legalDocs.secpCertificate?.url
-            ? { url: profile.legalDocs.secpCertificate.url }
-            : undefined,
-          ntnCertificate: profile.legalDocs.ntnCertificate?.url
-            ? { url: profile.legalDocs.ntnCertificate.url }
-            : undefined,
-          memorandum: profile.legalDocs.memorandum?.url
-            ? { url: profile.legalDocs.memorandum.url }
-            : undefined,
-          articlesOfAssociation: profile.legalDocs.articlesOfAssociation?.url
-            ? { url: profile.legalDocs.articlesOfAssociation.url }
-            : undefined,
-          pastProjects: (profile.legalDocs.pastProjects ?? []).map((p) => ({
-            url: p.url,
-          })),
+          secpCertificate: toPrivateKycAssetView(profile.legalDocs.secpCertificate),
+          ntnCertificate: toPrivateKycAssetView(profile.legalDocs.ntnCertificate),
+          memorandum: toPrivateKycAssetView(profile.legalDocs.memorandum),
+          articlesOfAssociation: toPrivateKycAssetView(profile.legalDocs.articlesOfAssociation),
+          pastProjects: (profile.legalDocs.pastProjects ?? [])
+            .map((p) => toPrivateKycAssetView(p))
+            .filter(Boolean),
           // V6.4.5+ — CNIC images (URLs only)
-          authorizedPersonCnicFrontImage: profile.legalDocs
-            .authorizedPersonCnicFrontImage?.url
-            ? { url: profile.legalDocs.authorizedPersonCnicFrontImage.url }
-            : undefined,
-          authorizedPersonCnicBackImage: profile.legalDocs
-            .authorizedPersonCnicBackImage?.url
-            ? { url: profile.legalDocs.authorizedPersonCnicBackImage.url }
-            : undefined,
+          authorizedPersonCnicFrontImage: toPrivateKycAssetView(
+            profile.legalDocs.authorizedPersonCnicFrontImage,
+          ),
+          authorizedPersonCnicBackImage: toPrivateKycAssetView(
+            profile.legalDocs.authorizedPersonCnicBackImage,
+          ),
         }
       : undefined,
 

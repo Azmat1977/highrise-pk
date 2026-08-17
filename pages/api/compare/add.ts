@@ -13,6 +13,7 @@ import mongoose from 'mongoose';
 import crypto from 'crypto';
 import { rateLimitApiWrite, sendRateLimitResponse } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 
 const MAX_ITEMS = 4;
 
@@ -87,7 +88,7 @@ export default async function handler(
       entityExists = Boolean(
         await Property.exists({
           _id:    entityId,
-          status: { $in: ['available', 'approved', 'active'] },
+          ...PUBLIC_PROPERTY_FILTER,
         }),
       );
     } else if (entityType === 'project') {

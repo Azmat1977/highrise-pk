@@ -32,7 +32,7 @@ import {
 } from '@/lib/rateLimit';
 
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
-import { getToken } from 'next-auth/jwt';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 
 import {
   syncUnitTypeBreakdown,
@@ -296,9 +296,9 @@ async function handleGet(
   idOrSlug: string,
 ): Promise<void> {
   // Optional auth — non-blocking (preview for owner/admin)
-  const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const viewerId   = token?.sub ? String(token.sub) : null;
-  const viewerRole = token?.role ? String(token.role) : 'user';
+  const optionalAuth = await getOptionalAuth(req);
+  const viewerId   = optionalAuth?.id ?? null;
+  const viewerRole = optionalAuth?.role ?? 'user';
   const isAdmin    = viewerRole === 'admin';
 
   // Resolve without deleted docs for public GET
@@ -313,9 +313,9 @@ async function handleGet(
     });
   }
 
-  // Check ownership — Projects.ts uses 'developer' (ObjectId ref to User)
+  // Project.developerId is the canonical authenticated User reference.
   const projectDeveloperStr = String(
-    (project as unknown as { developer: mongoose.Types.ObjectId }).developer ?? '',
+    (project as unknown as { developerId: mongoose.Types.ObjectId }).developerId ?? '',
   );
   const isOwner = viewerId ? projectDeveloperStr === viewerId : false;
 
@@ -334,7 +334,7 @@ async function handleGet(
   if (publicAllowed && !isAdmin && !isOwner) {
     Project.updateOne(
       { _id: project._id },
-      { $inc: { 'unitTypeBreakdown.viewCount': 1 } },
+      { $inc: { views: 1 } },
     ).exec().catch(() => undefined);
 
     res.setHeader('Cache-Control', 'public, s-maxage=60, stale-while-revalidate=300');
@@ -344,7 +344,7 @@ async function handleGet(
 
   // Get developer profile (for badge + company name)
   const developerProfile = await DeveloperProfile.findOne({
-    user: project.developer,
+    user: project.developerId,
   })
     .select(
       isAdmin || isOwner
@@ -355,7 +355,13 @@ async function handleGet(
 
   // Unit counts for public summary
   const unitCounts = await Unit.aggregate([
-    { $match: { project: project._id, isDeleted: { $ne: true } } },
+    {
+      $match: {
+        projectId: project._id,
+        isDeleted: { $ne: true },
+        ...(isAdmin || isOwner ? {} : { isPublished: true }),
+      },
+    },
     {
       $group: {
         _id: '$status',
@@ -414,10 +420,19 @@ async function handleGet(
     adminFields.badgeNotes      = adminProj.badgeNotes ?? null;
   }
 
+  const projectObject = project.toObject() as Record<string, unknown>;
+  if (!isAdmin && !isOwner) {
+    delete projectObject.developerId;
+    delete projectObject.verifiedBy;
+    delete projectObject.rejectionReason;
+    delete projectObject.badgeNotes;
+    delete projectObject.legalDocs;
+  }
+
   return void res.status(200).json({
     success: true,
     project: {
-      ...project.toObject(),
+      ...projectObject,
       developerProfile:  safeDevProfile,
       primaryImage:      getPrimaryImage(project),
       badge,
@@ -475,7 +490,7 @@ async function handlePatch(
 
   // ── Ownership check ─────────────────────────
   const projectDeveloperStr = String(
-    (project as unknown as { developer: mongoose.Types.ObjectId }).developer ?? '',
+    (project as unknown as { developerId: mongoose.Types.ObjectId }).developerId ?? '',
   );
 
   // Anti-enumeration: non-owners get 404 not 403

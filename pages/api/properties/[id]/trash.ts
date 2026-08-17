@@ -23,6 +23,7 @@ import { rateLimitApiWrite } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import mongoose from 'mongoose';
 import crypto from 'crypto';
+import { ownerRestoreTargetStatus, legacyStatusForVerification, isPropertyVerificationStatus } from '@/lib/property/propertyLifecycle';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 CONSTANTS
@@ -193,7 +194,7 @@ export default async function handler(
     const isOwner = property.owner?.toString() === auth.id;
     if (!isOwner) {
       // Admin attempting to use this endpoint?
-      if (auth.role === 'admin') {
+      if (auth.authorityRole === 'admin' || auth.authorityRole === 'superadmin') {
         res.status(400).json({
           success: false,
           message: 'Admin trash operations must use /api/admin/properties/[propertyId]/trash',
@@ -245,9 +246,25 @@ export default async function handler(
       pushAuditEntry(property, 'trashed', ownerId, auth.role, now, reason, ip);
     } else {
       // ── Restore ──────────────────────────────────────────────
+      // Restoration never republishes a stale verification decision.
+      const currentVerification = isPropertyVerificationStatus(property.verification?.status)
+        ? property.verification.status
+        : 'draft';
+      const restoreStatus = ownerRestoreTargetStatus(currentVerification);
+
       property.isDeleted = false;
       property.deletedAt = null;
       property.deletedBy = null;
+      if (!property.verification) property.verification = { status: 'draft' };
+      property.verification.status = restoreStatus;
+      property.verification.verifiedAt = undefined;
+      property.verification.verifiedBy = undefined;
+      property.verification.requiresManualReview = true;
+      const legacy = legacyStatusForVerification(restoreStatus);
+      property.status = legacy.status;
+      property.isVerified = legacy.isVerified;
+      property.isFlagged = legacy.isFlagged;
+      property.isFeatured = false;
 
       pushAuditEntry(property, 'restored', ownerId, auth.role, now, reason, ip);
     }
@@ -277,7 +294,7 @@ export default async function handler(
       requestId,
       message:  desired
         ? 'Moved to Trash. You can restore it within 30 days, or it will be permanently deleted.'
-        : 'Restored successfully. Property is now active.',
+        : 'Restored to Draft. Review the listing and resubmit it for verification before it can become public again.',
       property: {
         _id:       idRaw,
         slug:      property.slug,

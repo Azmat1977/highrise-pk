@@ -222,7 +222,7 @@ export default async function handler(
   // ── Fetch project ────────────────────────────
   const project = await Project.findById(id)
     .select(
-      '_id developer slug projectName status isDeleted ' +
+      '_id developerId slug projectName status isDeleted ' +
       'featureImagePublicId images gallery legalDocs',
     )
     .lean();
@@ -249,7 +249,7 @@ export default async function handler(
   }
 
   // ── Collect child unit media before delete ───
-  const units = await Unit.find({ project: new mongoose.Types.ObjectId(String(id)) })
+  const units = await Unit.find({ projectId: new mongoose.Types.ObjectId(String(id)) })
     .select('images floorPlan')
     .lean();
 
@@ -279,7 +279,7 @@ export default async function handler(
 
   // ── Delete child units first ─────────────────
   const unitDeleteResult = await Unit.deleteMany({
-    project: new mongoose.Types.ObjectId(String(id)),
+    projectId: new mongoose.Types.ObjectId(String(id)),
   });
 
   // ── Delete project document ──────────────────

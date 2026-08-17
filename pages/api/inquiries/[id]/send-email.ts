@@ -8,7 +8,7 @@ import Lead from '@/models/Lead';
 import SecurityEvent from '@/models/SecurityEvent';
 import { checkPermission } from '@/lib/permissions';
 import { rateLimitApiWrite } from '@/lib/rateLimit';
-import nodemailer from 'nodemailer';
+import nodemailer from 'highrise-nodemailer';
 import mongoose from 'mongoose';
 
 /**
@@ -252,7 +252,7 @@ export default async function handler(
       port,
       secure: port === 465,
       auth: { user, pass },
-      tls: { rejectUnauthorized: false },
+      tls: { rejectUnauthorized: true, minVersion: 'TLSv1.2' },
     });
 
     // Verify connection

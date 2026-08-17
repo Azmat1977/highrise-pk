@@ -5,6 +5,7 @@ import dbConnect from '@/lib/dbConnect';
 import RecentlyViewed from '@/models/RecentlyViewed';
 import Property from '@/models/Property';
 import mongoose from 'mongoose';
+import { isPublicProperty } from '@/lib/property/publicProperty';
 
 // ═══════════════════════════════════════════════════════════════
 // POST /api/recently-viewed/add
@@ -63,7 +64,7 @@ export default async function handler(
     // 4. Verify Property Exists (Optional but recommended)
     // ─────────────────────────────────────────────────────────────
     const property = await Property.findById(propertyId).select(
-      'title price city images propertyType slug status'
+      'title price city society locality images propertyType slug listingType verification isDeleted isFlagged'
     );
 
     if (!property) {
@@ -74,7 +75,7 @@ export default async function handler(
     }
 
     // Skip if property is not available/approved
-    if (property.status !== 'available' && property.status !== 'approved') {
+    if (!isPublicProperty(property.toObject ? property.toObject() : property)) {
       return res.status(200).json({
         success: true,
         message: 'Property not available, view not tracked',

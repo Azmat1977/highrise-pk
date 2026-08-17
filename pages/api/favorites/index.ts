@@ -8,6 +8,8 @@ import Favorite from '@/models/Favorite';
 import SecurityEvent from '@/models/SecurityEvent';
 import { rateLimitApi } from '@/lib/rateLimit';
 import mongoose from 'mongoose';
+import { isPublicProperty, PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
+import Property from '@/models/Property';
 
 /**
  * 🔐 ENTERPRISE FAVORITES LIST & CHECK ENDPOINT
@@ -265,6 +267,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       return handleHasMode(req, res, userOid, userId, requestId);
     }
 
+    if (mode === 'ids') {
+      const rows = await Favorite.find({
+        $and: [{ $or: [{ userId: userOid }, { userId }, { user: userOid }, { user: userId }] }, { entityType: 'property' }, { isDeleted: { $ne: true } }],
+      }).select('entityId').lean();
+      const ids = rows.map((row: any) => row.entityId).filter((id: unknown) => mongoose.Types.ObjectId.isValid(String(id)));
+      const publicRows = ids.length ? await Property.find({ _id: { $in: ids }, ...PUBLIC_PROPERTY_FILTER }).select('_id').lean() : [];
+      return res.status(200).json({ success: true, requestId, data: { propertyIds: publicRows.map((row: any) => String(row._id)) } });
+    }
+
     // ═══════════════════════════════════════════════════════════
     // MODE: LIST (Default - List user's favorites)
     // ═══════════════════════════════════════════════════════════
@@ -456,7 +467,7 @@ async function handleListMode(
   const sortOption: Record<string, 1 | -1> = { createdAt: -1, _id: -1 };
 
   // Populate select fields (minimal, safe)
-  const safeSelectFields = '_id slug shortId title name price currency city location coverImage featureImageUrl images thumbnail isFeatured isVerified status createdAt';
+  const safeSelectFields = '_id slug shortId title name price currency city location coverImage featureImageUrl images thumbnail isFeatured isVerified status verification isDeleted isFlagged createdAt';
 
   // Fetch a bit extra so legacy duplicates can be collapsed without ending up short
   const fetchLimit = isCursorMode
@@ -486,6 +497,7 @@ async function handleListMode(
     const canonicalEntityType = String(f.entityType || 'property').trim().toLowerCase();
 
     if (!canonicalEntityId) continue;
+    if (canonicalEntityType === 'property' && entityObj && !isPublicProperty(entityObj)) continue;
 
     const key = `${canonicalEntityType}:${canonicalEntityId}`;
     if (!uniqueFavoritesMap.has(key)) {

@@ -12,6 +12,7 @@ import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
 import { checkPermission } from '@/lib/permissions';
 import { rateLimitFavorite } from '@/lib/rateLimit';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 
 /**
  * 🔐 ENTERPRISE FAVORITES TOGGLE ENDPOINT
@@ -51,6 +52,7 @@ interface ToggleRequest {
   // Legacy support
   propertyId?: string;
   projectId?: string;
+  desiredState?: 'add' | 'remove';
 }
 
 interface ApiResponse {
@@ -193,11 +195,7 @@ async function verifyEntity(
     if (entityType === 'property') {
       const property = await Property.findOne({
         _id: entityOid,
-        isDeleted: { $ne: true },
-        $or: [
-          { status: { $in: ['active', 'approved'] } },
-          { isVerified: true },
-        ],
+        ...PUBLIC_PROPERTY_FILTER,
       })
         .select('_id')
         .maxTimeMS(MAX_QUERY_TIME_MS)
@@ -387,6 +385,7 @@ export default async function handler(
       entityId: bodyEntityId,
       propertyId,
       projectId,
+      desiredState,
     }: ToggleRequest = req.body;
 
     // Support legacy format (propertyId/projectId) and new format (entityType/entityId)
@@ -495,6 +494,16 @@ export default async function handler(
     const existing = await Favorite.findOne(favoriteFilter)
       .maxTimeMS(MAX_QUERY_TIME_MS)
       .lean() as { _id: mongoose.Types.ObjectId } | null;
+
+    // Idempotent state requests are critical for guest→account migration and
+    // explicit Save/Unsave actions. Legacy callers may omit desiredState and
+    // retain historical toggle behavior.
+    if (desiredState === 'add' && existing) {
+      return res.status(200).json({ success: true, requestId, data: { isFavorited: true, action: 'added', entityType, entityId } });
+    }
+    if (desiredState === 'remove' && !existing) {
+      return res.status(200).json({ success: true, requestId, data: { isFavorited: false, action: 'removed', entityType, entityId } });
+    }
 
     let action: 'added' | 'removed';
     let isFavorited: boolean;

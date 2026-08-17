@@ -9,6 +9,7 @@ import Email from '@/models/Email';
 import Comment from '@/models/Comment';
 import DeveloperProfile from '@/models/DeveloperProfile';
 import Lead from '@/models/Lead';
+import { requireAdmin } from '@/lib/requireAuth';
 
 // Helper function to get date range
 function getDateRange(range: string): { startDate: Date; endDate: Date } {
@@ -63,6 +64,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
   if (req.method !== 'GET') {
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }

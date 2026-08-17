@@ -13,6 +13,7 @@ import { rateLimitAdmin, setRateLimitHeaders, sendRateLimitResponse } from "@/li
 import { logPropertyAction } from "@/lib/logAdminAction";
 import crypto from "crypto";
 import mongoose from "mongoose";
+import { legacyStatusForVerification, isPropertyVerificationStatus } from "@/lib/property/propertyLifecycle";
 
 export default async function handler(
   req: NextApiRequest,
@@ -94,10 +95,26 @@ export default async function handler(
       property.deletedBy = new mongoose.Types.ObjectId(token.id);
       property.isFeatured = false; // Cannot be featured while in trash
     } else {
-      // restore
+      // Restore never republishes stale verification. Flagged Properties remain
+      // flagged until a separate canonical moderation decision resolves them.
       property.isDeleted = false;
       property.deletedAt = null;
       property.deletedBy = null;
+      const current = isPropertyVerificationStatus(property.verification?.status)
+        ? property.verification.status
+        : "draft";
+      if (current !== "flagged") {
+        if (!property.verification) property.verification = { status: "draft" };
+        property.verification.status = "draft";
+        property.verification.verifiedAt = undefined;
+        property.verification.verifiedBy = undefined;
+        property.verification.requiresManualReview = true;
+        const legacy = legacyStatusForVerification("draft");
+        property.status = legacy.status;
+        property.isVerified = legacy.isVerified;
+        property.isFlagged = legacy.isFlagged;
+      }
+      property.isFeatured = false;
     }
 
     property.updatedBy = new mongoose.Types.ObjectId(token.id);

@@ -30,6 +30,8 @@ import { addToRecentlyViewed } from "@/lib/recently-viewed";
 import AriaWidget from "@/components/aria/AriaWidget";
 import SafeDealBanner from "@/components/safedeal/SafeDealBanner";
 import VerifiedOwnerBadge from "@/components/badges/VerifiedOwnerBadge";
+import { useFavorites } from "@/hooks/useFavorites";
+import { useCompare } from "@/hooks/useCompare";
 
 import {
   ArrowLeft,
@@ -236,12 +238,15 @@ interface Property {
   contactDetails?: ContactDetails;
   contactTime?: string;
   status: "pending" | "approved" | "rejected";
+  verification?: { status?: "draft" | "pending" | "under_review" | "verified" | "rejected" | "flagged" };
   isVerified: boolean;
   ownerVerified?: boolean;
   views: number;
   createdAt: string;
   updatedAt: string;
   projectId?: string;
+  listingActor?: { role: 'developer' | 'agent' | 'owner'; label: string; displayName: string; profileSlug?: string; profileImageUrl?: string; verified?: boolean } | null;
+  trustSummary?: { listingVerified?: boolean; sellerVerified?: boolean; ownershipEvidenceReviewed?: boolean; nocStatus?: string; disclaimer?: string };
 }
 
 type AmenityGroup =
@@ -580,6 +585,8 @@ export default function PropertySlugPage({
 }: PageProps): React.ReactElement {
   const router = useRouter();
   const { data: session } = useSession();
+  const favorites = useFavorites({ defaultEntityType: 'property' });
+  const compare = useCompare({ defaultEntityType: 'property' });
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [property, setProperty] = useState<Property | null>(
@@ -597,7 +604,8 @@ export default function PropertySlugPage({
   const [showLightbox, setShowLightbox] = useState(false);
   const [showHeroMap, setShowHeroMap] = useState(false);
   const [showPhone, setShowPhone] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const [revealedContact, setRevealedContact] = useState<{ name?: string | null; phone?: string | null; whatsapp?: string | null; email?: string | null; preferredMethod?: string | null; contactTime?: string | null } | null>(null);
+  const [contactLoading, setContactLoading] = useState(false);
   const [isOwner, setIsOwner] = useState(false);
 
   const [showInquiryModal, setShowInquiryModal] = useState(false);
@@ -657,6 +665,8 @@ export default function PropertySlugPage({
     | undefined;
 
   const isLoggedIn = !!sessionUser;
+  const isSaved = property ? favorites.isFavorite(property._id, 'property') : false;
+  const isCompared = property ? compare.isInCompare(property._id, 'property') : false;
 
   // Detect ownership
   useEffect(() => {
@@ -700,7 +710,22 @@ export default function PropertySlugPage({
     if (!router.isReady) return;
     // ISR provided data → skip client fetch
     if (initialProperty) {
+      // Next.js reuses this dynamic page component when moving between
+      // /property/[slug] routes. Synchronize state with the new ISR props.
+      setProperty(initialProperty);
+      setError("");
       setLoading(false);
+
+      // Reset UI that belongs to the previous listing.
+      setSelectedImage(0);
+      setShowLightbox(false);
+      setShowHeroMap(false);
+      setShowPhone(false);
+      setRevealedContact(null);
+      setTrueCostBreakdown(null);
+      setTrueCostError("");
+      setIsOwner(false);
+      setActiveSection("overview");
       return;
     }
     const slug = router.query.slug;
@@ -726,7 +751,7 @@ export default function PropertySlugPage({
   // We transform the flat trueCost object into line items here.
   useEffect(() => {
     if (!property?._id) return;
-    if (property.status !== "approved") return;
+    if (property.verification?.status !== "verified") return;
     const slug = property.slug;
     if (!slug) return;
 
@@ -919,20 +944,32 @@ export default function PropertySlugPage({
   }, [property?.images, showLightbox, showHeroMap, nextImage, prevImage]);
 
   // ── Contact helpers ───────────────────────────────────────────────────────
-  const phoneValue =
-    property?.contactDetails?.primaryPhone ?? property?.owner?.phone ?? "";
-  const canRevealPhone =
-    !!phoneValue && property?.contactDetails?.showPhoneOnListing !== false;
+  // Public ISR data contains no seller PII. Contact is revealed only after
+  // authenticated server authorization through /api/properties/:id/contact.
+  const phoneValue = revealedContact?.phone ?? "";
+  const canRevealPhone = !!phoneValue;
+  const waValue = normalizePkMobile(revealedContact?.whatsapp ?? "");
+  const canWhatsapp = !!waValue;
 
-  const waRaw =
-    property?.whatsappNumber ??
-    property?.contactDetails?.whatsappNumber ??
-    property?.contactDetails?.primaryPhone ??
-    property?.owner?.phone ??
-    "";
-  const waValue = normalizePkMobile(waRaw);
-  const canWhatsapp =
-    !!waValue && property?.contactDetails?.allowWhatsappMessages !== false;
+  const revealContact = useCallback(async (): Promise<void> => {
+    if (!property?._id || contactLoading) return;
+    if (!isLoggedIn) { setShowAuthModal(true); return; }
+    setContactLoading(true);
+    try {
+      const res = await fetch(`/api/properties/${encodeURIComponent(property._id)}/contact`, { headers: { Accept: 'application/json' } });
+      const data = await res.json() as { success?: boolean; contact?: typeof revealedContact; message?: string };
+      if (res.ok && data.success && data.contact) {
+        setRevealedContact(data.contact);
+        if (data.contact.phone) setShowPhone(true);
+      } else {
+        setCopyBanner(data.message ?? 'Contact details are not available. You can send an inquiry instead.');
+      }
+    } catch {
+      setCopyBanner('Contact details could not be loaded. You can send an inquiry instead.');
+    } finally {
+      setContactLoading(false);
+    }
+  }, [property?._id, contactLoading, isLoggedIn]);
 
   // ── Jump links ────────────────────────────────────────────────────────────
   const jumpLinks = useMemo(() => {
@@ -1046,7 +1083,7 @@ export default function PropertySlugPage({
 
   const robotsContent = useMemo(() => {
     if (!property) return "noindex, nofollow";
-    if (property.status !== "approved") return "noindex, nofollow";
+    if (property.verification?.status !== "verified") return "noindex, nofollow";
     return "index, follow";
   }, [property]);
 
@@ -1532,7 +1569,7 @@ export default function PropertySlugPage({
                       <h1 className="text-2xl font-bold text-[#004063]">
                         {property.title}
                       </h1>
-                      {property.ownerVerified && (
+                      {property.listingActor?.verified && (
                         <VerifiedOwnerBadge size="sm" showTooltip />
                       )}
                     </div>
@@ -1559,7 +1596,7 @@ export default function PropertySlugPage({
                       Share
                     </button>
                     <button
-                      onClick={() => setIsSaved((s) => !s)}
+                      onClick={() => property?._id && void favorites.toggle(property._id, 'property')}
                       className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
                         isSaved
                           ? "border-red-300 text-red-500 bg-red-50"
@@ -1571,6 +1608,17 @@ export default function PropertySlugPage({
                         fill={isSaved ? "currentColor" : "none"}
                       />
                       {isSaved ? "Saved" : "Save"}
+                    </button>
+                    <button
+                      onClick={() => property?._id && void compare.toggle(property._id, 'property')}
+                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
+                        isCompared
+                          ? "border-[#029bba] text-[#017a8a] bg-cyan-50"
+                          : "border-gray-200 text-[#666666] hover:bg-gray-50"
+                      }`}
+                    >
+                      <LayoutGrid className="w-4 h-4" />
+                      {isCompared ? "Compared" : "Compare"}
                     </button>
                   </div>
                 </div>
@@ -2207,17 +2255,16 @@ export default function PropertySlugPage({
                     {/* Owner info */}
                     <div className="flex items-center gap-3 mb-5">
                       <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
-                        {property.owner?.profilePictureUrl ? (
+                        {property.listingActor?.profileImageUrl ? (
                           <img
                             src={property.owner.profilePictureUrl}
-                            alt={property.owner.displayName ?? property.owner.name ?? "Owner"}
+                            alt={property.listingActor?.displayName ?? "Property seller"}
                             className="w-full h-full object-cover"
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-[#666666] text-xl font-bold">
                             {(
-                              property.owner?.displayName?.charAt(0) ??
-                              property.owner?.name?.charAt(0) ??
+                              property.listingActor?.displayName?.charAt(0) ??
                               "U"
                             ).toUpperCase()}
                           </div>
@@ -2225,17 +2272,14 @@ export default function PropertySlugPage({
                       </div>
                       <div>
                         <p className="font-semibold text-[#333333]">
-                          {property.owner?.displayName ??
-                            property.owner?.name ??
-                            property.contactDetails?.personName ??
-                            "Property Owner"}
+                          {property.listingActor?.displayName ?? "Property seller"}
                         </p>
-                        <p className="text-sm text-[#666666]">Property Owner</p>
+                        <p className="text-sm text-[#666666]">{property.listingActor?.label ?? "Seller"}</p>
                       </div>
                     </div>
 
                     {/* Verified Owner trust block */}
-                    {property.ownerVerified && (
+                    {property.listingActor?.verified && (
                       <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
                         <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
                           <Shield className="w-4 h-4 text-emerald-600" />
@@ -2245,18 +2289,17 @@ export default function PropertySlugPage({
                             🛡️ Verified Owner Listing
                           </p>
                           <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">
-                            This property is listed by the verified owner.
-                            Identity confirmed by Highrise.pk admin team.
+                            The accountable listing actor has a verified Highrise profile. Verification describes completed platform checks and is not a legal title guarantee.
                           </p>
                         </div>
                       </div>
                     )}
 
-                    {property.contactTime && property.contactTime !== "anytime" && (
+                    {revealedContact?.contactTime && revealedContact.contactTime !== "anytime" && (
                       <div className="mb-4 p-3 bg-[#eff6ff] rounded-xl">
                         <p className="text-xs text-[#029bba] mb-1">Best Time to Contact</p>
                         <p className="text-sm font-medium text-[#004063]">
-                          {formatContactTime(property.contactTime)}
+                          {formatContactTime(revealedContact.contactTime ?? "anytime")}
                         </p>
                       </div>
                     )}
@@ -2283,14 +2326,12 @@ export default function PropertySlugPage({
                         )
                       ) : (
                         <button
-                          onClick={() => {
-                            setInquiryLeadType("call_back");
-                            setShowInquiryModal(true);
-                          }}
-                          className="flex items-center justify-center gap-2 w-full py-3 bg-[#029bba] text-white rounded-xl font-medium hover:bg-[#017a8a] transition-colors"
+                          onClick={() => void revealContact()}
+                          disabled={contactLoading}
+                          className="flex items-center justify-center gap-2 w-full py-3 bg-[#029bba] text-white rounded-xl font-medium hover:bg-[#017a8a] transition-colors disabled:opacity-60"
                         >
                           <Phone className="w-5 h-5" />
-                          Request Callback
+                          {contactLoading ? "Checking Contact…" : "Reveal Contact"}
                         </button>
                       )}
 
@@ -2548,10 +2589,8 @@ export default function PropertySlugPage({
         entityPrice={property.totalPrice ?? property.price}
         entityLocation={fullLocation}
         entityImage={property.images?.[0]?.url}
-        developerId={property.owner?._id}
-        developerName={
-          property.owner?.displayName ?? property.owner?.name
-        }
+        developerId={undefined}
+        developerName={property.listingActor?.displayName ?? "Property seller"}
         leadType={inquiryLeadType}
         buttonText={
           inquiryLeadType === "site_visit"
@@ -2639,55 +2678,23 @@ export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
   const slug = params?.slug;
   if (!slug || typeof slug !== "string") return { notFound: true };
 
-  // ── Build internal API base URL ────────────────────────────────────────
-  const protocol = process.env.NODE_ENV === "production" ? "https" : "http";
-  const host =
-    process.env.NEXT_PUBLIC_SITE_URL?.replace(/^https?:\/\//, "") ??
-    "localhost:3000";
-
   try {
-    // ── Legacy ObjectId redirect (301) ────────────────────────────────────
-    // If user/bookmark/external link uses /property/507f1f77bcf86cd799439011
-    // → look up the property by _id, then redirect to /property/[real-slug]
-    if (isMongoObjectId(slug)) {
-      const lookupRes = await fetch(
-        `${protocol}://${host}/api/properties/${encodeURIComponent(slug)}`
-      );
+    const { getPublicPropertyBySlug } = await import("@/lib/property/propertyService");
+    const result = await getPublicPropertyBySlug(slug);
+    if (!result?.property) return { notFound: true };
+    const property = JSON.parse(JSON.stringify(result.property)) as Property;
 
-      if (lookupRes.ok) {
-        const data = (await lookupRes.json()) as { property?: Property };
-        const canonicalSlug = data.property?.slug;
-
-        if (canonicalSlug && canonicalSlug !== slug) {
-          return {
-            redirect: {
-              destination: `/property/${encodeURIComponent(canonicalSlug)}`,
-              permanent: true, // 301 — search engines + browsers cache this
-            },
-          };
-        }
-      }
-
-      // ObjectId not found in DB → 404
-      return { notFound: true };
+    // Legacy ObjectId URLs permanently redirect to the canonical slug when available.
+    if (isMongoObjectId(slug) && property.slug && property.slug !== slug) {
+      return {
+        redirect: {
+          destination: `/property/${encodeURIComponent(property.slug)}`,
+          permanent: true,
+        },
+      };
     }
 
-    // ── Normal slug-based fetch ───────────────────────────────────────────
-    const res = await fetch(
-      `${protocol}://${host}/api/properties/by-slug/${encodeURIComponent(slug)}`
-    );
-
-    if (!res.ok) return { notFound: true };
-
-    const data = (await res.json()) as { property?: Property };
-    const property = data.property;
-
-    if (!property || property.status !== "approved") return { notFound: true };
-
-    return {
-      props: { initialProperty: property },
-      revalidate: 60,
-    };
+    return { props: { initialProperty: property }, revalidate: 60 };
   } catch {
     return { notFound: true };
   }

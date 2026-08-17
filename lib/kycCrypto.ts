@@ -5,6 +5,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import crypto from "crypto";
+import { requireServerSecret } from "@/lib/security/serverSecrets";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 CONFIGURATION & CONSTANTS
@@ -929,7 +930,7 @@ export function generateSecureOtp(length: number = 6): string {
  * ✅ Hash sensitive data for logging (one-way, not for storage)
  */
 export function hashForLogging(value: string): string {
-  const secret = process.env.NEXTAUTH_SECRET || "log-hash-secret";
+  const secret = requireServerSecret(["SECURITY_LOG_HMAC_SECRET", "NEXTAUTH_SECRET"], "KYC logging secret");
   return crypto
     .createHmac("sha256", secret)
     .update(value)

@@ -1,176 +1,101 @@
-// C:\dev\highrise-pk\pages\api\comments\[id]\reply.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]';
-import dbConnect from '@/lib/db';
-import Comment from '@/models/Comment';
 import mongoose from 'mongoose';
-import { rateLimitComment, sendRateLimitResponse } from '@/lib/rateLimit';
 import { z } from 'zod';
 
-// ----------------------------------------------------------------------
-// 🛡️ 1. SECURITY CONFIGURATION
-// ----------------------------------------------------------------------
+import dbConnect from '@/lib/db';
+import Comment from '@/models/Comment';
+import { rateLimitComment, sendRateLimitResponse } from '@/lib/rateLimit';
+import { getOptionalAuth } from '@/lib/optionalAuth';
+import { getRequestIp, verifyTurnstileToken } from '@/lib/turnstileServer';
 
-const BAD_WORDS = ["scam", "fake", "fraud", "casino", "viagra", "crypto"];
-
-// Validation Schema
-const replySchema = z.object({
-  content: z.string().min(3, "Reply must be at least 3 characters").max(1000, "Reply cannot exceed 1000 characters"),
-  guestName: z.string().min(2).max(50).optional(),
+const ReplySchema = z.object({
+  content: z.string().trim().min(3).max(1000),
+  author: z.object({
+    name: z.string().trim().min(2).max(100),
+    email: z.string().email(),
+  }).optional(),
+  guestName: z.string().trim().min(2).max(100).optional(),
   guestEmail: z.string().email().optional(),
+  parentReplyId: z.string().regex(/^[a-fA-F0-9]{24}$/).optional(),
   turnstileToken: z.string().optional(),
-});
+}).strict();
 
-const sanitize = (str: string) => str.replace(/<[^>]*>?/gm, "").trim();
-
-async function verifyTurnstile(token: string): Promise<boolean> {
-  const secretKey = process.env.TURNSTILE_SECRET_KEY;
-  if (!secretKey) return true;
-
-  try {
-    const verifyUrl = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
-    const res = await fetch(verifyUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ secret: secretKey, response: token }),
-    });
-    const data = await res.json();
-    return data.success;
-  } catch (error) {
-    console.error('Turnstile verification failed:', error);
-    return false;
-  }
+function sanitize(value: string): string {
+  return value.replace(/<[^>]*>?/g, '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '').trim().slice(0, 1000);
 }
 
-// ----------------------------------------------------------------------
-// 🚀 2. API HANDLER
-// ----------------------------------------------------------------------
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Cache-Control', 'no-store');
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
   if (req.method !== 'POST') {
+    res.setHeader('Allow', 'POST');
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const { id } = req.query;
-
-  if (!id || !mongoose.Types.ObjectId.isValid(id as string)) {
+  const rawId = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+  if (!rawId || !mongoose.Types.ObjectId.isValid(rawId)) {
     return res.status(400).json({ success: false, message: 'Invalid comment ID' });
   }
 
-  try {
-    // 🛡️ 1. Rate Limiting Apply
-    const rateLimitResult = await rateLimitComment(req);
-    if (!rateLimitResult.ok) {
-      return sendRateLimitResponse(res, rateLimitResult);
-    }
+  const rl = await rateLimitComment(req);
+  if (!rl.ok) return sendRateLimitResponse(res, rl);
 
-    // 🛡️ 2. Zod Validation Check
-    const validation = replySchema.safeParse(req.body);
-    if (!validation.success) {
-      return res.status(400).json({ 
-        success: false, 
-        message: validation.error.issues[0].message 
-      });
-    }
+  const parsed = ReplySchema.safeParse(req.body);
+  if (!parsed.success) return res.status(422).json({ success: false, message: 'Invalid reply data' });
 
-    const { content, guestName, guestEmail, turnstileToken } = validation.data;
+  const viewer = await getOptionalAuth(req);
+  const suppliedName = parsed.data.author?.name ?? parsed.data.guestName;
+  const suppliedEmail = parsed.data.author?.email ?? parsed.data.guestEmail;
 
-    // 🛡️ 3. Profanity Filter
-    if (BAD_WORDS.some(word => content.toLowerCase().includes(word))) {
-      return res.status(400).json({ success: false, message: 'Reply contains prohibited language' });
-    }
-
-    // 🛡️ 4. Determine User Identity
-    const session = await getServerSession(req, res, authOptions);
-    let isAdmin = false;
-    
-    // ✅ FIX: Explicitly define authorData type as strict strings
-    let authorData: { name: string; email: string; isAdmin: boolean };
-
-    if (session) {
-      isAdmin = session.user.role === 'admin';
-      authorData = {
-        name: isAdmin ? 'Highrise.pk Team' : (session.user.name || 'User'), // Fallback added
-        email: session.user.email || 'no-email@highrise.pk',              // Fallback added
-        isAdmin: isAdmin,
-      };
-    } else {
-      if (!guestName || !guestEmail || !turnstileToken) {
-        return res.status(401).json({ success: false, message: 'Name, Email and Captcha are required for guests' });
-      }
-
-      const isHuman = await verifyTurnstile(turnstileToken);
-      if (!isHuman) {
-        return res.status(400).json({ success: false, message: 'Bot verification failed' });
-      }
-
-      authorData = {
-        name: sanitize(guestName),
-        email: guestEmail.toLowerCase(),
-        isAdmin: false,
-      };
-    }
-
-    // 🗄️ 5. Database Operations
-    await dbConnect();
-    const comment = await Comment.findById(id);
-
-    if (!comment) {
-      return res.status(404).json({ success: false, message: 'Comment not found' });
-    }
-
-    if (comment.status !== 'approved' && !isAdmin) {
-      return res.status(403).json({
-        success: false,
-        message: 'Cannot reply to unapproved comments',
-      });
-    }
-
-    if (!comment.replies) {
-      comment.replies = [];
-    }
-
-    if (comment.replies.length >= 10) {
-      return res.status(400).json({
-        success: false,
-        message: 'This comment has reached the maximum number of replies (10)',
-      });
-    }
-
-    // ✅ FIX: Reply object is now 100% type-safe with IReply
-    const reply: any = {
-      _id: new mongoose.Types.ObjectId(),
-      author: authorData,
-      content: sanitize(content),
-      createdAt: new Date(),
+  let author: { name: string; email: string; isAdmin: boolean; isVerifiedBuyer: boolean };
+  if (viewer) {
+    author = {
+      name: viewer.name || suppliedName || 'Highrise User',
+      email: viewer.email || suppliedEmail || 'no-email@highrise.pk',
+      isAdmin: viewer.role === 'admin' || viewer.role === 'superadmin',
+      isVerifiedBuyer: false,
     };
-
-    comment.replies.push(reply);
-    await comment.save();
-
-    return res.status(201).json({
-      success: true,
-      message: isAdmin ? 'Reply posted successfully' : 'Your reply has been posted',
-      reply: {
-        _id: reply._id,
-        author: {
-          name: reply.author.name,
-          isAdmin: reply.author.isAdmin,
-        },
-        content: reply.content,
-        createdAt: reply.createdAt,
-      },
-    });
-
-  } catch (error: any) {
-    console.error('Error adding reply:', error);
-    return res.status(500).json({
-      success: false,
-      message: 'Server Error adding reply',
-    });
+  } else {
+    if (!suppliedName || !suppliedEmail || !parsed.data.turnstileToken) {
+      return res.status(401).json({ success: false, message: 'Name, email and bot verification are required' });
+    }
+    const captchaOk = await verifyTurnstileToken(parsed.data.turnstileToken, getRequestIp(req));
+    if (!captchaOk) return res.status(400).json({ success: false, message: 'Bot verification failed' });
+    author = { name: suppliedName, email: suppliedEmail.toLowerCase(), isAdmin: false, isVerifiedBuyer: false };
   }
+
+  const content = sanitize(parsed.data.content);
+  if (content.length < 3) return res.status(400).json({ success: false, message: 'Reply is too short' });
+
+  await dbConnect();
+  const comment = await Comment.findById(rawId);
+  if (!comment || comment.isDeleted) return res.status(404).json({ success: false, message: 'Comment not found' });
+  if (comment.status !== 'approved' && !author.isAdmin) {
+    return res.status(404).json({ success: false, message: 'Comment not found' });
+  }
+
+  const replies = Array.isArray(comment.replies) ? comment.replies : [];
+  if (replies.length >= 100) return res.status(409).json({ success: false, message: 'This discussion has reached its reply limit' });
+
+  let depth = 0;
+  let parentReplyId: mongoose.Types.ObjectId | undefined;
+  if (parsed.data.parentReplyId) {
+    const parent = replies.find((item: any) => String(item?._id) === parsed.data.parentReplyId);
+    if (!parent) return res.status(400).json({ success: false, message: 'Parent reply not found' });
+    depth = Math.min(Number(parent.depth ?? 0) + 1, 5);
+    parentReplyId = new mongoose.Types.ObjectId(parsed.data.parentReplyId);
+  }
+
+  comment.replies.push({
+    _id: new mongoose.Types.ObjectId(),
+    parentReplyId,
+    depth,
+    author,
+    content,
+    createdAt: new Date(),
+  } as any);
+  await comment.save();
+
+  return res.status(201).json({ success: true, message: 'Reply posted successfully' });
 }

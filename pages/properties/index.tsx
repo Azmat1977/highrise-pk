@@ -397,12 +397,12 @@ export default function PropertiesListingPage(): React.ReactElement {
   }, [filters]);
 
   const getPropertyTypesForQuery = useCallback((): string[] => {
+    // Category-only discovery is sent through propertyCategory so the API can
+    // expand the canonical Residential / Commercial / Plots discovery group.
+    // propertyTypes is reserved for an explicitly selected type.
     if (filters.propertyType) return [filters.propertyType];
-    if (filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory]) {
-      return PROPERTY_CATEGORIES[filters.propertyCategory].types;
-    }
     return [];
-  }, [filters.propertyCategory, filters.propertyType]);
+  }, [filters.propertyType]);
 
   const getFilteredPropertyTypes = useCallback(() => {
     if (filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory]) {
@@ -499,9 +499,11 @@ export default function PropertiesListingPage(): React.ReactElement {
 
       if (safeSearch)       params.append("search",       safeSearch);
       if (safeCity)         params.append("city",         safeCity);
-
+
+      const safePropertyCategory = clampEnum(filters.propertyCategory, VALID_CATEGORIES);
+      if (safePropertyCategory) params.append("propertyCategory", safePropertyCategory);
       const types = getPropertyTypesForQuery();
-      types.slice(0, 12).forEach((t) => params.append("propertyType", clampText(t, 40)));
+      types.slice(0, 12).forEach((t) => params.append("propertyTypes", clampText(t, 40)));
 
       if (safeListingType)  params.append("listingType",  safeListingType);
       if (filters.minPrice) params.append("minPrice",     clampText(filters.minPrice, 12));

@@ -305,7 +305,7 @@ async function handleGet(
 
   // ── Developer profile ────────────────────────
   const developerProfile = await DeveloperProfile.findOne({
-    user: proj.developer,
+    user: proj.developerId,
   })
     .select(
       'companyName ceoName logo establishedYear verificationLevel ' +
@@ -317,7 +317,7 @@ async function handleGet(
   const unitCounts = await Unit.aggregate([
     {
       $match: {
-        project:   new mongoose.Types.ObjectId(String(proj._id ?? '')),
+        projectId: new mongoose.Types.ObjectId(String(proj._id ?? '')),
         isDeleted: { $ne: true },
       },
     },

@@ -18,6 +18,7 @@ import { requireAuth } from "@/lib/requireAuth";
 import { rateLimitApi, setRateLimitHeaders, sendRateLimitResponse } from "@/lib/rateLimit";
 
 import OwnerProfile from "@/models/OwnerProfile";
+import { toPrivateKycAssetView } from "@/lib/privateAsset";
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -134,24 +135,19 @@ export default async function handler(
         city: profile.city,
         address: profile.address,
         documents: {
-          cnicFront: profile.documents?.cnicFront?.url
-            ? {
-                url: profile.documents.cnicFront.url,
-                uploadedAt: profile.documents.cnicFront.uploadedAt,
-                verified: !!profile.documents.cnicFront.verifiedAt,
-              }
+          cnicFront: profile.documents?.cnicFront
+            ? (() => {
+                const asset = toPrivateKycAssetView(profile.documents.cnicFront);
+                return asset
+                  ? { ...asset, verified: !!profile.documents.cnicFront?.verifiedAt }
+                  : null;
+              })()
             : null,
-          cnicBack: profile.documents?.cnicBack?.url
-            ? {
-                url: profile.documents.cnicBack.url,
-                uploadedAt: profile.documents.cnicBack.uploadedAt,
-              }
+          cnicBack: profile.documents?.cnicBack
+            ? (toPrivateKycAssetView(profile.documents.cnicBack) ?? null)
             : null,
-          selfieWithCnic: profile.documents?.selfieWithCnic?.url
-            ? {
-                url: profile.documents.selfieWithCnic.url,
-                uploadedAt: profile.documents.selfieWithCnic.uploadedAt,
-              }
+          selfieWithCnic: profile.documents?.selfieWithCnic
+            ? (toPrivateKycAssetView(profile.documents.selfieWithCnic) ?? null)
             : null,
           profilePhoto: profile.documents?.profilePhoto?.url
             ? {

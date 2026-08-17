@@ -242,6 +242,7 @@ export function useFavorites(
             body:        JSON.stringify({
               entityType: f.entityType,
               entityId:   f.entityId,
+              desiredState: 'add',
             }),
           }),
         ),
@@ -398,6 +399,7 @@ export function useFavorites(
           body:        JSON.stringify({
             entityType: type,
             entityId,
+            desiredState: wasFavorited ? 'remove' : 'add',
           }),
         });
 

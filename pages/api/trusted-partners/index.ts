@@ -1,97 +1,79 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '../../../lib/dbConnect';
-import TrustedPartner from '../../../models/TrustedPartner';
+import { z } from 'zod';
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // ✅ GET - Fetch all active partners (public)
+import dbConnect from '@/lib/dbConnect';
+import TrustedPartner from '@/models/TrustedPartner';
+import { requireAdmin } from '@/lib/requireAuth';
+import { isHighrisePublicId } from '@/lib/cloudinary';
+import { rateLimitAdmin, rateLimitApi, sendRateLimitResponse, setRateLimitHeaders } from '@/lib/rateLimit';
+
+const CreatePartnerSchema = z.object({
+  companyName: z.string().trim().min(2).max(100),
+  logo: z.object({
+    url: z.string().url().refine((url) => url.startsWith('https://res.cloudinary.com/'), 'Logo must be uploaded through Highrise'),
+    publicId: z.string().min(1).max(500).refine(isHighrisePublicId, 'Invalid Highrise logo publicId'),
+  }).strict(),
+  website: z.string().url().max(500).optional().or(z.literal('')),
+  displayOrder: z.coerce.number().int().min(0).max(10000).optional().default(0),
+}).strict();
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+
   if (req.method === 'GET') {
+    const rl = await rateLimitApi(req);
+    setRateLimitHeaders(res, rl);
+    if (!rl.ok) return sendRateLimitResponse(res, rl);
+
     try {
       await dbConnect();
-
       const partners = await TrustedPartner.getActivePartners();
-
-      res.status(200).json({
-        success: true,
-        count: partners.length,
-        partners,
-      });
-    } catch (error) {
-      console.error('Error fetching trusted partners:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to fetch trusted partners',
-      });
+      res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
+      return res.status(200).json({ success: true, count: partners.length, partners });
+    } catch {
+      return res.status(500).json({ success: false, message: 'Failed to fetch trusted partners' });
     }
-    return;
   }
 
-  // ✅ POST - Create new partner (admin only)
   if (req.method === 'POST') {
-    const { getSession } = await import('next-auth/react');
-    const session = await getSession({ req });
+    const auth = await requireAdmin(req, res);
+    if (!auth) return;
 
-    // Admin Check
-    if (!session?.user || (session.user as any).role !== 'admin') {
-      return res.status(401).json({
-        success: false,
-        message: 'Unauthorized - Admin access required',
-      });
+    const rl = await rateLimitAdmin(req);
+    setRateLimitHeaders(res, rl);
+    if (!rl.ok) return sendRateLimitResponse(res, rl);
+
+    const parsed = CreatePartnerSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(422).json({ success: false, message: 'Invalid partner data', errors: parsed.error.flatten().fieldErrors });
     }
 
     try {
       await dbConnect();
-
-      const { companyName, logo, website, displayOrder } = req.body;
-
-      // Validate required fields
-      if (!companyName || !logo?.url || !logo?.publicId) {
-        return res.status(400).json({
-          success: false,
-          message: 'Company name and logo are required',
-        });
-      }
-
-      // Check for duplicate
+      const { companyName, logo, website, displayOrder } = parsed.data;
       const existing = await TrustedPartner.findOne({
-        companyName: new RegExp(`^${companyName}$`, 'i'),
+        companyName: new RegExp(`^${companyName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i'),
         isDeleted: false,
-      });
+      }).select('_id').lean();
 
-      if (existing) {
-        return res.status(409).json({
-          success: false,
-          message: 'A partner with this name already exists',
-        });
-      }
+      if (existing) return res.status(409).json({ success: false, message: 'A partner with this name already exists' });
 
       const partner = await TrustedPartner.create({
         companyName,
         logo,
-        website,
-        displayOrder: displayOrder || 0,
+        website: website || undefined,
+        displayOrder,
         isActive: true,
         isDeleted: false,
-        addedBy: (session.user as any).id,
+        addedBy: auth.id,
       });
 
-      res.status(201).json({
-        success: true,
-        message: 'Trusted partner created successfully',
-        partner,
-      });
-    } catch (error) {
-      console.error('Error creating trusted partner:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to create trusted partner',
-      });
+      return res.status(201).json({ success: true, message: 'Trusted partner created successfully', partner });
+    } catch {
+      return res.status(500).json({ success: false, message: 'Failed to create trusted partner' });
     }
-    return;
   }
 
-  // Method not allowed
-  res.status(405).json({ success: false, message: 'Method not allowed' });
+  res.setHeader('Allow', ['GET', 'POST']);
+  return res.status(405).json({ success: false, message: 'Method not allowed' });
 }

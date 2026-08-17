@@ -1,6 +1,7 @@
 // models/Property.ts
 import mongoose, { Schema, Document, CallbackError } from 'mongoose';
 import crypto from 'crypto';
+import { canTransitionPropertyVerification } from '@/lib/property/propertyLifecycle';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 SECURITY CONFIGURATION
@@ -117,13 +118,24 @@ export interface IVerificationMetadata {
 }
 
 export interface IOwnershipProof {
-  hasProof:                  boolean;
-  titleDeedEncrypted?:       string;
+  hasProof: boolean;
+  // Legacy URL-encrypted fields retained only for migration compatibility.
+  titleDeedEncrypted?: string;
   authorityLetterEncrypted?: string;
-  cnicCopyEncrypted?:        string;
-  uploadedAt?:               Date;
-  verifiedByAdmin?:          boolean;
-  verificationNotes?:        string;
+  cnicCopyEncrypted?: string;
+  // Canonical durable Cloudinary references. Public IDs are encrypted at rest.
+  titleDeedPublicIdEncrypted?: string;
+  titleDeedResourceType?: 'image' | 'raw';
+  authorityLetterPublicIdEncrypted?: string;
+  authorityLetterResourceType?: 'image' | 'raw';
+  cnicCopyPublicIdEncrypted?: string;
+  cnicCopyResourceType?: 'image' | 'raw';
+  uploadedAt?: Date;
+  reviewStatus?: 'not_submitted' | 'pending' | 'verified' | 'rejected';
+  reviewedAt?: Date;
+  reviewedBy?: mongoose.Types.ObjectId;
+  verifiedByAdmin?: boolean;
+  verificationNotes?: string;
 }
 
 export interface IFraudDetection {
@@ -250,13 +262,15 @@ export interface IDocument {
 }
 
 export interface IFloorPlan {
-  floorName:        string;
-  floorNumber?:     number;
-  imageUrl?:        string;
-  imagePublicId?:   string;
-  pdfUrl?:          string;
-  pdfPublicId?:     string;
-  description?:     string;
+  floorName: string;
+  floorNumber?: number;
+  imageUrl?: string;
+  imagePublicId?: string;
+  pdfUrl?: string;
+  pdfPublicId?: string;
+  resourceType?: 'image' | 'raw';
+  mimeType?: string;
+  description?: string;
 }
 
 export interface IUnitPlan {
@@ -1340,13 +1354,28 @@ const VerificationMetadataSchema = new Schema(
 
 const OwnershipProofSchema = new Schema(
   {
-    hasProof:                  { type: Boolean, default: false },
-    titleDeedEncrypted:        { type: String, trim: true, maxlength: 2048 },
-    authorityLetterEncrypted:  { type: String, trim: true, maxlength: 2048 },
-    cnicCopyEncrypted:         { type: String, trim: true, maxlength: 2048 },
-    uploadedAt:                { type: Date },
-    verifiedByAdmin:           { type: Boolean, default: false },
-    verificationNotes:         { type: String, trim: true, maxlength: 1000 },
+    hasProof: { type: Boolean, default: false },
+    // Legacy encrypted URLs — retained until historical migration is complete.
+    titleDeedEncrypted: { type: String, trim: true, maxlength: 2048 },
+    authorityLetterEncrypted: { type: String, trim: true, maxlength: 2048 },
+    cnicCopyEncrypted: { type: String, trim: true, maxlength: 2048 },
+    // Canonical encrypted durable Cloudinary IDs.
+    titleDeedPublicIdEncrypted: { type: String, trim: true, maxlength: 2048 },
+    titleDeedResourceType: { type: String, enum: ['image', 'raw'] },
+    authorityLetterPublicIdEncrypted: { type: String, trim: true, maxlength: 2048 },
+    authorityLetterResourceType: { type: String, enum: ['image', 'raw'] },
+    cnicCopyPublicIdEncrypted: { type: String, trim: true, maxlength: 2048 },
+    cnicCopyResourceType: { type: String, enum: ['image', 'raw'] },
+    uploadedAt: { type: Date },
+    reviewStatus: {
+      type: String,
+      enum: ['not_submitted', 'pending', 'verified', 'rejected'],
+      default: 'not_submitted',
+    },
+    reviewedAt: { type: Date },
+    reviewedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    verifiedByAdmin: { type: Boolean, default: false },
+    verificationNotes: { type: String, trim: true, maxlength: 1000 },
   },
   { _id: false }
 );
@@ -1598,7 +1627,7 @@ const PropertySchema = new Schema<IProperty>(
     province:         { type: String, trim: true, maxlength: 60,  index: true },
     city:             { type: String, required: true, trim: true, maxlength: 60,  index: true },
     locality:         { type: String, trim: true, maxlength: 80 },
-    society:          { type: String, required: true, trim: true, maxlength: 120, index: true },
+    society:          { type: String, required: false, default: '', trim: true, maxlength: 120, index: true },
     phase:            { type: String, trim: true, maxlength: 60 },
     block:            { type: String, trim: true, maxlength: 60 },
     streetNumber:     { type: String, trim: true, maxlength: 40 },
@@ -2112,6 +2141,8 @@ const PropertySchema = new Schema<IProperty>(
         imagePublicId:{ type: String, trim: true, maxlength: 512  },
         pdfUrl:       { type: String, trim: true, maxlength: 2048 },
         pdfPublicId:  { type: String, trim: true, maxlength: 512  },
+        resourceType: { type: String, enum: ['image', 'raw'] },
+        mimeType:     { type: String, trim: true, maxlength: 120 },
         description:  { type: String, trim: true, maxlength: 800  },
       },
     ],
@@ -2492,23 +2523,14 @@ PropertySchema.pre<IProperty>('save', async function (next: (err?: CallbackError
     if (this.isModified('verification.status')) {
       const newStatus = this.verification?.status;
 
-      const ALLOWED_TRANSITIONS: Record<VerificationStatus, VerificationStatus[]> = {
-        draft:        ['pending'],
-        pending:      ['under_review', 'rejected'],
-        under_review: ['verified', 'rejected', 'flagged'],
-        rejected:     ['under_review'],
-        flagged:      ['under_review'],
-        verified:     ['flagged'],
-      };
-
       if (
         typeof previousVerificationStatus === 'string' &&
         previousVerificationStatus !== newStatus
       ) {
-        const allowedNext =
-          ALLOWED_TRANSITIONS[previousVerificationStatus as VerificationStatus] ?? [];
-
-        if (!allowedNext.includes(newStatus as VerificationStatus)) {
+        if (!canTransitionPropertyVerification(
+          previousVerificationStatus as VerificationStatus,
+          newStatus as VerificationStatus,
+        )) {
           return next(
             new Error(
               `Invalid property lifecycle transition from "${previousVerificationStatus}" to "${newStatus}".`

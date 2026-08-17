@@ -102,8 +102,12 @@ export default async function handler(
   try {
     // ── Fetch projects ────────────────────────────────────────────────────
     const rawProjects = await Project.find({
-      _id:       { $in: validIds },
-      isDeleted: { $ne: true },
+      _id:                     { $in: validIds },
+      isDeleted:               { $ne: true },
+      status:                  'verified',
+      verificationStatus:      'verified',
+      developerApprovalStatus: 'approved',
+      isVerified:              true,
     })
       .select({
         _id: 1, slug: 1, projectName: 1, tagline: 1,

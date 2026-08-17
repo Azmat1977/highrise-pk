@@ -6,12 +6,13 @@ import dbConnect from '@/lib/db';
 import Blog from '@/models/Blog';
 import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import cloudinary from '@/lib/cloudinary';
+import { uploadBuffer } from '@/lib/cloudinary';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import { checkPermission } from '@/lib/permissions';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { z } from 'zod';
+import { parseBlogImageDataUrl, sanitizeBlogHtml } from '@/lib/blogSecurity';
 
 // Increase body parser limit for base64 images
 export const config = {
@@ -166,22 +167,29 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const data = parsed.data;
       let finalImage = data.image;
 
-      // Handle Image Upload securely
+      // Handle base64 cover image through the centralized validated upload path.
       if (data.imageBase64 && !data.image?.url) {
-        try {
-          const uploadResult = await cloudinary.uploader.upload(data.imageBase64, {
-            folder: 'highrise-pk/blog',
-            transformation: [{ width: 1200, height: 630, crop: 'fill' }, { format: 'webp' }],
-          });
-          finalImage = { url: uploadResult.secure_url, public_id: uploadResult.public_id };
-        } catch (uploadError) {
-          console.error('Cloudinary error:', uploadError);
+        const parsedImage = parseBlogImageDataUrl(data.imageBase64);
+        if (!parsedImage) {
+          return res.status(400).json({ success: false, message: 'Invalid blog cover image' });
+        }
+        const uploadResult = await uploadBuffer(
+          parsedImage.buffer,
+          parsedImage.filename,
+          'blog',
+          'image',
+          { tags: ['blog-cover'] },
+        );
+        if (!uploadResult.success || !uploadResult.secureUrl || !uploadResult.publicId) {
           return res.status(500).json({ success: false, message: 'Image upload failed' });
         }
+        finalImage = { url: uploadResult.secureUrl, public_id: uploadResult.publicId };
       }
 
+      const { imageBase64: _imageBase64, ...safeData } = data;
       const blog = await Blog.create({
-        ...data,
+        ...safeData,
+        content: sanitizeBlogHtml(data.content),
         image: finalImage,
         authorId: admin._id,
         authorName: data.authorName || admin.name,

@@ -1,718 +1,306 @@
-// pages/api/projects/[id]/documents.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import formidable, { Fields, Files, File as FormidableFile } from 'formidable';
+import formidable, { type Fields, type Files, type File as FormidableFile } from 'formidable';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/dbConnect';
-import cloudinary from '@/lib/cloudinary';
-import { requireAuth } from '@/lib/requireAuth';
-import {
-  rateLimitDeveloper,
-  sendRateLimitResponse,
-  setRateLimitHeaders,
-} from '@/lib/rateLimit';
-import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import { z } from 'zod';
 
-// ════════════════════════════════════════════════════
-// CONFIG
-// ════════════════════════════════════════════════════
+import dbConnect from '@/lib/dbConnect';
+import Project from '@/models/Projects';
+import cloudinary, { deleteFile, isHighrisePublicId } from '@/lib/cloudinary';
+import { uploadValidatedTempFile, UploadValidationError } from '@/lib/secureFormidableUpload';
+import { getOptionalAuth } from '@/lib/optionalAuth';
+import { requireAuth } from '@/lib/requireAuth';
+import { rateLimitDeveloper, rateLimitApi, sendRateLimitResponse, setRateLimitHeaders } from '@/lib/rateLimit';
+import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 
-export const config = {
-  api: { bodyParser: false },
-};
+export const config = { api: { bodyParser: false } };
 
-// ════════════════════════════════════════════════════
-// CONSTANTS
-// ════════════════════════════════════════════════════
-
-const MAX_DOCUMENTS         = 20;
-const MAX_FILE_SIZE_MB      = 25;
-const CLOUDINARY_FOLDER     = 'highrise/projects/documents';
-
-const ALLOWED_MIME_TYPES = [
-  'application/pdf',
-  'image/jpeg',
-  'image/png',
-  'image/webp',
-  'application/msword',
-  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  'application/vnd.ms-excel',
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-];
-
+const MAX_DOCUMENTS = 20;
+const MAX_UPLOAD_FILES = 5;
 const DOCUMENT_CATEGORIES = [
-  'noc',
-  'approval_letter',
-  'building_plan',
-  'layout_plan',
-  'development_agreement',
-  'allotment_letter',
-  'rera_registration',
-  'environmental_clearance',
-  'brochure',
-  'payment_plan',
-  'floor_plan',
-  'specification',
-  'legal',
-  'financial',
-  'other',
+  'noc', 'approval_letter', 'building_plan', 'layout_plan', 'development_agreement',
+  'allotment_letter', 'rera_registration', 'environmental_clearance', 'brochure',
+  'payment_plan', 'floor_plan', 'specification', 'legal', 'financial', 'other',
 ] as const;
+const VISIBILITY_OPTIONS = ['public', 'registered', 'admin_only'] as const;
 
 type DocumentCategory = (typeof DOCUMENT_CATEGORIES)[number];
-
-const VISIBILITY_OPTIONS = ['public', 'registered', 'admin_only'] as const;
 type DocumentVisibility = (typeof VISIBILITY_OPTIONS)[number];
-
-// ════════════════════════════════════════════════════
-// ZOD SCHEMAS
-// ════════════════════════════════════════════════════
+type ResourceType = 'image' | 'raw';
 
 const UpdateDocumentSchema = z.object({
-  publicId:    z.string().min(1).max(512),
-  title:       z.string().min(1).max(200).optional(),
-  description: z.string().max(500).optional(),
-  category:    z.enum(DOCUMENT_CATEGORIES).optional(),
-  visibility:  z.enum(VISIBILITY_OPTIONS).optional(),
-  order:       z.number().min(0).max(10000).optional(),
-});
-
-const DeleteDocumentSchema = z.object({
   publicId: z.string().min(1).max(512),
-});
-
-// ════════════════════════════════════════════════════
-// TYPES
-// ════════════════════════════════════════════════════
+  title: z.string().trim().min(1).max(200).optional(),
+  description: z.string().trim().max(500).optional(),
+  category: z.enum(DOCUMENT_CATEGORIES).optional(),
+  visibility: z.enum(VISIBILITY_OPTIONS).optional(),
+  order: z.number().int().min(0).max(10_000).optional(),
+}).strict();
+const DeleteDocumentSchema = z.object({ publicId: z.string().min(1).max(512) }).strict();
 
 interface ProjectDocument {
-  url:          string;
-  publicId:     string;
-  title:        string;
+  url: string;
+  publicId: string;
+  title: string;
   description?: string;
-  category:     DocumentCategory;
-  visibility:   DocumentVisibility;
-  fileType:     string;
-  fileSize?:    number;
-  order:        number;
-  uploadedAt:   Date;
-  uploadedBy?:  string;
+  category: DocumentCategory;
+  visibility: DocumentVisibility;
+  fileType: string;
+  fileSize?: number;
+  resourceType?: ResourceType;
+  format?: string;
+  order: number;
+  uploadedAt: Date;
+  uploadedBy?: string;
 }
 
-// ════════════════════════════════════════════════════
-// HELPERS
-// ════════════════════════════════════════════════════
+function setSecurityHeaders(res: NextApiResponse): void {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+}
 
-async function uploadDocToCloudinary(
-  file: FormidableFile
-): Promise<{ url: string; publicId: string }> {
-  const result = await cloudinary.uploader.upload(file.filepath, {
-    folder:        CLOUDINARY_FOLDER,
-    resource_type: 'auto',
-    access_mode:   'authenticated',
+function isProjectPublic(project: { status?: string; verificationStatus?: string; isVerified?: boolean }): boolean {
+  return project.isVerified === true ||
+    (String(project.status ?? '').toLowerCase() === 'verified' &&
+      String(project.verificationStatus ?? '').toLowerCase() === 'verified');
+}
+
+function fieldValue(fields: Fields, name: string): string {
+  const val = fields[name];
+  return val ? String(Array.isArray(val) ? val[0] ?? '' : val) : '';
+}
+
+function fileTypeFor(file: FormidableFile, uploadedFormat?: string): string {
+  if (uploadedFormat) return uploadedFormat.toLowerCase();
+  const mime = String(file.mimetype ?? '').toLowerCase();
+  if (mime === 'application/pdf') return 'pdf';
+  if (mime === 'image/jpeg') return 'jpeg';
+  if (mime === 'image/png') return 'png';
+  if (mime === 'image/webp') return 'webp';
+  return 'file';
+}
+
+function signedDocumentUrl(doc: ProjectDocument): string {
+  const format = String(doc.format || doc.fileType || 'pdf').replace(/^\./, '');
+  const resourceType = doc.resourceType ?? (format === 'pdf' ? 'image' : 'image');
+  return cloudinary.utils.private_download_url(doc.publicId, format, {
+    type: 'authenticated',
+    resource_type: resourceType,
+    expires_at: Math.floor(Date.now() / 1000) + 5 * 60,
+    attachment: false,
   });
-  return {
-    url:      result.secure_url,
-    publicId: result.public_id,
-  };
 }
 
-async function deleteDocFromCloudinary(publicId: string): Promise<boolean> {
-  try {
-    await cloudinary.uploader.destroy(publicId, {
-      resource_type: 'raw',
-      invalidate:    true,
-    });
-    return true;
-  } catch {
-    // Try image resource type (PDFs sometimes stored as images)
-    try {
-      await cloudinary.uploader.destroy(publicId, {
-        resource_type: 'image',
-        invalidate:    true,
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
+async function parseJsonBody(req: NextApiRequest): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+  const text = Buffer.concat(chunks).toString('utf8').trim();
+  return text ? JSON.parse(text) : {};
 }
 
-function getFileExtension(filename: string): string {
-  const parts = filename.split('.');
-  return parts.length > 1 ? parts[parts.length - 1].toLowerCase() : 'unknown';
+async function getProject(id: string) {
+  return Project.findOne({ _id: id, isDeleted: { $ne: true } })
+    .select('_id developerId documents projectName status verificationStatus isVerified')
+    .lean() as Promise<{
+      _id: mongoose.Types.ObjectId;
+      developerId: mongoose.Types.ObjectId;
+      documents?: ProjectDocument[];
+      projectName?: string;
+      status?: string;
+      verificationStatus?: string;
+      isVerified?: boolean;
+    } | null>;
 }
 
-function getFileType(mimetype: string): string {
-  const mimeMap: Record<string, string> = {
-    'application/pdf': 'pdf',
-    'image/jpeg':      'jpeg',
-    'image/png':       'png',
-    'image/webp':      'webp',
-    'application/msword': 'doc',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document': 'docx',
-    'application/vnd.ms-excel': 'xls',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': 'xlsx',
-  };
-  return mimeMap[mimetype] ?? 'unknown';
-}
-
-async function verifyProjectOwnership(
-  projectId: string,
-  authId:    string,
-  role:      string
-): Promise<{
-  ok:      boolean;
-  project: Record<string, unknown> | null;
-  error?:  string;
-  status?: number;
-}> {
-  const Project = mongoose.models.Project as
-    mongoose.Model<mongoose.Document>;
-
-  if (!Project) {
-    return { ok: false, project: null, error: 'Something went wrong', status: 500 };
-  }
-
-  const projectQuery: Record<string, unknown> = {
-    _id:       new mongoose.Types.ObjectId(projectId),
-    isDeleted: { $ne: true },
-  };
-
-  if (role === 'developer') {
-    const DeveloperProfile = mongoose.models.DeveloperProfile as
-      mongoose.Model<mongoose.Document>;
-
-    const devProfile = await DeveloperProfile.findOne(
-      { user: authId },
-      { _id: 1 }
-    ).lean() as { _id: mongoose.Types.ObjectId } | null;
-
-    if (!devProfile) {
-      return { ok: false, project: null, error: 'Developer profile not found', status: 403 };
-    }
-
-    projectQuery.developerId = devProfile._id;
-  }
-
-  const project = await Project.findOne(projectQuery)
-    .select('_id developerId documents')
-    .lean() as Record<string, unknown> | null;
-
-  if (!project) {
-    return {
-      ok:     false,
-      project: null,
-      error:  'Project not found or you do not have permission',
-      status: 404,
-    };
-  }
-
-  return { ok: true, project };
-}
-
-// ════════════════════════════════════════════════════
-// HANDLER
-// ════════════════════════════════════════════════════
-
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // ── ID guard ──
-  const { id } = req.query;
-  if (!id || typeof id !== 'string') {
-    return res.status(400).json({ success: false, message: 'Project ID is required' });
-  }
-  if (!mongoose.isValidObjectId(id)) {
-    return res.status(400).json({ success: false, message: 'Invalid project ID' });
-  }
-
-  // ════════════════════════════════════════════════════
-  // GET — List project documents (visibility-gated)
-  // ════════════════════════════════════════════════════
-  if (req.method === 'GET') {
-    // Auth is optional for GET — determines visibility
-    let userId:   string | null = null;
-    let userRole: string | null = null;
-
-    try {
-      const auth = await requireAuth(req, res);
-      if (auth) {
-        userId   = auth.id;
-        userRole = auth.role as string;
-      }
-    } catch {
-      // Not authenticated — public access only
-    }
-
-    await dbConnect();
-
-    try {
-      const Project = mongoose.models.Project as
-        mongoose.Model<mongoose.Document>;
-
-      if (!Project) {
-        return res.status(500).json({ success: false, message: 'Something went wrong' });
-      }
-
-      const project = await Project.findOne({
-        _id:       new mongoose.Types.ObjectId(id),
-        isDeleted: { $ne: true },
-      })
-        .select('documents projectName developerId')
-        .lean() as {
-          _id:          mongoose.Types.ObjectId;
-          documents?:   ProjectDocument[];
-          projectName?: string;
-          developerId?: mongoose.Types.ObjectId;
-        } | null;
-
-      if (!project) {
-        return res.status(404).json({
-          success: false,
-          message: 'Project not found',
-        });
-      }
-
-      // Apply visibility filtering
-      const allDocs = (project.documents ?? [])
-        .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
-
-      let filteredDocs: ProjectDocument[];
-
-      if (userRole === 'admin') {
-        // Admin sees everything
-        filteredDocs = allDocs;
-      } else if (userId) {
-        // Logged-in user sees public + registered
-        // Developer sees their own admin_only docs too
-        const isOwner = project.developerId?.toString() === userId;
-        filteredDocs = allDocs.filter((doc) => {
-          if (doc.visibility === 'public') return true;
-          if (doc.visibility === 'registered') return true;
-          if (doc.visibility === 'admin_only' && isOwner) return true;
-          return false;
-        });
-      } else {
-        // Public — only public documents
-        filteredDocs = allDocs.filter((doc) => doc.visibility === 'public');
-      }
-
-      // Strip internal fields for non-admin
-      const safeDocs = filteredDocs.map((doc) => ({
-        url:         doc.url,
-        publicId:    doc.publicId,
-        title:       doc.title,
-        description: doc.description,
-        category:    doc.category,
-        visibility:  userRole === 'admin' ? doc.visibility : undefined,
-        fileType:    doc.fileType,
-        fileSize:    doc.fileSize,
-        order:       doc.order,
-        uploadedAt:  doc.uploadedAt,
-      }));
-
-      // Group by category for frontend convenience
-      const byCategory: Record<string, typeof safeDocs> = {};
-      for (const doc of safeDocs) {
-        const cat = doc.category ?? 'other';
-        if (!byCategory[cat]) byCategory[cat] = [];
-        byCategory[cat].push(doc);
-      }
-
-      res.setHeader('Cache-Control', 'private, max-age=30');
-
-      return res.status(200).json({
-        success: true,
-        data: {
-          documents:   safeDocs,
-          byCategory,
-          totalDocuments: safeDocs.length,
-        },
-      });
-
-    } catch (error: unknown) {
-      await logSecurityEvent({
-        type:     'system_error',
-        severity: 'medium',
-        metadata: {
-          action:    'project_documents_fetch_failed',
-          projectId: id,
-          reason:    error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
-    }
-  }
-
-  // ═══════════════════════════════════════════════════
-  // AUTH + RATE LIMIT for all mutation methods
-  // ═══════════════════════════════════════════════════
+async function requireProjectOwner(req: NextApiRequest, res: NextApiResponse, id: string) {
   const auth = await requireAuth(req, res);
-  if (!auth) return;
+  if (!auth) return null;
+  const isAdmin = ['admin', 'superadmin'].includes(auth.role);
+  if (!isAdmin && auth.role !== 'developer') {
+    res.status(403).json({ success: false, message: 'Access denied.' });
+    return null;
+  }
+  const project = await getProject(id);
+  if (!project || (!isAdmin && String(project.developerId) !== auth.id)) {
+    res.status(404).json({ success: false, message: 'Project not found.' });
+    return null;
+  }
+  return { auth, project, isAdmin };
+}
 
-  const role = auth.role as string;
-  if (!['developer', 'admin'].includes(role)) {
-    return res.status(403).json({ success: false, message: 'Access denied' });
+async function deleteAttachedDocument(doc: ProjectDocument): Promise<void> {
+  if (isHighrisePublicId(doc.publicId)) {
+    const result = await deleteFile(doc.publicId, { resourceType: doc.resourceType ?? 'image' });
+    if (result.success) return;
+  }
+  // Legacy project-document records were stored under an older Highrise folder.
+  // Only delete here after exact attachment ownership has already been proven.
+  if (doc.publicId.startsWith('highrise/projects/documents/')) {
+    for (const resourceType of [doc.resourceType ?? 'image', 'raw'] as ResourceType[]) {
+      try {
+        const result = await cloudinary.uploader.destroy(doc.publicId, { resource_type: resourceType, type: 'authenticated', invalidate: true });
+        if (result.result === 'ok' || result.result === 'not found') return;
+      } catch { /* try next resource type */ }
+    }
+  }
+}
+
+export default async function handler(req: NextApiRequest, res: NextApiResponse): Promise<void> {
+  setSecurityHeaders(res);
+  const id = Array.isArray(req.query.id) ? req.query.id[0] : req.query.id;
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) return void res.status(400).json({ success: false, message: 'Valid project ID is required.' });
+
+  const method = (req.method ?? '').toUpperCase();
+  if (!['GET', 'POST', 'PATCH', 'DELETE'].includes(method)) {
+    res.setHeader('Allow', ['GET', 'POST', 'PATCH', 'DELETE']);
+    return void res.status(405).json({ success: false, message: 'Method not allowed.' });
   }
 
-  const rl = await rateLimitDeveloper(req);
+  const rl = await (method === 'GET' ? rateLimitApi(req) : rateLimitDeveloper(req));
   setRateLimitHeaders(res, rl);
-  if (!rl.ok) return sendRateLimitResponse(res, rl);
-
+  if (!rl.ok) return void sendRateLimitResponse(res, rl);
   await dbConnect();
 
-  // ════════════════════════════════════════════════════
-  // POST — Upload new document(s)
-  // ════════════════════════════════════════════════════
-  if (req.method === 'POST') {
-    const form = formidable({
-      multiples:      true,
-      keepExtensions: true,
-      maxFileSize:    MAX_FILE_SIZE_MB * 1024 * 1024,
-      maxFiles:       5,
+  if (method === 'GET') {
+    const viewer = await getOptionalAuth(req);
+    const project = await getProject(id);
+    if (!project) return void res.status(404).json({ success: false, message: 'Project not found.' });
+    const isAdmin = !!viewer && ['admin', 'superadmin'].includes(viewer.role);
+    const isOwner = !!viewer && viewer.role === 'developer' && String(project.developerId) === viewer.id;
+    if (!isProjectPublic(project) && !isAdmin && !isOwner) {
+      return void res.status(404).json({ success: false, message: 'Project not found.' });
+    }
+
+    const allDocs = [...(project.documents ?? [])].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const filtered = allDocs.filter((doc) => {
+      if (isAdmin || isOwner) return true;
+      if (doc.visibility === 'public') return true;
+      return !!viewer && doc.visibility === 'registered';
     });
+    const safeDocs = filtered.map((doc) => ({
+      url: signedDocumentUrl(doc),
+      title: doc.title,
+      description: doc.description,
+      category: doc.category,
+      visibility: isAdmin || isOwner ? doc.visibility : undefined,
+      fileType: doc.fileType,
+      fileSize: doc.fileSize,
+      order: doc.order,
+      uploadedAt: doc.uploadedAt,
+      // publicId is intentionally not needed by public clients; owner/admin tools get it.
+      publicId: isAdmin || isOwner ? doc.publicId : undefined,
+      expiresInSeconds: 300,
+    }));
+    const byCategory: Record<string, typeof safeDocs> = {};
+    for (const doc of safeDocs) (byCategory[doc.category] ??= []).push(doc);
+    return void res.status(200).json({ success: true, data: { documents: safeDocs, byCategory, totalDocuments: safeDocs.length } });
+  }
 
-    return form.parse(req, async (err: unknown, fields: Fields, files: Files) => {
-      if (err) {
-        return res.status(400).json({
-          success: false,
-          message: 'Error parsing upload. Maximum file size is 25MB.',
-        });
-      }
+  const access = await requireProjectOwner(req, res, id);
+  if (!access) return;
+  const { auth, project } = access;
 
-      try {
-        // Verify ownership
-        const ownership = await verifyProjectOwnership(id, auth.id, role);
-        if (!ownership.ok) {
-          return res.status(ownership.status ?? 403).json({
-            success: false,
-            message: ownership.error ?? 'Access denied',
-          });
+  try {
+    if (method === 'POST') {
+      const form = formidable({
+        multiples: true,
+        keepExtensions: true,
+        maxFileSize: 5 * 1024 * 1024,
+        maxTotalFileSize: 25 * 1024 * 1024,
+        maxFiles: MAX_UPLOAD_FILES,
+      });
+      return void form.parse(req, async (err: unknown, fields: Fields, files: Files) => {
+        if (err) return void res.status(400).json({ success: false, message: 'Invalid upload. Each document must be 5MB or smaller.' });
+        const candidate = files.documents || files.files || files.document;
+        if (!candidate) return void res.status(400).json({ success: false, message: 'No documents provided.' });
+        const fileArray = (Array.isArray(candidate) ? candidate : [candidate]) as FormidableFile[];
+        const existing = project.documents ?? [];
+        if (existing.length + fileArray.length > MAX_DOCUMENTS) {
+          return void res.status(422).json({ success: false, message: `Document limit is ${MAX_DOCUMENTS}.` });
         }
 
-        const existingDocs = ((ownership.project as any)?.documents ?? []) as ProjectDocument[];
-
-        // Get uploaded files
-        const docFiles = files.documents || files.files || files.document;
-        if (!docFiles) {
-          return res.status(400).json({
-            success: false,
-            message: 'No documents provided',
-          });
-        }
-
-        const fileArray = Array.isArray(docFiles) ? docFiles : [docFiles];
-
-        // Check document limit
-        if (existingDocs.length + fileArray.length > MAX_DOCUMENTS) {
-          return res.status(400).json({
-            success: false,
-            message: `Document limit is ${MAX_DOCUMENTS}. Currently ${existingDocs.length}, trying to add ${fileArray.length}.`,
-          });
-        }
-
-        // Validate mime types
-        for (const file of fileArray) {
-          const f = file as FormidableFile;
-          if (f.mimetype && !ALLOWED_MIME_TYPES.includes(f.mimetype)) {
-            return res.status(400).json({
-              success: false,
-              message: `Invalid file type: ${f.mimetype}. Allowed: PDF, JPEG, PNG, WebP, DOC, DOCX, XLS, XLSX.`,
+        const uploaded: ProjectDocument[] = [];
+        try {
+          for (let i = 0; i < fileArray.length; i++) {
+            const file = fileArray[i];
+            // Private project evidence accepts only PDF/JPEG/PNG/WebP. Office macros and
+            // arbitrary archives are deliberately rejected before Cloudinary.
+            const result = await uploadValidatedTempFile(file, 'projectDocuments', 'kyc', {
+              tags: ['project-document', `project:${id}`],
+            });
+            const rawCategory = fieldValue(fields, `category_${i}`) || fieldValue(fields, 'category') || 'other';
+            const category = DOCUMENT_CATEGORIES.includes(rawCategory as DocumentCategory) ? rawCategory as DocumentCategory : 'other';
+            const rawVisibility = fieldValue(fields, `visibility_${i}`) || fieldValue(fields, 'visibility') || 'admin_only';
+            const visibility = VISIBILITY_OPTIONS.includes(rawVisibility as DocumentVisibility) ? rawVisibility as DocumentVisibility : 'admin_only';
+            const baseTitle = file.originalFilename?.replace(/\.[^/.]+$/, '') || `Document ${existing.length + i + 1}`;
+            uploaded.push({
+              url: result.url,
+              publicId: result.publicId,
+              title: (fieldValue(fields, `title_${i}`) || fieldValue(fields, 'title') || baseTitle).slice(0, 200),
+              description: (fieldValue(fields, `description_${i}`) || fieldValue(fields, 'description')).slice(0, 500),
+              category,
+              visibility,
+              fileType: fileTypeFor(file, result.format),
+              fileSize: result.size ?? file.size,
+              resourceType: result.resourceType === 'raw' ? 'raw' : 'image',
+              format: result.format,
+              order: existing.length + i,
+              uploadedAt: new Date(),
+              uploadedBy: auth.id,
             });
           }
+        } catch (uploadError) {
+          await Promise.all(uploaded.map((doc) => deleteAttachedDocument(doc))).catch(() => undefined);
+          if (uploadError instanceof UploadValidationError) return void res.status(400).json({ success: false, message: uploadError.message });
+          throw uploadError;
         }
 
-        // Parse form field helpers
-        const getField = (name: string): string => {
-          const val = fields[name];
-          if (!val) return '';
-          return Array.isArray(val) ? String(val[0] ?? '') : String(val);
-        };
-
-        // Upload to Cloudinary
-        const uploadedDocs: ProjectDocument[] = [];
-
-        for (let i = 0; i < fileArray.length; i++) {
-          const file = fileArray[i] as FormidableFile;
-          const uploaded = await uploadDocToCloudinary(file);
-
-          // Parse per-file metadata from form fields
-          const title = getField(`title_${i}`) ||
-                        getField('title') ||
-                        file.originalFilename?.replace(/\.[^/.]+$/, '') ||
-                        `Document ${existingDocs.length + i + 1}`;
-
-          const description = getField(`description_${i}`) || getField('description') || '';
-
-          const rawCategory = getField(`category_${i}`) || getField('category') || 'other';
-          const category = DOCUMENT_CATEGORIES.includes(rawCategory as DocumentCategory)
-            ? (rawCategory as DocumentCategory)
-            : 'other';
-
-          const rawVisibility = getField(`visibility_${i}`) || getField('visibility') || 'public';
-          const visibility = VISIBILITY_OPTIONS.includes(rawVisibility as DocumentVisibility)
-            ? (rawVisibility as DocumentVisibility)
-            : 'public';
-
-          uploadedDocs.push({
-            url:         uploaded.url,
-            publicId:    uploaded.publicId,
-            title:       title.slice(0, 200),
-            description: description.slice(0, 500),
-            category,
-            visibility,
-            fileType:    getFileType(file.mimetype ?? ''),
-            fileSize:    file.size ?? undefined,
-            order:       existingDocs.length + i,
-            uploadedAt:  new Date(),
-            uploadedBy:  auth.email,
-          });
+        const doc = await Project.findById(id);
+        if (!doc) {
+          await Promise.all(uploaded.map((item) => deleteAttachedDocument(item))).catch(() => undefined);
+          return void res.status(404).json({ success: false, message: 'Project not found.' });
         }
+        const current = (((doc as unknown as Record<string, unknown>).documents as ProjectDocument[] | undefined) ?? []);
+        (doc as unknown as Record<string, unknown>).documents = [...current, ...uploaded];
+        await doc.save();
+        await logSecurityEvent({ type: 'admin_action', severity: 'medium', userId: auth.id, metadata: { action: 'project_documents_uploaded', projectId: id, docsCount: uploaded.length, categories: uploaded.map((d) => d.category) }, req });
+        return void res.status(201).json({ success: true, message: `${uploaded.length} document${uploaded.length === 1 ? '' : 's'} uploaded successfully.`, data: { totalDocuments: current.length + uploaded.length } });
+      });
+    }
 
-        // Update project documents
-        const Project = mongoose.models.Project as
-          mongoose.Model<mongoose.Document>;
-
-        await Project.findByIdAndUpdate(id, {
-          $push: {
-            documents: { $each: uploadedDocs },
-          },
-        });
-
-        // Audit log
-        await logSecurityEvent({
-          type:     'admin_action',
-          severity: 'low',
-          userId:   auth.id,
-          metadata: {
-            action:     'project_documents_uploaded',
-            projectId:  id,
-            docsCount:  uploadedDocs.length,
-            categories: uploadedDocs.map((d) => d.category),
-            totalAfter: existingDocs.length + uploadedDocs.length,
-          },
-        });
-
-        return res.status(201).json({
-          success: true,
-          message: `${uploadedDocs.length} document${uploadedDocs.length !== 1 ? 's' : ''} uploaded successfully`,
-          data: {
-            uploaded:       uploadedDocs,
-            totalDocuments: existingDocs.length + uploadedDocs.length,
-          },
-        });
-
-      } catch (error: unknown) {
-        await logSecurityEvent({
-          type:     'system_error',
-          severity: 'high',
-          userId:   auth.id,
-          metadata: {
-            action:    'project_documents_upload_failed',
-            projectId: id,
-            reason:    error instanceof Error ? error.message : 'Unknown error',
-          },
-        });
-        return res.status(500).json({
-          success: false,
-          message: 'Something went wrong. Please try again.',
-        });
-      }
-    });
-  }
-
-  // ════════════════════════════════════════════════════
-  // PATCH — Update document metadata
-  // ════════════════════════════════════════════════════
-  if (req.method === 'PATCH') {
-    try {
-      // Parse body manually (bodyParser disabled)
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-
+    const body = await parseJsonBody(req);
+    if (method === 'PATCH') {
       const parsed = UpdateDocumentSchema.safeParse(body);
-      if (!parsed.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'Invalid data',
-          errors:  parsed.error.flatten().fieldErrors,
-        });
+      if (!parsed.success) return void res.status(422).json({ success: false, message: 'Invalid data.', errors: parsed.error.flatten().fieldErrors });
+      const doc = await Project.findById(id);
+      if (!doc) return void res.status(404).json({ success: false, message: 'Project not found.' });
+      const documents = (((doc as unknown as Record<string, unknown>).documents as ProjectDocument[] | undefined) ?? []);
+      const item = documents.find((entry) => entry.publicId === parsed.data.publicId);
+      if (!item) return void res.status(404).json({ success: false, message: 'Document not found in this project.' });
+      for (const key of ['title', 'description', 'category', 'visibility', 'order'] as const) {
+        if (parsed.data[key] !== undefined) (item as unknown as Record<string, unknown>)[key] = parsed.data[key];
       }
-
-      const { publicId, title, description, category, visibility, order } = parsed.data;
-
-      // Verify ownership
-      const ownership = await verifyProjectOwnership(id, auth.id, role);
-      if (!ownership.ok) {
-        return res.status(ownership.status ?? 403).json({
-          success: false,
-          message: ownership.error ?? 'Access denied',
-        });
-      }
-
-      // Build positional update
-      const updateFields: Record<string, unknown> = {};
-      if (title !== undefined)       updateFields['documents.$.title']       = title;
-      if (description !== undefined) updateFields['documents.$.description'] = description;
-      if (category !== undefined)    updateFields['documents.$.category']    = category;
-      if (visibility !== undefined)  updateFields['documents.$.visibility']  = visibility;
-      if (order !== undefined)       updateFields['documents.$.order']       = order;
-
-      if (Object.keys(updateFields).length === 0) {
-        return res.status(400).json({
-          success: false,
-          message: 'No fields provided to update',
-        });
-      }
-
-      const Project = mongoose.models.Project as
-        mongoose.Model<mongoose.Document>;
-
-      const result = await Project.findOneAndUpdate(
-        {
-          _id:                   new mongoose.Types.ObjectId(id),
-          'documents.publicId':  publicId,
-        },
-        { $set: updateFields },
-        { new: true }
-      );
-
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          message: 'Document not found in this project',
-        });
-      }
-
-      await logSecurityEvent({
-        type:     'admin_action',
-        severity: 'low',
-        userId:   auth.id,
-        metadata: {
-          action:        'project_document_updated',
-          projectId:     id,
-          publicId,
-          changedFields: Object.keys(updateFields),
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Document updated successfully',
-      });
-
-    } catch (error: unknown) {
-      await logSecurityEvent({
-        type:     'system_error',
-        severity: 'medium',
-        userId:   auth.id,
-        metadata: {
-          action:    'project_document_update_failed',
-          projectId: id,
-          reason:    error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
+      (doc as unknown as Record<string, unknown>).documents = documents;
+      await doc.save();
+      await logSecurityEvent({ type: 'admin_action', severity: 'low', userId: auth.id, metadata: { action: 'project_document_updated', projectId: id }, req });
+      return void res.status(200).json({ success: true, message: 'Document updated successfully.' });
     }
+
+    const parsed = DeleteDocumentSchema.safeParse(body);
+    if (!parsed.success) return void res.status(422).json({ success: false, message: 'A valid publicId is required.' });
+    const attached = (project.documents ?? []).find((item) => item.publicId === parsed.data.publicId);
+    if (!attached) return void res.status(404).json({ success: false, message: 'Document not found in this project.' });
+    const doc = await Project.findById(id);
+    if (!doc) return void res.status(404).json({ success: false, message: 'Project not found.' });
+    const remaining = ((((doc as unknown as Record<string, unknown>).documents as ProjectDocument[] | undefined) ?? [])).filter((item) => item.publicId !== parsed.data.publicId);
+    (doc as unknown as Record<string, unknown>).documents = remaining;
+    await doc.save();
+    await deleteAttachedDocument(attached).catch(() => undefined);
+    await logSecurityEvent({ type: 'admin_action', severity: 'medium', userId: auth.id, metadata: { action: 'project_document_deleted', projectId: id }, req });
+    return void res.status(200).json({ success: true, message: 'Document deleted successfully.' });
+  } catch (error: unknown) {
+    await logSecurityEvent({ type: 'system_error', severity: 'medium', userId: auth.id, metadata: { action: 'project_document_operation_failed', projectId: id, reason: error instanceof Error ? error.message : 'Unknown error' }, req });
+    return void res.status(500).json({ success: false, message: 'Something went wrong. Please try again.' });
   }
-
-  // ════════════════════════════════════════════════════
-  // DELETE — Remove document
-  // ════════════════════════════════════════════════════
-  if (req.method === 'DELETE') {
-    try {
-      // Parse body manually
-      const chunks: Buffer[] = [];
-      for await (const chunk of req) {
-        chunks.push(typeof chunk === 'string' ? Buffer.from(chunk) : chunk);
-      }
-      const body = JSON.parse(Buffer.concat(chunks).toString('utf-8'));
-
-      const parsed = DeleteDocumentSchema.safeParse(body);
-      if (!parsed.success) {
-        return res.status(400).json({
-          success: false,
-          message: 'publicId is required to delete a document',
-        });
-      }
-
-      const { publicId } = parsed.data;
-
-      // Verify ownership
-      const ownership = await verifyProjectOwnership(id, auth.id, role);
-      if (!ownership.ok) {
-        return res.status(ownership.status ?? 403).json({
-          success: false,
-          message: ownership.error ?? 'Access denied',
-        });
-      }
-
-      // Remove from documents array
-      const Project = mongoose.models.Project as
-        mongoose.Model<mongoose.Document>;
-
-      const result = await Project.findByIdAndUpdate(
-        id,
-        { $pull: { documents: { publicId } } },
-        { new: true }
-      );
-
-      if (!result) {
-        return res.status(404).json({
-          success: false,
-          message: 'Document not found in this project',
-        });
-      }
-
-      // Delete from Cloudinary (fire and forget)
-      deleteDocFromCloudinary(publicId).catch(() => {
-        // Silent — DB is source of truth
-      });
-
-      await logSecurityEvent({
-        type:     'admin_action',
-        severity: 'medium',
-        userId:   auth.id,
-        metadata: {
-          action:    'project_document_deleted',
-          projectId: id,
-          publicId,
-        },
-      });
-
-      return res.status(200).json({
-        success: true,
-        message: 'Document deleted successfully',
-      });
-
-    } catch (error: unknown) {
-      await logSecurityEvent({
-        type:     'system_error',
-        severity: 'medium',
-        userId:   auth.id,
-        metadata: {
-          action:    'project_document_delete_failed',
-          projectId: id,
-          reason:    error instanceof Error ? error.message : 'Unknown error',
-        },
-      });
-      return res.status(500).json({
-        success: false,
-        message: 'Something went wrong. Please try again.',
-      });
-    }
-  }
-
-  // ── Method not allowed ──
-  return res.status(405).json({ success: false, message: 'Method not allowed' });
 }

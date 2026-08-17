@@ -1,0 +1,113 @@
+﻿ID,Category,Severity,Title,Role,Surface,Action,Expected,Required Evidence,Devices
+L01,Lifecycle,P0,Create Property draft,verified_owner,Property create,Create valid standalone Property and save draft,DB/UI remain draft; nothing public; no publication claim,screenshot; network; db_state,desktop
+L02,Lifecycle,P0,Edit saved draft,verified_owner,Property edit,Change material and non-material draft fields,Fields round-trip correctly and remain draft,screenshot; network; db_state,desktop
+L03,Lifecycle,P0,Submit draft to pending,verified_owner,Submit action,Submit complete draft,Status pending; UI success matches DB status and valid slug,screenshot; network; db_state,desktop
+L04,Lifecycle,P0,Admin starts review,admin,Admin moderation,Move pending to under_review,Canonical transition succeeds; review_started audit exists,screenshot; network; db_state; audit,desktop
+L05,Lifecycle,P0,Admin verifies reviewed Property,admin,Admin moderation,Move under_review to verified,Property public only after canonical verification,screenshot; network; db_state; audit,desktop
+L06,Lifecycle,P0,Reject with reason,admin,Admin moderation,Reject under_review with reason,Reason persists; Property non-public; owner sees remediation,screenshot; network; db_state; audit,desktop
+L07,Lifecycle,P0,Rejected edit and resubmit,verified_owner,Owner flow,Edit rejected Property and resubmit,Returns through review lifecycle; no verified bypass,screenshot; network; db_state,desktop
+L08,Lifecycle,P0,Verified material edit triggers re-review,verified_owner,Property edit,Change price/location/material fact,Configured policy removes immediate public verification and requires review,screenshot; network; db_state; public_check,desktop
+L09,Lifecycle,P0,Flag and unflag workflow,admin,Moderation,Flag public Property then resolve,Flag removes public visibility; resolution authorized/audited,screenshot; network; db_state; audit; public_check,desktop
+L10,Lifecycle,P0,Trash and restore within grace,verified_owner,My Properties/Trash,Trash own Property then restore within grace,Property leaves public surfaces; restore obeys safe lifecycle,screenshot; network; db_state; public_check,desktop
+L11,Lifecycle,P0,Owner purge before grace blocked,verified_owner,Permanent delete,Attempt purge before 30-day grace,Server blocks purge; media/evidence preserved,network; db_state; media_state,desktop
+L12,Lifecycle,P0,Privileged permanent purge audited,superadmin,Admin permanent delete,Purge eligible Property,Dependent cleanup succeeds/queues; privileged action audited,network; db_state; audit; media_state,desktop
+A01,Roles & Authorization,P0,Anonymous public access is least privilege,anonymous,Public detail/API,Open verified detail and API,Public-safe DTO only; no seller PII/private evidence/actor IDs/secrets,page_source; network; privacy_scan,desktop
+A02,Roles & Authorization,P0,Anonymous cannot preview draft,anonymous,Direct slug/id,Guess draft slug/id,404/non-public response; zero private payload,network; page_source,desktop
+A03,Roles & Authorization,P0,Buyer cannot edit Property,buyer,Direct API,PATCH another user's Property,Denied; no mutation,network; db_state,desktop
+A04,Roles & Authorization,P0,Buyer cannot access ownership evidence,buyer,Evidence endpoint,Request private proof object/URL,Denied; no signed URL/metadata leak,network,desktop
+A05,Roles & Authorization,P0,Owner can edit own eligible Property,verified_owner,Owner edit/API,PATCH own eligible Property,Allowed exactly by lifecycle/ownership policy,network; db_state,desktop
+A06,Roles & Authorization,P0,Owner cannot edit another owner Property,verified_owner,Direct API,PATCH Owner B Property as Owner A,Denied; no mutation,network; db_state,desktop
+A07,Roles & Authorization,P0,Owner cannot trash another owner Property,verified_owner,Trash API,Trash Owner B Property as Owner A,Denied; no lifecycle/media change,network; db_state,desktop
+A08,Roles & Authorization,P0,Agent access limited to represented Property,agent,Agent dashboard/API,Use represented then unrelated Property,Represented follows permission; unrelated denied,screenshot; network; db_state,desktop
+A09,Roles & Authorization,P0,Developer access limited to accountable inventory,developer,Developer dashboard/API,Use own then unrelated inventory,Own relationship allowed; unrelated denied,screenshot; network,desktop
+A10,Roles & Authorization,P0,Admin moderation requires privilege,buyer,Admin moderation API,Call admin moderation directly,Denied independent of UI visibility,network,desktop
+A11,Roles & Authorization,P0,Admin canonical transitions work,admin,Admin moderation,Perform allowed transitions,Only allowed transitions succeed and are audited,network; db_state; audit,desktop
+A12,Roles & Authorization,P0,Superadmin purge privilege separated,admin,Permanent purge,Attempt superadmin-only purge as admin,Denied/constrained exactly by policy,network; audit,desktop
+A13,Roles & Authorization,P0,Suspended account loses privileged access,suspended_user,Property/contact/lead APIs,Reuse existing session after suspension,DB-current check denies privileged actions,network; session_state,desktop
+A14,Roles & Authorization,P0,Revoked/deleted account cannot reuse stale session,revoked_user,Property/contact/lead APIs,Reuse old session after revocation/deletion,Preview/contact/lead/privileged access denied,network; session_state,desktop
+T01,Listing Types & Taxonomy,P0,Full-payment round-trip,verified_owner,Unified form,Create/edit/resubmit full-payment Property,Canonical fields persist and remain discoverable,screenshot; network; db_state; search_result,desktop
+T02,Listing Types & Taxonomy,P0,Installment round-trip,verified_owner,Unified form,Create installment Property then edit,Payment fields round-trip without schema drift,screenshot; network; db_state,desktop
+T03,Listing Types & Taxonomy,P0,Rent round-trip,verified_owner,Unified form,Create rent Property then edit,Rent fields persist; sale-only logic not misapplied,screenshot; network; db_state,desktop
+T04,Listing Types & Taxonomy,P0,Pre-launch boundary truthful,verified_owner,Unified form,Use pre-launch if retained,Supported flow works or UI/API clearly rejects unsupported mode,screenshot; network,desktop
+T05,Listing Types & Taxonomy,P0,Residential category parity,anonymous,Search,Search Residential and mapped subtypes,All intended residential types return through canonical serializer,screenshot; network; search_result,desktop
+T06,Listing Types & Taxonomy,P0,Commercial category parity,anonymous,Search,Search Commercial and mapped subtypes,All intended commercial types return without first-value truncation,screenshot; network; search_result,desktop
+T07,Listing Types & Taxonomy,P0,Plots category parity,anonymous,Search,Search Plots/Pakistan aliases,Create taxonomy and discovery aliases agree,screenshot; network; search_result,desktop
+T08,Listing Types & Taxonomy,P0,Invalid subtype without parent fails closed,anonymous,Search/API,Submit invalid subtype/type pair,Rejected or safely normalized; no unintended broad query,network,desktop
+T09,Listing Types & Taxonomy,P0,Deep-linked filter URL round-trip,anonymous,Search,Open copied category/type/subtype URL,UI state and API query reproduce inventory,screenshot; network; url,desktop
+T10,Listing Types & Taxonomy,P0,Project-linked boundary,verified_owner,Property/Project relation,Exercise project-linked Property/Unit,Standalone Property rules do not corrupt Project/Unit boundaries,screenshot; network; db_state,desktop
+M01,Media & Evidence,P0,Gallery add/reorder/remove,verified_owner,Property media,Add/reorder/remove public images,DB order/UI match; only authorized media mutate,screenshot; network; db_state; cloudinary,desktop
+M02,Media & Evidence,P0,Failed replacement preserves old asset,verified_owner,Property media,Force replacement failure,Existing asset/reference remains recoverable,screenshot; network; db_state; cloudinary,desktop
+M03,Media & Evidence,P0,Cancelled draft upload cleanup,verified_owner,Property form,Upload temporary media then abandon,Orphan is cleaned or safely queued,network; cloudinary; cleanup_queue,desktop
+M04,Media & Evidence,P0,Floor-plan image works,verified_owner,Floor plans,Upload image floor plan,Verified public detail renders safely,screenshot; network,desktop
+M05,Media & Evidence,P0,Floor-plan PDF works safely,verified_owner,Floor plans,Upload allowed PDF floor plan,Allowed delivery works without private-evidence confusion,screenshot; network,desktop
+M06,Media & Evidence,P0,Ownership evidence stays private,verified_owner,Ownership proof,Upload ownership/KYC evidence,No public URL/public_id/signature appears publicly,network; page_source; privacy_scan,desktop
+M07,Media & Evidence,P0,Authorized admin reviews evidence,admin,Evidence review,Open protected evidence,Authorized short-lived retrieval works and is audited,screenshot; network; audit,desktop
+M08,Media & Evidence,P0,Unauthorized evidence retrieval denied,buyer,Evidence endpoint,Guess evidence Property ID/URL,Denied; no durable private URL revealed,network,desktop
+M09,Media & Evidence,P0,Purge cleanup succeeds or queues retry,superadmin,Purge/cleanup,Purge Property with public/private media,Outcome observable; failures persist in retry queue,network; cloudinary; cleanup_queue; db_state,desktop
+M10,Media & Evidence,P0,Cleanup worker protected,anonymous,Cleanup worker,Call worker without authorization,Denied; no cleanup or queue leakage,network,desktop
+D01,Discovery & Decision State,P0,Search only canonical public inventory,anonymous,/properties,Search broad inventory,Only verified clean non-deleted/non-flagged items appear,screenshot; network; search_result,desktop
+D02,Discovery & Decision State,P0,Progressive filters mobile,anonymous,/properties,Use More Filters at mobile width,Usable/persistent filters; correct focus/touch behavior,screenshot; mobile_video,mobile_android; mobile_ios
+D03,Discovery & Decision State,P0,Pagination/cursor consistency,anonymous,Search API/UI,Navigate pages then change filters,No stale cursor duplicates/missing rows,screenshot; network,desktop
+D04,Discovery & Decision State,P0,Property card least privilege,anonymous,Property card,Inspect list response/card props,No seller PII/private IDs/private Cloudinary fields,network; privacy_scan,desktop
+D05,Discovery & Decision State,P0,Canonical detail slug direct/refreshed,anonymous,Property detail,Open verified canonical slug,200 renders without internal self-fetch dependency,screenshot; network,desktop
+D06,Discovery & Decision State,P0,Legacy URL policy intentional,anonymous,Property detail,Open supported legacy ID/slug URL,Redirect/404 follows canonical policy without leakage,network; url,desktop
+D07,Discovery & Decision State,P0,Similar excludes non-public,anonymous,Property detail,Flag/trash a Similar candidate,Candidate disappears,screenshot; network,desktop
+D08,Discovery & Decision State,P0,Favorite add/remove authenticated,buyer,Favorites,Save/remove verified Property,Server/UI stay synchronized,screenshot; network; db_state,desktop
+D09,Discovery & Decision State,P0,Favorite stale cleanup,buyer,Favorites,Save then flag/trash Property,Non-public saved item no longer leaks,screenshot; network,desktop
+D10,Discovery & Decision State,P0,Guest Favorites migration idempotent,buyer,Guest→login Favorites,Save as guest then login/repeat sync,Adds once; never toggles existing save off,screenshot; network; db_state,desktop
+D11,Discovery & Decision State,P0,Recently Viewed guest flow,anonymous,Recently Viewed,Visit/remove/revisit public items,Local history works; stale non-public reconciles away,screenshot; storage_state,desktop
+D12,Discovery & Decision State,P0,Recently Viewed server authority,buyer,Recently Viewed,Login with empty server history over local state,Server zero clears account-mirrored local state,screenshot; network; storage_state,desktop
+D13,Discovery & Decision State,P0,Compare mixed add/remove/refresh,buyer,Compare,Compare Property + Project then remove/refresh,Shared state coherent; slot rules hold,screenshot; network; storage_state,desktop
+D14,Discovery & Decision State,P0,Shared Compare excludes non-public,anonymous,Shared Compare,Share then flag/trash Property,Resolver drops non-public Property,screenshot; network,desktop
+D15,Discovery & Decision State,P0,Guest→login Compare migration,buyer,Compare,Create guest compare then login,Guest state merges idempotently; account becomes authority,screenshot; network; storage_state,desktop
+D16,Discovery & Decision State,P0,True Cost provenance truthful,buyer,True Cost,Open sale/rent/installment examples,Estimated/listing-supplied values labeled; no unsupported official claim,screenshot; network,desktop
+D17,Discovery & Decision State,P0,Price tracking lifecycle-safe,verified_owner,Price update,Change verified and under_review price,Verified material change re-enters review; under_review blocked,screenshot; network; db_state; audit,desktop
+D18,Discovery & Decision State,P0,Map/location public-safe,anonymous,Detail map,Open map/location,Correct locality with no unintended private precision/data,screenshot; network,desktop
+C01,Communication & Safety,P0,Contact reveal requires auth,anonymous,Contact endpoint/UI,Attempt reveal anonymously,Server requires auth; no PII in public HTML/API,screenshot; network; page_source,desktop
+C02,Communication & Safety,P0,Seller privacy preference enforced,buyer,Contact endpoint,Reveal contact with a disabled channel,Disabled channel remains blocked server-side,screenshot; network,desktop
+C03,Communication & Safety,P0,Inquiry routes to Owner,buyer,Property inquiry,Submit on Owner-accountable Property,Lead reaches correct Owner dashboard only,screenshot; network; db_state,desktop
+C04,Communication & Safety,P0,Inquiry routes to Agent,buyer,Property inquiry,Submit on Agent-accountable Property,Lead reaches correct Agent/agency only,screenshot; network; db_state,desktop
+C05,Communication & Safety,P0,Inquiry routes to Developer,buyer,Property inquiry,Submit on Developer-accountable Property,Lead reaches correct Developer only,screenshot; network; db_state,desktop
+C06,Communication & Safety,P0,Callback uses canonical routing,buyer,Callback,Request callback,Same server-owned resolver; browser cannot choose recipient,screenshot; network; db_state,desktop
+C07,Communication & Safety,P0,Site visit future-date validation,buyer,Site visit,Submit valid and past dates,Valid future accepted; past/out-of-range rejected,screenshot; network,desktop
+C08,Communication & Safety,P0,Recipient override attack rejected,buyer,Communication API,Inject ownerId/agentId/developerId/assigned fields,Unexpected routing keys rejected; server resolves Property actor,network,desktop
+C09,Communication & Safety,P0,Cross-recipient lead open denied,agent,Lead API,Open another actor's Lead by ID,Denied except explicit privileged admin path,network,desktop
+C10,Communication & Safety,P0,Self-inquiry denied,verified_owner,Inquiry,Submit inquiry on own accountable Property,Rejected by canonical WP8 contract,network,desktop
+C11,Communication & Safety,P0,Non-public Property communication blocked,buyer,Inquiry/contact,Submit after Property becomes flagged/trashed/private,Server blocks because Property is not public eligible,network; db_state,desktop
+C12,Communication & Safety,P0,Report duplicate/abuse resistance,buyer,Report Property,Repeat same report/alter superficial signals,Duplicate abuse constrained; report count alone cannot destroy listing,network; db_state; risk_state,desktop
+C13,Communication & Safety,P0,Risk assessment not destructive by itself,admin,Risk/moderation,Generate queue/urgent risk signals,Assessment does not directly permanently remove listing,network; db_state; audit,desktop
+C14,Communication & Safety,P0,Moderation remediation/appeal works,verified_owner,Remediation,Correct requested info and resubmit,Owner can remediate; canonical admin decision remains required,screenshot; network; db_state; audit,desktop
+S01,"SEO, Browser & UX",P0,Canonical slug metadata,anonymous,Property detail,Inspect canonical tag,Canonical URL uses intended slug,page_source; url,desktop
+S02,"SEO, Browser & UX",P0,JSON-LD matches visible facts,anonymous,Property detail,Compare JSON-LD to visible data,No unsupported trust/legal claim; price/location/images/units align,page_source; screenshot,desktop
+S03,"SEO, Browser & UX",P0,Sitemap exact public set,anonymous,Property sitemap,Compare fixtures vs sitemap,Only currently public Properties included,network; sitemap_snapshot,desktop
+S04,"SEO, Browser & UX",P0,Temporary non-public detail behavior,anonymous,Property detail,Open trashed/flagged/private URL,Intentional 404/private behavior; no stale ISR data,network; page_source,desktop
+S05,"SEO, Browser & UX",P0,Permanent removal policy,anonymous,Property detail,Open permanently purged URL,404/410 policy intentional; absent search/sitemap,network; sitemap_snapshot,desktop
+S06,"SEO, Browser & UX",P0,Desktop Chrome smoke,anonymous,Core journey,Search→filter→card→detail→contact,No broken layout/runtime error/blocked primary action,screenshots; console,desktop_chrome
+S07,"SEO, Browser & UX",P0,Desktop Edge smoke,buyer,Core journey,Search→save→compare→detail→contact,State remains synchronized,screenshots; console,desktop_edge
+S08,"SEO, Browser & UX",P0,Desktop Firefox smoke,buyer,Core journey,Search→detail→modal/form,No critical browser-specific failure,screenshots; console,desktop_firefox
+S09,"SEO, Browser & UX",P0,Android-width mobile smoke,anonymous,Core journey,Search/filter→detail→sticky actions,Responsive; 44px+ targets; no horizontal overflow,screenshots; mobile_video,mobile_android
+S10,"SEO, Browser & UX",P0,iPhone-width mobile smoke,buyer,Core journey,Detail→Save/Compare/Contact,Controls reachable; state coherent,screenshots; mobile_video,mobile_ios
+S11,"SEO, Browser & UX",P0,Keyboard navigation,anonymous,List/detail/modals,Keyboard-only navigation,"Logical focus, visible focus, no trap",video; accessibility_notes,desktop
+S12,"SEO, Browser & UX",P0,Modal focus/Escape,buyer,Contact/inquiry/site visit,Open/tab/Escape/close,Focus trapped appropriately and restored,video; accessibility_notes,desktop
+S13,"SEO, Browser & UX",P0,Loading states,anonymous,Search/detail,Throttle network,Stable truthful loading UI,screenshots; network,desktop
+S14,"SEO, Browser & UX",P0,Error states,anonymous,Search/detail/API,Force safe failures,Recoverable error UI; no stack/secrets,screenshots; network; console,desktop
+S15,"SEO, Browser & UX",P0,Empty states,anonymous,Search/My Properties/Favorites,Use zero-item valid states,Useful truthful empty state with accessible next action,screenshots,desktop
+S16,"SEO, Browser & UX",P0,Image performance smoke,anonymous,List/detail,Inspect images/layout shift,Appropriate optimization; no severe media CLS,performance_capture; screenshots,desktop
+S17,"SEO, Browser & UX",P0,No unsupported SafeDeal promise,anonymous,Property detail,Inspect SafeDeal copy/link,No broken route or uncertified escrow/protection guarantee,screenshot; network,desktop
+S18,"SEO, Browser & UX",P0,No instant-publish/guarantee copy,anonymous,Create/public UI,Inspect publication/trust copy,Copy accurately reflects review/verification,screenshots,desktop
+X01,Direct API Abuse & Privacy,P0,Direct ID GET blocks draft,anonymous,GET Property by ID,Request draft ID,Non-public response; no private DTO,network,desktop
+X02,Direct API Abuse & Privacy,P0,Direct ID GET blocks flagged,anonymous,GET Property by ID,Request flagged ID,Non-public response,network,desktop
+X03,Direct API Abuse & Privacy,P0,Direct ID GET blocks trashed,anonymous,GET Property by ID,Request trashed ID,Non-public response,network,desktop
+X04,Direct API Abuse & Privacy,P0,Lifecycle mass-assignment rejected,verified_owner,PATCH Property,Submit verification/isFlagged/deleted/admin fields,Server-owned fields cannot be set by owner,network; db_state,desktop
+X05,Direct API Abuse & Privacy,P0,Ownership mass-assignment rejected,verified_owner,PATCH Property,Submit owner/agent/developer overrides,Cannot steal/reassign Property,network; db_state,desktop
+X06,Direct API Abuse & Privacy,P0,Object-ID enumeration privacy,anonymous,Property APIs,Probe random valid-looking IDs,No private existence/data leakage beyond policy,network,desktop
+X07,Direct API Abuse & Privacy,P0,Contact rate limit,buyer,Contact endpoint,Rapid sensitive contact requests,Rate limit activates without PII leakage,network,desktop
+X08,Direct API Abuse & Privacy,P0,Inquiry abuse limit,buyer,Communication endpoint,Rapid duplicate inquiries,Spam protections activate; no uncontrolled duplicate Leads,network; db_state,desktop
+X09,Direct API Abuse & Privacy,P0,Report abuse limit,buyer,Report endpoint,Rapid reports,Abuse control activates; no automatic destructive mutation,network; db_state; risk_state,desktop
+X10,Direct API Abuse & Privacy,P0,Seller phone absent public source,anonymous,Property detail,Search HTML/Next data for fixture phone,Absent until protected reveal,page_source; privacy_scan,desktop
+X11,Direct API Abuse & Privacy,P0,Seller email absent public source,anonymous,Property detail,Search HTML/Next data for fixture email,Absent until protected reveal,page_source; privacy_scan,desktop
+X12,Direct API Abuse & Privacy,P0,WhatsApp absent public source/API,anonymous,Public APIs,Search fixture WhatsApp,No direct WhatsApp leak,network; page_source,desktop
+X13,Direct API Abuse & Privacy,P0,KYC/evidence IDs absent secondary endpoints,anonymous,Public/decision APIs,Search list/detail/compare/favorite/recent responses,No private evidence identifiers leak,network; privacy_scan,desktop
+X14,Direct API Abuse & Privacy,P0,Private Cloudinary identifiers absent,anonymous,Public Property surfaces,Inspect media objects,No signatures/private IDs/secrets cross boundary,network; privacy_scan,desktop
+X15,Direct API Abuse & Privacy,P0,Errors do not expose secrets/stacks,anonymous,Property APIs,Trigger validation/auth errors,No stack/env/connection string/internal secret leak,network,desktop
+X16,Direct API Abuse & Privacy,P0,Canonical/legacy route collision smoke,anonymous,Property routes,Exercise canonical and retired paths,Canonical deterministic; retired cannot mutate,network,desktop

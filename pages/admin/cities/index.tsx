@@ -18,12 +18,6 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-declare global {
-  interface Window {
-    cloudinary?: any;
-  }
-}
-
 type ActiveFilter = "all" | "true" | "false";
 type FeaturedFilter = "all" | "true" | "false";
 
@@ -46,12 +40,6 @@ interface CitiesApiResponse {
   message?: string;
 }
 
-interface CloudinaryConfigResponse {
-  success: boolean;
-  cloudName?: string;
-  uploadPreset?: string;
-  message?: string;
-}
 
 interface CreateCityForm {
   name: string;
@@ -67,14 +55,6 @@ const defaultCreateForm: CreateCityForm = {
   isFeaturedOnHomepage: false,
 };
 
-function slugifyFolder(input: string) {
-  return String(input || "")
-    .trim()
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "")
-    .slice(0, 60);
-}
 
 function AdminCitiesContent() {
   const [loading, setLoading] = useState(true);
@@ -99,9 +79,6 @@ function AdminCitiesContent() {
     total: 0,
     pages: 1,
   });
-
-  // Cloudinary config loaded from server (fixes missing NEXT_PUBLIC env)
-  const [cloudinaryCfg, setCloudinaryCfg] = useState<{ cloudName: string; uploadPreset: string } | null>(null);
 
   // Delete modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -147,39 +124,6 @@ function AdminCitiesContent() {
       setLoading(false);
     }
   };
-
-  // Load Cloudinary widget script
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (typeof window.cloudinary !== "undefined") return;
-
-    const script = document.createElement("script");
-    script.src = "https://upload-widget.cloudinary.com/global/all.js";
-    script.async = true;
-    document.body.appendChild(script);
-
-    return () => {
-      if (script.parentNode) script.parentNode.removeChild(script);
-    };
-  }, []);
-
-  // Load Cloudinary config from server
-  useEffect(() => {
-    const loadCfg = async () => {
-      try {
-        const res = await fetch("/api/admin/cloudinary-config", { credentials: "include" });
-        const data: CloudinaryConfigResponse = await res.json();
-        if (data.success && data.cloudName && data.uploadPreset) {
-          setCloudinaryCfg({ cloudName: data.cloudName, uploadPreset: data.uploadPreset });
-        } else {
-          setCloudinaryCfg(null);
-        }
-      } catch {
-        setCloudinaryCfg(null);
-      }
-    };
-    loadCfg();
-  }, []);
 
   useEffect(() => {
     fetchCities({ nextPage: 1 });
@@ -335,100 +279,58 @@ function AdminCitiesContent() {
   };
 
   const openUpload = (city: CityItem) => {
-    setUploadingForId(city._id);
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/png,image/webp";
+    input.multiple = false;
 
-    if (!cloudinaryCfg?.cloudName || !cloudinaryCfg?.uploadPreset) {
-      toast.error("Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME and CLOUDINARY_UPLOAD_PRESET in .env.local, then restart the dev server.");
-      setUploadingForId(null);
-      return;
-    }
+    input.onchange = async () => {
+      const file = input.files?.[0];
+      if (!file) return;
 
-    if (typeof window.cloudinary === "undefined") {
-      toast.error("Cloudinary widget not loaded. Please refresh the page.");
-      setUploadingForId(null);
-      return;
-    }
-
-    const widget = window.cloudinary.createUploadWidget(
-      {
-        cloudName: cloudinaryCfg.cloudName,
-        uploadPreset: cloudinaryCfg.uploadPreset,
-
-        // UX (camera removed because Permissions-Policy blocks it and causes noisy errors)
-        sources: ["local", "url"],
-        defaultSource: "local",
-        multiple: false,
-        resourceType: "image",
-        maxImageFileSize: 8000000,
-        clientAllowedFormats: ["jpg", "jpeg", "png", "webp"],
-        folder: `cities/${slugifyFolder(city.name)}`,
-
-        // Crop to match homepage cards (9:16)
-        cropping: true,
-        croppingAspectRatio: 9 / 16,
-        showSkipCropButton: true,
-
-        // Close quickly after one successful upload (if supported by widget version)
-        singleUploadAutoClose: true,
-
-        // Premium Highrise look
-        styles: {
-          palette: {
-            window: "#ffffff",
-            windowBorder: "#e2e8f0",
-            tabIcon: "#029bba",
-            menuIcons: "#0f172a",
-            textDark: "#0f172a",
-            textLight: "#ffffff",
-            link: "#029bba",
-            action: "#029bba",
-            inactiveTabIcon: "#64748b",
-            error: "#ef4444",
-            inProgress: "#029bba",
-            complete: "#22c55e",
-            sourceBg: "#f8fafc",
-          },
-        },
-      },
-      async (error: any, result: any) => {
-        // Handle success FIRST (some widget flows can provide a non-null error object even when success event fires)
-        if (result?.event === "success") {
-          try {
-            const uploadedUrl = result.info.secure_url as string;
-            const publicId = (result.info.public_id as string) || "";
-
-            setActionLoadingId(city._id);
-            const updated = await patchCity(city._id, {
-              imageUrl: uploadedUrl,
-              publicId,
-              clearImage: false,
-            });
-            applyCityFromResponse(updated);
-            toast.success("City image updated");
-          } catch (e: any) {
-            toast.error(e?.message || "Failed to save city image");
-          } finally {
-            setActionLoadingId(null);
-            setUploadingForId(null);
-            widget.close();
-          }
-          return;
-        }
-
-        if (error) {
-          console.error("Upload error:", error);
-          toast.error("Failed to upload image");
-          setUploadingForId(null);
-          return;
-        }
-
-        if (result?.event === "close") {
-          setUploadingForId(null);
-        }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error("City image must be 5MB or smaller");
+        return;
       }
-    );
 
-    widget.open();
+      setUploadingForId(city._id);
+      try {
+        const body = new FormData();
+        body.append("file", file);
+
+        const uploadResponse = await fetch("/api/upload?folder=cities", {
+          method: "POST",
+          credentials: "include",
+          body,
+        });
+        const uploadData = await uploadResponse.json();
+
+        if (
+          !uploadResponse.ok ||
+          !uploadData?.success ||
+          !uploadData?.data?.url ||
+          !uploadData?.data?.publicId
+        ) {
+          throw new Error(uploadData?.error || "Failed to upload city image");
+        }
+
+        setActionLoadingId(city._id);
+        const updated = await patchCity(city._id, {
+          imageUrl: uploadData.data.url,
+          publicId: uploadData.data.publicId,
+          clearImage: false,
+        });
+        applyCityFromResponse(updated);
+        toast.success("City image updated");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Failed to upload city image");
+      } finally {
+        setActionLoadingId(null);
+        setUploadingForId(null);
+      }
+    };
+
+    input.click();
   };
 
   const removeImage = async (city: CityItem) => {
@@ -506,18 +408,9 @@ function AdminCitiesContent() {
           </div>
           <h1 className="text-2xl md:text-3xl font-bold text-slate-900">Cities</h1>
           <p className="text-slate-500 mt-1 max-w-2xl">
-            Add / remove cities, upload Cloudinary images (9:16), and control which cities appear on the homepage.
+            Add / remove cities, upload protected 9:16 images, and control which cities appear on the homepage.
           </p>
 
-          {!cloudinaryCfg && (
-            <div className="mt-3 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-sm">
-              <span className="font-semibold">Cloudinary not configured.</span>
-              <span className="text-amber-700">
-                Set <code className="font-mono">CLOUDINARY_CLOUD_NAME</code> and{" "}
-                <code className="font-mono">CLOUDINARY_UPLOAD_PRESET</code> in <code className="font-mono">.env.local</code> and restart.
-              </span>
-            </div>
-          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-3">

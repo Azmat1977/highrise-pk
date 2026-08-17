@@ -386,17 +386,25 @@ export interface IAmenityDetailed {
 
 export interface IGalleryImage {
   url: string;
-  public_id: string;
+  // publicId is canonical. public_id is retained only for legacy records.
+  publicId?: string;
+  public_id?: string;
   caption?: string;
+  isPrimary?: boolean;
   category:
     | 'exterior'
     | 'interior'
     | 'amenity'
+    | 'amenities'
     | 'view'
     | 'lobby'
     | 'construction'
-    | 'render';
+    | 'render'
+    | 'floor_plan'
+    | 'aerial'
+    | 'other';
   order?: number;
+  uploadedAt?: Date;
 }
 
 export interface IProjectVideo {
@@ -423,6 +431,42 @@ export interface IProjectDocuments {
   masterPlanPublicId?: string;
   nocDocumentUrl?: string;
   nocDocumentPublicId?: string;
+}
+
+/**
+ * Managed project document library used by /api/projects/[id]/documents.
+ * Files are stored in Cloudinary with authenticated delivery and are
+ * exposed to clients only through short-lived signed URLs.
+ */
+export interface IProjectDocumentItem {
+  url: string;
+  publicId: string;
+  title: string;
+  description?: string;
+  category:
+    | 'noc'
+    | 'approval_letter'
+    | 'building_plan'
+    | 'layout_plan'
+    | 'development_agreement'
+    | 'allotment_letter'
+    | 'rera_registration'
+    | 'environmental_clearance'
+    | 'brochure'
+    | 'payment_plan'
+    | 'floor_plan'
+    | 'specification'
+    | 'legal'
+    | 'financial'
+    | 'other';
+  visibility: 'public' | 'registered' | 'admin_only';
+  fileType: string;
+  fileSize?: number;
+  resourceType?: 'image' | 'raw';
+  format?: string;
+  order: number;
+  uploadedAt: Date;
+  uploadedBy?: string;
 }
 
 export interface IFloorDetails {
@@ -471,6 +515,53 @@ export interface IInstallmentPlan {
   planDurationUnit?: 'months' | 'years';
   earlyPaymentDiscount?: number;
   fullPaymentDiscount?: number;
+}
+
+export interface IPaymentPlanInstallment {
+  label: string;
+  amount: number;
+  percentage?: number;
+  dueDate?: string;
+  dueAfter?: string;
+  frequency?: 'one_time' | 'monthly' | 'quarterly' | 'half_yearly' | 'yearly' | 'on_possession';
+  count?: number;
+  notes?: string;
+}
+
+export interface IProjectPaymentPlan {
+  _id?: mongoose.Types.ObjectId;
+  name: string;
+  description?: string;
+  planType: 'standard' | 'easy_installment' | 'flexi' | 'down_payment' | 'full_payment' | 'custom';
+  applicableTo?: 'all_units' | 'residential' | 'commercial' | 'specific_types';
+  unitTypes?: string[];
+  totalPrice?: number;
+  currency?: string;
+  bookingAmount?: number;
+  bookingPercent?: number;
+  downPayment?: number;
+  downPaymentPercent?: number;
+  downPaymentDueIn?: string;
+  installments?: IPaymentPlanInstallment[];
+  possessionAmount?: number;
+  possessionPercent?: number;
+  planDuration?: number;
+  planDurationUnit?: 'months' | 'years';
+  earlyPaymentDiscount?: number;
+  fullPaymentDiscount?: number;
+  bulkBookingDiscount?: number;
+  validFrom?: Date;
+  validUntil?: Date;
+  isActive?: boolean;
+  isDefault?: boolean;
+  isFeatured?: boolean;
+  order?: number;
+  termsAndConditions?: string;
+  disclaimers?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+  createdBy?: mongoose.Types.ObjectId;
+  updatedBy?: mongoose.Types.ObjectId;
 }
 
 export interface IDeveloperProfileSnapshot {
@@ -594,6 +685,7 @@ export interface IProject extends Document {
   saleMode?: SaleMode;
   fullPaymentInfo?: IFullPaymentInfo;
   installmentPlan?: IInstallmentPlan;
+  paymentPlans?: IProjectPaymentPlan[];
   unitTypeBreakdown?: IUnitType[];
 
   // ── DEVELOPER SNAPSHOT ─────────────────────
@@ -611,6 +703,7 @@ export interface IProject extends Document {
   floorPlans?: IFloorPlan[];
   buildingFloorPlans?: IBuildingFloorPlan[];
   projectDocuments?: IProjectDocuments;
+  documents?: IProjectDocumentItem[];
   droneVideoUrl?: string;
   virtualTourUrl?: string;
   projectVideoUrl?: string;
@@ -1114,17 +1207,24 @@ const AmenityDetailedSchema = new Schema(
   { _id: false }
 );
 
-const GalleryImageSchema = new Schema(
+const GalleryImageSchema = new Schema<IGalleryImage>(
   {
     url: { type: String, required: true },
-    public_id: { type: String, required: true },
-    caption: { type: String },
+    // New records use publicId; public_id remains readable for legacy data.
+    publicId: { type: String },
+    public_id: { type: String },
+    caption: { type: String, maxlength: 200 },
+    isPrimary: { type: Boolean, default: false },
     category: {
       type: String,
-      enum: ['exterior', 'interior', 'amenity', 'view', 'lobby', 'construction', 'render'],
-      default: 'exterior',
+      enum: [
+        'exterior', 'interior', 'amenity', 'amenities', 'view', 'lobby',
+        'construction', 'render', 'floor_plan', 'aerial', 'other',
+      ],
+      default: 'other',
     },
-    order: { type: Number, default: 0 },
+    order: { type: Number, default: 0, min: 0 },
+    uploadedAt: { type: Date, default: Date.now },
   },
   { _id: false }
 );
@@ -1143,6 +1243,101 @@ const ProjectVideoSchema = new Schema(
       type: String,
       enum: ['overview', 'walkthrough', 'drone', 'construction', 'testimonial'],
     },
+  },
+  { _id: false }
+);
+
+const PaymentPlanInstallmentSchema = new Schema<IPaymentPlanInstallment>(
+  {
+    label: { type: String, required: true, trim: true, maxlength: 100 },
+    amount: { type: Number, required: true, min: 0 },
+    percentage: { type: Number, min: 0, max: 100 },
+    dueDate: { type: String, trim: true, maxlength: 60 },
+    dueAfter: { type: String, trim: true, maxlength: 60 },
+    frequency: {
+      type: String,
+      enum: ['one_time', 'monthly', 'quarterly', 'half_yearly', 'yearly', 'on_possession'],
+    },
+    count: { type: Number, min: 0, max: 600 },
+    notes: { type: String, trim: true, maxlength: 300 },
+  },
+  { _id: false }
+);
+
+const ProjectPaymentPlanSchema = new Schema<IProjectPaymentPlan>(
+  {
+    name: { type: String, required: true, trim: true, maxlength: 200 },
+    description: { type: String, trim: true, maxlength: 1000 },
+    planType: {
+      type: String,
+      required: true,
+      enum: ['standard', 'easy_installment', 'flexi', 'down_payment', 'full_payment', 'custom'],
+    },
+    applicableTo: {
+      type: String,
+      enum: ['all_units', 'residential', 'commercial', 'specific_types'],
+      default: 'all_units',
+    },
+    unitTypes: [{ type: String, trim: true, maxlength: 80 }],
+    totalPrice: { type: Number, min: 0 },
+    currency: { type: String, trim: true, maxlength: 10, default: 'PKR' },
+    bookingAmount: { type: Number, min: 0 },
+    bookingPercent: { type: Number, min: 0, max: 100 },
+    downPayment: { type: Number, min: 0 },
+    downPaymentPercent: { type: Number, min: 0, max: 100 },
+    downPaymentDueIn: { type: String, trim: true, maxlength: 60 },
+    installments: { type: [PaymentPlanInstallmentSchema], default: [] },
+    possessionAmount: { type: Number, min: 0 },
+    possessionPercent: { type: Number, min: 0, max: 100 },
+    planDuration: { type: Number, min: 0, max: 600 },
+    planDurationUnit: { type: String, enum: ['months', 'years'] },
+    earlyPaymentDiscount: { type: Number, min: 0, max: 100 },
+    fullPaymentDiscount: { type: Number, min: 0, max: 100 },
+    bulkBookingDiscount: { type: Number, min: 0, max: 100 },
+    validFrom: { type: Date },
+    validUntil: { type: Date },
+    isActive: { type: Boolean, default: true },
+    isDefault: { type: Boolean, default: false },
+    isFeatured: { type: Boolean, default: false },
+    order: { type: Number, min: 0, max: 10_000, default: 0 },
+    termsAndConditions: { type: String, maxlength: 5000 },
+    disclaimers: { type: String, maxlength: 2000 },
+    createdAt: { type: Date, default: Date.now },
+    updatedAt: { type: Date, default: Date.now },
+    createdBy: { type: Schema.Types.ObjectId, ref: 'User' },
+    updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  },
+  { _id: true }
+);
+
+const ProjectDocumentItemSchema = new Schema<IProjectDocumentItem>(
+  {
+    url: { type: String, required: true },
+    publicId: { type: String, required: true },
+    title: { type: String, required: true, maxlength: 200 },
+    description: { type: String, maxlength: 500 },
+    category: {
+      type: String,
+      enum: [
+        'noc', 'approval_letter', 'building_plan', 'layout_plan',
+        'development_agreement', 'allotment_letter', 'rera_registration',
+        'environmental_clearance', 'brochure', 'payment_plan', 'floor_plan',
+        'specification', 'legal', 'financial', 'other',
+      ],
+      default: 'other',
+    },
+    visibility: {
+      type: String,
+      enum: ['public', 'registered', 'admin_only'],
+      default: 'public',
+    },
+    fileType: { type: String, required: true },
+    fileSize: { type: Number, min: 0 },
+    resourceType: { type: String, enum: ['image', 'raw'] },
+    format: { type: String },
+    order: { type: Number, min: 0, default: 0 },
+    uploadedAt: { type: Date, default: Date.now },
+    uploadedBy: { type: String },
   },
   { _id: false }
 );
@@ -1334,6 +1529,7 @@ const ProjectSchema = new Schema<IProject>(
       earlyPaymentDiscount: { type: Number, min: 0, max: 100 },
       fullPaymentDiscount: { type: Number, min: 0, max: 100 },
     },
+    paymentPlans: { type: [ProjectPaymentPlanSchema], default: [] },
 
     unitTypeBreakdown: [UnitTypeSchema],
 
@@ -1386,6 +1582,7 @@ const ProjectSchema = new Schema<IProject>(
       nocDocumentUrl: { type: String },
       nocDocumentPublicId: { type: String },
     },
+    documents: { type: [ProjectDocumentItemSchema], default: [] },
     droneVideoUrl: { type: String },
     virtualTourUrl: { type: String },
     projectVideoUrl: { type: String },

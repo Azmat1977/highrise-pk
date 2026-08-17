@@ -8,6 +8,7 @@ import dbConnect from '@/lib/db';
 import CampaignAnalytics from '@/models/CampaignAnalytics';
 import NewsletterCampaign from '@/models/NewsletterCampaign';
 import { getTransparentPixelBuffer } from '@/lib/tracking-pixel';
+import { requireServerSecret } from '@/lib/security/serverSecrets';
 
 // ─── Helpers ──────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ function getClientIP(req: NextApiRequest): string {
 
 function hashIP(ip: string): string {
   // Hash IP for GDPR-safe storage — we track patterns, not individuals
-  const secret = process.env.NEXTAUTH_SECRET || 'tracking-secret';
+  const secret = requireServerSecret(['SECURITY_LOG_HMAC_SECRET', 'NEXTAUTH_SECRET'], 'Email tracking IP hash secret');
   return crypto
     .createHmac('sha256', secret)
     .update(ip)

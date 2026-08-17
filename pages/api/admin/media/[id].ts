@@ -3,6 +3,7 @@ import dbConnect from '@/lib/db';
 import Media from '@/models/Media';
 import cloudinary from '@/lib/cloudinary';
 import mongoose from 'mongoose';
+import { requireAdmin } from '@/lib/requireAuth';
 
 type MediaResponse = {
   success: boolean;
@@ -15,6 +16,8 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<MediaResponse>
 ) {
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
   const { id } = req.query;
 
   // Validate ID

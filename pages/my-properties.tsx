@@ -23,6 +23,8 @@ import {
   X,
   Lock,
   ArrowRight,
+  RotateCcw,
+  AlertTriangle,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -68,9 +70,12 @@ interface Property {
   status: PropertyStatus;
   views: number;
   createdAt: string;
+  isDeleted?: boolean;
+  deletedAt?: string | null;
 }
 
 type ListingFilter = "all" | "full_payment" | "installment" | "rent";
+type ViewMode = "active" | "trash";
 
 interface BannerState {
   type: "success" | "error";
@@ -110,6 +115,21 @@ function getListingTypeLabel(type: ListingType): string {
 
 function getPropertyUrl(property: Property): string {
   return `/property/${property.slug ?? property._id}`;
+}
+
+const OWNER_PURGE_GRACE_DAYS = 30;
+
+function purgeEligibility(deletedAt?: string | null): { eligible: boolean; daysRemaining: number; eligibleAt: Date | null } {
+  if (!deletedAt) return { eligible: false, daysRemaining: OWNER_PURGE_GRACE_DAYS, eligibleAt: null };
+  const deleted = new Date(deletedAt);
+  if (Number.isNaN(deleted.getTime())) return { eligible: false, daysRemaining: OWNER_PURGE_GRACE_DAYS, eligibleAt: null };
+  const eligibleAt = new Date(deleted.getTime() + OWNER_PURGE_GRACE_DAYS * 24 * 60 * 60 * 1000);
+  const remainingMs = eligibleAt.getTime() - Date.now();
+  return {
+    eligible: remainingMs <= 0,
+    daysRemaining: Math.max(0, Math.ceil(remainingMs / (24 * 60 * 60 * 1000))),
+    eligibleAt,
+  };
 }
 
 // ─── Status Badge ─────────────────────────────────────────────────────────────
@@ -269,6 +289,68 @@ function TrashConfirmModal({
   );
 }
 
+interface PermanentDeleteModalProps {
+  open: boolean;
+  propertyTitle: string;
+  busy: boolean;
+  onCancel: () => void;
+  onConfirm: (reason: string) => void;
+}
+
+function PermanentDeleteModal({
+  open,
+  propertyTitle,
+  busy,
+  onCancel,
+  onConfirm,
+}: PermanentDeleteModalProps): React.ReactElement | null {
+  const [confirmation, setConfirmation] = useState("");
+  const [reason, setReason] = useState("");
+
+  useEffect(() => {
+    if (!open) {
+      setConfirmation("");
+      setReason("");
+    }
+  }, [open]);
+
+  if (!open) return null;
+  const valid = confirmation === "DELETE PERMANENTLY" && reason.trim().length >= 10;
+
+  return (
+    <div className="fixed inset-0 z-[125] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Confirm permanent deletion">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => !busy && onCancel()} />
+      <div className="relative w-full max-w-lg rounded-2xl bg-white shadow-2xl overflow-hidden">
+        <div className="flex items-start gap-3 border-b border-red-100 bg-red-50 px-6 py-5">
+          <AlertTriangle className="mt-0.5 h-6 w-6 text-red-600" />
+          <div>
+            <h3 className="text-lg font-bold text-red-800">Permanently delete Property?</h3>
+            <p className="mt-1 text-xs leading-relaxed text-red-700">This cannot be undone. Public media and protected evidence will be deleted or placed into the durable cleanup queue.</p>
+          </div>
+        </div>
+        <div className="space-y-4 px-6 py-5">
+          <p className="text-sm text-gray-700">You are permanently deleting <strong>{propertyTitle}</strong>.</p>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-gray-700" htmlFor="permanent-delete-reason">Reason</label>
+            <textarea id="permanent-delete-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={3} maxLength={500} disabled={busy} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100" placeholder="Explain why you are permanently deleting this listing (minimum 10 characters)." />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-semibold text-gray-700" htmlFor="permanent-delete-confirmation">Type DELETE PERMANENTLY</label>
+            <input id="permanent-delete-confirmation" value={confirmation} onChange={(e) => setConfirmation(e.target.value)} disabled={busy} className="w-full rounded-xl border border-gray-300 px-3 py-2 text-sm focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-100" autoComplete="off" />
+          </div>
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <button type="button" onClick={onCancel} disabled={busy} className="rounded-xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50">Cancel</button>
+            <button type="button" onClick={() => onConfirm(reason.trim())} disabled={busy || !valid} className="inline-flex items-center justify-center gap-2 rounded-xl bg-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+              Delete Permanently
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── Auth Gate ────────────────────────────────────────────────────────────────
 
 interface AuthGateProps {
@@ -347,10 +429,13 @@ export default function MyPropertiesPage(): React.ReactElement {
   const [banner, setBanner] = useState<BannerState | null>(null);
 
   const [listingFilter, setListingFilter] = useState<ListingFilter>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("active");
 
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmProperty, setConfirmProperty] = useState<Property | null>(null);
   const [trashLoading, setTrashLoading] = useState<string | null>(null);
+  const [permanentOpen, setPermanentOpen] = useState(false);
+  const [permanentProperty, setPermanentProperty] = useState<Property | null>(null);
 
   const fetchAbortRef = useRef<AbortController | null>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -379,7 +464,8 @@ export default function MyPropertiesPage(): React.ReactElement {
       setLoading(true);
       setError("");
 
-      const res = await fetch("/api/properties/my-properties", {
+      const query = viewMode === "trash" ? "?deletedOnly=true" : "";
+      const res = await fetch(`/api/properties/my-properties${query}`, {
         credentials: "include",
         signal: controller.signal,
         headers: { Accept: "application/json" },
@@ -388,8 +474,9 @@ export default function MyPropertiesPage(): React.ReactElement {
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
+          message?: string;
         };
-        throw new Error(body.error ?? `Failed to load (${res.status})`);
+        throw new Error(body.message ?? body.error ?? `Failed to load (${res.status})`);
       }
 
       const data = (await res.json()) as { properties?: Property[] };
@@ -403,7 +490,7 @@ export default function MyPropertiesPage(): React.ReactElement {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [viewMode]);
 
   // Trigger fetch when session is authenticated
   useEffect(() => {
@@ -440,14 +527,16 @@ export default function MyPropertiesPage(): React.ReactElement {
       const res = await fetch(`/api/properties/${propertyId}/trash`, {
         method: "PATCH",
         credentials: "include",
-        headers: { Accept: "application/json" },
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ isDeleted: true, reason: "Owner moved listing to Trash from My Properties" }),
       });
 
       if (!res.ok) {
         const body = (await res.json().catch(() => ({}))) as {
           error?: string;
+          message?: string;
         };
-        throw new Error(body.error ?? "Failed to move to trash");
+        throw new Error(body.message ?? body.error ?? "Failed to move to trash");
       }
 
       setProperties((prev) => prev.filter((p) => p._id !== propertyId));
@@ -462,6 +551,57 @@ export default function MyPropertiesPage(): React.ReactElement {
       setTrashLoading(null);
     }
   }, [confirmProperty, showBanner]);
+
+  const restoreProperty = useCallback(async (property: Property) => {
+    if (trashLoading) return;
+    setTrashLoading(property._id);
+    try {
+      const res = await fetch(`/api/properties/${property._id}/trash`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ isDeleted: false, reason: "Owner restored listing from Trash" }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { message?: string; error?: string };
+      if (!res.ok) throw new Error(body.message ?? body.error ?? "Failed to restore Property");
+      setProperties((prev) => prev.filter((p) => p._id !== property._id));
+      showBanner("success", body.message ?? "Property restored to Draft. Resubmit it for verification before publication.");
+    } catch (err: unknown) {
+      showBanner("error", err instanceof Error ? err.message : "Failed to restore Property");
+    } finally {
+      setTrashLoading(null);
+    }
+  }, [showBanner, trashLoading]);
+
+  const requestPermanentDelete = useCallback((property: Property) => {
+    if (trashLoading) return;
+    setPermanentProperty(property);
+    setPermanentOpen(true);
+  }, [trashLoading]);
+
+  const confirmPermanentDelete = useCallback(async (reason: string) => {
+    if (!permanentProperty) return;
+    setTrashLoading(permanentProperty._id);
+    try {
+      const res = await fetch(`/api/properties/${permanentProperty._id}/permanent-delete`, {
+        method: "DELETE",
+        credentials: "include",
+        headers: { Accept: "application/json", "Content-Type": "application/json" },
+        body: JSON.stringify({ confirmationCode: "DELETE PERMANENTLY", reason }),
+      });
+      const body = (await res.json().catch(() => ({}))) as { message?: string; code?: string };
+      if (!res.ok) throw new Error(body.message ?? "Permanent deletion failed");
+      const id = permanentProperty._id;
+      setProperties((prev) => prev.filter((p) => p._id !== id));
+      setPermanentOpen(false);
+      setPermanentProperty(null);
+      showBanner("success", "Property permanently deleted. Cleanup completed or was queued safely.");
+    } catch (err: unknown) {
+      showBanner("error", err instanceof Error ? err.message : "Permanent deletion failed");
+    } finally {
+      setTrashLoading(null);
+    }
+  }, [permanentProperty, showBanner]);
 
   // ── Derived data ──────────────────────────────────────────────────────────
   const counts = useMemo(() => {
@@ -541,6 +681,13 @@ export default function MyPropertiesPage(): React.ReactElement {
         onCancel={cancelTrash}
         onConfirm={confirmTrash}
       />
+      <PermanentDeleteModal
+        open={permanentOpen}
+        propertyTitle={permanentProperty?.title ?? ""}
+        busy={trashLoading !== null}
+        onCancel={() => { if (!trashLoading) { setPermanentOpen(false); setPermanentProperty(null); } }}
+        onConfirm={confirmPermanentDelete}
+      />
 
       <div className="min-h-screen bg-[#f8f9fa]">
         <div className="max-w-7xl mx-auto px-4 py-8">
@@ -552,7 +699,7 @@ export default function MyPropertiesPage(): React.ReactElement {
                 My Properties
               </h1>
               <p className="text-[#666666] mt-1">
-                Manage and track your property listings
+                {viewMode === "active" ? "Manage and track your active property listings" : "Restore listings or permanently delete them after the 30-day grace period"}
               </p>
             </div>
             <Link
@@ -562,6 +709,11 @@ export default function MyPropertiesPage(): React.ReactElement {
               <Plus className="w-5 h-5" />
               Add New Property
             </Link>
+          </div>
+
+          <div className="mb-5 inline-flex rounded-xl border border-gray-200 bg-white p-1 shadow-sm">
+            <button type="button" onClick={() => { setViewMode("active"); setListingFilter("all"); }} className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${viewMode === "active" ? "bg-[#004063] text-white" : "text-gray-600 hover:bg-gray-50"}`}>Active</button>
+            <button type="button" onClick={() => { setViewMode("trash"); setListingFilter("all"); }} className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${viewMode === "trash" ? "bg-[#004063] text-white" : "text-gray-600 hover:bg-gray-50"}`}>Trash</button>
           </div>
 
           {/* ── Listing type filters ───────────────────────────────────── */}
@@ -632,19 +784,22 @@ export default function MyPropertiesPage(): React.ReactElement {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
               <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
               <h2 className="text-xl font-semibold text-[#004063] mb-2">
-                No Properties Yet
+                {viewMode === "active" ? "No Properties Yet" : "Trash is Empty"}
               </h2>
               <p className="text-[#666666] mb-6 max-w-md mx-auto">
-                You haven&apos;t added any properties. Start by adding your
-                first property to grow your portfolio on Highrise.pk.
+                {viewMode === "active"
+                  ? "You haven't added any properties. Start by adding your first property to grow your portfolio on Highrise.pk."
+                  : "Properties moved to Trash will appear here during the 30-day restoration grace period."}
               </p>
-              <Link
-                href="/add-property"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white font-semibold rounded-xl shadow-md hover:opacity-90 transition-opacity"
-              >
-                <Plus className="w-5 h-5" />
-                Add Your First Property
-              </Link>
+              {viewMode === "active" && (
+                <Link
+                  href="/add-property"
+                  className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white font-semibold rounded-xl shadow-md hover:opacity-90 transition-opacity"
+                >
+                  <Plus className="w-5 h-5" />
+                  Add Your First Property
+                </Link>
+              )}
             </div>
           )}
 
@@ -755,35 +910,38 @@ export default function MyPropertiesPage(): React.ReactElement {
                       </div>
 
                       {/* Actions */}
-                      <div className="flex gap-2">
-                        <Link
-                          href={getPropertyUrl(property)}
-                          className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-[#333333] text-sm font-medium hover:bg-gray-50 transition-colors"
-                        >
-                          <Eye className="w-4 h-4" />
-                          View
-                        </Link>
-                        <Link
-                          href={`/edit-property/${property._id}`}
-                          className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-[#333333] text-sm font-medium hover:bg-gray-50 transition-colors"
-                        >
-                          <Edit className="w-4 h-4" />
-                          Edit
-                        </Link>
-                        <button
-                          type="button"
-                          onClick={() => requestTrash(property)}
-                          disabled={isTrashBusy}
-                          className="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50"
-                          aria-label="Move to trash"
-                        >
-                          {isTrashBusy ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Trash2 className="w-4 h-4" />
-                          )}
-                        </button>
-                      </div>
+                      {viewMode === "active" ? (
+                        <div className="flex gap-2">
+                          <Link href={getPropertyUrl(property)} className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-[#333333] text-sm font-medium hover:bg-gray-50 transition-colors">
+                            <Eye className="w-4 h-4" /> View
+                          </Link>
+                          <Link href={`/edit-property/${property._id}`} className="flex-1 inline-flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-gray-200 text-[#333333] text-sm font-medium hover:bg-gray-50 transition-colors">
+                            <Edit className="w-4 h-4" /> Edit
+                          </Link>
+                          <button type="button" onClick={() => requestTrash(property)} disabled={isTrashBusy} className="inline-flex items-center justify-center px-3 py-2 rounded-lg border border-gray-200 text-red-500 hover:bg-red-50 hover:border-red-300 transition-colors disabled:opacity-50" aria-label="Move to trash">
+                            {isTrashBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      ) : (() => {
+                        const eligibility = purgeEligibility(property.deletedAt);
+                        return (
+                          <div className="space-y-2">
+                            <div className="flex gap-2">
+                              <button type="button" onClick={() => restoreProperty(property)} disabled={isTrashBusy} className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-lg bg-[#029bba] px-3 py-2 text-sm font-semibold text-white hover:bg-[#027a94] disabled:opacity-50">
+                                {isTrashBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />} Restore to Draft
+                              </button>
+                              <button type="button" onClick={() => requestPermanentDelete(property)} disabled={isTrashBusy || !eligibility.eligible} className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-red-200 px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50">
+                                <Trash2 className="h-4 w-4" /> Delete permanently
+                              </button>
+                            </div>
+                            <p className="text-xs text-gray-500">
+                              {eligibility.eligible
+                                ? "30-day grace period complete. Permanent deletion is now available."
+                                : `Permanent deletion available in ${eligibility.daysRemaining} day${eligibility.daysRemaining === 1 ? "" : "s"}.`}
+                            </p>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 );

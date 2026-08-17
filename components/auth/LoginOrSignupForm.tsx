@@ -1,6 +1,6 @@
-// components/auth/LoginOrSignupForm.tsx
-// Highrise.pk — Enterprise Auth Form
-// V6.0.0 — isModal support | Role selection step | Context-aware messaging
+﻿// components/auth/LoginOrSignupForm.tsx
+// Highrise.pk â€” Enterprise Auth Form
+// V6.0.0 â€” isModal support | Role selection step | Context-aware messaging
 //           CNIC optional at signup | Pages Router compatible
 
 import React, {
@@ -22,7 +22,7 @@ import {
   Wrench, HardHat, ChevronRight,
 } from "lucide-react";
 
-// ─── Types ────────────────────────────────────────────────────
+// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type AuthMode = "login" | "signup" | "otp" | "forgot" | "reset" | "role";
 
@@ -39,7 +39,7 @@ type Props = {
   defaultMode?: "login" | "signup";
 };
 
-// ─── Role Cards Definition ────────────────────────────────────
+// â”€â”€â”€ Role Cards Definition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface RoleCard {
   id: string;
@@ -55,7 +55,7 @@ interface RoleCard {
 const ROLE_CARDS: RoleCard[] = [
   {
     id: "buyer",
-    emoji: "🛒",
+    emoji: "ًں›’",
     title: "Browse & Contact",
     description: "Find properties, contact agents, save favorites",
     badge: "Instant Access",
@@ -65,7 +65,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "owner",
-    emoji: "🛡️",
+    emoji: "ًں›،ï¸ڈ",
     title: "List My Own Property",
     description: "CNIC-verified owner listings. Max 10 properties.",
     badge: "CNIC Verification",
@@ -75,7 +75,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "agent",
-    emoji: "👔",
+    emoji: "ًں‘”",
     title: "Property Agent",
     description: "Unlimited listings, lead management, CRM",
     badge: "Professional Verification",
@@ -85,7 +85,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "developer",
-    emoji: "🏗️",
+    emoji: "ًںڈ—ï¸ڈ",
     title: "Property Developer",
     description: "Projects, units, portfolio, analytics",
     badge: "Company Verification",
@@ -95,7 +95,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "society",
-    emoji: "🏘️",
+    emoji: "ًںڈکï¸ڈ",
     title: "Housing Society",
     description: "Plot management, NOC documents, installments",
     badge: "Society Verification",
@@ -105,7 +105,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "provider",
-    emoji: "🔧",
+    emoji: "ًں”§",
     title: "Service Provider",
     description: "Contractor, vendor, factory, legal services",
     badge: "Coming Soon",
@@ -115,7 +115,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "labour",
-    emoji: "👷",
+    emoji: "ًں‘·",
     title: "Skilled Labour",
     description: "Register your trade, receive job requests",
     badge: "Coming Soon",
@@ -125,7 +125,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
 ];
 
-// ─── Turnstile Window Type ────────────────────────────────────
+// â”€â”€â”€ Turnstile Window Type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface TurnstileWidget {
   render: (
@@ -147,7 +147,7 @@ function getTurnstile(): TurnstileWidget | null {
   return w.turnstile ?? null;
 }
 
-// ─── API Types ────────────────────────────────────────────────
+// â”€â”€â”€ API Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface ApiSuccessResponse {
   success?: boolean;
@@ -168,7 +168,7 @@ interface FetchResult<T = ApiSuccessResponse> {
   data: T | ApiErrorResponse;
 }
 
-// ─── Constants ────────────────────────────────────────────────
+// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const MAX_EMAIL_LEN    = 120;
 const MAX_NAME_LEN     = 80;
@@ -184,7 +184,7 @@ const MSG_GENERIC_FORGOT =
 const MSG_GENERIC_AUTH   = "Unable to continue. Please try again.";
 const MSG_RATE_LIMITED   = "Too many attempts. Please wait before trying again.";
 
-// ─── Fetch Helper ─────────────────────────────────────────────
+// â”€â”€â”€ Fetch Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 async function postJson<T = ApiSuccessResponse>(
   url: string,
@@ -218,7 +218,7 @@ function getErrorMessage(data: ApiSuccessResponse | ApiErrorResponse): string {
   return errData.message || errData.error || "";
 }
 
-// ─── Sanitization ─────────────────────────────────────────────
+// â”€â”€â”€ Sanitization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function normalizeEmailOnSubmit(v: string): string {
   return String(v || "").trim().toLowerCase()
@@ -237,7 +237,7 @@ function normalizePhoneWhileTyping(v: string): string {
   return String(v || "").replace(/[^\d+]/g, "").slice(0, MAX_PHONE_LEN);
 }
 
-// ─── Password Policy ──────────────────────────────────────────
+// â”€â”€â”€ Password Policy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface PasswordChecks {
   lengthOk: boolean; hasLower: boolean; hasUpper: boolean;
@@ -362,7 +362,7 @@ function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-// ─── UI Components ────────────────────────────────────────────
+// â”€â”€â”€ UI Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   icon?: React.ReactNode;
@@ -419,7 +419,7 @@ function Btn({ variant = "primary", loading, children, ...props }: ButtonProps) 
   );
 }
 
-// ─── Context Header Text ──────────────────────────────────────
+// â”€â”€â”€ Context Header Text â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function getContextText(context: AuthContext, mode: AuthMode) {
   if (mode === "signup") {
@@ -431,7 +431,7 @@ function getContextText(context: AuthContext, mode: AuthMode) {
   if (context === "contact") {
     return {
       title: "Sign in to see contact details",
-      subtitle: "Phone numbers are protected — sign in to reveal",
+      subtitle: "Phone numbers are protected â€” sign in to reveal",
     };
   }
   if (context === "listing") {
@@ -452,9 +452,9 @@ function getContextText(context: AuthContext, mode: AuthMode) {
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
+// â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 // MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════════
+// â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
 const LoginOrSignupForm = ({
   onSuccess,
@@ -500,7 +500,7 @@ const LoginOrSignupForm = ({
   const [signupTurnstileToken, setSignupTurnstileToken] = useState("");
   const [otpResendTurnstileToken, setOtpResendTurnstileToken] = useState("");
 
-  // ─── Helpers ──────────────────────────────────────────────────
+  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const getPostAuthDestination = useCallback((): string => {
     // Default: land on homepage after login
@@ -523,7 +523,7 @@ const LoginOrSignupForm = ({
     setFailedLoginCount(0);
   }, []);
 
-  // ─── URL mode detection ───────────────────────────────────────
+  // â”€â”€â”€ URL mode detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -534,7 +534,7 @@ const LoginOrSignupForm = ({
     else if (qMode === "login")  setMode("login");
   }, [router.isReady, router.query]);
 
-  // ─── Turnstile loader ─────────────────────────────────────────
+  // â”€â”€â”€ Turnstile loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (!siteKey) return;
@@ -549,7 +549,7 @@ const LoginOrSignupForm = ({
     return () => { try { document.body.removeChild(s); } catch { /* already removed */ } };
   }, [siteKey]);
 
-  // ─── Signup Turnstile ─────────────────────────────────────────
+  // â”€â”€â”€ Signup Turnstile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (mode !== "signup" || !turnstileReady || !siteKey || !signupTurnstileRef.current) return;
@@ -568,7 +568,7 @@ const LoginOrSignupForm = ({
     return () => { try { ts.remove(widgetId); } catch { /* removed */ } };
   }, [mode, turnstileReady, siteKey]);
 
-  // ─── OTP Turnstile ────────────────────────────────────────────
+  // â”€â”€â”€ OTP Turnstile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (mode !== "otp" || !turnstileReady || !siteKey || !otpTurnstileRef.current) return;
@@ -587,7 +587,7 @@ const LoginOrSignupForm = ({
     return () => { try { ts.remove(widgetId); } catch { /* removed */ } };
   }, [mode, turnstileReady, siteKey]);
 
-  // ─── OTP cooldown ─────────────────────────────────────────────
+  // â”€â”€â”€ OTP cooldown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -595,7 +595,7 @@ const LoginOrSignupForm = ({
     return () => window.clearInterval(t);
   }, [otpCooldown]);
 
-  // ─── Auto-verify reset code ───────────────────────────────────
+  // â”€â”€â”€ Auto-verify reset code â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
     if (mode !== "reset" || resetCode.length !== RESET_CODE_LENGTH ||
@@ -620,7 +620,7 @@ const LoginOrSignupForm = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, resetCode, isResetCodeVerified, loading, form.email]);
 
-  // ─── Auto-verify signup OTP (with attempt tracking to prevent loop) ─
+  // â”€â”€â”€ Auto-verify signup OTP (with attempt tracking to prevent loop) â”€
 
   const otpAttemptedRef = useRef<string>("");
 
@@ -628,7 +628,7 @@ const LoginOrSignupForm = ({
     if (mode !== "otp" || otp.length !== OTP_LENGTH || loading ||
         !form.email || !form.password) return;
 
-    // ✅ Prevent infinite loop: only auto-verify each unique code ONCE
+    // âœ… Prevent infinite loop: only auto-verify each unique code ONCE
     if (otpAttemptedRef.current === otp) return;
     otpAttemptedRef.current = otp;
 
@@ -668,7 +668,7 @@ const LoginOrSignupForm = ({
         setLoading(false);
         return;
       }
-      // SUCCESS → show role selection
+      // SUCCESS â†’ show role selection
       setSuccess("");
       setMode("role");
       setLoading(false);
@@ -678,7 +678,7 @@ const LoginOrSignupForm = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, otp, loading, form.email, form.password, rememberMe]);
 
-  // ─── Field change handler ─────────────────────────────────────
+  // â”€â”€â”€ Field change handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -696,7 +696,7 @@ const LoginOrSignupForm = ({
     if (name === "email" || name === "password") setIsLocked(false);
   }, [clearNotices]);
 
-  // ─── Signup payload ───────────────────────────────────────────
+  // â”€â”€â”€ Signup payload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const signupPayload = useMemo(() => ({
     fullName: normalizeNameOnSubmit(form.fullName),
@@ -706,7 +706,7 @@ const LoginOrSignupForm = ({
     accountType: "individual" as const,
   }), [form]);
 
-  // ─── Handlers ─────────────────────────────────────────────────
+  // â”€â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleSignup = useCallback(async (opts?: { forResend?: boolean }) => {
     clearNotices(); setLoading(true);
@@ -862,7 +862,7 @@ const LoginOrSignupForm = ({
     if (ok) setSuccess("Password copied."); else setError("Copy failed.");
   }, [newPassword]);
 
-  // ─── Role selection handler ───────────────────────────────────
+  // â”€â”€â”€ Role selection handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const handleRoleSelect = useCallback((role: RoleCard) => {
     onSuccess(); // close modal if open
@@ -874,9 +874,9 @@ const LoginOrSignupForm = ({
     void router.push(getPostAuthDestination());
   }, [onSuccess, router, getPostAuthDestination]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // WRAPPER — modal vs full-page
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // WRAPPER â€” modal vs full-page
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
   // When isModal=true: return content directly (Modal handles scroll/size)
   // When isModal=false: wrap in full-page card shell (existing behavior)
@@ -912,7 +912,7 @@ const LoginOrSignupForm = ({
     );
   };
 
-  // ─── Context header (only in modal mode) ─────────────────────
+  // â”€â”€â”€ Context header (only in modal mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   const contextHeader = isModal && (mode === "login" || mode === "signup") ? (
     <div className="mb-5">
@@ -931,9 +931,9 @@ const LoginOrSignupForm = ({
     </div>
   ) : null;
 
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   // ROLE SELECTION SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
   if (mode === "role") {
     return wrapContent(
@@ -949,7 +949,7 @@ const LoginOrSignupForm = ({
           <div className="w-14 h-14 bg-gradient-to-br from-[#029bba]/20 to-[#029bba]/10 rounded-full flex items-center justify-center mx-auto mb-3">
             <CheckCircle className="w-7 h-7 text-[#029bba]" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Account created! 🎉</h2>
+          <h2 className="text-xl font-bold text-gray-900">Account created! ًںژ‰</h2>
           <p className="text-sm text-gray-600 mt-1">
             What brings you to Highrise.pk?
           </p>
@@ -991,15 +991,15 @@ const LoginOrSignupForm = ({
           className="w-full mt-4 py-2.5 text-sm text-gray-500 hover:text-gray-700
             font-medium transition-colors hover:underline underline-offset-4"
         >
-          Skip for now — I&apos;ll decide later
+          Skip for now â€” I&apos;ll decide later
         </button>
       </div>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   // LOGIN SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
   if (mode === "login") {
     return wrapContent(
@@ -1061,7 +1061,7 @@ const LoginOrSignupForm = ({
             <button type="button"
               className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
               onClick={() => setShowPassword(!showPassword)} aria-label="Toggle password">
-              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              {showPassword ? <EyeOff key="toggle-eye-off" className="w-4 h-4" /> : <Eye key="toggle-eye" className="w-4 h-4" />}
             </button>
           </div>
 
@@ -1114,9 +1114,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   // SIGNUP SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
   if (mode === "signup") {
     const { label, color } = getPasswordStrength(form.password);
@@ -1168,18 +1168,18 @@ const LoginOrSignupForm = ({
               <button type="button"
                 className="p-1.5 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
                 onClick={() => setShowPassword(!showPassword)} aria-label="Toggle password">
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showPassword ? <EyeOff key="toggle-eye-off" className="w-4 h-4" /> : <Eye key="toggle-eye" className="w-4 h-4" />}
               </button>
               <button type="button"
                 className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                 onClick={suggestSignupPassword} title="Generate strong password">
-                <Wand2 className="w-4 h-4" />
+                <Wand2 key="generate-password" className="w-4 h-4" />
               </button>
               <button type="button"
                 className={cx("p-1.5 rounded-lg hover:bg-gray-100 transition-colors",
                   copiedSignupPw ? "text-green-600" : "text-gray-500 hover:text-gray-800")}
                 onClick={copySignupPassword} title="Copy password">
-                {copiedSignupPw ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                {copiedSignupPw ? <Check key="copy-success" className="w-4 h-4" /> : <Copy key="copy-password" className="w-4 h-4" />}
               </button>
             </div>
           </div>
@@ -1265,9 +1265,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   // OTP SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
   if (mode === "otp") {
     const canResend = !loading && otpCooldown <= 0;
@@ -1280,7 +1280,7 @@ const LoginOrSignupForm = ({
         <p className="text-gray-600 text-sm mb-1">6-digit code sent to:</p>
         <p className="font-bold text-[#029bba] mb-4 text-sm">{normalizeEmailOnSubmit(form.email)}</p>
 
-        {/* ✅ Spam folder warning — enterprise-grade UX */}
+        {/* âœ… Spam folder warning â€” enterprise-grade UX */}
         <div className="mb-5 mx-auto max-w-md p-3 bg-amber-50 border border-amber-200 rounded-xl text-left">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1380,23 +1380,23 @@ const LoginOrSignupForm = ({
           </div>
           <button type="button" onClick={() => { clearNotices(); setMode("signup"); }}
             className="w-full h-10 text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline underline-offset-4">
-            ← Edit details
+            â†گ Edit details
           </button>
         </div>
       </div>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   // FORGOT PASSWORD
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
   if (mode === "forgot") {
     return wrapContent(
       <>
         <button type="button" onClick={() => { clearNotices(); setMode("login"); }}
           className="text-[#029bba] text-sm font-bold hover:underline underline-offset-4 mb-5 inline-flex items-center gap-1">
-          ← Back to sign in
+          â†گ Back to sign in
         </button>
         <div className="text-center mb-5">
           <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1427,9 +1427,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
   // RESET PASSWORD
-  // ═══════════════════════════════════════════════════════════════
+  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
 
   if (mode === "reset") {
     const { label, color } = getPasswordStrength(newPassword);
@@ -1439,7 +1439,7 @@ const LoginOrSignupForm = ({
         <button type="button"
           onClick={() => { setMode("forgot"); clearNotices(); setResetCode(""); setNewPassword(""); setIsResetCodeVerified(false); setCopiedResetPw(false); }}
           className="text-[#029bba] text-sm font-bold hover:underline underline-offset-4 mb-5 inline-flex items-center gap-1 float-left">
-          ← Back
+          â†گ Back
         </button>
         <div className="clear-both pt-2">
           <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1495,9 +1495,9 @@ const LoginOrSignupForm = ({
                 autoComplete="new-password" />
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 {[
-                  [() => setShowPassword(!showPassword), showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />, "Toggle"],
-                  [suggestResetPassword, <Wand2 className="w-4 h-4" />, "Generate"],
-                  [copyResetPassword, copiedResetPw ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />, "Copy"],
+                  [() => setShowPassword(!showPassword), showPassword ? <EyeOff key="toggle-eye-off" className="w-4 h-4" /> : <Eye key="toggle-eye" className="w-4 h-4" />, "Toggle"],
+                  [suggestResetPassword, <Wand2 key="generate-password" className="w-4 h-4" />, "Generate"],
+                  [copyResetPassword, copiedResetPw ? <Check key="copy-success" className="w-4 h-4" /> : <Copy key="copy-password" className="w-4 h-4" />, "Copy"],
                 ].map(([fn, icon, label]) => (
                   <button key={label as string} type="button"
                     className={cx("p-1.5 rounded-lg hover:bg-gray-100 disabled:opacity-50 transition-colors",

@@ -1,24 +1,24 @@
 /**
- * pages/api/projects/[id]/units/[unitId]/index.ts
+ * Canonical project-unit detail API.
  *
- * GET    /api/projects/[id]/units/[unitId]  → Public unit detail
- * PATCH  /api/projects/[id]/units/[unitId]  → Developer updates unit
- * DELETE /api/projects/[id]/units/[unitId]  → 410 Gone (use /trash)
+ * GET    /api/projects/[id]/units/[unitId]
+ * PATCH  /api/projects/[id]/units/[unitId]
+ * DELETE /api/projects/[id]/units/[unitId]  (soft delete)
  *
- * V5.0.0 — Unit.ts model, requireAuth, Upstash rate limit,
- *           findOne()+save(), logSecurityEvent, syncUnitTypeBreakdown
+ * Source-of-truth relationships:
+ *   Project.developerId -> User._id
+ *   Unit.projectId      -> Project._id
+ *   Unit.developerId    -> User._id
  */
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import { getToken } from 'next-auth/jwt';
 
 import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
 import Unit from '@/models/Unit';
-
 import { requireAuth, getClientIp } from '@/lib/requireAuth';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import {
   rateLimitApi,
   rateLimitDeveloper,
@@ -26,546 +26,408 @@ import {
   sendRateLimitResponse,
 } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
-import {
-  syncUnitTypeBreakdown,
-  denormalizeProjectToUnits,
-} from '@/lib/units/syncUnitTypeBreakdown';
+import { syncUnitTypeBreakdown } from '@/lib/units/syncUnitTypeBreakdown';
+import { deleteFiles, isHighrisePublicId } from '@/lib/cloudinary';
 
-// ─────────────────────────────────────────────
-// Types
-// ─────────────────────────────────────────────
+const ImageRefSchema = z.object({
+  url: z.string().url().max(2048),
+  publicId: z.string().min(1).max(512),
+  caption: z.string().max(200).optional(),
+  isPrimary: z.boolean().optional(),
+  order: z.number().int().min(0).max(10_000).optional(),
+});
+
+const PatchUnitSchema = z.object({
+  unitNumber: z.string().trim().min(1).max(40).optional(),
+  title: z.string().trim().max(200).optional(),
+  category: z.enum(['residential', 'commercial']).optional(),
+  unitType: z.string().trim().min(1).max(80).optional(),
+  status: z.enum(['available', 'reserved', 'sold', 'on_hold', 'cancelled']).optional(),
+  floorNumber: z.number().int().min(-5).max(200).optional(),
+  floorName: z.string().trim().max(80).optional(),
+  tower: z.string().trim().max(80).optional(),
+  wing: z.string().trim().max(80).optional(),
+  building: z.string().trim().max(120).optional(),
+
+  area: z.number().positive().optional(),
+  areaUnit: z.string().trim().min(1).max(20).optional(),
+  coveredArea: z.number().min(0).optional(),
+  carpetArea: z.number().min(0).optional(),
+  balconyArea: z.number().min(0).optional(),
+  terraceArea: z.number().min(0).optional(),
+  frontWidth: z.number().min(0).optional(),
+  depth: z.number().min(0).optional(),
+  hasMezzanine: z.boolean().optional(),
+  mezzanineArea: z.number().min(0).optional(),
+
+  price: z.number().positive().optional(),
+  priceNegotiable: z.boolean().optional(),
+  listingType: z.enum(['full_payment', 'installment', 'both', 'pre_launch']).optional(),
+  installmentPlan: z.object({
+    totalPrice: z.number().min(0).optional(),
+    bookingAmount: z.number().min(0).optional(),
+    bookingPercent: z.number().min(0).max(100).optional(),
+    downPayment: z.number().min(0).optional(),
+    downPaymentPercent: z.number().min(0).max(100).optional(),
+    downPaymentDueIn: z.string().trim().max(60).optional(),
+    hasMonthly: z.boolean().optional(),
+    monthlyAmount: z.number().min(0).optional(),
+    monthlyCount: z.number().int().min(0).optional(),
+    hasQuarterly: z.boolean().optional(),
+    quarterlyAmount: z.number().min(0).optional(),
+    quarterlyCount: z.number().int().min(0).optional(),
+    hasHalfYearly: z.boolean().optional(),
+    halfYearlyAmount: z.number().min(0).optional(),
+    halfYearlyCount: z.number().int().min(0).optional(),
+    hasYearly: z.boolean().optional(),
+    yearlyAmount: z.number().min(0).optional(),
+    yearlyCount: z.number().int().min(0).optional(),
+    possessionAmount: z.number().min(0).optional(),
+    possessionPercent: z.number().min(0).max(100).optional(),
+    planDuration: z.number().min(0).optional(),
+    planDurationUnit: z.enum(['months', 'years']).optional(),
+    earlyPaymentDiscount: z.number().min(0).max(100).optional(),
+    fullPaymentDiscount: z.number().min(0).max(100).optional(),
+  }).partial().optional(),
+  charges: z.object({
+    cornerCharges: z.number().min(0).optional(),
+    facingPremium: z.number().min(0).optional(),
+    floorPremium: z.number().min(0).optional(),
+    possessionCharges: z.number().min(0).optional(),
+    maintenanceAdvance: z.number().min(0).optional(),
+    maintenanceMonths: z.number().min(0).optional(),
+    electricityMeterCharges: z.number().min(0).optional(),
+    gasMeterCharges: z.number().min(0).optional(),
+    waterConnectionCharges: z.number().min(0).optional(),
+    parkingCharges: z.number().min(0).optional(),
+    documentationCharges: z.number().min(0).optional(),
+    transferFee: z.number().min(0).optional(),
+  }).partial().optional(),
+
+  bedrooms: z.number().int().min(0).max(20).optional(),
+  bathrooms: z.number().int().min(0).max(20).optional(),
+  balconies: z.number().int().min(0).max(20).optional(),
+  servantQuarter: z.boolean().optional(),
+  storeRoom: z.boolean().optional(),
+  laundryArea: z.boolean().optional(),
+  washroom: z.enum(['none', 'private', 'shared']).optional(),
+  finishingLevel: z.enum(['grey_structure', 'standard', 'premium', 'luxury']).optional(),
+
+  isCorner: z.boolean().optional(),
+  facing: z.enum(['north', 'south', 'east', 'west', 'north_east', 'north_west', 'south_east', 'south_west']).optional(),
+  view: z.enum(['park', 'road', 'city', 'garden', 'pool', 'mosque', 'hills', 'open', 'internal']).optional(),
+  isParkFacing: z.boolean().optional(),
+  isRoadFacing: z.boolean().optional(),
+  parkingIncluded: z.boolean().optional(),
+  parkingSpaces: z.number().int().min(0).max(20).optional(),
+  parkingType: z.enum(['covered', 'open', 'basement']).optional(),
+  features: z.array(z.string().trim().min(1).max(80)).max(50).optional(),
+
+  investorIntelligence: z.object({
+    estimatedMonthlyRent: z.number().min(0).optional(),
+    expectedRentalYield: z.number().min(0).max(100).optional(),
+    capitalAppreciation: z.string().max(200).optional(),
+    appreciationPercent: z.number().min(0).optional(),
+    appreciationTimeframe: z.string().max(80).optional(),
+    investmentScore: z.enum(['low', 'medium', 'high', 'excellent']).optional(),
+    demandScore: z.enum(['low', 'moderate', 'high', 'very_high']).optional(),
+    rentalDemand: z.enum(['low', 'moderate', 'high', 'very_high']).optional(),
+    investmentNotes: z.string().max(1200).optional(),
+  }).partial().optional(),
+
+  newImages: z.array(ImageRefSchema).max(20).optional(),
+  removedImageIds: z.array(z.string().min(1).max(512)).max(20).optional(),
+  images: z.array(ImageRefSchema).max(20).optional(),
+  floorPlan: ImageRefSchema.optional(),
+  floorPlanImage: ImageRefSchema.optional(),
+  virtualTourUrl: z.string().url().max(2048).optional().or(z.literal('')),
+  videoUrl: z.string().url().max(2048).optional().or(z.literal('')),
+  shortDescription: z.string().trim().max(500).optional(),
+  description: z.string().trim().max(5000).optional(),
+}).strict();
 
 type ApiResponse = {
   success: boolean;
   message?: string;
   code?: string;
   unit?: unknown;
+  project?: unknown;
   errors?: Record<string, string[]>;
 };
 
-// ─────────────────────────────────────────────
-// Zod v4 — PATCH validation schema
-// ─────────────────────────────────────────────
-
-const PatchUnitSchema = z.object({
-  // Identity
-  title:       z.string().max(120).optional(),
-  description: z.string().max(5000).optional(),
-  floor:       z.number().int().min(-5).max(200).optional(),
-
-  // Unit type (immutable after sold — enforced in handler)
-  unitType: z.enum([
-    'apartment', 'penthouse', 'studio', 'duplex', 'shop',
-    'office', 'warehouse', 'plot', 'villa', 'townhouse', 'other',
-  ]).optional(),
-
-  // Size
-  areaSqft:  z.number().min(0).optional(),
-  areaMarla: z.number().min(0).optional(),
-  areaUnit:  z.enum(['sqft', 'marla', 'kanal', 'sqyard']).optional(),
-
-  // Pricing
-  listingType: z.enum([
-    'full_payment', 'installment', 'both', 'pre_launch',
-  ]).optional(),
-  price:       z.number().min(0).optional(),
-  priceOnCall: z.boolean().optional(),
-
-  // Installment plan
-  installment: z.object({
-    downPaymentPercent: z.number().min(0).max(100),
-    monthlyInstallment: z.number().min(0),
-    installmentMonths:  z.number().int().min(1),
-    handoverPercent:    z.number().min(0).max(100).optional(),
-  }).optional(),
-
-  // Features
-  bedrooms:      z.number().int().min(0).max(20).optional(),
-  bathrooms:     z.number().int().min(0).max(20).optional(),
-  parkingSpaces: z.number().int().min(0).max(10).optional(),
-  facing:        z.string().max(20).optional(),
-  features:      z.array(z.string().max(50)).max(30).optional(),
-
-  // Media (pre-uploaded via /api/upload)
-  images: z.array(z.object({
-    url:       z.string().url(),
-    public_id: z.string().min(1),
-    isPrimary: z.boolean().optional(),
-    caption:   z.string().max(200).optional(),
-  })).max(20).optional(),
-
-  // Investor intelligence
-  expectedRentalYield:  z.number().min(0).max(100).optional(),
-  estimatedMonthlyRent: z.number().min(0).optional(),
-  capitalAppreciation:  z.number().min(0).max(100).optional(),
-
-  // Possession
-  possessionDate:      z.string().optional(),
-  isPossessionReady:   z.boolean().optional(),
-}).strict();
-
-type PatchUnitBody = z.infer<typeof PatchUnitSchema>;
-
-// ─────────────────────────────────────────────
-// Security headers
-// ─────────────────────────────────────────────
-
-function setSecurityHeaders(res: NextApiResponse, isPublic: boolean): void {
+function setSecurityHeaders(res: NextApiResponse): void {
   res.setHeader('Content-Type', 'application/json; charset=utf-8');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
-  res.setHeader('Strict-Transport-Security', 'max-age=86400; includeSubDomains');
-
-  if (isPublic) {
-    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
-  } else {
-    res.setHeader('Cache-Control', 'no-store, max-age=0');
-  }
+  res.setHeader('Cache-Control', 'no-store, max-age=0');
 }
-
-// ─────────────────────────────────────────────
-// Helpers
-// ─────────────────────────────────────────────
 
 function isValidObjectId(id: string): boolean {
-  return mongoose.Types.ObjectId.isValid(id) &&
-    /^[a-fA-F0-9]{24}$/.test(id);
+  return mongoose.Types.ObjectId.isValid(id) && /^[a-fA-F0-9]{24}$/.test(id);
 }
 
-function normalizeParam(
-  v: string | string[] | undefined,
-): string {
-  return Array.isArray(v) ? String(v[0] ?? '') : String(v ?? '');
+function normalizeParam(v: string | string[] | undefined): string {
+  return Array.isArray(v) ? String(v[0] ?? '').trim() : String(v ?? '').trim();
+}
+
+function isProjectPublic(project: { status?: string; verificationStatus?: string; isVerified?: boolean }): boolean {
+  return project.isVerified === true ||
+    (String(project.status ?? '').toLowerCase() === 'verified' &&
+      String(project.verificationStatus ?? '').toLowerCase() === 'verified');
 }
 
 function formatPKR(amount: number): string {
   if (amount >= 10_000_000) return `${(amount / 10_000_000).toFixed(2)} Crore`;
-  if (amount >= 100_000)    return `${(amount / 100_000).toFixed(2)} Lac`;
-  if (amount >= 1_000)      return `${(amount / 1_000).toFixed(1)}K`;
+  if (amount >= 100_000) return `${(amount / 100_000).toFixed(2)} Lac`;
+  if (amount >= 1_000) return `${(amount / 1_000).toFixed(1)}K`;
   return String(amount);
 }
 
-function getPrimaryImage(
-  images: Array<{ url: string; isPrimary?: boolean }> | undefined,
-): string | null {
-  if (!images?.length) return null;
-  return images.find((i) => i.isPrimary)?.url ?? images[0]?.url ?? null;
+function cleanPublicUnit(raw: Record<string, unknown>): Record<string, unknown> {
+  const safe = { ...raw };
+  for (const key of [
+    'projectId', 'developerId', 'customContact', 'bookingInfo', 'soldInfo',
+    'createdBy', 'updatedBy', 'isDeleted', 'deletedAt', 'isVerified',
+  ]) delete safe[key];
+  return safe;
 }
 
-// ─────────────────────────────────────────────
-// Main handler
-// ─────────────────────────────────────────────
+async function resolveProject(idOrSlug: string) {
+  const filter = { isDeleted: { $ne: true } };
+  return (isValidObjectId(idOrSlug)
+    ? Project.findOne({ _id: idOrSlug, ...filter })
+    : Project.findOne({ slug: idOrSlug, ...filter }))
+    .select('_id developerId slug projectName city area status verificationStatus isVerified developerBadge')
+    .lean() as Promise<{
+      _id: mongoose.Types.ObjectId;
+      developerId: mongoose.Types.ObjectId;
+      slug?: string;
+      projectName?: string;
+      city?: string;
+      area?: string;
+      status?: string;
+      verificationStatus?: string;
+      isVerified?: boolean;
+      developerBadge?: string;
+    } | null>;
+}
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse<ApiResponse>,
-): Promise<void> {
-  const method = (req.method ?? 'GET').toUpperCase();
-
-  // ── Deprecated DELETE ───────────────────────
-  if (method === 'DELETE') {
-    setSecurityHeaders(res, false);
-    res.setHeader('Allow', ['GET', 'PATCH']);
-    return void res.status(410).json({
-      success: false,
-      message: 'DELETE via this endpoint is deprecated. Use PATCH status=cancelled or contact admin.',
-      code: 'METHOD_DEPRECATED',
-    });
+export default async function handler(req: NextApiRequest, res: NextApiResponse<ApiResponse>): Promise<void> {
+  setSecurityHeaders(res);
+  const method = (req.method ?? '').toUpperCase();
+  if (!['GET', 'PATCH', 'DELETE'].includes(method)) {
+    res.setHeader('Allow', ['GET', 'PATCH', 'DELETE']);
+    return void res.status(405).json({ success: false, message: 'Method not allowed.' });
   }
 
-  if (method !== 'GET' && method !== 'PATCH') {
-    setSecurityHeaders(res, false);
-    res.setHeader('Allow', ['GET', 'PATCH']);
-    return void res.status(405).json({
-      success: false,
-      message: 'Method not allowed.',
-      code: 'METHOD_NOT_ALLOWED',
-    });
-  }
-
-  setSecurityHeaders(res, method === 'GET');
-
-  // ── Rate limit ──────────────────────────────
-  const rl = await (method === 'PATCH'
-    ? rateLimitDeveloper(req)
-    : rateLimitApi(req));
-
+  const rl = await (method === 'GET' ? rateLimitApi(req) : rateLimitDeveloper(req));
   setRateLimitHeaders(res, rl);
   if (!rl.ok) return void sendRateLimitResponse(res, rl);
 
-  // ── Resolve params ──────────────────────────
-  const idOrSlug = normalizeParam(
-    req.query.id as string | string[] | undefined,
-  ).trim();
-  const unitId   = normalizeParam(
-    req.query.unitId as string | string[] | undefined,
-  ).trim();
-
-  if (!idOrSlug || !unitId) {
-    return void res.status(400).json({
-      success: false,
-      message: 'Project ID and Unit ID are required.',
-      code: 'MISSING_PARAMS',
-    });
-  }
-
-  // unitId must be ObjectId (units are always resolved by _id)
-  if (!isValidObjectId(unitId)) {
-    return void res.status(400).json({
-      success: false,
-      message: 'Invalid unit ID.',
-      code: 'INVALID_UNIT_ID',
-    });
+  const idOrSlug = normalizeParam(req.query.id as string | string[] | undefined);
+  const unitId = normalizeParam(req.query.unitId as string | string[] | undefined);
+  if (!idOrSlug || !isValidObjectId(unitId)) {
+    return void res.status(400).json({ success: false, message: 'Valid project and unit IDs are required.' });
   }
 
   await dbConnect();
-
-  if (method === 'GET')   return void handleGet(req, res, idOrSlug, unitId);
+  if (method === 'GET') return void handleGet(req, res, idOrSlug, unitId);
   if (method === 'PATCH') return void handlePatch(req, res, idOrSlug, unitId);
+  return void handleDelete(req, res, idOrSlug, unitId);
 }
 
-// ─────────────────────────────────────────────
-// GET — Public unit detail
-// ─────────────────────────────────────────────
+async function handleGet(req: NextApiRequest, res: NextApiResponse<ApiResponse>, idOrSlug: string, unitId: string): Promise<void> {
+  const viewer = await getOptionalAuth(req);
+  const project = await resolveProject(idOrSlug);
+  if (!project) return void res.status(404).json({ success: false, message: 'Project not found.' });
 
-async function handleGet(
-  req: NextApiRequest,
-  res: NextApiResponse<ApiResponse>,
-  idOrSlug: string,
-  unitId: string,
-): Promise<void> {
-  // Optional auth — owner/admin get extra fields
-  const token      = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
-  const viewerId   = token?.sub ? String(token.sub) : null;
-  const viewerRole = token?.role ? String(token.role) : 'user';
-  const isAdmin    = viewerRole === 'admin';
+  const isAdmin = !!viewer && ['admin', 'superadmin'].includes(viewer.role);
+  const isOwner = !!viewer && viewer.role === 'developer' && String(project.developerId) === viewer.id;
+  const publicProject = isProjectPublic(project);
+  if (!publicProject && !isAdmin && !isOwner) {
+    return void res.status(404).json({ success: false, message: 'Unit not found.' });
+  }
 
-  // ── Resolve project ─────────────────────────
-  const projectFilter: Record<string, unknown> = {
+  const filter: Record<string, unknown> = {
+    _id: new mongoose.Types.ObjectId(unitId),
+    projectId: project._id,
     isDeleted: { $ne: true },
   };
+  if (!isAdmin && !isOwner) filter.isPublished = true;
 
-  const project = await (
-    isValidObjectId(idOrSlug)
-      ? Project.findOne({ _id: idOrSlug, ...projectFilter })
-      : Project.findOne({ slug: idOrSlug, ...projectFilter })
-  )
-    .select('_id developer slug projectName city areaName status isVerified developerBadge')
+  const unit = await Unit.findOne(filter)
+    .select(isAdmin || isOwner ? '-soldInfo.cnicHash -soldInfo.cnicEncrypted' : '-bookingInfo -soldInfo -customContact -createdBy -updatedBy')
     .lean();
+  if (!unit) return void res.status(404).json({ success: false, message: 'Unit not found.' });
 
-  if (!project) {
-    return void res.status(404).json({
-      success: false,
-      message: 'Project not found.',
-      code: 'NOT_FOUND',
-    });
+  const raw = unit as unknown as Record<string, unknown>;
+  const responseUnit = isAdmin || isOwner ? { ...raw } : cleanPublicUnit(raw);
+  // Compatibility alias used by the current developer editor.
+  responseUnit.floorPlan = responseUnit.floorPlanImage ?? null;
+  responseUnit.priceFormatted = typeof responseUnit.price === 'number' ? formatPKR(responseUnit.price) : null;
+  responseUnit.contactViaHighrise = true;
+
+  if (!isAdmin && !isOwner) {
+    Unit.updateOne({ _id: unitId }, { $inc: { views: 1 } }).exec().catch(() => undefined);
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
   }
-
-  const proj      = project as unknown as Record<string, unknown>;
-  const ownerStr  = String(proj.developer ?? '');
-  const isOwner   = viewerId ? ownerStr === viewerId : false;
-
-  // Public visibility gate
-  const isVerified = proj.isVerified === true || proj.status === 'verified';
-  if (!isVerified && !isAdmin && !isOwner) {
-    return void res.status(404).json({
-      success: false,
-      message: 'Project not found.',
-      code: 'NOT_FOUND',
-    });
-  }
-
-  // ── Fetch unit ──────────────────────────────
-  // Unit.ts: 'project' field links to Project._id
-  const unit = await Unit.findOne({
-    _id:     new mongoose.Types.ObjectId(unitId),
-    project: new mongoose.Types.ObjectId(String(proj._id ?? '')),
-    isDeleted: { $ne: true },
-  })
-    .select(
-      isAdmin || isOwner
-        ? // Owner/admin: full detail including reservation info
-          '-soldToCnicHash -soldToCnicEncrypted'
-        : // Public: exclude all sensitive fields
-          [
-            '_id', 'unitNumber', 'unitType', 'floor', 'title', 'description',
-            'status', 'listingType',
-            'price', 'priceOnCall',
-            'areaSqft', 'areaMarla', 'areaUnit',
-            'bedrooms', 'bathrooms', 'parkingSpaces',
-            'facing', 'features', 'images',
-            'slug', 'canonicalUrl',
-            'projectSlug', 'projectName', 'city', 'areaName',
-            'developerBadge',
-            'expectedRentalYield', 'estimatedMonthlyRent',
-            'capitalAppreciation', 'investmentScore', 'demandScore',
-            'installment.downPaymentPercent',
-            'installment.monthlyInstallment',
-            'installment.installmentMonths',
-            'possessionDate', 'isPossessionReady',
-            'createdAt', 'updatedAt',
-          ].join(' '),
-    )
-    .lean();
-
-  if (!unit) {
-    return void res.status(404).json({
-      success: false,
-      message: 'Unit not found.',
-      code: 'NOT_FOUND',
-    });
-  }
-
-  const u = unit as unknown as Record<string, unknown>;
-  // Cast once — .lean() loses typed _id (LESSON #63)
-  const unitObjId = (unit as unknown as { _id: mongoose.Types.ObjectId })._id;
-
-  // Increment view count (fire-and-forget, public only)
-  if (isVerified && !isAdmin && !isOwner) {
-    Unit.updateOne(
-      { _id: unitObjId },
-      { $inc: { viewCount: 1 } },
-    ).exec().catch(() => undefined);
-  }
-
-  // ── Badge metadata ──────────────────────────
-  const badgeLabels: Record<string, string> = {
-    new_entrant: '🆕 New Entrant',
-    emerging:    '⭐ Emerging',
-    trusted:     '🏆 Trusted Builder',
-    premium:     '💎 Premium Developer',
-  };
-  const badge = String(u.developerBadge ?? 'new_entrant');
-
-  // ── Enrich response ─────────────────────────
-  const images = u.images as Array<{ url: string; isPrimary?: boolean }> | undefined;
 
   return void res.status(200).json({
     success: true,
-    unit: {
-      ...u,
-      primaryImage:  getPrimaryImage(images),
-      priceFormatted: typeof u.price === 'number'
-        ? formatPKR(u.price)
-        : null,
-      badgeLabel: badgeLabels[badge] ?? badge,
-      // Managed marketplace: contact via Highrise
-      contactViaHighrise: true,
-      // Canonical URL for SEO
-      canonicalUrl: u.canonicalUrl ??
-        `/projects/${String(proj.slug ?? '')}/units/${String(u.slug ?? unitId)}`,
+    unit: responseUnit,
+    project: {
+      _id: String(project._id),
+      projectName: project.projectName ?? '',
+      slug: project.slug ?? '',
+      city: project.city ?? '',
+      area: project.area ?? '',
     },
   });
 }
 
-// ─────────────────────────────────────────────
-// PATCH — Developer updates unit content
-// ─────────────────────────────────────────────
+async function getOwnedProject(req: NextApiRequest, res: NextApiResponse<ApiResponse>, idOrSlug: string) {
+  const auth = await requireAuth(req, res);
+  if (!auth) return null;
+  const isAdmin = ['admin', 'superadmin'].includes(auth.role);
+  if (!isAdmin && auth.role !== 'developer') {
+    res.status(403).json({ success: false, message: 'Only developers or admins can modify units.' });
+    return null;
+  }
+  const project = await resolveProject(idOrSlug);
+  if (!project || (!isAdmin && String(project.developerId) !== auth.id)) {
+    res.status(404).json({ success: false, message: 'Project not found.' });
+    return null;
+  }
+  return { auth, isAdmin, project };
+}
 
-async function handlePatch(
-  req: NextApiRequest,
-  res: NextApiResponse<ApiResponse>,
-  idOrSlug: string,
-  unitId: string,
-): Promise<void> {
-  // ── Auth ────────────────────────────────────
-  const authResult = await requireAuth(req, res);
-  if (!authResult) return;
+async function handlePatch(req: NextApiRequest, res: NextApiResponse<ApiResponse>, idOrSlug: string, unitId: string): Promise<void> {
+  const access = await getOwnedProject(req, res, idOrSlug);
+  if (!access) return;
+  const { auth, isAdmin, project } = access;
 
-  const userId  = authResult.id;
-  const role    = authResult.role;
-  const isAdmin = role === 'admin';
-  const ip      = getClientIp(req);
+  const unit = await Unit.findOne({ _id: unitId, projectId: project._id, isDeleted: { $ne: true } });
+  if (!unit) return void res.status(404).json({ success: false, message: 'Unit not found.' });
 
-  if (!isAdmin && role !== 'developer') {
-    return void res.status(403).json({
-      success: false,
-      message: 'Only developers can update units.',
-      code: 'FORBIDDEN',
-    });
+  let rawBody: unknown = req.body;
+  if (typeof rawBody === 'string') {
+    try {
+      rawBody = JSON.parse(rawBody);
+    } catch {
+      return void res.status(400).json({ success: false, message: 'Invalid JSON body.' });
+    }
   }
 
-  // ── Resolve project ─────────────────────────
-  const project = await (
-    isValidObjectId(idOrSlug)
-      ? Project.findOne({ _id: idOrSlug, isDeleted: { $ne: true } })
-      : Project.findOne({ slug: idOrSlug, isDeleted: { $ne: true } })
-  )
-    .select('_id developer slug projectName city areaName developerBadge contactVisibility')
-    .lean();
-
-  if (!project) {
-    return void res.status(404).json({
-      success: false,
-      message: 'Project not found.',
-      code: 'NOT_FOUND',
-    });
-  }
-
-  const proj     = project as unknown as Record<string, unknown>;
-  const ownerStr = String(proj.developer ?? '');
-
-  // Ownership check (anti-enumeration 404)
-  if (!isAdmin && ownerStr !== userId) {
-    return void res.status(404).json({
-      success: false,
-      message: 'Project not found.',
-      code: 'NOT_FOUND',
-    });
-  }
-
-  // ── Fetch unit via findOne() for save() ─────
-  // ARCH RULE: findOne() + save() — never findByIdAndUpdate
-  const unit = await Unit.findOne({
-    _id:     new mongoose.Types.ObjectId(unitId),
-    project: new mongoose.Types.ObjectId(String(proj._id ?? '')),
-    isDeleted: { $ne: true },
-  });
-
-  if (!unit) {
-    return void res.status(404).json({
-      success: false,
-      message: 'Unit not found.',
-      code: 'NOT_FOUND',
-    });
-  }
-
-  const unitRaw = unit as unknown as Record<string, unknown>;
-
-  // ── Guard: sold units are immutable (content) ─
-  if (unitRaw.status === 'sold' && !isAdmin) {
-    return void res.status(409).json({
-      success: false,
-      message: 'Sold units cannot be edited. Contact admin if correction needed.',
-      code: 'UNIT_SOLD_IMMUTABLE',
-    });
-  }
-
-  // ── Parse + validate body ───────────────────
-  let body: unknown;
-  try {
-    body = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
-  } catch {
-    return void res.status(400).json({
-      success: false,
-      message: 'Invalid JSON body.',
-      code: 'INVALID_JSON',
-    });
-  }
-
-  const parsed = PatchUnitSchema.safeParse(body);
+  const parsed = PatchUnitSchema.safeParse(rawBody);
   if (!parsed.success) {
     return void res.status(422).json({
       success: false,
-      message:  'Validation failed.',
-      code:     'VALIDATION_ERROR',
-      errors:   parsed.error.flatten().fieldErrors as Record<string, string[]>,
+      message: 'Validation failed.',
+      errors: parsed.error.flatten().fieldErrors as Record<string, string[]>,
     });
   }
+  const data = parsed.data;
+  const current = unit.toObject() as Record<string, unknown>;
 
-  const data: PatchUnitBody = parsed.data;
-
-  // ── Guard: unitType immutable after reservation ─
-  if (
-    data.unitType &&
-    data.unitType !== unitRaw.unitType &&
-    (unitRaw.status === 'reserved' || unitRaw.status === 'sold') &&
-    !isAdmin
-  ) {
+  // Status transitions are intentionally centralized in /status so sale/reservation
+  // KYC and transition rules cannot be bypassed by this general edit endpoint.
+  if (data.status && data.status !== current.status) {
     return void res.status(409).json({
       success: false,
-      message: 'Unit type cannot be changed after reservation or sale.',
-      code: 'UNIT_TYPE_IMMUTABLE',
+      message: 'Change unit availability through the dedicated status action.',
+      code: 'USE_STATUS_ENDPOINT',
     });
   }
-
-  // ── Validate image public_ids ───────────────
-  if (data.images?.length) {
-    for (const img of data.images) {
-      if (
-        !img.public_id.startsWith('highrise/projects/') &&
-        !img.public_id.startsWith('highrise/units/')
-      ) {
-        return void res.status(400).json({
-          success: false,
-          message: 'Invalid image public_id. Upload via /api/upload first.',
-          code: 'INVALID_IMAGE',
-        });
-      }
-    }
+  if (current.status === 'sold' && !isAdmin) {
+    return void res.status(409).json({ success: false, message: 'Sold units cannot be edited.' });
   }
 
-  // ── Track price change for priceHistory ─────
-  // Unit.ts pre-save hook appends to priceHistory[] automatically
-  // We just need to set the new price — hook handles the rest
-  const oldPrice = typeof unitRaw.price === 'number' ? unitRaw.price : 0;
-  const newPrice = typeof data.price === 'number' ? data.price : oldPrice;
-  const priceChanged = newPrice !== oldPrice;
+  const mediaRefs = [
+    ...(data.newImages ?? []),
+    ...(data.images ?? []),
+    ...(data.floorPlan ? [data.floorPlan] : []),
+    ...(data.floorPlanImage ? [data.floorPlanImage] : []),
+  ];
+  if (mediaRefs.some((m) => !isHighrisePublicId(m.publicId))) {
+    return void res.status(400).json({ success: false, message: 'Media must be uploaded through Highrise first.' });
+  }
+  if ((data.removedImageIds ?? []).some((id) => !isHighrisePublicId(id))) {
+    return void res.status(400).json({ success: false, message: 'Invalid media removal request.' });
+  }
 
-  // ── Apply changes via save() ─────────────────
+  if (data.unitNumber && data.unitNumber !== current.unitNumber) {
+    const duplicate = await Unit.exists({ projectId: project._id, unitNumber: data.unitNumber, _id: { $ne: unit._id }, isDeleted: { $ne: true } });
+    if (duplicate) return void res.status(409).json({ success: false, message: `Unit number "${data.unitNumber}" already exists.` });
+  }
+
+  const removedIds = new Set(data.removedImageIds ?? []);
+  const existingImages = ((current.images as Array<Record<string, unknown>> | undefined) ?? [])
+    .filter((img) => !removedIds.has(String(img.publicId ?? '')));
+  const nextImages = data.images ?? [...existingImages, ...(data.newImages ?? [])];
+  if (nextImages.length > 20) return void res.status(422).json({ success: false, message: 'A unit can have at most 20 images.' });
+
+  const omit = new Set(['status', 'newImages', 'removedImageIds', 'images', 'floorPlan', 'floorPlanImage']);
   for (const [key, value] of Object.entries(data)) {
-    if (value !== undefined) {
-      (unit as unknown as Record<string, unknown>)[key] = value;
-    }
+    if (!omit.has(key) && value !== undefined) (unit as unknown as Record<string, unknown>)[key] = value;
   }
+  if (data.images || data.newImages || data.removedImageIds) (unit as unknown as Record<string, unknown>).images = nextImages;
 
-  // Parse possessionDate string → Date if provided
-  if (data.possessionDate) {
-    const d = new Date(data.possessionDate);
-    if (Number.isFinite(d.getTime())) {
-      (unit as unknown as Record<string, unknown>).possessionDate = d;
-    }
-  }
+  const replacementFloorPlan = data.floorPlanImage ?? data.floorPlan;
+  const oldFloorPlan = current.floorPlanImage as Record<string, unknown> | undefined;
+  if (replacementFloorPlan) (unit as unknown as Record<string, unknown>).floorPlanImage = replacementFloorPlan;
 
+  (unit as unknown as Record<string, unknown>).updatedBy = new mongoose.Types.ObjectId(auth.id);
   await unit.save();
+  await syncUnitTypeBreakdown(String(project._id)).catch(() => undefined);
 
-  // ── Post-save sync ───────────────────────────
-  await syncUnitTypeBreakdown(String(proj._id ?? '')).catch(() => undefined);
-
-  // If location-affecting fields changed, denormalize to sibling units
-  const locationChanged = 'city' in data || 'areaName' in data;
-  if (locationChanged) {
-    await denormalizeProjectToUnits(String(proj._id ?? '')).catch(() => undefined);
+  const safelyOwnedRemoved = ((current.images as Array<Record<string, unknown>> | undefined) ?? [])
+    .map((img) => String(img.publicId ?? ''))
+    .filter((id) => removedIds.has(id) && isHighrisePublicId(id));
+  if (replacementFloorPlan && oldFloorPlan?.publicId && isHighrisePublicId(String(oldFloorPlan.publicId))) {
+    safelyOwnedRemoved.push(String(oldFloorPlan.publicId));
   }
+  if (safelyOwnedRemoved.length) await deleteFiles([...new Set(safelyOwnedRemoved)]).catch(() => undefined);
 
-  // ── Audit log ────────────────────────────────
   await logSecurityEvent({
-    type:     'admin_action',
+    type: 'admin_action',
     severity: 'low',
-    userId,
-    ip,
-    metadata: {
-      action:       'unit_updated',
-      unitId,
-      unitNumber:   String(unitRaw.unitNumber ?? ''),
-      projectId:    String(proj._id ?? ''),
-      projectSlug:  String(proj.slug ?? ''),
-      updatedFields: Object.keys(data),
-      priceChanged,
-      oldPrice:     priceChanged ? oldPrice : undefined,
-      newPrice:     priceChanged ? newPrice : undefined,
-      byRole:       role,
-    },
+    userId: auth.id,
+    ip: getClientIp(req),
+    metadata: { action: 'unit_updated', projectId: String(project._id), unitId },
     req,
   });
 
-  // ── Response ────────────────────────────────
-  const updatedUnit = unit as unknown as Record<string, unknown>;
+  const saved = unit.toObject() as Record<string, unknown>;
+  return void res.status(200).json({ success: true, message: 'Unit updated successfully.', unit: { ...saved, floorPlan: saved.floorPlanImage ?? null } });
+}
 
-  return void res.status(200).json({
-    success: true,
-    message: 'Unit updated successfully.',
-    unit: {
-      _id:           String(unit._id),
-      unitNumber:    String(updatedUnit.unitNumber ?? ''),
-      unitType:      String(updatedUnit.unitType ?? ''),
-      status:        String(updatedUnit.status ?? ''),
-      price:         updatedUnit.price,
-      priceFormatted: typeof updatedUnit.price === 'number'
-        ? formatPKR(updatedUnit.price)
-        : null,
-      updatedAt: new Date().toISOString(),
-    },
+async function handleDelete(req: NextApiRequest, res: NextApiResponse<ApiResponse>, idOrSlug: string, unitId: string): Promise<void> {
+  const access = await getOwnedProject(req, res, idOrSlug);
+  if (!access) return;
+  const { auth, isAdmin, project } = access;
+
+  const unit = await Unit.findOne({ _id: unitId, projectId: project._id, isDeleted: { $ne: true } });
+  if (!unit) return void res.status(404).json({ success: false, message: 'Unit not found.' });
+  const status = String((unit as unknown as Record<string, unknown>).status ?? '');
+  if (!isAdmin && ['reserved', 'sold'].includes(status)) {
+    return void res.status(409).json({ success: false, message: 'Reserved or sold units cannot be deleted by a developer.' });
+  }
+
+  (unit as unknown as Record<string, unknown>).isDeleted = true;
+  (unit as unknown as Record<string, unknown>).deletedAt = new Date();
+  (unit as unknown as Record<string, unknown>).isPublished = false;
+  (unit as unknown as Record<string, unknown>).updatedBy = new mongoose.Types.ObjectId(auth.id);
+  await unit.save();
+  await syncUnitTypeBreakdown(String(project._id)).catch(() => undefined);
+
+  await logSecurityEvent({
+    type: 'admin_action',
+    severity: 'medium',
+    userId: auth.id,
+    ip: getClientIp(req),
+    metadata: { action: 'unit_soft_deleted', projectId: String(project._id), unitId, previousStatus: status },
+    req,
   });
+  return void res.status(200).json({ success: true, message: 'Unit deleted successfully.' });
 }

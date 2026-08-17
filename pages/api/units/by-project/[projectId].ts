@@ -4,7 +4,7 @@ import mongoose, { type SortOrder } from 'mongoose';
 
 import dbConnect from '@/lib/dbConnect';
 import Unit from '@/models/Unit';
-import { requireAuth } from '@/lib/requireAuth';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import {
   rateLimitApi,
   sendRateLimitResponse,
@@ -83,10 +83,7 @@ function computePublicAllowed(project: any): boolean {
 
   return (
     project?.isVerified === true ||
-    status === 'approved' ||
-    status === 'active' ||
-    status === 'published' ||
-    verificationStatus === 'approved'
+    (status === 'verified' && verificationStatus === 'verified')
   );
 }
 
@@ -132,9 +129,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  // ── Auth guard ──
-  const auth = await requireAuth(req, res);
-  if (!auth) return;
+  // Optional auth: public inventory remains crawlable; owner/admin previews are DB-validated.
+  const auth = await getOptionalAuth(req);
 
   // ── Rate limit (Upstash) ──
   const rl = await rateLimitApi(req);
@@ -154,8 +150,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await dbConnect();
 
     // ── Session from requireAuth (already verified above) ──
-    const isAdmin = (auth.role as string) === 'admin';
-    const actorId = isValidObjectId(auth.id) ? auth.id : '';
+    const isAdmin = !!auth && ['admin', 'superadmin'].includes(String(auth.role));
+    const actorId = auth && isValidObjectId(auth.id) ? auth.id : '';
 
     // ── Load project for gating (registry pattern) ──
     const Project = mongoose.models.Project as mongoose.Model<mongoose.Document>;
@@ -242,6 +238,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       projectId: projectObjectId,
       isDeleted: { $ne: true },
     };
+
+    // Never expose draft/unpublished unit inventory to ordinary visitors.
+    if (!isAdmin && !isOwner) filter.isPublished = true;
 
     // Optional filters (validated)
     if (category) filter.category = category;
@@ -358,8 +357,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       'isCorner',
       'isFeatured',
       'images.url',
-      'bookingInfo',
-      'soldInfo',
       'createdAt',
       'updatedAt',
     ].join(' ');
@@ -391,6 +388,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
          $match: {
           projectId: projectObjectId,
           isDeleted: { $ne: true },
+          ...(!isAdmin && !isOwner ? { isPublished: true } : {}),
         },
       },
       {
@@ -516,7 +514,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await logSecurityEvent({
       type: 'system_error',
       severity: 'medium',
-      userId: auth.id,
+      userId: auth?.id,
       metadata: {
         action: 'units_by_project_fetch_failed',
         projectId: typeof projectId === 'string' ? projectId : 'unknown',

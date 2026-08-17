@@ -3,7 +3,9 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import formidable, { Fields, Files, File as FormidableFile } from 'formidable';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
-import cloudinary from '@/lib/cloudinary';
+import type { FolderType } from '@/lib/cloudinary';
+import { uploadValidatedTempFile, UploadValidationError } from '@/lib/secureFormidableUpload';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import Unit from '@/models/Unit';
 import { requireAuth } from '@/lib/requireAuth';
 import {
@@ -23,18 +25,15 @@ type CloudinaryFile = { url: string; publicId: string };
 
 async function uploadSingle(
   file: FormidableFile,
-  folder: string
+  folder: FolderType
 ): Promise<CloudinaryFile> {
-  const result = await cloudinary.uploader.upload(file.filepath, {
-    folder,
-    resource_type: 'auto',
-  });
-  return { url: result.secure_url, publicId: result.public_id };
+  const result = await uploadValidatedTempFile(file, folder, 'image', { tags: ['unit'] });
+  return { url: result.url, publicId: result.publicId };
 }
 
 async function uploadMultiple(
   files: FormidableFile[],
-  folder: string
+  folder: FolderType
 ): Promise<CloudinaryFile[]> {
   const uploads: CloudinaryFile[] = [];
   for (const file of files) {
@@ -66,10 +65,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!rl.ok) return sendRateLimitResponse(res, rl);
 
     try {
-      const unit = await Unit.findOne({
+      const optionalAuth = await getOptionalAuth(req);
+      const unitFilter: Record<string, unknown> = {
         _id: new mongoose.Types.ObjectId(id),
         isDeleted: { $ne: true },
-      })
+      };
+
+      const isAdmin = optionalAuth && ['admin', 'superadmin'].includes(optionalAuth.role);
+      if (!isAdmin) {
+        if (optionalAuth?.role === 'developer') {
+          unitFilter.$or = [
+            { isPublished: true },
+            { developerId: new mongoose.Types.ObjectId(optionalAuth.id) },
+          ];
+        } else {
+          unitFilter.isPublished = true;
+        }
+      }
+
+      const unit = await Unit.findOne(unitFilter)
         .populate('projectId', 'projectName slug city area status')
         .lean() as Record<string, unknown> | null;
 
@@ -118,7 +132,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (!rl.ok) return sendRateLimitResponse(res, rl);
 
     // Parse form
-    const form = formidable({ multiples: true, keepExtensions: true });
+    const form = formidable({
+      multiples: true,
+      keepExtensions: true,
+      maxFileSize: 5 * 1024 * 1024,
+      maxTotalFileSize: 50 * 1024 * 1024,
+      maxFiles: 12,
+    });
 
     return form.parse(req, async (err: unknown, fields: Fields, files: Files) => {
       if (err) {
@@ -190,25 +210,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           return res.status(404).json({ success: false, message: 'Unit not found' });
         }
 
-        // ── Ownership check — session-based ──
+        // ── Ownership check — Project/Unit developerId is the User _id ──
         if (role === 'developer') {
-          const DeveloperProfile = mongoose.models.DeveloperProfile as
-            mongoose.Model<mongoose.Document>;
-
-          if (!DeveloperProfile) {
-            return res.status(500).json({ success: false, message: 'Something went wrong' });
-          }
-
-          const devProfile = await DeveloperProfile.findOne(
-            { user: auth.id },
-            { _id: 1 }
-          ).lean() as { _id: mongoose.Types.ObjectId } | null;
-
-          if (!devProfile) {
-            return res.status(403).json({ success: false, message: 'Developer profile not found' });
-          }
-
-          if (existingUnit.developerId.toString() !== devProfile._id.toString()) {
+          if (existingUnit.developerId.toString() !== auth.id) {
             await logSecurityEvent({
               type: 'suspicious_activity',
               severity: 'high',
@@ -236,7 +240,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const arr = Array.isArray(fpFile) ? fpFile : [fpFile];
           floorPlanImage = await uploadSingle(
             arr[0] as FormidableFile,
-            'highrise/units/floorplans'
+            'unitFloorplans'
           );
         }
 
@@ -245,7 +249,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const arr = Array.isArray(lyFile) ? lyFile : [lyFile];
           layoutImage = await uploadSingle(
             arr[0] as FormidableFile,
-            'highrise/units/layouts'
+            'unitLayouts'
           );
         }
 
@@ -254,7 +258,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           const arr = Array.isArray(imgFiles) ? imgFiles : [imgFiles];
           const uploaded = await uploadMultiple(
             arr as FormidableFile[],
-            'highrise/units/images'
+            'unitImages'
           );
           const newImages = uploaded.map((img, i) => ({
             url: img.url,
@@ -503,6 +507,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         });
 
       } catch (error: unknown) {
+        if (error instanceof UploadValidationError) {
+          return res.status(400).json({ success: false, message: error.message });
+        }
+
         await logSecurityEvent({
           type: 'system_error',
           severity: 'high',
@@ -553,21 +561,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         return res.status(404).json({ success: false, message: 'Unit not found' });
       }
 
-      // ── Ownership check — session-based ──
+      // ── Ownership check — Project/Unit developerId is the User _id ──
       if (role === 'developer') {
-        const DeveloperProfile = mongoose.models.DeveloperProfile as
-          mongoose.Model<mongoose.Document>;
-
-        const devProfile = await DeveloperProfile.findOne(
-          { user: auth.id },
-          { _id: 1 }
-        ).lean() as { _id: mongoose.Types.ObjectId } | null;
-
-        if (!devProfile) {
-          return res.status(403).json({ success: false, message: 'Developer profile not found' });
-        }
-
-        if (unit.developerId.toString() !== devProfile._id.toString()) {
+        if (unit.developerId.toString() !== auth.id) {
           await logSecurityEvent({
             type: 'suspicious_activity',
             severity: 'high',

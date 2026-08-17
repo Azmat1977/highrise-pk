@@ -9,6 +9,7 @@ import type { AppProps } from 'next/app';
 import { useRouter } from 'next/router';
 import { SessionProvider } from 'next-auth/react';
 import type { Session } from 'next-auth';
+import { DeveloperProvider } from '../components/developer/DeveloperContext';
 
 import { Header } from '../components/layout/header';
 import { Footer } from '../components/layout/footer';
@@ -31,6 +32,7 @@ type HighriseAppProps = AppProps<HighrisePageProps>;
 export default function App({ Component, pageProps }: HighriseAppProps): React.ReactElement {
   const { session, ...restPageProps } = pageProps;
   const router = useRouter();
+  const isDeveloperArea = router.pathname === '/developer' || router.pathname.startsWith('/developer/');
 
   // ── Enterprise Scroll Behavior ─────────────────────────────
   // Matches Zameen / MagicBricks / Zillow / Rightmove standards:
@@ -147,7 +149,13 @@ export default function App({ Component, pageProps }: HighriseAppProps): React.R
         <Header />
 
         <main className="flex-grow">
-          <Component {...restPageProps} />
+          {isDeveloperArea ? (
+            <DeveloperProvider>
+              <Component {...restPageProps} />
+            </DeveloperProvider>
+          ) : (
+            <Component {...restPageProps} />
+          )}
         </main>
 
         <Footer />

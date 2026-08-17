@@ -44,7 +44,7 @@ export type LeadSource =
   | 'whatsapp'           // 🆕
   | 'call';              // 🆕
 
-export type AssignedToRole = 'admin' | 'developer' | 'sales_team' | 'agent';  // 🆕 Added agent
+export type AssignedToRole = 'admin' | 'developer' | 'sales_team' | 'agent' | 'owner';  // 🆕 Added agent
 
 // 🆕 Entity Type for filtering
 export type LeadEntityType = 'project' | 'property' | 'unit';
@@ -209,7 +209,7 @@ export interface ILead extends Document {
   // 🆕 Lead Open/View Tracking (for accurate "Ignored Leads")
   openedAt?: Date;                // first time opened in panel
   openedBy?: string;              // email of opener
-  openedByRole?: 'admin' | 'developer' | 'agent' | 'system';
+  openedByRole?: 'admin' | 'developer' | 'agent' | 'owner' | 'system';
   lastViewedAt?: Date;            // last time viewed
   lastViewedBy?: string;          // email
   viewCount?: number;             // total opens/views
@@ -319,9 +319,10 @@ const PropertySnapshotSchema = new Schema(
     _id: { type: Schema.Types.ObjectId, required: true },
     title: { type: String, required: true },
     slug: { type: String },
-    city: { type: String, required: true },
+    city: { type: String },
     society: { type: String },
-    price: { type: Number, required: true },
+    locality: { type: String },
+    price: { type: Number },
     propertyType: { type: String },
     listingType: { type: String },
     primaryImage: { type: String },
@@ -551,7 +552,7 @@ const LeadSchema = new Schema<ILead>(
     assignedToUserId: { type: Schema.Types.ObjectId, ref: 'User' },
     assignedToRole: {
       type: String,
-      enum: ['admin', 'developer', 'sales_team', 'agent'],
+      enum: ['admin', 'developer', 'sales_team', 'agent', 'owner'],
       default: 'developer',
     },
     scheduledVisit: { type: Date },
@@ -564,7 +565,7 @@ const LeadSchema = new Schema<ILead>(
     openedBy: { type: String, lowercase: true, trim: true, default: "" },
     openedByRole: {
       type: String,
-      enum: ["admin", "developer", "agent", "system"],
+      enum: ["admin", "developer", "agent", "owner", "system"],
       default: "system",
     },
     lastViewedAt: { type: Date, default: null, index: true },
@@ -659,7 +660,8 @@ LeadSchema.index({ followUpDate: 1 }); // For reminders
 LeadSchema.index({ wonDate: 1 });
 LeadSchema.index({ lostDate: 1 });
 LeadSchema.index({ assignedTo: 1, status: 1 });
-LeadSchema.index({ assignedToUserId: 1, status: 1 }); // 🆕
+LeadSchema.index({ assignedToUserId: 1, status: 1 });
+LeadSchema.index({ entityType: 1, assignedToUserId: 1, assignedToRole: 1, isArchived: 1, createdAt: -1 }); // 🆕
 LeadSchema.index({ temperature: 1, status: 1 }); // 🆕
 
 // 🆕 Open/View Tracking indexes

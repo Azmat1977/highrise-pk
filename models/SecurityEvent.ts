@@ -17,6 +17,7 @@
 
 import mongoose, { Schema, model, models, Document, Model } from "mongoose";
 import crypto from "crypto";
+import { requireServerSecret } from "@/lib/security/serverSecrets";
 
 // ═══════════════════════════════════════════════════════════════
 // TYPE DEFINITIONS
@@ -226,7 +227,7 @@ export interface ISecurityEventModel extends Model<ISecurityEvent> {
 // ═══════════════════════════════════════════════════════════════
 
 function getHashSecret(): string {
-  return process.env.SECURITY_LOG_HASH_SECRET || process.env.NEXTAUTH_SECRET || "security-fallback";
+  return requireServerSecret(["SECURITY_LOG_HASH_SECRET", "NEXTAUTH_SECRET"], "Security-event hashing secret");
 }
 
 function hashValue(value: string): string {
