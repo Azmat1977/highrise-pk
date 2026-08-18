@@ -15,6 +15,7 @@ import User from "@/models/User";
 import { sendEmail } from "@/lib/email";
 import { developerOnboardingInfoRequiredTemplate } from "@/lib/email-templates";
 import { z } from "zod";
+import { Types } from "mongoose";
 
 function setSecurityHeaders(res: NextApiResponse, requestId: string): void {
   res.setHeader("X-Request-Id",              requestId);
@@ -57,8 +58,7 @@ export default async function handler(
   const ip = getClientIp(req);
   const ua = String(req.headers["user-agent"] ?? "").slice(0, 200);
 
-  await dbConnect();
-
+  // ── Rate limit (First — before DB) ──────────────────────────
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) {
     res.setHeader("Retry-After", String(rl.retryAfter ?? 60));
@@ -69,8 +69,12 @@ export default async function handler(
     });
   }
 
+  // ── Auth (Second) ────────────────────────────────────────────
   const auth = await requireAdmin(req, res);
   if (!auth) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
+  await dbConnect();
 
   const idResult = ObjectIdSchema.safeParse(req.query.developerId);
   if (!idResult.success) {
@@ -120,17 +124,18 @@ export default async function handler(
     profile.status             = "info_required";
     profile.infoRequiredReason = reason;
 
+    const adminObjectId = new Types.ObjectId(auth.id);
     if (!profile.verificationHistory) profile.verificationHistory = [];
     profile.verificationHistory.push({
-      status: "submitted", // closest available enum value
-      by:     profile._id as unknown as import("mongoose").Types.ObjectId,
+      status: "submitted",
+      by:     adminObjectId,
       at:     new Date(),
       notes:  `Info required by admin ${auth.email}: ${reason.slice(0, 100)}`,
     });
 
     await profile.addAuditEntry(
       "developer_info_required",
-      profile._id as unknown as import("mongoose").Types.ObjectId,
+      adminObjectId,
       { previousStatus, reason, requestedBy: auth.email },
       ip
     );
@@ -162,7 +167,7 @@ export default async function handler(
       });
     }
 
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      "admin_action",
       severity:  "medium",
       userId:    auth.id,
@@ -184,7 +189,7 @@ export default async function handler(
     });
 
   } catch (err: unknown) {
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      "admin_action",
       severity:  "high",
       userId:    auth.id,

@@ -161,10 +161,7 @@ export default async function handler(
   const ip = getClientIp(req);
   const ua = String(req.headers['user-agent'] ?? '').slice(0, 200);
 
-  // ── DB ───────────────────────────────────────────────────────
-  await dbConnect();
-
-  // ── Rate limit ───────────────────────────────────────────────
+  // ── Rate limit (First — before DB) ──────────────────────────
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
@@ -177,9 +174,12 @@ export default async function handler(
     return;
   }
 
-  // ── Auth — requireAdmin() handles everything ─────────────────
+  // ── Auth (Second) ────────────────────────────────────────────
   const auth = await requireAdmin(req, res);
-  if (!auth) return; // requireAdmin() already sent 401/403
+  if (!auth) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
+  await dbConnect();
 
   // ── Input validation ─────────────────────────────────────────
   const parseResult = QuerySchema.safeParse(req.query);
@@ -276,8 +276,8 @@ export default async function handler(
       counts = { all, pending, approved, rejected, suspended, trash };
     }
 
-    // ── Audit log — ALL admin list views (enterprise compliance) 
-     logSecurityEvent({
+    // ── Audit log — ALL admin list views (enterprise compliance)
+    void logSecurityEvent({
       type:      'admin_action',
       severity:  'low',
       userId:    auth.id,
@@ -313,8 +313,8 @@ export default async function handler(
     });
 
   } catch (error: unknown) {
-    // ── Error audit — admin_action covers infra errors too ─────
-     logSecurityEvent({
+    // ── Error audit — must await in catch ──────────────────────
+    await logSecurityEvent({
       type:      'admin_action',
       severity:  'high',
       userId:    auth.id,

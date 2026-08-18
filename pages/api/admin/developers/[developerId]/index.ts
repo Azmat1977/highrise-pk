@@ -165,11 +165,7 @@ export default async function handler(
 
   const developerIdStr = idResult.data;
 
-  // ── DB ───────────────────────────────────────────────────────
-  // ✅ dbConnect before ALL queries — including auth
-  await dbConnect();
-
-  // ── Rate limit ───────────────────────────────────────────────
+  // ── Rate limit (First — before DB) ──────────────────────────
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
@@ -182,11 +178,12 @@ export default async function handler(
     return;
   }
 
-  // ── Auth ─────────────────────────────────────────────────────
-  // ✅ requireAdmin() — replaces getServerSession + User.findById
-  //    + requireActiveAdminOrThrow entirely
+  // ── Auth (Second) ────────────────────────────────────────────
   const auth = await requireAdmin(req, res);
-  if (!auth) return; // requireAdmin already sent 401/403
+  if (!auth) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
+  await dbConnect();
 
   // ════════════════════════════════════════════════════════════
   // ✅ GET — Developer detail view
@@ -428,7 +425,7 @@ export default async function handler(
       await developer.save();
 
       // ── Audit log ─────────────────────────────────────────
-      logSecurityEvent({
+      await logSecurityEvent({
         type:      'admin_action',
         severity:  statusUpdated ? 'high' : 'medium',
         userId:    auth.id,

@@ -1,274 +1,241 @@
 // pages/api/admin/developers/[developerId]/suspend.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
-import mongoose from 'mongoose';
-import dbConnect from '@/lib/dbConnect';
-import { requireAdmin } from '@/lib/requireAdmin';
-import {
-  rateLimitAdmin,
-  sendRateLimitResponse,
-  setRateLimitHeaders,
-} from '@/lib/rateLimit';
-import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
-import { logDeveloperAction } from '@/lib/logAdminAction';
-import { z } from 'zod';
+// 🔒 ENTERPRISE v3.0 — Admin Developer Suspend/Reinstate
+// Fixes: requireAdmin order, rateLimit order, security headers,
+//        tokenVersion++, requestId, correct param [developerId],
+//        audit logs, proper model imports (no registry pattern)
 
-// ════════════════════════════════════════════════════
-// ZOD VALIDATION
-// ════════════════════════════════════════════════════
+import type { NextApiRequest, NextApiResponse } from 'next';
+import dbConnect from '@/lib/dbConnect';
+import DeveloperProfile from '@/models/DeveloperProfile';
+import User from '@/models/User';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
+import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
+import { z } from 'zod';
+import mongoose from 'mongoose';
+
+// ═══════════════════════════════════════════════════════════════
+// 🔒 CONSTANTS & TYPES
+// ═══════════════════════════════════════════════════════════════
+
+const MAX_TIME_MS = 5000;
 
 const SuspendSchema = z.object({
-  action: z.enum(['suspend', 'reinstate']),
-  reason: z.string().min(10).max(500),
+  action:          z.enum(['suspend', 'reinstate']),
+  reason:          z.string().trim().min(10, 'Reason must be at least 10 characters').max(500),
   notifyDeveloper: z.boolean().optional().default(true),
 });
 
-// ════════════════════════════════════════════════════
-// HANDLER
-// ════════════════════════════════════════════════════
+interface SuspendResponse {
+  success:    boolean;
+  message:    string;
+  requestId:  string;
+  data?: {
+    developerId:    string;
+    action:         'suspend' | 'reinstate';
+    newStatus:      string;
+    timestamp:      Date;
+  };
+  errors?:    Record<string, string[]>;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🔒 SECURITY HEADERS
+// ═══════════════════════════════════════════════════════════════
+
+function setSecurityHeaders(res: NextApiResponse, requestId: string): void {
+  res.setHeader('X-Request-Id',              requestId);
+  res.setHeader('Content-Type',              'application/json; charset=utf-8');
+  res.setHeader('X-Content-Type-Options',    'nosniff');
+  res.setHeader('X-Frame-Options',           'DENY');
+  res.setHeader('Cache-Control',             'no-store, no-cache, must-revalidate, private');
+  res.setHeader('Referrer-Policy',           'strict-origin-when-cross-origin');
+  res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains; preload');
+}
+
+function getClientIp(req: NextApiRequest): string {
+  const xf = req.headers['x-forwarded-for'];
+  const ip = Array.isArray(xf) ? xf[0] : xf;
+  return (ip ?? '').split(',')[0]?.trim() || req.socket?.remoteAddress || '0.0.0.0';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// 🚀 MAIN HANDLER
+// ═══════════════════════════════════════════════════════════════
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // ── Method guard ──
+  res: NextApiResponse<SuspendResponse>,
+): Promise<void> {
+
+  const requestId = crypto.randomUUID();
+  setSecurityHeaders(res, requestId);
+
   if (req.method !== 'POST') {
-    return res.status(405).json({ success: false, message: 'Method not allowed' });
+    res.setHeader('Allow', ['POST']);
+    return void res.status(405).json({ success: false, message: 'Method not allowed', requestId });
   }
 
-  // ── Admin guard ──
-  const admin = await requireAdmin(req, res);
-  if (!admin) return;
+  const ip = getClientIp(req);
+  const ua = String(req.headers['user-agent'] ?? '').slice(0, 200);
 
-  // ── Rate limit ──
+  // ── 1. Rate Limit (First) ──────────────────────────────────
   const rl = await rateLimitAdmin(req);
-  setRateLimitHeaders(res, rl);
-  if (!rl.ok) return sendRateLimitResponse(res, rl);
-
-  // ── ID guard ──
-  const { id } = req.query;
-  if (!id || typeof id !== 'string') {
-    return res.status(400).json({ success: false, message: 'Developer ID is required' });
-  }
-  if (!mongoose.isValidObjectId(id)) {
-    return res.status(400).json({ success: false, message: 'Invalid developer ID' });
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return void res.status(429).json({ success: false, message: 'Too many requests', requestId });
   }
 
-  // ── DB ──
+  // ── 2. Admin Auth (Second) ─────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
+  // ── 3. DB (Third) ──────────────────────────────────────────
   await dbConnect();
 
+  // ── 4. Param Validation ────────────────────────────────────
+  const { developerId } = req.query;
+  if (!developerId || typeof developerId !== 'string' || !mongoose.isValidObjectId(developerId)) {
+    return void res.status(400).json({ success: false, message: 'Invalid developer ID', requestId });
+  }
+
   try {
-    // ── Zod validation ──
-    const parsed = SuspendSchema.safeParse(req.body);
-    if (!parsed.success) {
-      return res.status(400).json({
+    const parseResult = SuspendSchema.safeParse(req.body);
+    if (!parseResult.success) {
+      return void res.status(400).json({
         success: false,
-        message: 'Invalid request data',
-        errors: parsed.error.flatten().fieldErrors,
+        message: 'Validation failed',
+        errors: parseResult.error.flatten().fieldErrors,
+        requestId
       });
     }
 
-    const { action, reason, notifyDeveloper } = parsed.data;
+    const { action, reason, notifyDeveloper } = parseResult.data;
 
-    // ── Load developer profile (registry pattern) ──
-    const DeveloperProfile = mongoose.models.DeveloperProfile as
-      mongoose.Model<mongoose.Document>;
-
-    if (!DeveloperProfile) {
-      return res.status(500).json({ success: false, message: 'Something went wrong' });
-    }
-
-    const developer = await DeveloperProfile.findById(id).lean() as {
-      _id: mongoose.Types.ObjectId;
-      user: mongoose.Types.ObjectId;
-      companyName?: string;
-      status?: string;
-      contactEmail?: string;
-      suspensionHistory?: Array<{
-        action: string;
-        reason: string;
-        adminId: string;
-        timestamp: Date;
-      }>;
-    } | null;
-
+    // ── 5. Load Developer ────────────────────────────────────
+    const developer = await DeveloperProfile.findById(developerId).maxTimeMS(MAX_TIME_MS);
     if (!developer) {
-      return res.status(404).json({
-        success: false,
-        message: 'Developer profile not found',
-      });
+      return void res.status(404).json({ success: false, message: 'Developer profile not found', requestId });
     }
 
-    // ── Business rules ──
+    // ── 6. Business Logic Guards ─────────────────────────────
     if (action === 'suspend') {
-      // Cannot suspend already suspended developer
       if (developer.status === 'suspended') {
-        return res.status(400).json({
-          success: false,
-          message: 'Developer is already suspended',
-        });
+        return void res.status(400).json({ success: false, message: 'Developer is already suspended', requestId });
       }
-
-      // Cannot suspend a draft/pending profile
-      // (they have no active access to suspend)
       if (developer.status === 'draft' || developer.status === 'pending') {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot suspend a developer with status "${developer.status}". Only approved developers can be suspended.`,
+        return void res.status(400).json({ 
+          success: false, 
+          message: `Cannot suspend a developer with status "${developer.status}". Only approved developers can be suspended.`, 
+          requestId 
         });
       }
-    }
-
-    if (action === 'reinstate') {
-      // Can only reinstate suspended developers
+    } else if (action === 'reinstate') {
       if (developer.status !== 'suspended') {
-        return res.status(400).json({
-          success: false,
-          message: `Cannot reinstate a developer with status "${developer.status}". Only suspended developers can be reinstated.`,
-        });
+        return void res.status(400).json({ success: false, message: 'Only suspended developers can be reinstated', requestId });
       }
     }
 
-    // ── Build update ──
     const now = new Date();
+    const adminObjectId = new mongoose.Types.ObjectId(auth.id);
 
-    const suspensionEntry = {
-      action,
-      reason,
-      adminId: admin.id,
-      timestamp: now,
-    };
+    // ── 7. Update Developer Profile via $set/$push ────────────
+    // Use findByIdAndUpdate to avoid direct property assignment
+    // on fields not declared in IDeveloperProfile interface
+    const newStatus = action === 'suspend' ? 'suspended' : 'approved';
+    const suspensionEntry = { action, reason, adminId: auth.id, timestamp: now };
 
-    const updateData: Record<string, unknown> = {
-      status: action === 'suspend' ? 'suspended' : 'approved',
-      $push: {
-        suspensionHistory: suspensionEntry,
-      },
-    };
-
-    if (action === 'suspend') {
-      updateData.suspendedAt = now;
-      updateData.suspendedBy = admin.id;
-      updateData.suspensionReason = reason;
-      updateData.reinstatedAt = null;
-      updateData.reinstatedBy = null;
-    }
-
-    if (action === 'reinstate') {
-      updateData.reinstatedAt = now;
-      updateData.reinstatedBy = admin.id;
-      updateData.suspendedAt = null;
-      updateData.suspendedBy = null;
-      updateData.suspensionReason = null;
-    }
-
-    // ── Apply update ──
-    // Use findByIdAndUpdate with $set + $push separately
-    // because MongoDB does not allow mixing $set and $push
-    // in the same top-level update object
     await DeveloperProfile.findByIdAndUpdate(
-      id,
+      developerId,
       {
         $set: {
-          status:           action === 'suspend' ? 'suspended' : 'approved',
+          status: newStatus,
           ...(action === 'suspend' && {
             suspendedAt:      now,
-            suspendedBy:      admin.id,
+            suspendedBy:      adminObjectId,
             suspensionReason: reason,
             reinstatedAt:     null,
             reinstatedBy:     null,
           }),
           ...(action === 'reinstate' && {
             reinstatedAt:     now,
-            reinstatedBy:     admin.id,
+            reinstatedBy:     adminObjectId,
             suspendedAt:      null,
             suspendedBy:      null,
             suspensionReason: null,
           }),
         },
-        $push: {
-          suspensionHistory: suspensionEntry,
-        },
+        $push: { suspensionHistory: suspensionEntry },
       },
-      { new: true, runValidators: false }
+      { runValidators: false }
+    ).maxTimeMS(MAX_TIME_MS);
+
+    // ── 8. Audit entry via addAuditEntry on fetched doc ───────
+    await developer.addAuditEntry(
+      `developer_${action}ed`,
+      adminObjectId,
+      { reason, notifyDeveloper },
+      ip
     );
 
-    // ── Also suspend/reinstate linked User account ──
-    const User = mongoose.models.User as mongoose.Model<mongoose.Document>;
-    if (User && developer.user) {
+    await developer.save();
+
+    // ── 9. Update Linked User (tokenVersion++ is CRITICAL) ────
+    // Invalidates ALL active JWTs — suspended developer cannot
+    // continue using an existing session
+    if (developer.user) {
       await User.findByIdAndUpdate(
         developer.user,
         {
-          $set: {
-            isSuspended: action === 'suspend',
-            suspendedAt: action === 'suspend' ? now : null,
-          },
-        },
-        { runValidators: false }
-      );
+          $set: { isSuspended: action === 'suspend' },
+          $inc: { tokenVersion: 1 },
+        }
+      ).maxTimeMS(MAX_TIME_MS);
     }
 
-    // ── Security event ──
+    // ── 9. Audit Logging (MUST AWAIT) ────────────────────────
     await logSecurityEvent({
       type: 'admin_action',
       severity: action === 'suspend' ? 'high' : 'medium',
-      userId: admin.id,
+      userId: auth.id,
+      ip,
+      userAgent: ua,
       metadata: {
-        action:          `developer_${action}ed`,
-        developerId:     id,
-        companyName:     developer.companyName,
-        previousStatus:  developer.status,
-        newStatus:       action === 'suspend' ? 'suspended' : 'approved',
+        action: `developer_${action}ed`,
+        developerId,
+        companyName: developer.companyName,
         reason,
-        notifyDeveloper,
-        linkedUserId:    developer.user?.toString(),
+        requestId
       },
     });
 
-    // ── Admin audit log ──
-    await logDeveloperAction({
-      action:        action === 'suspend' ? 'developer_suspended' : 'developer_restored',
-      adminId:       admin.id,
-      adminEmail:    admin.email,
-      entityId:      id,
-      entityLabel:   developer.companyName,
-      previousValue: developer.status,
-      newValue:      action === 'suspend' ? 'suspended' : 'approved',
-      reason,
-      ip:            req.headers['x-forwarded-for']?.toString() ?? '',
-      userAgent:     req.headers['user-agent'] ?? '',
-    });
-
-    // ── Success response ──
-    const actionLabel = action === 'suspend' ? 'suspended' : 'reinstated';
-
-    return res.status(200).json({
+    return void res.status(200).json({
       success: true,
-      message: `Developer ${actionLabel} successfully`,
+      message: `Developer ${action === 'suspend' ? 'suspended' : 'reinstated'} successfully`,
+      requestId,
       data: {
-        developerId:    id,
+        developerId,
         action,
-        previousStatus: developer.status,
-        newStatus:      action === 'suspend' ? 'suspended' : 'approved',
-        reason,
-        timestamp:      now,
-      },
+        newStatus,
+        timestamp: now,
+      }
     });
 
   } catch (error: unknown) {
     await logSecurityEvent({
-      type: 'system_error',
+      type: 'admin_action',
       severity: 'high',
-      userId: admin.id,
+      userId: auth.id,
+      ip,
+      userAgent: ua,
       metadata: {
-        action:      'developer_suspend_failed',
-        developerId: id,
-        reason:      error instanceof Error ? error.message : 'Unknown error',
+        action: `developer_${req.body?.action || 'suspend'}_error`,
+        developerId,
+        error: error instanceof Error ? error.message : 'Unknown',
+        requestId
       },
     });
 
-    return res.status(500).json({
-      success: false,
-      message: 'Something went wrong. Please try again.',
-    });
+    return void res.status(500).json({ success: false, message: 'Internal server error', requestId });
   }
 }
