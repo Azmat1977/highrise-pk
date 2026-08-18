@@ -134,10 +134,7 @@ export default async function handler(
 
   const developerIdStr = idResult.data;
 
-  // ── DB first — before ALL queries ────────────────────────────
-  await dbConnect();
-
-  // ── Rate limit ───────────────────────────────────────────────
+  // ── Rate limit (First — before DB) ──────────────────────────
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
@@ -150,9 +147,12 @@ export default async function handler(
     return;
   }
 
-  // ── Auth — requireAdmin() only ────────────────────────────────
+  // ── Auth (Second) ────────────────────────────────────────────
   const auth = await requireAdmin(req, res);
   if (!auth) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
+  await dbConnect();
 
   // ── Validate request body ─────────────────────────────────────
   const parseResult = DeleteRequestSchema.safeParse(req.body);
@@ -171,7 +171,7 @@ export default async function handler(
   // ── Confirmation code check ───────────────────────────────────
   // ✅ Wrong code is a security signal — log it
   if (confirmationCode !== CONFIRMATION_CODE) {
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      'admin_action',
       severity:  'high',
       userId:    auth.id,
@@ -212,20 +212,20 @@ export default async function handler(
 
     // ── Must be in trash first ────────────────────────────────
     // ✅ Two-step safety: soft delete → review → permanent delete
-    if (!developer.isDeleted) {
-      logSecurityEvent({
-        type:      'admin_action',
-        severity:  'medium',
-        userId:    auth.id,
-        ip,
-        userAgent: ua,
-        metadata:  {
-          action:            'permanent_delete_not_in_trash',
-          targetDeveloperId: developerIdStr,
-          metadata:          { reason: 'Profile not soft-deleted first' },
-          requestId,
-        },
-      });
+      if (!developer.isDeleted) {
+        await logSecurityEvent({
+          type:      'admin_action',
+          severity:  'medium',
+          userId:    auth.id,
+          ip,
+          userAgent: ua,
+          metadata:  {
+            action:            'permanent_delete_not_in_trash',
+            targetDeveloperId: developerIdStr,
+            metadata:          { reason: 'Profile not soft-deleted first' },
+            requestId,
+          },
+        });
 
       void res.status(400).json({
         success: false,
@@ -247,7 +247,7 @@ export default async function handler(
     // ── Archive before deletion ───────────────────────────────
     // ✅ Permanent audit record — logged BEFORE the delete
     //    so even if deletion fails, the intent is recorded
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      'admin_action',
       severity:  'critical',
       userId:    auth.id,
@@ -307,7 +307,7 @@ export default async function handler(
     // )
 
     // ── Final audit log ───────────────────────────────────────
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      'admin_action',
       severity:  'critical',
       userId:    auth.id,
@@ -337,7 +337,7 @@ export default async function handler(
     });
 
   } catch (error: unknown) {
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      'admin_action',
       severity:  'critical',
       userId:    auth.id,

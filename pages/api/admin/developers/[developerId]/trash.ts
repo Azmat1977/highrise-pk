@@ -122,15 +122,11 @@ export default async function handler(
 
   const developerIdStr = idResult.data;
 
-  // ── DB first — before any queries ────────────────────────────
-  await dbConnect();
-
-  // ── Rate limit ───────────────────────────────────────────────
+  // ── Rate limit (First — before DB) ──────────────────────────
+  // ✅ No SecurityEvent on rate limit — DB writes under DoS = bad
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) {
     res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
-    // ✅ No SecurityEvent here — rate limit logging creates DB writes
-    //    under DoS conditions — exactly when you don't want extra load
     void res.status(429).json({
       success: false,
       message: `Too many requests. Please try again in ${rl.retryAfter ?? 60} seconds.`,
@@ -140,12 +136,14 @@ export default async function handler(
     return;
   }
 
-  // ── Auth — requireAdmin() only ────────────────────────────────
-  // ✅ This is an admin-only endpoint
+  // ── Auth (Second) ────────────────────────────────────────────
   // ✅ Self-delete by developer belongs on /api/developer/profile DELETE
   //    not on /api/admin/ routes — security boundary
   const auth = await requireAdmin(req, res);
-  if (!auth) return; // requireAdmin already sent 401/403
+  if (!auth) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
+  await dbConnect();
 
   try {
     // ── Fetch developer ───────────────────────────────────────
@@ -186,7 +184,7 @@ export default async function handler(
       action  = 'restored';
       message = 'Developer restored from trash successfully';
 
-      logSecurityEvent({
+      await logSecurityEvent({
         type:      'admin_action',
         severity:  'medium',
         userId:    auth.id,
@@ -215,7 +213,7 @@ export default async function handler(
       action  = 'trashed';
       message = 'Developer moved to trash successfully';
 
-      logSecurityEvent({
+      await logSecurityEvent({
         type:      'admin_action',
         severity:  'medium',
         userId:    auth.id,
@@ -247,7 +245,7 @@ export default async function handler(
     });
 
   } catch (error: unknown) {
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      'admin_action',
       severity:  'high',
       userId:    auth.id,

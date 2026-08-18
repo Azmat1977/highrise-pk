@@ -63,8 +63,7 @@ export default async function handler(
   const ip = getClientIp(req);
   const ua = String(req.headers["user-agent"] ?? "").slice(0, 200);
 
-  await dbConnect();
-
+  // ── Rate limit (First — before DB) ──────────────────────────
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) {
     res.setHeader("Retry-After", String(rl.retryAfter ?? 60));
@@ -75,8 +74,12 @@ export default async function handler(
     });
   }
 
+  // ── Auth (Second) ────────────────────────────────────────────
   const auth = await requireAdmin(req, res);
   if (!auth) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
+  await dbConnect();
 
   const idResult = ObjectIdSchema.safeParse(req.query.developerId);
   if (!idResult.success) {
@@ -179,7 +182,7 @@ export default async function handler(
 
     await profile.save();
 
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      "admin_action",
       severity:  "medium",
       userId:    auth.id,
@@ -204,7 +207,7 @@ export default async function handler(
     });
 
   } catch (err: unknown) {
-    logSecurityEvent({
+    await logSecurityEvent({
       type:      "admin_action",
       severity:  "high",
       userId:    auth.id,
