@@ -1,16 +1,13 @@
 // pages/api/favorites/toggle.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Favorite from '@/models/Favorite';
 import Property from '@/models/Property';
 import Project from '@/models/Projects';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { checkPermission } from '@/lib/permissions';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitFavorite } from '@/lib/rateLimit';
 import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 
@@ -331,49 +328,20 @@ export default async function handler(
     }
 
     // ─────────────────────────────────────────────
-    // STEP 3: AUTHENTICATION
+    // STEP 3: AUTHENTICATION (canonical guard)
+    // requireAuth validates tokenVersion + account status + returns AuthToken
     // ─────────────────────────────────────────────
-    const session = await getServerSession(req, res, authOptions);
+    const auth = await requireAuth(req, res);
+    if (!auth) return; // requireAuth already sent 401 response
 
-    if (!session?.user?.id) {
-      await logSecurityEvent({
-        eventType: 'unauthorized_access_attempt',
-        severity: 'medium',
-        ipAddress: clientIP,
-        userAgent,
-        metadata: { endpoint: '/api/favorites/toggle' },
-      });
-
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required. Please login to manage favorites.',
-        requestId,
-      });
-    }
-
-    const userId = session.user.id;
+    const userId = auth.id;
 
     // ─────────────────────────────────────────────
-    // STEP 4: PERMISSION CHECK
-    // Favorites should be available to any authenticated user.
-    // We keep the check only for audit visibility, but we do not block access.
+    // STEP 4: PERMISSION AUDIT (informational)
+    // Favorites are available to any authenticated user.
+    // Our canonical Permission.FAVORITE_ADD is in the 'user' role by default.
+    // If ever needed, block via: assertAuthorized(auth.actor, 'favorite_add')
     // ─────────────────────────────────────────────
-    const hasPermission = await checkPermission(session.user, 'favorite_add');
-
-    if (!hasPermission) {
-      await logSecurityEvent({
-        eventType: 'permission_audit',
-        severity: 'low',
-        userId,
-        ipAddress: clientIP,
-        userAgent,
-        metadata: {
-          endpoint: '/api/favorites/toggle',
-          permission: 'favorite_add',
-          note: 'Allowed for authenticated user without explicit favorite_add permission',
-        },
-      });
-    }
 
     await dbConnect();
 
@@ -635,14 +603,15 @@ export default async function handler(
 
     // Handle duplicate key error (race condition)
     if (error.code === 11000) {
+      const body = req.body as Partial<ToggleRequest>;
       return res.status(200).json({
         success: true,
         message: 'Already in favorites',
         data: {
           isFavorited: true,
           action: 'added',
-          entityType: req.body.entityType || 'property',
-          entityId: req.body.entityId || req.body.propertyId || '',
+          entityType: (body.entityType as 'property' | 'project') || 'property',
+          entityId: body.entityId || body.propertyId || '',
         },
         requestId,
       });

@@ -1,16 +1,14 @@
 // pages/api/favorites/index.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Favorite from '@/models/Favorite';
 import SecurityEvent from '@/models/SecurityEvent';
 import { rateLimitApi } from '@/lib/rateLimit';
 import mongoose from 'mongoose';
 import { isPublicProperty, PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import Property from '@/models/Property';
-
+import { requireAuth } from '@/lib/requireAuth';
 /**
  * 🔐 ENTERPRISE FAVORITES LIST & CHECK ENDPOINT
  * 
@@ -240,15 +238,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     await dbConnect();
 
     // ─────────────────────────────────────────────
-    // STEP 4: AUTHENTICATION
+    // STEP 4: AUTHENTICATION (canonical guard)
+    // requireAuth validates tokenVersion + account status + returns AuthToken
     // ─────────────────────────────────────────────
-    const session = await getServerSession(req, res, authOptions);
-    const userId = session?.user?.id;
+    const auth = await requireAuth(req, res);
+    if (!auth) return; // requireAuth already sent 401 response
 
-    if (!userId || !isValidObjectId(userId)) {
+    const userId = auth.id;
+
+    if (!isValidObjectId(userId)) {
       return res.status(401).json({
         success: false,
-        message: 'Authentication required. Please login to view favorites.',
+        message: 'Invalid user identity.',
         requestId,
       });
     }
