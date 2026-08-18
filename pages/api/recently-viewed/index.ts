@@ -1,6 +1,6 @@
+//C:\dev\highrise-pk\pages\api\recently-viewed\index.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { requireAuth } from '@/lib/requireAuth';
 import dbConnect from '@/lib/dbConnect';
 import RecentlyViewed from '@/models/RecentlyViewed';
 import mongoose from 'mongoose';
@@ -23,17 +23,18 @@ export default async function handler(
     // ─────────────────────────────────────────────────────────────
     // 1. Authentication Check
     // ─────────────────────────────────────────────────────────────
-    const session = await getServerSession(req, res, authOptions);
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
 
-    if (!session?.user?.id) {
-      return res.status(401).json({
+    if (!auth.actor.isActive) {
+      return res.status(403).json({
         success: false,
-        error: 'Authentication required',
+        error: 'Account is not active',
         data: [],
       });
     }
 
-    const userId = session.user.id;
+    const userId = auth.id;
 
     // ─────────────────────────────────────────────────────────────
     // 2. Parse Query Parameters
