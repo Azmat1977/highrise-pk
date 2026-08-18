@@ -1,9 +1,8 @@
 // pages/api/inquiries/[id]/send-email.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import dbConnect from '@/lib/db';
+import { requireAuth } from '@/lib/requireAuth';
+import dbConnect from '@/lib/dbConnect';
 import Lead from '@/models/Lead';
 import SecurityEvent from '@/models/SecurityEvent';
 import { checkPermission } from '@/lib/permissions';
@@ -136,30 +135,32 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 2: AUTHENTICATION
     // ─────────────────────────────────────────────
-    const session = await getServerSession(req, res, authOptions);
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
 
-    if (!session?.user) {
+    if (!auth.actor.isActive) {
       await logSecurityEvent({
         eventType: 'unauthorized_access_attempt',
         severity: 'critical',
+        userId: auth.id,
         ipAddress: clientIP,
         userAgent,
-        metadata: { endpoint: '/api/inquiries/send-email' },
+        metadata: { endpoint: '/api/inquiries/send-email', reason: 'Account not active' },
       });
-      return res.status(401).json({ success: false, error: 'Authentication required' });
+      return res.status(403).json({ success: false, error: 'Account is not active' });
     }
 
     // ─────────────────────────────────────────────
     // STEP 3: ADMIN AUTHORIZATION
     // ─────────────────────────────────────────────
-    if (session.user.role !== 'admin') {
+    if (auth.authorityRole !== 'admin') {
       await logSecurityEvent({
         eventType: 'unauthorized_access_attempt',
         severity: 'critical',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: clientIP,
         userAgent,
-        metadata: { endpoint: '/api/inquiries/send-email', userRole: session.user.role },
+        metadata: { endpoint: '/api/inquiries/send-email', userRole: auth.authorityRole },
       });
       return res.status(403).json({ success: false, error: 'Admin access required' });
     }
@@ -167,7 +168,7 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 4: PERMISSION CHECK
     // ─────────────────────────────────────────────
-    const hasPermission = await checkPermission(session.user, 'inquiry_send_email');
+    const hasPermission = checkPermission(auth, 'inquiry_send_email');
     if (!hasPermission) {
       return res.status(403).json({ success: false, error: 'Permission denied' });
     }
@@ -264,7 +265,7 @@ export default async function handler(
       await logSecurityEvent({
         eventType: 'smtp_error',
         severity: 'high',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: clientIP,
         userAgent,
         metadata: { error: 'SMTP connection failed' },
@@ -315,11 +316,11 @@ export default async function handler(
     }
     inquiry.timeline.push({
       action: 'Email Sent',
-      performedBy: session.user.email || session.user.id,
+      performedBy: auth.email || auth.id,
       performedByRole: 'admin',
       timestamp: new Date(),
       notes: `Subject: ${sanitizedSubject}`,
-      metadata: { 
+      metadata: {
         messageId: info.messageId,
         via: 'admin_panel',
       },
@@ -333,7 +334,7 @@ export default async function handler(
     await logSecurityEvent({
       eventType: 'admin_action',
       severity: 'medium',
-      userId: session.user.id,
+      userId: auth.id,
       ipAddress: clientIP,
       userAgent,
       metadata: {

@@ -1,16 +1,16 @@
 // pages/api/inquiries/index.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Lead from '@/models/Lead';
 import Property from '@/models/Property';
 import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
 import nodemailer from 'highrise-nodemailer';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { requireAuth } from '@/lib/requireAuth';
 import { checkPermission } from '@/lib/permissions';
 import { rateLimitInquiry, rateLimitApi } from '@/lib/rateLimit';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import { inquiryAutoResponseTemplate, adminInquiryNotificationTemplate } from '@/lib/email-templates';
 
 /**
@@ -617,38 +617,39 @@ async function handleGetInquiries(
   // ?????????????????????????????????????????????
   // STEP 2: AUTHENTICATION
   // ?????????????????????????????????????????????
-  const session = await getServerSession(req, res, authOptions);
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
-  if (!session?.user) {
+  if (!auth.actor.isActive) {
     await logSecurityEvent({
       eventType: 'unauthorized_access_attempt',
       severity: 'high',
+      userId: auth.id,
       ipAddress: clientIP,
       userAgent,
       metadata: {
         endpoint: '/api/inquiries',
         method: 'GET',
-        reason: 'No session',
+        reason: 'Account not active',
       },
     });
-
-    return res.status(401).json({
+    return res.status(403).json({
       success: false,
-      error: 'Authentication required',
+      error: 'Account is not active',
     });
   }
 
-  // ?????????????????????????????????????????????
-  // STEP 3: AUTHORIZATION (Admin/Agent Only)
-  // ?????????????????????????????????????????????
-  const userRole = session.user.role;
+  // ─────────────────────────────────────────────────────────────
+  // STEP 3: AUTHORIZATION (Admin/Agent/Developer Only)
+  // ─────────────────────────────────────────────────────────────
+  const userRole = auth.authorityRole;
   const allowedRoles = ['admin', 'agent', 'developer'];
 
   if (!allowedRoles.includes(userRole || '')) {
     await logSecurityEvent({
       eventType: 'unauthorized_access_attempt',
       severity: 'high',
-      userId: session.user.id,
+      userId: auth.id,
       ipAddress: clientIP,
       userAgent,
       metadata: {
@@ -665,16 +666,16 @@ async function handleGetInquiries(
     });
   }
 
-  // ?????????????????????????????????????????????
+  // ─────────────────────────────────────────────────────────────
   // STEP 4: PERMISSION CHECK
-  // ?????????????????????????????????????????????
-  const hasPermission = await checkPermission(session.user, 'inquiry_view');
+  // ─────────────────────────────────────────────────────────────
+  const hasPermission = checkPermission(auth, 'inquiry_view');
 
   if (!hasPermission) {
     await logSecurityEvent({
       eventType: 'permission_denied',
       severity: 'high',
-      userId: session.user.id,
+      userId: auth.id,
       ipAddress: clientIP,
       userAgent,
       metadata: {
@@ -750,15 +751,15 @@ async function handleGetInquiries(
   }
 
   // Agent-specific view (only their inquiries)
-  if (userRole === 'agent') {
-    query['propertySnapshot.ownerId'] = session.user.id;
+  if (auth.role === 'agent') {
+    query['propertySnapshot.ownerId'] = auth.id;
   }
 
   // Developer-specific view
-  if (userRole === 'developer') {
+  if (auth.role === 'developer') {
     query.$or = [
-      { 'propertySnapshot.ownerId': session.user.id },
-      { developer: session.user.id },
+      { 'propertySnapshot.ownerId': auth.id },
+      { developer: auth.id },
     ];
   }
 
@@ -815,7 +816,7 @@ async function handleGetInquiries(
   await logSecurityEvent({
     eventType: 'admin_action',
     severity: 'low',
-    userId: session.user.id,
+    userId: auth.id,
     ipAddress: clientIP,
     userAgent,
     metadata: {
@@ -1050,7 +1051,10 @@ async function handlePostInquiry(
   // ?????????????????????????????????????????????
   let propertyDetails: any = null;
   try {
-    propertyDetails = await Property.findById(propertyId)
+    propertyDetails = await Property.findOne({
+      _id: propertyId,
+      ...PUBLIC_PROPERTY_FILTER,
+    })
       .select('title slug price location images propertyType listingType userId ownerName ownerEmail ownerPhone brochureUrl priceListUrl')
       .populate('userId', 'name email phone')
       .lean();
@@ -1058,7 +1062,7 @@ async function handlePostInquiry(
     if (!propertyDetails) {
       return res.status(404).json({
         success: false,
-        error: 'Property not found',
+        error: 'Property not found or no longer available',
       });
     }
   } catch (err) {

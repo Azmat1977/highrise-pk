@@ -1,9 +1,8 @@
 // pages/api/inquiries/[id]/index.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import dbConnect from '@/lib/db';
+import { requireAuth } from '@/lib/requireAuth';
+import dbConnect from '@/lib/dbConnect';
 import Lead from '@/models/Lead';
 import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
@@ -143,31 +142,33 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 3: AUTHENTICATION
     // ─────────────────────────────────────────────
-    const session = await getServerSession(req, res, authOptions);
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
 
-    if (!session?.user) {
+    if (!auth.actor.isActive) {
       await logSecurityEvent({
         eventType: 'unauthorized_access_attempt',
         severity: 'high',
+        userId: auth.id,
         ipAddress: clientIP,
         userAgent,
-        metadata: { endpoint: `/api/inquiries/${id}`, method: req.method },
+        metadata: { endpoint: `/api/inquiries/${id}`, reason: 'Account not active' },
       });
-      return res.status(401).json({ success: false, error: 'Authentication required' });
+      return res.status(403).json({ success: false, error: 'Account is not active' });
     }
 
     // ─────────────────────────────────────────────
     // STEP 4: AUTHORIZATION
     // ─────────────────────────────────────────────
     const allowedRoles = ['admin', 'agent', 'developer'];
-    if (!allowedRoles.includes(session.user.role || '')) {
+    if (!allowedRoles.includes(auth.authorityRole || '')) {
       await logSecurityEvent({
         eventType: 'unauthorized_access_attempt',
         severity: 'high',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: clientIP,
         userAgent,
-        metadata: { endpoint: `/api/inquiries/${id}`, userRole: session.user.role },
+        metadata: { endpoint: `/api/inquiries/${id}`, userRole: auth.authorityRole },
       });
       return res.status(403).json({ success: false, error: 'Insufficient permissions' });
     }
@@ -176,11 +177,11 @@ export default async function handler(
 
     switch (req.method) {
       case 'GET':
-        return handleGet(req, res, id, session, clientIP, userAgent);
+        return handleGet(req, res, id, auth, clientIP, userAgent);
       case 'PATCH':
-        return handlePatch(req, res, id, session, clientIP, userAgent);
+        return handlePatch(req, res, id, auth, clientIP, userAgent);
       case 'DELETE':
-        return handleDelete(req, res, id, session, clientIP, userAgent);
+        return handleDelete(req, res, id, auth, clientIP, userAgent);
       default:
         res.setHeader('Allow', ['GET', 'PATCH', 'DELETE']);
         return res.status(405).json({ success: false, error: 'Method not allowed' });
@@ -206,11 +207,11 @@ async function handleGet(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>,
   id: string,
-  session: any,
+  auth: Awaited<ReturnType<typeof requireAuth>>,
   clientIP: string,
   userAgent: string
 ) {
-  const hasPermission = await checkPermission(session.user, 'inquiry_view_details');
+  const hasPermission = checkPermission(auth, 'inquiry_view_details');
   if (!hasPermission) {
     return res.status(403).json({ success: false, error: 'Permission denied' });
   }
@@ -225,8 +226,8 @@ async function handleGet(
   }
 
   // Agent can only view their own property inquiries
-  if (session.user.role === 'agent') {
-    const ownerMatch = (inquiry as any).propertySnapshot?.ownerId === session.user.id;
+  if (auth!.role === 'agent') {
+    const ownerMatch = (inquiry as any).propertySnapshot?.ownerId === auth!.id;
     if (!ownerMatch) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
@@ -235,7 +236,7 @@ async function handleGet(
   await logSecurityEvent({
     eventType: 'admin_action',
     severity: 'low',
-    userId: session.user.id,
+    userId: auth!.id,
     ipAddress: clientIP,
     userAgent,
     metadata: { action: 'view_inquiry', inquiryId: id },
@@ -252,11 +253,11 @@ async function handlePatch(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>,
   id: string,
-  session: any,
+  auth: Awaited<ReturnType<typeof requireAuth>>,
   clientIP: string,
   userAgent: string
 ) {
-  const hasPermission = await checkPermission(session.user, 'inquiry_edit');
+  const hasPermission = checkPermission(auth, 'inquiry_edit');
   if (!hasPermission) {
     return res.status(403).json({ success: false, error: 'Permission denied' });
   }
@@ -267,8 +268,8 @@ async function handlePatch(
   }
 
   // Agent can only update their own property inquiries
-  if (session.user.role === 'agent') {
-    const ownerMatch = (inquiry as any).propertySnapshot?.ownerId === session.user.id;
+  if (auth!.role === 'agent') {
+    const ownerMatch = (inquiry as any).propertySnapshot?.ownerId === auth!.id;
     if (!ownerMatch) {
       return res.status(403).json({ success: false, error: 'Access denied' });
     }
@@ -348,8 +349,8 @@ async function handlePatch(
   }
   (inquiry as any).timeline.push({
     action: 'Inquiry Updated',
-    performedBy: session.user.email || session.user.id,
-    performedByRole: session.user.role,
+    performedBy: auth!.email || auth!.id,
+    performedByRole: auth!.authorityRole,
     timestamp: new Date(),
     notes: `Updated: ${Object.keys(changes).join(', ')}`,
     metadata: { changes },
@@ -365,7 +366,7 @@ async function handlePatch(
   await logSecurityEvent({
     eventType: 'admin_action',
     severity: 'medium',
-    userId: session.user.id,
+    userId: auth!.id,
     ipAddress: clientIP,
     userAgent,
     metadata: { action: 'update_inquiry', inquiryId: id, changes },
@@ -386,11 +387,11 @@ async function handleDelete(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>,
   id: string,
-  session: any,
+  auth: Awaited<ReturnType<typeof requireAuth>>,
   clientIP: string,
   userAgent: string
 ) {
-  const hasPermission = await checkPermission(session.user, 'inquiry_delete');
+  const hasPermission = checkPermission(auth, 'inquiry_delete');
   if (!hasPermission) {
     return res.status(403).json({ success: false, error: 'Permission denied' });
   }
@@ -403,7 +404,7 @@ async function handleDelete(
   // Soft delete
   inquiry.isArchived = true;
   (inquiry as any).archivedAt = new Date();
-  (inquiry as any).archivedBy = session.user.id;
+  (inquiry as any).archivedBy = auth!.id;
 
   // Add timeline entry
   if (!Array.isArray((inquiry as any).timeline)) {
@@ -411,8 +412,8 @@ async function handleDelete(
   }
   (inquiry as any).timeline.push({
     action: 'Inquiry Archived',
-    performedBy: session.user.email || session.user.id,
-    performedByRole: session.user.role,
+    performedBy: auth!.email || auth!.id,
+    performedByRole: auth!.authorityRole,
     timestamp: new Date(),
     notes: 'Inquiry moved to archive',
   });
@@ -422,7 +423,7 @@ async function handleDelete(
   await logSecurityEvent({
     eventType: 'admin_action',
     severity: 'medium',
-    userId: session.user.id,
+    userId: auth!.id,
     ipAddress: clientIP,
     userAgent,
     metadata: { action: 'archive_inquiry', inquiryId: id },
