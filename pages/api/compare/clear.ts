@@ -1,7 +1,6 @@
 // C:\dev\highrise-pk\pages\api\compare\clear.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
 import mongoose from 'mongoose';
@@ -55,11 +54,10 @@ export default async function handler(
     await dbConnect();
 
     // ─────────────────────────────────────────────────────────────
-    // 5. Identify User (Auth vs Guest)
+    // 5. Identify User (Auth vs Guest) — canonical guard
     // ─────────────────────────────────────────────────────────────
-    const session = await getServerSession(req, res, authOptions);
-    const userId = session?.user?.id;
-
+    const auth = await getOptionalAuth(req);
+    const userId = auth?.id;
     if (!userId && !sessionId) {
       return res.status(200).json({
         success: true,

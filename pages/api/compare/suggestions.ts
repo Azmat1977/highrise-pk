@@ -20,7 +20,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
+
 import Project from '@/models/Projects';
 import { rateLimitApi, sendRateLimitResponse } from '@/lib/rateLimit';
 import {

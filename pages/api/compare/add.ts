@@ -3,8 +3,7 @@
 // Backward compatible: legacy propertyId still works
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
 import Property from '@/models/Property';
@@ -108,9 +107,11 @@ export default async function handler(
       });
     }
 
-    // ─── Identify user (auth vs guest) ────────────────────────
-    const session = await getServerSession(req, res, authOptions);
-    const userId = session?.user?.id;
+    // ─── Identify user (auth vs guest) — canonical guard ────
+    // getOptionalAuth validates tokenVersion + account status
+    // Returns null for guests (allowed for comparison)
+    const auth = await getOptionalAuth(req);
+    const userId = auth?.id;
 
     const query = userId
       ? { userId: new mongoose.Types.ObjectId(userId) }

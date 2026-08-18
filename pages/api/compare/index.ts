@@ -3,8 +3,7 @@
 // Backward compatible response shape
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
 import Property from '@/models/Property';
@@ -51,14 +50,15 @@ export default async function handler(
 
     await dbConnect();
 
-    const session = await getServerSession(req, res, authOptions);
+    // Canonical optional auth (guests allowed for comparison)
+    const auth = await getOptionalAuth(req);
 
     let comparison = null;
 
     // Fetch comparison based on identity
-    if (session?.user?.id) {
+    if (auth?.id) {
       comparison = await Comparison.findOne({
-        userId: new mongoose.Types.ObjectId(session.user.id),
+        userId: new mongoose.Types.ObjectId(auth.id),
       })
         .sort({ createdAt: -1 })
         .lean();

@@ -3,8 +3,7 @@
 // Backward compatible: legacy propertyId still works
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
 import mongoose from 'mongoose';
@@ -67,9 +66,9 @@ export default async function handler(
 
     await dbConnect();
 
-    const session = await getServerSession(req, res, authOptions);
-    const userId = session?.user?.id;
-
+    // Canonical optional auth (guests allowed for comparison)
+    const auth = await getOptionalAuth(req);
+    const userId = auth?.id;
     if (!userId && !sessionId) {
       return res.status(400).json({
         success: false,
