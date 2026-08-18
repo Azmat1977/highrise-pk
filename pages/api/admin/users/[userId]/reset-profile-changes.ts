@@ -9,7 +9,7 @@ import crypto from "crypto";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import { sendEmail } from "@/lib/email";
-import { requireAdmin } from "@/lib/requireAuth";
+import { requireAdmin } from "@/lib/requireAdmin";
 
 interface ApiResponse {
   success: boolean;
