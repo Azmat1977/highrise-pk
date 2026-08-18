@@ -4,7 +4,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/dbConnect';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, setRateLimitHeaders } from '@/lib/rateLimit';
 import Conversation from '@/models/Conversation';
 
@@ -37,9 +37,7 @@ export default async function handler(
     return;
   }
 
-  const token = await requireAdmin(req, res);
-  if (!token) return;
-
+  // ── Rate limit (First) ───────────────────────────────────────
   const rl = await rateLimitAdmin(req);
   setRateLimitHeaders(res, rl);
   if (!rl.ok) {
@@ -47,6 +45,11 @@ export default async function handler(
     return;
   }
 
+  // ── Auth (Second) ────────────────────────────────────────────
+  const token = await requireAdmin(req, res);
+  if (!token) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
   await dbConnect();
 
   try {
