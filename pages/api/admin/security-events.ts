@@ -1,7 +1,9 @@
+//C:\dev\highrise-pk\pages\api\admin\security-events.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import dbConnect from "@/lib/dbConnect";
 import SecurityEvent from "@/models/SecurityEvent";
-import { requireAdmin } from "@/lib/requireAuth";
+import { requireAdmin } from "@/lib/requireAdmin";
+import { rateLimitAdmin } from "@/lib/rateLimit";
 
 function toSafeString(v: unknown, max = 120): string {
   const s = typeof v === "string" ? v : "";
@@ -15,17 +17,35 @@ function toSafeInt(v: unknown, fallback: number, min: number, max: number) {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== "GET") return res.status(405).json({ error: "Method not allowed" });
+  if (req.method !== "GET") {
+    res.setHeader("Allow", ["GET"]);
+    return res.status(405).json({ error: "Method not allowed" });
+  }
 
+  const requestId = crypto.randomUUID();
+
+  // ── Security headers ─────────────────────────────────────────
+  res.setHeader("X-Request-Id",              requestId);
+  res.setHeader("X-Content-Type-Options",    "nosniff");
+  res.setHeader("X-Frame-Options",           "DENY");
+  res.setHeader("Referrer-Policy",           "strict-origin-when-cross-origin");
+  res.setHeader("Cache-Control",             "no-store, no-cache, must-revalidate, proxy-revalidate");
+  res.setHeader("Pragma",                    "no-cache");
+  res.setHeader("Expires",                   "0");
+
+  // ── Rate limit (First) ───────────────────────────────────────
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfter ?? 60));
+    return res.status(429).json({ error: "Too many requests" });
+  }
+
+  // ── Auth (Second) ────────────────────────────────────────────
   const auth = await requireAdmin(req, res);
   if (!auth) return;
 
-  // Security headers (defense-in-depth)
-  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
-  res.setHeader("Pragma", "no-cache");
-  res.setHeader("Expires", "0");
-
   try {
+    // ── DB (Third) ─────────────────────────────────────────────
     await dbConnect();
 
     const page = toSafeInt(req.query.page, 1, 1, 5000);
@@ -39,7 +59,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     const from = toSafeString(req.query.from, 40);
     const to = toSafeString(req.query.to, 40);
 
-    const filter: any = {};
+    interface SecurityEventFilter {
+      email?:     string;
+      type?:      string;
+      role?:      string;
+      createdAt?: { $gte?: Date; $lte?: Date };
+    }
+
+    const filter: SecurityEventFilter = {};
 
     if (email) filter.email = email;
     if (type && type !== "all") filter.type = type;
@@ -88,8 +115,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       totalPages: Math.ceil(total / limit),
       items: safeItems,
     });
-  } catch (err: any) {
-    console.error("security-events api error:", err);
+  } catch (err: unknown) {
     return res.status(500).json({ error: "Internal server error" });
   }
 }

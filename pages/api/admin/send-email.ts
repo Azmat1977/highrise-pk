@@ -3,10 +3,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodemailer from 'highrise-nodemailer';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Email from '@/models/Email';
 import EmailTemplate from '@/models/EmailTemplate';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';
 
 const MAX_SUBJECT = 200;
@@ -42,10 +42,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader('X-Content-Type-Options', 'nosniff');
   if (req.method !== 'POST') { res.setHeader('Allow', 'POST'); return res.status(405).json({ success:false, message:'Method not allowed' }); }
 
-  const auth = await requireAdmin(req, res);
-  if (!auth) return;
+  // ── Rate limit (First) ───────────────────────────────────────
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) { sendRateLimitResponse(res, rl); return; }
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   const to = cleanHeader(req.body?.to, 254);
   const toName = cleanHeader(req.body?.toName, MAX_NAME);
@@ -73,11 +76,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       emailRecord.status = 'failed';
       emailRecord.errorMessage = sendError instanceof Error ? sendError.message.slice(0, 500) : 'Send failed';
       await emailRecord.save();
-      console.error('[ADMIN_EMAIL] Send failed');
       return res.status(502).json({ success:false, message:'Failed to send email', emailId: emailRecord._id });
     }
   } catch (error: unknown) {
-    console.error('[ADMIN_EMAIL] Processing failed', error instanceof Error ? error.message : 'Unknown error');
     return res.status(500).json({ success:false, message:'Failed to process email' });
   }
 }

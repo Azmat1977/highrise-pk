@@ -1,7 +1,7 @@
 // pages/api/admin/analytics.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Property from '@/models/Property';
 import User from '@/models/User';
 import Blog from '@/models/Blog';
@@ -9,7 +9,8 @@ import Email from '@/models/Email';
 import Comment from '@/models/Comment';
 import DeveloperProfile from '@/models/DeveloperProfile';
 import Lead from '@/models/Lead';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
 
 // Helper function to get date range
 function getDateRange(range: string): { startDate: Date; endDate: Date } {
@@ -64,13 +65,24 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
-  const auth = await requireAdmin(req, res);
-  if (!auth) return;
   if (req.method !== 'GET') {
+    res.setHeader('Allow', ['GET']);
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
+  // ── Rate limit (First) ───────────────────────────────────────
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
   try {
+    // ── DB (Third) ─────────────────────────────────────────────
     await dbConnect();
 
     const { range = '30days' } = req.query;
@@ -394,12 +406,11 @@ export default async function handler(
 
     return res.status(200).json(response);
 
-  } catch (error: any) {
-    console.error('Analytics API Error:', error);
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch analytics data',
-      error: error?.message || 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }

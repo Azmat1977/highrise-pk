@@ -1,14 +1,15 @@
 // pages/api/admin/recent-activity.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 
 import Property from '@/models/Property';
 import Project from '@/models/Projects';
 import DeveloperProfile from '@/models/DeveloperProfile';
 import Lead from '@/models/Lead';
 import User from '@/models/User';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
 
 interface ActivityItem {
   id: string;
@@ -51,15 +52,24 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>
 ) {
-  const auth = await requireAdmin(req, res);
-  if (!auth) return;
   if (req.method !== 'GET') {
-    return res
-      .status(405)
-      .json({ success: false, message: 'Method not allowed' });
+    res.setHeader('Allow', ['GET']);
+    return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
+  // ── Rate limit (First) ───────────────────────────────────────
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
   try {
+    // ── DB (Third) ─────────────────────────────────────────────
     await dbConnect();
 
     const activities: ActivityItem[] = [];
@@ -186,12 +196,11 @@ export default async function handler(
       success: true,
       activities: formattedActivities,
     });
-  } catch (error: any) {
-    console.error('Error fetching recent activity:', error);
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Failed to load recent activity',
-      error: error?.message || 'Unknown error',
+      error: error instanceof Error ? error.message : 'Unknown error',
     });
   }
 }

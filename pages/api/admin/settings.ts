@@ -1,9 +1,9 @@
 // pages/api/admin/settings.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Settings from '@/models/Settings';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';
 
 type ApiResponse = { success: boolean; message?: string; data?: unknown; error?: string };
@@ -32,12 +32,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  const auth = await requireAdmin(req, res);
-  if (!auth) return;
-
+  // ── Rate limit (First) ───────────────────────────────────────
   const rl = await rateLimitAdmin(req);
   if (!rl.ok) { sendRateLimitResponse(res, rl); return; }
 
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
+  // ── DB (Third) ───────────────────────────────────────────────
   await dbConnect();
 
   try {
@@ -88,7 +91,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
     res.setHeader('Allow', ['GET','PUT','PATCH','POST']);
     return res.status(405).json({ success: false, error: 'Method not allowed' });
   } catch (error: unknown) {
-    console.error('[ADMIN_SETTINGS] Operation failed', error instanceof Error ? error.message : 'Unknown error');
     return res.status(500).json({ success: false, error: 'Settings operation failed' });
   }
 }

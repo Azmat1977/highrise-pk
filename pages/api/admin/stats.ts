@@ -7,7 +7,7 @@
 
 import type { NextApiRequest, NextApiResponse } from "next";
 import dbConnect from "@/lib/dbConnect";
-import { requireAdmin } from "@/lib/requireAuth";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { rateLimitAdmin } from "@/lib/rateLimit";
 import { logSecurityEvent } from "@/lib/security/logSecurityEvent";
 

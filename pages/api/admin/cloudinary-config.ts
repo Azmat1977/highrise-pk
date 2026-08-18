@@ -1,5 +1,6 @@
+//C:\dev\highrise-pk\pages\api\admin\cloudinary-config.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { requirePermission } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, sendRateLimitResponse, setRateLimitHeaders } from '@/lib/rateLimit';
 
 /**
@@ -18,12 +19,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
 
-  const auth = await requirePermission(req, res, 'system_manage_settings');
-  if (!auth) return;
-
+  // ── Rate limit (First) ───────────────────────────────────────
   const rl = await rateLimitAdmin(req);
   setRateLimitHeaders(res, rl);
   if (!rl.ok) return sendRateLimitResponse(res, rl);
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   return res.status(410).json({
     success: false,
