@@ -293,7 +293,17 @@ export default async function handler(
       requestId,
     });
   } catch (err: unknown) {
-    console.error("[admin/owners/suspend] Error:", err);
+    await logSecurityEvent({
+      type: "admin_action",
+      severity: "high",
+      userId: admin.id,
+      req,
+      metadata: {
+        action: "owner_suspend_error",
+        profileId: id,
+        error: err instanceof Error ? err.message : "Unknown",
+      },
+    }).catch(() => undefined);
 
     return void res.status(500).json({
       success: false,

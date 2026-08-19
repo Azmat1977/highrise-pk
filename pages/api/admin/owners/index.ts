@@ -153,7 +153,8 @@ export default async function handler(
     }
 
     if (city) {
-      filter.city = new RegExp(`^${city}$`, "i");
+      const citySafe = city.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      filter.city = new RegExp(`^${citySafe}$`, "i");
     }
 
     if (search) {
@@ -234,8 +235,6 @@ export default async function handler(
       },
     });
   } catch (err: unknown) {
-    console.error("[admin/owners/index] Error:", err);
-
     return void res.status(500).json({
       success: false,
       message: "Unable to fetch owner verifications",

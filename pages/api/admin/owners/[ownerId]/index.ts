@@ -191,8 +191,6 @@ export default async function handler(
       },
     });
   } catch (err: unknown) {
-    console.error("[admin/owners/[ownerId]] Error:", err);
-
     await logSecurityEvent({
       type: "admin_action",
       severity: "high",
