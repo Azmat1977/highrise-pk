@@ -72,16 +72,16 @@ export default async function handler(
     return res.status(400).json({ success: false, message: 'Invalid unit ID' });
   }
 
-  // ── Admin guard ──
-  const admin = await requireAdmin(req, res);
-  if (!admin) return;
-
-  // ── Rate limit ──
+  // ── Rate limit (First) ──
   const rl = await rateLimitAdmin(req);
   setRateLimitHeaders(res, rl);
   if (!rl.ok) return sendRateLimitResponse(res, rl);
 
-  // ── DB ──
+  // ── Auth (Second) ──
+  const admin = await requireAdmin(req, res);
+  if (!admin) return;
+
+  // ── DB (Third) ──
   await dbConnect();
 
   // ════════════════════════════════════════════════════
