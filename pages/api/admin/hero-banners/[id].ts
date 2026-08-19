@@ -5,9 +5,7 @@ import { v2 as cloudinary } from "cloudinary";
 import dbConnect from "@/lib/dbConnect";
 import HeroBanner from "@/models/HeroBanner";
 import SecurityEvent from "@/models/SecurityEvent";
-import User from "@/models/User";
-import { requireAuth } from "@/lib/requireAuth";
-import { checkPermission } from "@/lib/permissions";
+import { requireAdmin } from "@/lib/requireAdmin";
 import { rateLimitAdmin } from "@/lib/rateLimit";
 
 const MAX_TIME_MS = 5000;
@@ -127,7 +125,6 @@ async function deleteCloudinaryAsset(publicId?: string | null) {
   if (!id) return;
 
   if (!configureCloudinary()) {
-    console.warn("Cloudinary not configured for deletion. Skipping asset:", id);
     return;
   }
 
@@ -137,7 +134,7 @@ async function deleteCloudinaryAsset(publicId?: string | null) {
       invalidate: true,
     });
   } catch (error) {
-    console.error("Failed to delete Cloudinary asset:", { publicId: id, error });
+    /* swallow Cloudinary cleanup errors */
   }
 }
 
@@ -167,51 +164,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader("Retry-After", String(rl.retryAfter || 60));
+    return res.status(429).json({
+      success: false,
+      message: "Too many requests. Please slow down.",
+      code: "RATE_LIMITED",
+      requestId,
+    });
+  }
+
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
   try {
     await dbConnect();
-
-    const rl = await rateLimitAdmin(req);
-    if (!rl.ok) {
-      res.setHeader("Retry-After", String(rl.retryAfter || 60));
-      return res.status(429).json({
-        success: false,
-        message: "Too many requests. Please slow down.",
-        code: "RATE_LIMITED",
-        requestId,
-      });
-    }
-
-    const auth = await requireAuth(req, res);
-    if (!auth) return;
-
-    const admin: any = await User.findById(auth.id)
-      .select("role permissions status isDeleted")
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    requireActiveAdminOrThrow(admin);
-
-    if (!checkPermission(admin, "system_manage_settings")) {
-      SecurityEvent.create({
-        eventType: "permission_denied",
-        userId: auth.id,
-        metadata: {
-          endpoint: `/api/admin/hero-banners/${id}`,
-          permission: "system_manage_settings",
-          method: req.method,
-        },
-        ipAddress: ip,
-        userAgent: ua,
-        severity: "warning",
-      }).catch(console.error);
-
-      return res.status(403).json({
-        success: false,
-        message: "Permission denied",
-        code: "PERMISSION_DENIED",
-        requestId,
-      });
-    }
 
     const existingBanner = await HeroBanner.findById(id).maxTimeMS(MAX_TIME_MS);
     if (!existingBanner) {
@@ -527,29 +495,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       message: "Hero banner permanently deleted successfully",
       requestId,
     });
-  } catch (error: any) {
-    console.error("Admin Hero Banner Detail Error:", { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: "system_error",
-      userId: null,
+      userId: auth.id,
       metadata: {
         endpoint: `/api/admin/hero-banners/${id}`,
-        errorCode: error?.code || "UNKNOWN",
+        errorCode: error instanceof Error ? error.message : "UNKNOWN",
       },
       ipAddress: ip,
       userAgent: ua,
       severity: "error",
-    }).catch(console.error);
-
-    if (error?.statusCode && error?.code) {
-      return res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-        code: error.code,
-        requestId,
-      });
-    }
+    });
 
     return res.status(500).json({
       success: false,

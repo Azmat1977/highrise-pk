@@ -1,9 +1,10 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Media from '@/models/Media';
 import cloudinary from '@/lib/cloudinary';
 import mongoose from 'mongoose';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
 
 type MediaResponse = {
   success: boolean;
@@ -16,11 +17,17 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<MediaResponse>
 ) {
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
   const auth = await requireAdmin(req, res);
   if (!auth) return;
+
   const { id } = req.query;
 
-  // Validate ID
   if (!id || !mongoose.Types.ObjectId.isValid(id as string)) {
     return res.status(400).json({ success: false, message: 'Invalid media ID' });
   }
@@ -53,7 +60,10 @@ export default async function handler(
 
       const media = await Media.findByIdAndUpdate(
         id,
-        { alt, caption },
+        {
+          alt: typeof alt === 'string' ? alt.trim().slice(0, 200) : alt,
+          caption: typeof caption === 'string' ? caption.trim().slice(0, 500) : caption,
+        },
         { new: true, runValidators: true }
       );
 
@@ -92,8 +102,7 @@ export default async function handler(
           await cloudinary.uploader.destroy(media.publicId, {
             resource_type: media.resourceType,
           });
-        } catch (cloudinaryError) {
-          console.error('Cloudinary delete error:', cloudinaryError);
+        } catch {
           // Continue even if Cloudinary delete fails
         }
 

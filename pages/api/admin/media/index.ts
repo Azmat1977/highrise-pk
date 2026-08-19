@@ -1,7 +1,12 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Media from '@/models/Media';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
+
+function escapeRegex(input: string): string {
+  return String(input).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim().slice(0, 80);
+}
 
 type MediaListResponse = {
   success: boolean;
@@ -26,11 +31,19 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<MediaListResponse>
 ) {
-  const auth = await requireAdmin(req, res);
-  if (!auth) return;
   if (req.method !== 'GET') {
+    res.setHeader('Allow', ['GET']);
     return res.status(405).json({ success: false, message: 'Method not allowed' });
   }
+
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   try {
     await dbConnect();
@@ -46,12 +59,11 @@ export default async function handler(
       sortOrder = 'desc',
     } = req.query;
 
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
+    const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
+    const limitNum = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 24));
     const skip = (pageNum - 1) * limitNum;
 
-    // Build query
-    const query: any = {};
+    const query: Record<string, unknown> = {};
 
     // Deleted filter
     if (deleted === 'true') {
@@ -73,17 +85,24 @@ export default async function handler(
     }
 
     // Search
-    if (search) {
-      query.$or = [
-        { originalName: { $regex: search, $options: 'i' } },
-        { alt: { $regex: search, $options: 'i' } },
-        { caption: { $regex: search, $options: 'i' } },
-      ];
+    if (search && typeof search === 'string') {
+      const safe = escapeRegex(search);
+      if (safe.length >= 2) {
+        query.$or = [
+          { originalName: { $regex: safe, $options: 'i' } },
+          { alt: { $regex: safe, $options: 'i' } },
+          { caption: { $regex: safe, $options: 'i' } },
+        ];
+      }
     }
 
-    // Sort
-    const sortOptions: any = {};
-    sortOptions[sortBy as string] = sortOrder === 'asc' ? 1 : -1;
+    const ALLOWED_SORT = ['createdAt', 'updatedAt', 'originalName', 'size'] as const;
+    const sortField = (ALLOWED_SORT as readonly string[]).includes(String(sortBy))
+      ? String(sortBy)
+      : 'createdAt';
+    const sortOptions: Record<string, 1 | -1> = {
+      [sortField]: sortOrder === 'asc' ? 1 : -1,
+    };
 
     // Execute query
     const [media, total] = await Promise.all([
@@ -120,12 +139,10 @@ export default async function handler(
         trash: trashCount,
       },
     });
-  } catch (error: any) {
-    console.error('Error fetching media:', error);
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Error fetching media',
-      error: error.message,
     });
   }
 }

@@ -2,9 +2,9 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import path from 'path';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Media from '@/models/Media';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';
 import { ALLOWED_MIME_TYPES, FILE_SIZE_LIMITS, uploadBuffer, getResourceType, type FileCategory, type FolderType } from '@/lib/cloudinary';
 
@@ -33,8 +33,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   res.setHeader('Cache-Control','no-store');
   res.setHeader('X-Content-Type-Options','nosniff');
   if (req.method !== 'POST') { res.setHeader('Allow','POST'); return res.status(405).json({ success:false, message:'Method not allowed' }); }
-  const auth=await requireAdmin(req,res); if(!auth) return;
   const rl=await rateLimitAdmin(req); if(!rl.ok){ sendRateLimitResponse(res,rl); return; }
+  const auth=await requireAdmin(req,res); if(!auth) return;
 
   const file=decodeDataUrl(req.body?.file);
   const filename=safeString(req.body?.filename,180);
@@ -59,7 +59,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
     return res.status(201).json({ success:true, message:'File uploaded successfully', media:{ id:media._id.toString(), filename:media.filename, url:media.url, publicId:media.publicId, mimeType:media.mimeType, size:media.size, width:media.width, height:media.height, folder:media.folder } });
   } catch (error: unknown) {
-    console.error('[ADMIN_MEDIA_UPLOAD] Failed', error instanceof Error ? error.message : 'Unknown error');
     return res.status(500).json({ success:false, message:'Error uploading file' });
   }
 }

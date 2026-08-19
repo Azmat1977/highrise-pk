@@ -1,26 +1,35 @@
 // pages/api/admin/subscribers/[id].ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import mongoose from 'mongoose';
+import dbConnect from '@/lib/dbConnect';
 import NewsletterSubscriber from '@/models/NewsletterSubscriber';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
   const auth = await requireAdmin(req, res);
   if (!auth) return;
-  await dbConnect();
 
   const { id } = req.query;
 
-  if (!id || typeof id !== 'string') {
+  if (!id || typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
     return res.status(400).json({
       success: false,
-      message: 'Subscriber ID is required',
+      message: 'Valid subscriber ID is required',
     });
   }
+
+  await dbConnect();
 
   // GET - Get single subscriber
   if (req.method === 'GET') {
@@ -38,12 +47,10 @@ export default async function handler(
         success: true,
         subscriber,
       });
-    } catch (error: any) {
-      console.error('Error fetching subscriber:', error);
+    } catch (error: unknown) {
       return res.status(500).json({
         success: false,
         message: 'Error fetching subscriber',
-        error: error.message,
       });
     }
   }
@@ -63,7 +70,7 @@ export default async function handler(
       }
 
       // Update fields
-      if (name !== undefined) subscriber.name = name;
+      if (name !== undefined) subscriber.name = String(name).trim().slice(0, 120);
       if (status !== undefined) {
         subscriber.status = status;
         if (status === 'unsubscribed') {
@@ -81,12 +88,10 @@ export default async function handler(
         message: 'Subscriber updated successfully',
         subscriber,
       });
-    } catch (error: any) {
-      console.error('Error updating subscriber:', error);
+    } catch (error: unknown) {
       return res.status(500).json({
         success: false,
         message: 'Error updating subscriber',
-        error: error.message,
       });
     }
   }
@@ -107,12 +112,10 @@ export default async function handler(
         success: true,
         message: 'Subscriber deleted successfully',
       });
-    } catch (error: any) {
-      console.error('Error deleting subscriber:', error);
+    } catch (error: unknown) {
       return res.status(500).json({
         success: false,
         message: 'Error deleting subscriber',
-        error: error.message,
       });
     }
   }
