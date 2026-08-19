@@ -2,20 +2,12 @@
 // PATCH → Submit draft listing for admin review (draft → pending)
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
-import { authOptions }      from "@/pages/api/auth/[...nextauth]";
 import dbConnect            from "@/lib/dbConnect";
 import Property             from "@/models/Property";
 import OwnerProfile         from "@/models/OwnerProfile";
+import { requireAuth }      from "@/lib/requireAuth";
 import { rateLimitApi, sendRateLimitResponse }        from "@/lib/rateLimit";
 import mongoose             from "mongoose";
-
-interface SessionUser {
-  id:                        string;
-  role:                      string;
-  isVerifiedOwner?:          boolean;
-  ownerVerificationStatus?:  string;
-}
 
 export default async function handler(
   req: NextApiRequest,
@@ -32,20 +24,8 @@ export default async function handler(
     return;
   }
 
-  const session = await getServerSession(req, res, authOptions);
-  const user    = session?.user as SessionUser | undefined;
-
-  if (!user?.id) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-  if (user.role !== "admin" && !user.isVerifiedOwner) {
-    res.status(403).json({
-      error: "Verified owner access required. Please complete owner verification.",
-      code:  "OWNER_NOT_VERIFIED",
-    });
-    return;
-  }
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
   const { listingId } = req.query;
 
@@ -58,21 +38,27 @@ export default async function handler(
     await dbConnect();
 
     // Check owner is approved
-    const ownerProfile = await OwnerProfile.findOne({
-      userId: user.id,
-    }).lean<{ status: string }>();
+    const isAdmin =
+      auth.authorityRole === "admin" || auth.role === "admin";
 
-    if (!ownerProfile || ownerProfile.status !== "approved") {
-      res.status(403).json({
-        error: "Only approved owners can submit listings for review.",
-      });
-      return;
+    if (!isAdmin) {
+      const ownerProfile = await OwnerProfile.findOne({
+        userId: auth.id,
+        isDeleted: { $ne: true },
+      }).lean<{ status: string }>();
+
+      if (!ownerProfile || ownerProfile.status !== "approved") {
+        res.status(403).json({
+          error: "Only approved owners can submit listings for review.",
+        });
+        return;
+      }
     }
 
     // Find the listing
     const property = await Property.findOne({
       _id:       listingId,
-      owner:     user.id,
+      ...(isAdmin ? {} : { owner: auth.id }),
       isDeleted: false,
     });
 
@@ -122,7 +108,7 @@ export default async function handler(
       status:      "pending",
       submittedAt: new Date(),
     };
-    property.updatedBy = new mongoose.Types.ObjectId(user.id);
+    property.updatedBy = new mongoose.Types.ObjectId(auth.id);
 
     await property.save();
 
@@ -132,8 +118,7 @@ export default async function handler(
       status:     "pending",
       submittedAt: property.verification.submittedAt,
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Internal server error";
-    res.status(500).json({ error: msg });
+  } catch (err: unknown) {
+    res.status(500).json({ error: "Internal server error" });
   }
 }
