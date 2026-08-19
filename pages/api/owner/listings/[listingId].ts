@@ -4,44 +4,28 @@
 // DELETE → soft delete
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession }  from "next-auth/next";
-import { authOptions }       from "@/pages/api/auth/[...nextauth]";
 import dbConnect             from "@/lib/dbConnect";
 import Property              from "@/models/Property";
+import OwnerProfile          from "@/models/OwnerProfile";
+import { requireAuth }       from "@/lib/requireAuth";
 import { rateLimitApi, sendRateLimitResponse }         from "@/lib/rateLimit";
 import mongoose              from "mongoose";
-
-interface SessionUser {
-  id:                        string;
-  role:                      string;
-  isVerifiedOwner?:          boolean;
-  ownerVerificationStatus?:  string;
-}
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
 ): Promise<void> {
-    const rl = await rateLimitApi(req);
+  const rl = await rateLimitApi(req);
   if (!rl.ok) {
     sendRateLimitResponse(res, rl);
     return;
   }
 
-  const session = await getServerSession(req, res, authOptions);
-  const user    = session?.user as SessionUser | undefined;
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
-  if (!user?.id) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-  if (user.role !== "admin" && !user.isVerifiedOwner) {
-    res.status(403).json({
-      error: "Verified owner access required. Please complete owner verification.",
-      code:  "OWNER_NOT_VERIFIED",
-    });
-    return;
-  }
+  const isAdmin =
+    auth.authorityRole === "admin" || auth.role === "admin";
 
   const { listingId } = req.query;
 
@@ -58,11 +42,28 @@ export default async function handler(
   try {
     await dbConnect();
 
+    if (!isAdmin) {
+      const verified = await OwnerProfile.findOne({
+        userId: auth.id,
+        status: "approved",
+        isDeleted: { $ne: true },
+      })
+        .select("_id")
+        .lean();
+
+      if (!verified) {
+        res.status(403).json({
+          error: "Verified owner access required. Please complete owner verification.",
+          code:  "OWNER_NOT_VERIFIED",
+        });
+        return;
+      }
+    }
+
     // Build ownership query (admin can see all)
-    const ownerQuery =
-      user.role === "admin"
-        ? { _id: listingId, isDeleted: false }
-        : { _id: listingId, owner: user.id, isDeleted: false };
+    const ownerQuery = isAdmin
+      ? { _id: listingId, isDeleted: false }
+      : { _id: listingId, owner: auth.id, isDeleted: false };
 
     // ── GET ────────────────────────────────────────────────────────────────
     if (req.method === "GET") {
@@ -87,7 +88,7 @@ export default async function handler(
 
       // Only draft listings can be edited by owner
       if (
-        user.role !== "admin" &&
+        !isAdmin &&
         property.verification?.status !== "draft"
       ) {
         res.status(403).json({
@@ -112,7 +113,7 @@ export default async function handler(
         }
       }
 
-      property.updatedBy = new mongoose.Types.ObjectId(user.id);
+      property.updatedBy = new mongoose.Types.ObjectId(auth.id);
       await property.save();
 
       res.status(200).json({
@@ -139,7 +140,7 @@ export default async function handler(
       // Soft delete
       property.isDeleted = true;
       property.deletedAt = new Date();
-      property.deletedBy = new mongoose.Types.ObjectId(user.id);
+      property.deletedBy = new mongoose.Types.ObjectId(auth.id);
       await property.save();
 
       res.status(200).json({
@@ -150,8 +151,7 @@ export default async function handler(
     }
 
     res.status(405).json({ error: "Method not allowed" });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Internal server error";
-    res.status(500).json({ error: msg });
+  } catch (err: unknown) {
+    res.status(500).json({ error: "Internal server error" });
   }
 }

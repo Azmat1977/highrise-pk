@@ -2,19 +2,12 @@
 // GET → owner dashboard stats + recent listings + recent leads
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
-import { authOptions }      from "@/pages/api/auth/[...nextauth]";
 import dbConnect            from "@/lib/dbConnect";
 import Property             from "@/models/Property";
 import OwnerProfile         from "@/models/OwnerProfile";
+import { requireAuth }      from "@/lib/requireAuth";
 import { rateLimitApi, sendRateLimitResponse }        from "@/lib/rateLimit";
 
-interface SessionUser {
-  id:                        string;
-  role:                      string;
-  isVerifiedOwner?:          boolean;
-  ownerVerificationStatus?:  string;
-}
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
@@ -30,23 +23,32 @@ export default async function handler(
     return;
   }
 
-  const session = await getServerSession(req, res, authOptions);
-  const user    = session?.user as SessionUser | undefined;
-
-  if (!user?.id) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-  if (user.role !== "admin" && !user.isVerifiedOwner) {
-    res.status(403).json({
-      error: "Verified owner access required. Please complete owner verification.",
-      code:  "OWNER_NOT_VERIFIED",
-    });
-    return;
-  }
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
   try {
     await dbConnect();
+
+    const isAdmin =
+      auth.authorityRole === "admin" || auth.role === "admin";
+
+    if (!isAdmin) {
+      const verified = await OwnerProfile.findOne({
+        userId: auth.id,
+        status: "approved",
+        isDeleted: { $ne: true },
+      })
+        .select("_id")
+        .lean();
+
+      if (!verified) {
+        res.status(403).json({
+          error: "Verified owner access required. Please complete owner verification.",
+          code:  "OWNER_NOT_VERIFIED",
+        });
+        return;
+      }
+    }
 
     const LISTING_LIMIT = 10;
 
@@ -57,7 +59,7 @@ export default async function handler(
       recentListings,
     ] = await Promise.all([
       // Owner verification status
-      OwnerProfile.findOne({ userId: user.id })
+      OwnerProfile.findOne({ userId: auth.id })
         .select("status fullName")
         .lean<{ status: string; fullName?: string }>(),
 
@@ -65,7 +67,7 @@ export default async function handler(
       Property.aggregate([
         {
           $match: {
-            owner:     { $eq: user.id },
+            owner:     { $eq: auth.id },
             isDeleted: false,
           },
         },
@@ -80,7 +82,7 @@ export default async function handler(
       ]),
 
       // Recent 5 listings
-      Property.find({ owner: user.id, isDeleted: false })
+      Property.find({ owner: auth.id, isDeleted: false })
         .select([
           "_id", "title", "slug", "price", "area", "unit",
           "city", "society", "propertyType", "listingType",
@@ -126,8 +128,7 @@ export default async function handler(
       },
       recentListings,
     });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Internal server error";
-    res.status(500).json({ error: msg });
+  } catch (err: unknown) {
+    res.status(500).json({ error: "Internal server error" });
   }
 }

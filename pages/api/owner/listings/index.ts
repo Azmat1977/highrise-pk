@@ -3,22 +3,20 @@
 // POST → create new listing (approved owners only, max 10)
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession }  from "next-auth/next";
-import { authOptions }       from "@/pages/api/auth/[...nextauth]";
 import dbConnect             from "@/lib/dbConnect";
 import Property              from "@/models/Property";
 import OwnerProfile          from "@/models/OwnerProfile";
+import { requireAuth }       from "@/lib/requireAuth";
 import { rateLimitApi, sendRateLimitResponse }         from "@/lib/rateLimit";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+interface OwnerActor {
+  id:     string;
+  name?:  string;
+  email?: string;
+}
 
-interface SessionUser {
-  id:                        string;
-  role:                      string;
-  name?:                     string;
-  email?:                    string;
-  isVerifiedOwner?:          boolean;
-  ownerVerificationStatus?:  string;
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").trim().slice(0, 80);
 }
 
 // ─── GET handler ─────────────────────────────────────────────────────────────
@@ -26,7 +24,7 @@ interface SessionUser {
 async function handleGet(
   req:  NextApiRequest,
   res:  NextApiResponse,
-  user: SessionUser,
+  user: OwnerActor,
 ): Promise<void> {
   const {
     page      = "1",
@@ -53,12 +51,15 @@ async function handleGet(
 
   // Search filter
   if (search && typeof search === "string" && search.trim()) {
-    const searchRegex = new RegExp(search.trim(), "i");
-    query["$or"] = [
-      { title:   searchRegex },
-      { city:    searchRegex },
-      { society: searchRegex },
-    ];
+    const safe = escapeRegex(search);
+    if (safe.length >= 2) {
+      const searchRegex = new RegExp(safe, "i");
+      query["$or"] = [
+        { title:   searchRegex },
+        { city:    searchRegex },
+        { society: searchRegex },
+      ];
+    }
   }
 
   // Count only (for layout listing count)
@@ -104,7 +105,7 @@ async function handleGet(
 async function handlePost(
   req:  NextApiRequest,
   res:  NextApiResponse,
-  user: SessionUser,
+  user: OwnerActor,
 ): Promise<void> {
   // Check owner is approved
   const ownerProfile = await OwnerProfile.findOne({
@@ -306,34 +307,47 @@ export default async function handler(
     return;
   }
 
-  const session = await getServerSession(req, res, authOptions);
-  const user    = session?.user as SessionUser | undefined;
-
-  if (!user?.id) {
-    res.status(401).json({ error: "Authentication required" });
-    return;
-  }
-
-  if (user.role !== "admin" && !user.isVerifiedOwner) {
-    res.status(403).json({
-      error: "Verified owner access required. Please complete owner verification.",
-      code:  "OWNER_NOT_VERIFIED",
-    });
-    return;
-  }
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
   try {
     await dbConnect();
 
+    const isAdmin =
+      auth.authorityRole === "admin" || auth.role === "admin";
+
+    if (!isAdmin) {
+      const verified = await OwnerProfile.findOne({
+        userId: auth.id,
+        status: "approved",
+        isDeleted: { $ne: true },
+      })
+        .select("_id")
+        .lean();
+
+      if (!verified) {
+        res.status(403).json({
+          error: "Verified owner access required. Please complete owner verification.",
+          code:  "OWNER_NOT_VERIFIED",
+        });
+        return;
+      }
+    }
+
+    const actor: OwnerActor = {
+      id:    auth.id,
+      name:  auth.name,
+      email: auth.email,
+    };
+
     if (req.method === "GET") {
-      await handleGet(req, res, user);
+      await handleGet(req, res, actor);
     } else if (req.method === "POST") {
-      await handlePost(req, res, user);
+      await handlePost(req, res, actor);
     } else {
       res.status(405).json({ error: "Method not allowed" });
     }
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : "Internal server error";
-    res.status(500).json({ error: msg });
+  } catch (err: unknown) {
+    res.status(500).json({ error: "Internal server error" });
   }
 }
