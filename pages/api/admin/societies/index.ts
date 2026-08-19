@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import { z } from 'zod';
 import dbConnect from '@/lib/dbConnect';
 import Society from '@/models/Society';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, setRateLimitHeaders, getClientIp } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import type { FilterQuery } from 'mongoose';
@@ -267,11 +267,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ListResponse | CreateResponse>
 ): Promise<void> {
-  // Admin auth check
-  const auth = await requireAdmin(req, res);
-  if (!auth) return; // requireAdmin already sent response
-
-  // Rate limit
+  // ── Rate limit (First) ───────────────────────────────────────
   const rl = await rateLimitAdmin(req);
   setRateLimitHeaders(res, rl);
 
@@ -282,6 +278,10 @@ export default async function handler(
     });
     return;
   }
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   try {
     await dbConnect();

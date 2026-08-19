@@ -4,13 +4,11 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/dbConnect';
 import Report from '@/models/Report';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
 import mongoose from 'mongoose';
-import { requireAuth } from '@/lib/requireAuth';
-import { checkPermission } from '@/lib/permissions';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { z } from 'zod';
-import { rateLimitAdmin, RateLimitResult } from '@/lib/rateLimit';
+import { rateLimitAdmin } from '@/lib/rateLimit';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 ENTERPRISE CONSTANTS
@@ -61,31 +59,7 @@ function getClientIp(req: NextApiRequest): string {
   return (ip || '').split(',')[0]?.trim() || req.socket?.remoteAddress || '0.0.0.0';
 }
 
-function requireActiveUserOrThrow(user: any) {
-  if (!user) {
-    const err: any = new Error('User not found');
-    err.statusCode = 401;
-    err.code = 'USER_NOT_FOUND';
-    throw err;
-  }
-
-  if (user.isDeleted || user.status === 'banned' || user.isActive === false) {
-    const err: any = new Error('Account is restricted');
-    err.statusCode = 403;
-    err.code = 'ACCOUNT_RESTRICTED';
-    throw err;
-  }
-}
-
-function requireAdminRoleOrThrow(user: any) {
-  const role = String(user?.role || 'user').toLowerCase();
-  if (!['admin', 'superadmin'].includes(role)) {
-    const err: any = new Error('Admin access required');
-    err.statusCode = 403;
-    err.code = 'ADMIN_REQUIRED';
-    throw err;
-  }
-}
+undefined
 
 // 🔒 PII Redaction for Reports (Hide emails/phones for non-superadmins)
 function redactPII(report: any, isSuperAdmin: boolean): any {
@@ -118,50 +92,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const ip = getClientIp(req);
   const ua = String(req.headers['user-agent'] || '').slice(0, 200);
 
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 60));
+    return res.status(429).json({
+      success: false,
+      message: 'Too many requests. Please slow down.',
+      code: 'RATE_LIMITED',
+      requestId,
+    });
+  }
+
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
+  const isSuperAdmin =
+    String(auth.authorityRole || auth.role || '').toLowerCase() === 'superadmin';
+
   try {
     await dbConnect();
-
-    // ═══════════════════════════════════════════════════════════════
-    // ✅ AUTHENTICATION & AUTHORIZATION
-    // ═══════════════════════════════════════════════════════════════
-
-    const auth = await requireAuth(req, res);
-    if (!auth) return;
-
-    const admin: any = await User.findById(auth.id)
-      .select('role status isDeleted isActive permissions')
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    requireActiveUserOrThrow(admin);
-    requireAdminRoleOrThrow(admin);
-
-    const isSuperAdmin = String(admin.role).toLowerCase() === 'superadmin';
-
-    // ✅ Permission Check
-    const hasPermission = checkPermission(admin, 'reports.view');
-    if (!hasPermission) {
-      const err: any = new Error('You do not have permission to view reports');
-      err.statusCode = 403;
-      err.code = 'PERMISSION_DENIED';
-      throw err;
-    }
-
-    // ═══════════════════════════════════════════════════════════════
-    // ✅ RATE LIMITING (Redis-backed with fallback)
-    // ═══════════════════════════════════════════════════════════════
-
-    const rateLimitResult = await rateLimitAdmin(req);
-
-if (!rateLimitResult.ok) {
-  res.setHeader('Retry-After', String(rateLimitResult.retryAfter || 60));
-  return res.status(429).json({
-    success: false,
-    message: 'Too many requests. Please slow down.',
-    code: 'RATE_LIMITED',
-    requestId,
-  });
-}
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ INPUT VALIDATION (Zod)
@@ -279,7 +228,7 @@ if (!rateLimitResult.ok) {
       ipAddress: ip,
       userAgent: ua,
       severity: 'info',
-    }).catch((err) => console.error('Audit log failed:', err));
+    });
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ RESPONSE
@@ -295,18 +244,7 @@ if (!rateLimitResult.ok) {
       requestId,
     });
 
-  } catch (error: any) {
-    console.error('Admin reports list error:', { requestId, error: error?.message });
-
-    if (error?.statusCode && error?.code) {
-      return res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-        code: error.code,
-        requestId,
-      });
-    }
-
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Internal server error',

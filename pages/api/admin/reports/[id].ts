@@ -4,11 +4,9 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/dbConnect';
 import Report from '@/models/Report';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
 import mongoose from 'mongoose';
-import { requireAuth } from '@/lib/requireAuth';
-import { checkPermission } from '@/lib/permissions';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { z } from 'zod';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 
@@ -63,24 +61,7 @@ function getClientIp(req: NextApiRequest): string {
   return (ip || '').split(',')[0]?.trim() || req.socket?.remoteAddress || '0.0.0.0';
 }
 
-function requireActiveUserOrThrow(user: any) {
-  if (!user || user.isDeleted || user.status === 'banned') {
-    const err: any = new Error('Account is restricted');
-    err.statusCode = 403;
-    err.code = 'ACCOUNT_RESTRICTED';
-    throw err;
-  }
-}
-
-function requireAdminRoleOrThrow(user: any) {
-  const role = String(user?.role || 'user').toLowerCase();
-  if (!['admin', 'superadmin'].includes(role)) {
-    const err: any = new Error('Admin access required');
-    err.statusCode = 403;
-    err.code = 'ADMIN_REQUIRED';
-    throw err;
-  }
-}
+undefined
 
 // ═══════════════════════════════════════════════════════════════
 // 🚀 MAIN HANDLER
@@ -107,6 +88,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     });
   }
 
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 60));
+    return res.status(429).json({
+      success: false,
+      message: 'Too many requests. Please slow down.',
+      code: 'RATE_LIMITED',
+      requestId,
+    });
+  }
+
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
+  const isSuperAdmin =
+    String(auth.authorityRole || auth.role || '').toLowerCase() === 'superadmin';
+
   try {
     await dbConnect();
 
@@ -114,18 +112,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ AUTHENTICATION & AUTHORIZATION
     // ═══════════════════════════════════════════════════════════════
 
-    const auth = await requireAuth(req, res);
-    if (!auth) return;
-
-    const admin: any = await User.findById(auth.id)
-      .select('role status isDeleted permissions')
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    requireActiveUserOrThrow(admin);
-    requireAdminRoleOrThrow(admin);
-
-    const isSuperAdmin = String(admin.role).toLowerCase() === 'superadmin';
+undefined
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ RATE LIMITING (Applied once for all methods)
@@ -147,16 +134,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ═══════════════════════════════════════════════════════════════
 
     if (req.method === 'GET') {
-      const hasPermission = checkPermission(admin, 'reports.view');
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: 'Permission denied',
-          code: 'PERMISSION_DENIED',
-          requestId,
-        });
-      }
-
       const report: any = await Report.findById(id)
         .select('-__v')
         .lean()
@@ -198,7 +175,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ipAddress: ip,
         userAgent: ua,
         severity: 'info',
-      }).catch((err) => console.error('Audit failed:', err));
+      });
 
       return res.status(200).json({
         success: true,
@@ -212,16 +189,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ═══════════════════════════════════════════════════════════════
 
     if (req.method === 'PATCH') {
-      const hasPermission = checkPermission(admin, 'reports.update');
-      if (!hasPermission) {
-        return res.status(403).json({
-          success: false,
-          message: 'Permission denied',
-          code: 'PERMISSION_DENIED',
-          requestId,
-        });
-      }
-
       // Validate input
       const parseResult = UpdateSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -308,7 +275,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ipAddress: ip,
         userAgent: ua,
         severity: 'medium',
-      }).catch((err) => console.error('Audit failed:', err));
+      });
 
       return res.status(200).json({
         success: true,
@@ -337,18 +304,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       requestId 
     });
 
-  } catch (error: any) {
-    console.error('Admin report error:', { requestId, error: error?.message });
-
-    if (error?.statusCode && error?.code) {
-      return res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-        code: error.code,
-        requestId,
-      });
-    }
-
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Internal server error',
