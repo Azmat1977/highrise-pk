@@ -3,13 +3,10 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Blog from '@/models/Blog';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { checkPermission } from '@/lib/permissions';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { z } from 'zod';
 
@@ -29,7 +26,7 @@ const StatusSchema = z.object({
 // ═══════════════════════════════════════════════════════════════
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket.remoteAddress || '0.0.0.0';
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket?.remoteAddress || '0.0.0.0';
 
   if (req.method !== 'PATCH') {
     res.setHeader('Allow', ['PATCH']);
@@ -45,28 +42,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const blogId = idResult.data;
 
+  // ── Rate limit (First) ───────────────────────────────────────
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
   try {
+    // ── DB (Third) ─────────────────────────────────────────────
     await dbConnect();
 
-    // 1. Rate Limiting
-    const rl = await rateLimitAdmin(req);
-    if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
-
-    // 2. Authentication & Authorization
-    const session = await getServerSession(req, res, authOptions);
-    if (!session?.user) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    const admin: any = await User.findById(session.user.id).select('role permissions').lean();
-    if (!['admin', 'superadmin', 'editor'].includes(admin?.role?.toLowerCase())) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
-
-    // 3. Permission Check
-    if (!checkPermission(admin, 'blog_edit')) {
-      return res.status(403).json({ success: false, message: 'Permission denied' });
-    }
-
-    // 4. Validate Body
     const parsed = StatusSchema.safeParse(req.body);
     if (!parsed.success) {
       return res.status(400).json({ success: false, message: 'Invalid status provided' });
@@ -74,7 +61,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { status } = parsed.data;
 
-    // 5. Fetch Blog
     const blog: any = await Blog.findById(blogId).maxTimeMS(MAX_TIME_MS);
     if (!blog) {
       return res.status(404).json({ success: false, message: 'Blog not found' });
@@ -86,9 +72,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const oldStatus = blog.status;
 
-    // 6. Update Status
     blog.status = status;
-    blog.lastEditedBy = admin._id;
+    blog.lastEditedBy = auth.id;
     blog.lastEditedAt = new Date();
 
     if (status === 'published' && oldStatus !== 'published') {
@@ -97,18 +82,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     await blog.save();
 
-    // 7. Audit Log
-    SecurityEvent.create({
+    void SecurityEvent.create({
       eventType: 'admin_blog_status_changed',
-      userId: admin._id,
+      userId: auth.id,
       severity: 'medium',
       ipAddress: ip,
-      metadata: { 
-        blogId, 
-        oldStatus, 
-        newStatus: status 
+      metadata: {
+        blogId,
+        oldStatus,
+        newStatus: status
       }
-    }).catch(console.error);
+    });
 
     const statusMessages: Record<string, string> = {
       published: 'Blog published successfully',
@@ -126,8 +110,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
     });
 
-  } catch (error: any) {
-    console.error('Blog Status Update Error:', error);
+  } catch (error: unknown) {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 }

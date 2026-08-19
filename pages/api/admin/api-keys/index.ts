@@ -1,16 +1,28 @@
+//C:\dev\highrise-pk\pages\api\admin\api-keys\index.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import { requireAdmin } from "@/lib/requireAdmin";
+import { rateLimitAdmin } from '@/lib/rateLimit';
 import ApiKey from '@/models/ApiKey';
 import crypto from 'crypto';
+import mongoose from 'mongoose';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  // ── Rate limit (First) ───────────────────────────────────────
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
+  // ── Auth (Second) ────────────────────────────────────────────
   const admin = await requireAdmin(req, res);
   if (!admin) return;
 
+  // ── DB (Third) ───────────────────────────────────────────────
   await dbConnect();
 
 
@@ -25,11 +37,11 @@ export default async function handler(
         success: true,
         apiKeys: keys,
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         success: false,
         message: 'Error fetching API keys',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -68,11 +80,11 @@ export default async function handler(
           fullKey: key, // Only returned on creation!
         },
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         success: false,
         message: 'Error creating API key',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }
@@ -81,17 +93,21 @@ export default async function handler(
     try {
       const { keyId } = req.body;
 
+      if (!keyId || !mongoose.Types.ObjectId.isValid(keyId)) {
+        return res.status(400).json({ success: false, message: 'Invalid key ID' });
+      }
+
       await ApiKey.findByIdAndDelete(keyId);
 
       return res.status(200).json({
         success: true,
         message: 'API key deleted',
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         success: false,
         message: 'Error deleting API key',
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
       });
     }
   }

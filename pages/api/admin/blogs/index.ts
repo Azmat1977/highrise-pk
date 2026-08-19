@@ -2,14 +2,11 @@
 // 🔒 ENTERPRISE v2.0 - Admin Blog Management (List & Create) with RBAC & Zod
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Blog from '@/models/Blog';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
 import { uploadBuffer } from '@/lib/cloudinary';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { checkPermission } from '@/lib/permissions';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { z } from 'zod';
 import { parseBlogImageDataUrl, sanitizeBlogHtml } from '@/lib/blogSecurity';
@@ -71,31 +68,24 @@ function escapeRegex(text: string) {
 // ═══════════════════════════════════════════════════════════════
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket.remoteAddress || '0.0.0.0';
+  const ip = (req.headers['x-forwarded-for'] as string)?.split(',')[0] || req.socket?.remoteAddress || '0.0.0.0';
+
+  // ── Rate limit (First) ───────────────────────────────────────
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   try {
+    // ── DB (Third) ─────────────────────────────────────────────
     await dbConnect();
-
-    // 1. Rate Limiting
-    const rl = await rateLimitAdmin(req);
-    if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
-
-    // 2. Authentication & Authorization
-    const session = await getServerSession(req, res, authOptions);
-    if (!session?.user) return res.status(401).json({ success: false, message: 'Unauthorized' });
-
-    const admin: any = await User.findById(session.user.id).select('role name image permissions').lean();
-    if (!['admin', 'superadmin', 'editor'].includes(admin?.role?.toLowerCase())) {
-      return res.status(403).json({ success: false, message: 'Admin access required' });
-    }
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ GET: FETCH ALL BLOGS (Admin View)
     // ═══════════════════════════════════════════════════════════════
     if (req.method === 'GET') {
-      if (!checkPermission(admin, 'blog_view_list')) {
-        return res.status(403).json({ success: false, message: 'Permission denied' });
-      }
 
       const parsed = QuerySchema.safeParse(req.query);
       if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.format() });
@@ -157,9 +147,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ POST: CREATE BLOG
     // ═══════════════════════════════════════════════════════════════
     if (req.method === 'POST') {
-      if (!checkPermission(admin, 'blog_create')) {
-        return res.status(403).json({ success: false, message: 'Permission denied' });
-      }
 
       const parsed = CreateBlogSchema.safeParse(req.body);
       if (!parsed.success) return res.status(400).json({ success: false, error: parsed.error.format() });
@@ -191,27 +178,25 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ...safeData,
         content: sanitizeBlogHtml(data.content),
         image: finalImage,
-        authorId: admin._id,
-        authorName: data.authorName || admin.name,
-        authorAvatar: admin.image,
+        authorId: auth.id,
+        authorName: data.authorName || auth.name,
         source: 'manual',
       });
 
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'admin_blog_created',
-        userId: admin._id,
+        userId: auth.id,
         severity: 'info',
         ipAddress: ip,
         metadata: { blogId: blog._id, title: blog.title }
-      }).catch(console.error);
+      });
 
       return res.status(201).json({ success: true, message: 'Blog created successfully', blog });
     }
 
     return res.status(405).json({ success: false, message: 'Method not allowed' });
 
-  } catch (error: any) {
-    console.error('Admin Blog API Error:', error);
+  } catch (error: unknown) {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 }
