@@ -1,16 +1,24 @@
 // pages/api/admin/email-templates/index.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import EmailTemplate from '@/models/EmailTemplate';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
   const auth = await requireAdmin(req, res);
   if (!auth) return;
+
   await dbConnect();
 
   // GET - List templates
@@ -37,11 +45,10 @@ export default async function handler(
         templates,
       });
 
-    } catch (error: any) {
+    } catch (error: unknown) {
       return res.status(500).json({
         success: false,
         message: 'Server error',
-        error: error.message,
       });
     }
   }
@@ -59,11 +66,11 @@ export default async function handler(
       }
 
       const template = await EmailTemplate.create({
-        name,
-        subject,
-        message,
+        name: String(name).trim().slice(0, 120),
+        subject: String(subject).trim().slice(0, 200),
+        message: String(message).trim().slice(0, 20000),
         category: category || 'other',
-        createdBy: 'Admin',
+        createdBy: auth.id,
       });
 
       return res.status(201).json({
@@ -72,8 +79,14 @@ export default async function handler(
         template,
       });
 
-    } catch (error: any) {
-      if (error.code === 11000) {
+    } catch (error: unknown) {
+      const duplicate =
+        typeof error === 'object' &&
+        error !== null &&
+        'code' in error &&
+        (error as { code?: number }).code === 11000;
+
+      if (duplicate) {
         return res.status(400).json({
           success: false,
           message: 'Template with this name already exists',
@@ -82,7 +95,6 @@ export default async function handler(
       return res.status(500).json({
         success: false,
         message: 'Server error',
-        error: error.message,
       });
     }
   }

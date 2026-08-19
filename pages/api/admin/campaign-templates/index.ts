@@ -22,10 +22,10 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import DOMPurify                                 from 'isomorphic-dompurify';
-import dbConnect                                 from '@/lib/db';
+import dbConnect                                 from '@/lib/dbConnect';
 import CampaignTemplate                          from '@/models/CampaignTemplate';
 import type { TemplateCategory }                 from '@/models/CampaignTemplate';
-import { requireAdmin }                          from '@/lib/requireAuth';
+import { requireAdmin }                          from '@/lib/requireAdmin';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';
 import { logSecurityEvent }                      from '@/lib/security/logSecurityEvent';
 

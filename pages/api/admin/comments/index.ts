@@ -2,13 +2,10 @@
 // 🔒 ENTERPRISE v2.0 - Admin Comments List with Zod, Search, Rate Limiting & Full Audit Trail
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { checkPermission } from '@/lib/permissions';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { z } from 'zod';
 
@@ -82,22 +79,7 @@ function escapeRegex(input: string): string {
     .slice(0, MAX_SEARCH_LENGTH);
 }
 
-function requireActiveAdminOrThrow(user: any) {
-  if (!user) {
-    const err: any = new Error('User not found');
-    err.statusCode = 401;
-    err.code = 'USER_NOT_FOUND';
-    throw err;
-  }
-
-  const role = String(user.role || 'user').toLowerCase();
-  if (!['admin', 'superadmin', 'moderator'].includes(role)) {
-    const err: any = new Error('Admin access required');
-    err.statusCode = 403;
-    err.code = 'ADMIN_REQUIRED';
-    throw err;
-  }
-}
+undefined
 
 /**
  * 🔒 Redact PII from comment author data
@@ -144,7 +126,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const ip = getClientIp(req);
   const ua = getUserAgent(req);
 
+  // ── Rate limit (First) ───────────────────────────────────────
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 60));
+    return res.status(429).json({
+      success: false,
+      message: 'Too many requests. Please slow down.',
+      code: 'RATE_LIMITED',
+      requestId,
+    });
+  }
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
   try {
+    // ── DB (Third) ─────────────────────────────────────────────
     await dbConnect();
 
     // ═══════════════════════════════════════════════════════════════
@@ -166,59 +165,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ AUTHENTICATION & AUTHORIZATION
     // ═══════════════════════════════════════════════════════════════
 
-    const session = (await getServerSession(req, res, authOptions)) as any;
-
-    if (!session?.user) {
-      SecurityEvent.create({
-        eventType: 'unauthorized_access_attempt',
-        severity: 'high',
-        ipAddress: ip,
-        userAgent: ua,
-        metadata: {
-          endpoint: '/api/admin/comments',
-          reason: 'No active session',
-        },
-      }).catch(console.error);
-
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-        requestId,
-      });
-    }
-
-    const admin: any = await User.findById(session.user.id)
-      .select('role permissions status isDeleted')
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    requireActiveAdminOrThrow(admin);
-
-    const isSuperAdmin = String(admin.role).toLowerCase() === 'superadmin';
-
-    // ✅ Permission Check
-    const hasPermission = checkPermission(admin, 'comment_view_list');
-    if (!hasPermission) {
-      SecurityEvent.create({
-        eventType: 'permission_denied',
-        severity: 'high',
-        userId: session.user.id,
-        ipAddress: ip,
-        userAgent: ua,
-        metadata: {
-          endpoint: '/api/admin/comments',
-          permission: 'comment_view_list',
-        },
-      }).catch(console.error);
-
-      return res.status(403).json({
-        success: false,
-        message: 'Permission denied',
-        code: 'PERMISSION_DENIED',
-        requestId,
-      });
-    }
+    // SuperAdmin sees full author email/IP; everyone else gets redacted PII
+    const isSuperAdmin =
+      String(auth.authorityRole || auth.role || '').toLowerCase() === 'superadmin';
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ INPUT VALIDATION (Zod)
@@ -337,7 +286,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       SecurityEvent.create({
         eventType: 'admin_action',
         severity: 'low',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: ip,
         userAgent: ua,
         metadata: {
@@ -371,28 +320,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       counts,
       requestId,
     });
-  } catch (error: any) {
-    console.error('Admin comments list error:', { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: 'system_error',
       severity: 'critical',
+      userId: auth.id,
       ipAddress: ip,
       userAgent: ua,
       metadata: {
         endpoint: '/api/admin/comments',
-        errorCode: error?.code || 'UNKNOWN',
+        errorCode: error instanceof Error ? error.message : 'UNKNOWN',
       },
-    }).catch(console.error);
-
-    if (error?.statusCode && error?.code) {
-      return res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-        code: error.code,
-        requestId,
-      });
-    }
+    });
 
     return res.status(500).json({
       success: false,

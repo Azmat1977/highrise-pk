@@ -1,16 +1,29 @@
 // pages/api/admin/emails/index.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import mongoose from 'mongoose';
+import dbConnect from '@/lib/dbConnect';
 import Email from '@/models/Email';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
+import { rateLimitAdmin } from '@/lib/rateLimit';
+
+function escapeRegex(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').trim().slice(0, 120);
+}
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse
 ) {
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ success: false, message: 'Too many requests' });
+  }
+
   const auth = await requireAdmin(req, res);
   if (!auth) return;
+
   await dbConnect();
 
   // ==========================================
@@ -27,12 +40,12 @@ export default async function handler(
         sortOrder = 'desc',
       } = req.query;
 
-      const pageNum = parseInt(page as string);
-      const limitNum = parseInt(limit as string);
+      const pageNum = Math.max(1, parseInt(String(page), 10) || 1);
+      const limitNum = Math.min(100, Math.max(1, parseInt(String(limit), 10) || 20));
       const skip = (pageNum - 1) * limitNum;
 
       // Build query
-      const query: any = {};
+      const query: Record<string, unknown> = {};
 
       // --- TRASH LOGIC START ---
       if (status === 'trash') {
@@ -50,17 +63,24 @@ export default async function handler(
       // --- TRASH LOGIC END ---
 
       if (search && typeof search === 'string' && search.trim()) {
-        const searchRegex = { $regex: search.trim(), $options: 'i' };
-        query.$or = [
-          { to: searchRegex },
-          { toName: searchRegex },
-          { subject: searchRegex },
-        ];
+        const safe = escapeRegex(search);
+        if (safe.length >= 2) {
+          const searchRegex = { $regex: safe, $options: 'i' };
+          query.$or = [
+            { to: searchRegex },
+            { toName: searchRegex },
+            { subject: searchRegex },
+          ];
+        }
       }
 
-      // Sort
-      const sortOptions: any = {};
-      sortOptions[sortBy as string] = sortOrder === 'desc' ? -1 : 1;
+      const ALLOWED_SORT = ['createdAt', 'updatedAt', 'status', 'to', 'subject'] as const;
+      const sortField = (ALLOWED_SORT as readonly string[]).includes(String(sortBy))
+        ? String(sortBy)
+        : 'createdAt';
+      const sortOptions: Record<string, 1 | -1> = {
+        [sortField]: sortOrder === 'desc' ? -1 : 1,
+      };
 
       // Fetch emails
       const emails = await Email.find(query)
@@ -99,12 +119,10 @@ export default async function handler(
         },
       });
 
-    } catch (error: any) {
-      console.error('Error fetching emails:', error);
-      return res.status(500).json({ 
-        success: false, 
+    } catch (error: unknown) {
+      return res.status(500).json({
+        success: false,
         message: 'Server error',
-        error: error.message
       });
     }
   }
@@ -114,29 +132,26 @@ export default async function handler(
   // ==========================================
   if (req.method === 'DELETE') {
     try {
-      const { id, type } = req.query; // type can be 'soft' or 'permanent'
+      const { id, type } = req.query;
 
-      if (!id) {
-        return res.status(400).json({ success: false, message: 'Email ID required' });
+      if (!id || typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: 'Valid email ID required' });
       }
 
       if (type === 'permanent') {
-        // PERMANENT DELETE (from Trash)
         await Email.findByIdAndDelete(id);
         return res.status(200).json({ success: true, message: 'Email permanently deleted' });
-      } else {
-        // SOFT DELETE (Move to Trash)
-        await Email.findByIdAndUpdate(id, {
-          isArchived: true,
-          archivedAt: new Date(),
-          archivedBy: 'Admin', // You can replace this with actual user session info later
-        });
-        return res.status(200).json({ success: true, message: 'Email moved to trash' });
       }
 
-    } catch (error: any) {
-      console.error('Error deleting email:', error);
-      return res.status(500).json({ success: false, message: error.message });
+      await Email.findByIdAndUpdate(id, {
+        isArchived: true,
+        archivedAt: new Date(),
+        archivedBy: auth.id,
+      });
+      return res.status(200).json({ success: true, message: 'Email moved to trash' });
+
+    } catch (error: unknown) {
+      return res.status(500).json({ success: false, message: 'Server error' });
     }
   }
 
@@ -148,8 +163,8 @@ export default async function handler(
       const { id } = req.query;
       const { action } = req.body;
 
-      if (!id) {
-        return res.status(400).json({ success: false, message: 'Email ID required' });
+      if (!id || typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
+        return res.status(400).json({ success: false, message: 'Valid email ID required' });
       }
 
       if (action === 'restore') {
@@ -162,9 +177,8 @@ export default async function handler(
 
       return res.status(400).json({ success: false, message: 'Invalid action' });
 
-    } catch (error: any) {
-      console.error('Error restoring email:', error);
-      return res.status(500).json({ success: false, message: error.message });
+    } catch (error: unknown) {
+      return res.status(500).json({ success: false, message: 'Server error' });
     }
   }
 
