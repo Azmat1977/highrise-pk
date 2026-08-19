@@ -2,13 +2,10 @@
 // 🔒 ENTERPRISE v2.0 - Admin Comment Moderation with Zod, Audit Trail & Full RBAC
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { checkPermission } from '@/lib/permissions';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { z } from 'zod';
 
@@ -69,22 +66,7 @@ function getUserAgent(req: NextApiRequest): string {
   return String(req.headers['user-agent'] || '').slice(0, 200);
 }
 
-function requireActiveAdminOrThrow(user: any) {
-  if (!user) {
-    const err: any = new Error('User not found');
-    err.statusCode = 401;
-    err.code = 'USER_NOT_FOUND';
-    throw err;
-  }
-
-  const role = String(user.role || 'user').toLowerCase();
-  if (!['admin', 'superadmin', 'moderator'].includes(role)) {
-    const err: any = new Error('Admin access required');
-    err.statusCode = 403;
-    err.code = 'ADMIN_REQUIRED';
-    throw err;
-  }
-}
+undefined
 
 /**
  * Archive comment data before permanent deletion
@@ -108,8 +90,8 @@ async function archiveCommentData(comment: any, deletedBy: string, ip: string, u
         createdAt: comment.createdAt,
       },
     });
-  } catch (error) {
-    console.error('Failed to archive comment data:', error);
+  } catch {
+    /* never throw from archive helper */
   }
 }
 
@@ -142,6 +124,23 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const commentId = idResult.data;
 
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 60));
+    return res.status(429).json({
+      success: false,
+      message: 'Too many requests. Please slow down.',
+      code: 'RATE_LIMITED',
+      requestId,
+    });
+  }
+
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
+  const isSuperAdmin =
+    String(auth.authorityRole || auth.role || '').toLowerCase() === 'superadmin';
+
   try {
     await dbConnect();
 
@@ -149,79 +148,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ RATE LIMITING
     // ═══════════════════════════════════════════════════════════════
 
-    const rl = await rateLimitAdmin(req);
-    if (!rl.ok) {
-      res.setHeader('Retry-After', String(rl.retryAfter || 60));
-      return res.status(429).json({
-        success: false,
-        message: 'Too many requests. Please slow down.',
-        code: 'RATE_LIMITED',
-        requestId,
-      });
-    }
+undefined
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ AUTHENTICATION & AUTHORIZATION
     // ═══════════════════════════════════════════════════════════════
 
-    const session = (await getServerSession(req, res, authOptions)) as any;
-
-    if (!session?.user) {
-      SecurityEvent.create({
-        eventType: 'unauthorized_access_attempt',
-        severity: 'high',
-        ipAddress: ip,
-        userAgent: ua,
-        metadata: {
-          endpoint: `/api/admin/comments/${commentId}`,
-          reason: 'No active session',
-        },
-      }).catch(console.error);
-
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-        requestId,
-      });
-    }
-
-    const admin: any = await User.findById(session.user.id)
-      .select('role permissions status isDeleted')
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    requireActiveAdminOrThrow(admin);
-
-    const isSuperAdmin = String(admin.role).toLowerCase() === 'superadmin';
+undefined
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ GET METHOD - VIEW COMMENT DETAILS
     // ═══════════════════════════════════════════════════════════════
 
     if (req.method === 'GET') {
-      const hasPermission = checkPermission(admin, 'comment_view_details');
-      if (!hasPermission) {
-        SecurityEvent.create({
-          eventType: 'permission_denied',
-          severity: 'high',
-          userId: session.user.id,
-          ipAddress: ip,
-          userAgent: ua,
-          metadata: {
-            endpoint: `/api/admin/comments/${commentId}`,
-            permission: 'comment_view_details',
-          },
-        }).catch(console.error);
-
-        return res.status(403).json({
-          success: false,
-          message: 'Permission denied',
-          code: 'PERMISSION_DENIED',
-          requestId,
-        });
-      }
-
       const comment: any = await Comment.findById(commentId)
         .populate('blogId', 'title slug -_id')
         .lean()
@@ -237,17 +176,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Audit log (non-blocking)
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'admin_action',
         severity: 'low',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: ip,
         userAgent: ua,
         metadata: {
           action: 'view_comment_details',
           commentId,
         },
-      }).catch(console.error);
+      });
 
       return res.status(200).json({
         success: true,
@@ -262,28 +201,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ═══════════════════════════════════════════════════════════════
 
     if (req.method === 'PATCH') {
-      const hasPermission = checkPermission(admin, 'comment_moderate');
-      if (!hasPermission) {
-        SecurityEvent.create({
-          eventType: 'permission_denied',
-          severity: 'high',
-          userId: session.user.id,
-          ipAddress: ip,
-          userAgent: ua,
-          metadata: {
-            endpoint: `/api/admin/comments/${commentId}`,
-            permission: 'comment_moderate',
-          },
-        }).catch(console.error);
-
-        return res.status(403).json({
-          success: false,
-          message: 'Permission denied',
-          code: 'PERMISSION_DENIED',
-          requestId,
-        });
-      }
-
       // Validate request body
       const parseResult = UpdateCommentSchema.safeParse(req.body);
       if (!parseResult.success) {
@@ -322,7 +239,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Update comment
       comment.status = newStatus;
-      comment.moderatedBy = session.user.id;
+      comment.moderatedBy = auth.id;
       comment.moderatedAt = new Date();
 
       if (adminNotes) {
@@ -347,10 +264,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
 
       // Audit log (non-blocking)
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'admin_action',
         severity: action === 'spam' ? 'medium' : 'low',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: ip,
         userAgent: ua,
         metadata: {
@@ -360,7 +277,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           newStatus,
           moderationAction: action,
         },
-      }).catch(console.error);
+      });
 
       return res.status(200).json({
         success: true,
@@ -380,28 +297,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ═══════════════════════════════════════════════════════════════
 
     if (req.method === 'DELETE') {
-      const hasPermission = checkPermission(admin, 'comment_delete');
-      if (!hasPermission) {
-        SecurityEvent.create({
-          eventType: 'permission_denied',
-          severity: 'high',
-          userId: session.user.id,
-          ipAddress: ip,
-          userAgent: ua,
-          metadata: {
-            endpoint: `/api/admin/comments/${commentId}`,
-            permission: 'comment_delete',
-          },
-        }).catch(console.error);
-
-        return res.status(403).json({
-          success: false,
-          message: 'Permission denied',
-          code: 'PERMISSION_DENIED',
-          requestId,
-        });
-      }
-
       // Validate query params
       const queryResult = DeleteQuerySchema.safeParse(req.query);
       if (!queryResult.success) {
@@ -438,17 +333,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         if (confirmationCode !== CONFIRMATION_CODE) {
-          SecurityEvent.create({
+          void SecurityEvent.create({
             eventType: 'suspicious_activity',
             severity: 'high',
-            userId: session.user.id,
+            userId: auth.id,
             ipAddress: ip,
             userAgent: ua,
             metadata: {
               action: 'invalid_confirmation_code',
               commentId,
             },
-          }).catch(console.error);
+          });
 
           return res.status(400).json({
             success: false,
@@ -459,22 +354,22 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         }
 
         // Archive before deletion
-        await archiveCommentData(comment, session.user.id, ip, ua);
+        await archiveCommentData(comment, auth.id, ip, ua);
 
         // Permanent delete
         await Comment.findByIdAndDelete(commentId).maxTimeMS(MAX_TIME_MS);
 
-        SecurityEvent.create({
+        void SecurityEvent.create({
           eventType: 'admin_action',
           severity: 'critical',
-          userId: session.user.id,
+          userId: auth.id,
           ipAddress: ip,
           userAgent: ua,
           metadata: {
             action: 'comment_permanently_deleted',
             commentId,
           },
-        }).catch(console.error);
+        });
 
         return res.status(200).json({
           success: true,
@@ -485,20 +380,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Soft delete
         comment.isDeleted = true;
         comment.deletedAt = new Date();
-        comment.deletedBy = session.user.id;
+        comment.deletedBy = auth.id;
         await comment.save();
 
-        SecurityEvent.create({
+        void SecurityEvent.create({
           eventType: 'admin_action',
           severity: 'medium',
-          userId: session.user.id,
+          userId: auth.id,
           ipAddress: ip,
           userAgent: ua,
           metadata: {
             action: 'comment_soft_deleted',
             commentId,
           },
-        }).catch(console.error);
+        });
 
         return res.status(200).json({
           success: true,
@@ -523,29 +418,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       message: 'Method not allowed',
       requestId,
     });
-  } catch (error: any) {
-    console.error('Admin comment moderation error:', { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: 'system_error',
       severity: 'critical',
+      userId: auth.id,
       ipAddress: ip,
       userAgent: ua,
       metadata: {
         endpoint: `/api/admin/comments/${commentId}`,
         method: req.method,
-        errorCode: error?.code || 'UNKNOWN',
+        errorCode: error instanceof Error ? error.message : 'UNKNOWN',
       },
-    }).catch(console.error);
-
-    if (error?.statusCode && error?.code) {
-      return res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-        code: error.code,
-        requestId,
-      });
-    }
+    });
 
     return res.status(500).json({
       success: false,

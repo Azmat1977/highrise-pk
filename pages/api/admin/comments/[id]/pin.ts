@@ -2,13 +2,10 @@
 // 🔒 ENTERPRISE v2.0 - Admin Comment Pinning (Reddit/Discord Style)
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import { checkPermission } from '@/lib/permissions';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { z } from 'zod';
 
@@ -61,22 +58,7 @@ function getUserAgent(req: NextApiRequest): string {
   return String(req.headers['user-agent'] || '').slice(0, 200);
 }
 
-function requireActiveAdminOrThrow(user: any) {
-  if (!user) {
-    const err: any = new Error('User not found');
-    err.statusCode = 401;
-    err.code = 'USER_NOT_FOUND';
-    throw err;
-  }
-
-  const role = String(user.role || 'user').toLowerCase();
-  if (!['admin', 'superadmin', 'moderator'].includes(role)) {
-    const err: any = new Error('Admin access required');
-    err.statusCode = 403;
-    err.code = 'ADMIN_REQUIRED';
-    throw err;
-  }
-}
+undefined
 
 // ═══════════════════════════════════════════════════════════════
 // 🚀 MAIN HANDLER
@@ -120,6 +102,20 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   const commentId = idResult.data;
 
+  const rl = await rateLimitAdmin(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter || 60));
+    return res.status(429).json({
+      success: false,
+      message: 'Too many requests. Please slow down.',
+      code: 'RATE_LIMITED',
+      requestId,
+    });
+  }
+
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
+
   try {
     await dbConnect();
 
@@ -127,72 +123,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ RATE LIMITING
     // ═══════════════════════════════════════════════════════════════
 
-    const rl = await rateLimitAdmin(req);
-    if (!rl.ok) {
-      res.setHeader('Retry-After', String(rl.retryAfter || 60));
-      return res.status(429).json({
-        success: false,
-        message: 'Too many requests. Please slow down.',
-        code: 'RATE_LIMITED',
-        requestId,
-      });
-    }
+undefined
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ AUTHENTICATION & AUTHORIZATION
     // ═══════════════════════════════════════════════════════════════
 
-    const session = (await getServerSession(req, res, authOptions)) as any;
-
-    if (!session?.user) {
-      SecurityEvent.create({
-        eventType: 'unauthorized_access_attempt',
-        severity: 'high',
-        ipAddress: ip,
-        userAgent: ua,
-        metadata: {
-          endpoint: `/api/admin/comments/${commentId}/pin`,
-          reason: 'No active session',
-        },
-      }).catch(console.error);
-
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-        requestId,
-      });
-    }
-
-    const admin: any = await User.findById(session.user.id)
-      .select('role permissions status isDeleted')
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    requireActiveAdminOrThrow(admin);
-
-    // ✅ Permission Check
-    const hasPermission = checkPermission(admin, 'comment_pin');
-    if (!hasPermission) {
-      SecurityEvent.create({
-        eventType: 'permission_denied',
-        severity: 'high',
-        userId: session.user.id,
-        ipAddress: ip,
-        userAgent: ua,
-        metadata: {
-          endpoint: `/api/admin/comments/${commentId}/pin`,
-          permission: 'comment_pin',
-        },
-      }).catch(console.error);
-
-      return res.status(403).json({
-        success: false,
-        message: 'Permission denied',
-        code: 'PERMISSION_DENIED',
-        requestId,
-      });
-    }
+undefined
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ VALIDATE REQUEST BODY
@@ -276,7 +213,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Pin the comment
       comment.isPinned = true;
-      comment.pinnedBy = session.user.id;
+      comment.pinnedBy = auth.id;
       comment.pinnedAt = now;
       comment.pinnedReason = reason || 'Highlighted by admin';
       comment.updatedAt = now;
@@ -287,7 +224,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       SecurityEvent.create({
         eventType: 'admin_action',
         severity: 'medium',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: ip,
         userAgent: ua,
         metadata: {
@@ -337,7 +274,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     SecurityEvent.create({
       eventType: 'admin_action',
       severity: 'low',
-      userId: session.user.id,
+      userId: auth.id,
       ipAddress: ip,
       userAgent: ua,
       metadata: {
@@ -356,28 +293,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       requestId,
     });
-  } catch (error: any) {
-    console.error('Pin comment error:', { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: 'system_error',
       severity: 'critical',
+      userId: auth.id,
       ipAddress: ip,
       userAgent: ua,
       metadata: {
         endpoint: `/api/admin/comments/${commentId}/pin`,
-        errorCode: error?.code || 'UNKNOWN',
+        errorCode: error instanceof Error ? error.message : 'UNKNOWN',
       },
-    }).catch(console.error);
-
-    if (error?.statusCode && error?.code) {
-      return res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-        code: error.code,
-        requestId,
-      });
-    }
+    });
 
     return res.status(500).json({
       success: false,
