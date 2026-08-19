@@ -26,11 +26,12 @@ import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
 import DeveloperProfile from '@/models/DeveloperProfile';
 
-import { requireAdmin, getClientIp } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import {
   rateLimitAdmin,
   setRateLimitHeaders,
   sendRateLimitResponse,
+  getClientIp,
 } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import { denormalizeProjectToUnits } from '@/lib/units/syncUnitTypeBreakdown';

@@ -21,11 +21,12 @@ import Project from '@/models/Projects';
 import Unit from '@/models/Unit';
 import DeveloperProfile from '@/models/DeveloperProfile';
 
-import { requireAdmin, getClientIp } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import {
   rateLimitAdmin,
   setRateLimitHeaders,
   sendRateLimitResponse,
+  getClientIp,
 } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import {
