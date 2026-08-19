@@ -3,11 +3,12 @@
 // Admin only — rate limited — verified properties only
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Property from '@/models/Property';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 
 // ─── Response shape ───────────────────────────────────────────
 interface PropertyResult {
@@ -84,8 +85,7 @@ export default async function handler(
 
     // ── Build query ───────────────────────────────────────────
     const baseFilter: Record<string, unknown> = {
-      'verification.status': 'verified',
-      isDeleted:             false,
+      ...PUBLIC_PROPERTY_FILTER,
     };
 
     const searchConditions: Record<string, unknown>[] = [];

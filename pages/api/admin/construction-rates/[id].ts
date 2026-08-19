@@ -9,7 +9,7 @@ import { z } from 'zod';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
 import ConstructionRate from '@/models/ConstructionRate';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, setRateLimitHeaders, getClientIp } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 
@@ -250,11 +250,7 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<DetailResponse | UpdateResponse | DeleteResponse>
 ): Promise<void> {
-  // Admin auth
-  const auth = await requireAdmin(req, res);
-  if (!auth) return;
-
-  // Rate limit
+  // ── Rate limit (First) ───────────────────────────────────────
   const rl = await rateLimitAdmin(req);
   setRateLimitHeaders(res, rl);
 
@@ -265,6 +261,10 @@ export default async function handler(
     });
     return;
   }
+
+  // ── Auth (Second) ────────────────────────────────────────────
+  const auth = await requireAdmin(req, res);
+  if (!auth) return;
 
   // Validate ID
   const idParam = req.query.id;

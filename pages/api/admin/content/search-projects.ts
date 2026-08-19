@@ -3,8 +3,8 @@
 // Admin only — rate limited — verified projects only
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
-import { requireAdmin } from '@/lib/requireAuth';
+import dbConnect from '@/lib/dbConnect';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import mongoose from 'mongoose';
