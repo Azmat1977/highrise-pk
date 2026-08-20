@@ -1,8 +1,8 @@
+//C:\dev\highrise-pk\pages\api\comments\[id]\reply.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import { z } from 'zod';
-
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
 import { rateLimitComment, sendRateLimitResponse } from '@/lib/rateLimit';
 import { getOptionalAuth } from '@/lib/optionalAuth';

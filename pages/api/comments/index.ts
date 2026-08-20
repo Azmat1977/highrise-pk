@@ -2,14 +2,14 @@
 // 🔒 ENTERPRISE v2.0 - Advanced Comment System with Multi-Tier Sorting, Verified Badges & Threading
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
 import SecurityEvent from '@/models/SecurityEvent';
 import { rateLimitComment } from '@/lib/rateLimit';
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
 import crypto from 'crypto';
-import { requireAdmin } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { getRequestIp, verifyTurnstileToken } from '@/lib/turnstileServer';
 
 // ═══════════════════════════════════════════════════════════════
@@ -435,19 +435,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       message: 'Method not allowed',
       requestId,
     });
-  } catch (error: any) {
-    console.error('Comments API error:', { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: 'system_error',
       severity: 'critical',
       ipAddress: ip,
       userAgent: ua,
       metadata: {
         endpoint: '/api/comments',
-        errorCode: error?.code || 'UNKNOWN',
+        errorCode: 'UNKNOWN',
       },
-    }).catch(console.error);
+    });
 
     return res.status(500).json({
       success: false,

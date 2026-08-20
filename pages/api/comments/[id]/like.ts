@@ -3,7 +3,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
 import SecurityEvent from '@/models/SecurityEvent';
 import { rateLimitComment } from '@/lib/rateLimit';
@@ -316,19 +316,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       requestId,
     });
-  } catch (error: any) {
-    console.error('Like error:', { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: 'system_error',
       severity: 'critical',
       ipAddress: ip,
       userAgent: ua,
       metadata: {
         endpoint: `/api/comments/${commentId}/like`,
-        errorCode: error?.code || 'UNKNOWN',
+        errorCode: 'UNKNOWN',
       },
-    }).catch(console.error);
+    });
 
     return res.status(500).json({
       success: false,
