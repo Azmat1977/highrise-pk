@@ -1,22 +1,12 @@
 //C:\dev\highrise-pk\pages\api\dashboard\projects\[id]\units\index.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
-import { getServerSession } from 'next-auth/next';
 
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
 import Unit from '@/models/Unit';
 import User from '@/models/User';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-
-type AuthedSession = {
-  user?: {
-    id?: string;
-    email?: string;
-    role?: string;
-    isAdmin?: boolean;
-  };
-};
+import { requireAuth } from '@/lib/requireAuth';
 
 type ApiResponse =
   | {
@@ -109,21 +99,17 @@ function normalizeString(v: any) {
   return typeof v === 'string' ? v.trim() : '';
 }
 
-function isAdminSession(session: AuthedSession | null) {
-  const role = session?.user?.role || '';
-  return session?.user?.isAdmin === true || role === 'admin' || role === 'superadmin';
-}
-
 async function requireSession(req: NextApiRequest, res: NextApiResponse) {
-  const session = (await getServerSession(req, res, authOptions)) as AuthedSession | null;
-  const userId = session?.user?.id;
+  const auth = await requireAuth(req, res);
+  if (!auth) return { ok: false as const };
 
-  if (!userId) {
-    res.status(401).json({ success: false, message: 'Unauthorized' });
-    return { ok: false as const };
-  }
+  const role = String(auth.role || '').toLowerCase();
+  const isAdmin =
+    auth.authorityRole === 'admin' ||
+    role === 'admin' ||
+    role === 'superadmin';
 
-  return { ok: true as const, userId: String(userId), isAdmin: isAdminSession(session) };
+  return { ok: true as const, userId: auth.id, isAdmin };
 }
 
 async function enforceActiveAndCnicIfPossible(
@@ -410,8 +396,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse<
         pagination,
       },
     });
-  } catch (err) {
-    console.error('GET /api/dashboard/projects/[id]/units error:', err);
+  } catch (err: unknown) {
     return res.status(500).json({ success: false, message: 'Something went wrong' });
   }
 }
