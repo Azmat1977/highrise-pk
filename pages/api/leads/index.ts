@@ -199,11 +199,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           leadStatus: lead.status,
           leadSource: lead.source,
           leadType: lead.leadType,
-        }).catch((enrollErr: unknown) => {
-          console.error('[Automation] lead_created enroll failed:', enrollErr instanceof Error ? enrollErr.message : enrollErr);
-        });
-      } catch (importErr) {
-        console.error('[Automation] Failed to import enrollRecipient:', importErr);
+        }).catch(() => undefined);
+      } catch {
+        // best-effort: automation enrollment is non-blocking
       }
 
       try {
@@ -262,8 +260,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             fromName: 'Highrise.pk Leads',
           });
         }
-      } catch (emailError) {
-        console.error('[Leads Email Error]', emailError instanceof Error ? emailError.message : emailError);
+      } catch {
+        // best-effort: notification email failure must not block the lead
       }
 
       return res.status(201).json({
@@ -276,8 +274,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           status: lead.status,
         },
       });
-    } catch (error: unknown) {
-      console.error('[Leads POST Error]', error);
+    } catch {
       return res.status(500).json({
         success: false,
         message: 'Server error while submitting lead. Please try again.',
@@ -551,8 +548,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         },
       });
 
-    } catch (error: any) {
-      console.error('[Leads GET Error]', error);
+    } catch {
       return res.status(500).json({
         success: false,
         message: 'Server error while fetching leads. Please try again.',

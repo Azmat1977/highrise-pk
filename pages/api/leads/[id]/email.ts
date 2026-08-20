@@ -243,8 +243,7 @@ export default async function handler(
         emailId: emailDoc._id.toString(),
       });
     }
-  } catch (error) {
-    console.error("Error in lead email API:", error);
+  } catch {
     return res.status(500).json({
       success: false,
       message: "Internal server error",
