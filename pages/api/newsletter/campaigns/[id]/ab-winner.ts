@@ -4,7 +4,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import NewsletterCampaign from '@/models/NewsletterCampaign';
 import CampaignAnalytics  from '@/models/CampaignAnalytics';
 import { requireAdmin }   from '@/lib/requireAuth';

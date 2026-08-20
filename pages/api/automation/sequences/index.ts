@@ -10,7 +10,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose                                  from 'mongoose';
 import DOMPurify                                 from 'isomorphic-dompurify';
-import dbConnect                                 from '@/lib/db';
+import dbConnect                                 from '@/lib/dbConnect';
 import AutomationSequence                        from '@/models/AutomationSequence';
 import AutomationEnrollment                      from '@/models/AutomationEnrollment';
 import { requireAdmin }                          from '@/lib/requireAuth';

@@ -1,6 +1,6 @@
 // pages/api/locations/societies.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import dbConnect from "@/lib/db";
+import dbConnect from "@/lib/dbConnect";
 import Location from "@/models/Location";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
