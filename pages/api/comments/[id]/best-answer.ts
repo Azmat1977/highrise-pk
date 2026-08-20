@@ -2,13 +2,11 @@
 // 🔒 ENTERPRISE v2.0 - Best Answer System (Stack Overflow Style) - Property Owner/Admin Only
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
-import User from '@/models/User';
 import Property from '@/models/Property';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitComment } from '@/lib/rateLimit';
 import { z } from 'zod';
 
@@ -123,43 +121,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ AUTHENTICATION (Required)
     // ═══════════════════════════════════════════════════════════════
 
-    const session = (await getServerSession(req, res, authOptions)) as any;
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
 
-    if (!session?.user) {
-      SecurityEvent.create({
-        eventType: 'unauthorized_access_attempt',
-        severity: 'high',
-        ipAddress: ip,
-        userAgent: ua,
-        metadata: {
-          endpoint: `/api/comments/${commentId}/best-answer`,
-          reason: 'No active session',
-        },
-      }).catch(console.error);
-
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required. Only property owners and admins can mark best answers.',
-        code: 'UNAUTHORIZED',
-        requestId,
-      });
-    }
-
-    const user: any = await User.findById(session.user.id)
-      .select('role')
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    if (!user) {
-      return res.status(401).json({
-        success: false,
-        message: 'User not found',
-        code: 'USER_NOT_FOUND',
-        requestId,
-      });
-    }
-
-    const isAdmin = ['admin', 'superadmin', 'moderator'].includes(String(user.role).toLowerCase());
+    const role = String(auth.role || '').toLowerCase();
+    const isAdmin =
+      auth.authorityRole === 'admin' ||
+      ['admin', 'superadmin', 'moderator'].includes(role);
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ VALIDATE REQUEST BODY
@@ -213,13 +181,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ═══════════════════════════════════════════════════════════════
 
     const blogAuthorId = comment.blogId?.author;
-    const isAuthor = blogAuthorId && String(blogAuthorId) === String(session.user.id);
+    const isAuthor = blogAuthorId && String(blogAuthorId) === String(auth.id);
 
     if (!isAuthor && !isAdmin) {
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'unauthorized_access_attempt',
         severity: 'medium',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: ip,
         userAgent: ua,
         metadata: {
@@ -227,7 +195,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           commentId,
           blogId: String(comment.blogId?._id),
         },
-      }).catch(console.error);
+      });
 
       return res.status(403).json({
         success: false,
@@ -272,7 +240,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       // Mark this comment as best answer
       comment.isBestAnswer = true;
-      comment.markedBestBy = session.user.id;
+      comment.markedBestBy = auth.id;
       comment.markedBestAt = now;
       comment.updatedAt = now;
 
@@ -282,7 +250,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       SecurityEvent.create({
         eventType: 'comment_best_answer_marked',
         severity: 'low',
-        userId: session.user.id,
+        userId: auth.id,
         ipAddress: ip,
         userAgent: ua,
         metadata: {
@@ -327,7 +295,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     SecurityEvent.create({
       eventType: 'comment_best_answer_unmarked',
       severity: 'low',
-      userId: session.user.id,
+      userId: auth.id,
       ipAddress: ip,
       userAgent: ua,
       metadata: {
@@ -345,19 +313,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       requestId,
     });
-  } catch (error: any) {
-    console.error('Best answer error:', { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: 'system_error',
       severity: 'critical',
       ipAddress: ip,
       userAgent: ua,
       metadata: {
         endpoint: `/api/comments/${commentId}/best-answer`,
-        errorCode: error?.code || 'UNKNOWN',
+        errorCode: 'UNKNOWN',
       },
-    }).catch(console.error);
+    });
 
     return res.status(500).json({
       success: false,

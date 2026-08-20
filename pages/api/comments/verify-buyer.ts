@@ -2,13 +2,11 @@
 // 🔒 ENTERPRISE v2.0 - Verified Buyer Badge System (Zameen.com Style)
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
 import Property from '@/models/Property';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin } from '@/lib/rateLimit';
 import { z } from 'zod';
 
@@ -124,23 +122,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ AUTHENTICATION & AUTHORIZATION
     // ═══════════════════════════════════════════════════════════════
 
-    const session = (await getServerSession(req, res, authOptions)) as any;
-
-    if (!session?.user) {
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required',
-        code: 'UNAUTHORIZED',
-        requestId,
-      });
-    }
-
-    const admin: any = await User.findById(session.user.id)
-      .select('role permissions')
-      .lean()
-      .maxTimeMS(MAX_TIME_MS);
-
-    requireActiveAdminOrThrow(admin);
+    const auth = await requireAdmin(req, res);
+    if (!auth) return;
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ VALIDATE REQUEST BODY
@@ -266,10 +249,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ AUDIT LOG
     // ═══════════════════════════════════════════════════════════════
 
-    SecurityEvent.create({
+    void SecurityEvent.create({
       eventType: 'buyer_verified',
       severity: 'low',
-      userId: session.user.id,
+      userId: auth.id,
       ipAddress: ip,
       userAgent: ua,
       metadata: {
@@ -291,28 +274,17 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       },
       requestId,
     });
-  } catch (error: any) {
-    console.error('Verify buyer error:', { requestId, error: error?.message });
-
-    SecurityEvent.create({
+  } catch (error: unknown) {
+    void SecurityEvent.create({
       eventType: 'system_error',
       severity: 'critical',
       ipAddress: ip,
       userAgent: ua,
       metadata: {
         endpoint: '/api/comments/verify-buyer',
-        errorCode: error?.code || 'UNKNOWN',
+        errorCode: 'UNKNOWN',
       },
-    }).catch(console.error);
-
-    if (error?.statusCode && error?.code) {
-      return res.status(error.statusCode).json({
-        success: false,
-        message: error.message,
-        code: error.code,
-        requestId,
-      });
-    }
+    });
 
     return res.status(500).json({
       success: false,
