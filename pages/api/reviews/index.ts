@@ -2,14 +2,12 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Review, { ReviewEntityType, ReviewStatus } from '@/models/Review';
 import User from '@/models/User';
 import Property from '@/models/Property';
 import SecurityEvent from '@/models/SecurityEvent';
-import { checkPermission } from '@/lib/permissions';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitReview, rateLimitApi } from '@/lib/rateLimit';
 
 /**
@@ -143,8 +141,8 @@ async function logSecurityEvent(data: {
 }): Promise<void> {
   try {
     await SecurityEvent.create({ ...data, timestamp: new Date() });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    /* never throw from audit helper */
   }
 }
 
@@ -304,9 +302,7 @@ export default async function handler(
           message: `Method ${req.method} not allowed`,
         });
     }
-  } catch (error: any) {
-    console.error('❌ Review API Critical Error:', error);
-
+  } catch (error: unknown) {
     await logSecurityEvent({
       eventType: 'system_error',
       severity: 'critical',
@@ -315,14 +311,13 @@ export default async function handler(
       metadata: {
         endpoint: '/api/reviews',
         method: req.method,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown',
       },
     });
 
     return res.status(500).json({
       success: false,
       message: 'An error occurred',
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
 }
@@ -483,25 +478,12 @@ async function handlePost(
   // ─────────────────────────────────────────────
   // STEP 2: AUTHENTICATION
   // ─────────────────────────────────────────────
-  const session = await getServerSession(req, res, authOptions);
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
-  if (!session?.user) {
-    await logSecurityEvent({
-      eventType: 'unauthorized_access_attempt',
-      severity: 'medium',
-      ipAddress: clientIP,
-      userAgent,
-      metadata: { endpoint: '/api/reviews', action: 'create' },
-    });
-
-    return res.status(401).json({
-      success: false,
-      message: 'Authentication required to submit a review',
-    });
-  }
-
-  const userId = session.user.id!;
-  const userRole = session.user.role || 'user';
+  const userId = auth.id;
+  const userRole =
+    auth.authorityRole === 'admin' || auth.role === 'admin' ? 'admin' : auth.role;
 
   // ─────────────────────────────────────────────
   // STEP 3: PARSE & VALIDATE INPUT
@@ -702,8 +684,8 @@ try {
     }
   }
   // Add other entity types as needed (project, developer, agent, etc.)
-} catch (error) {
-  console.error('Failed to fetch entity snapshot:', error);
+} catch {
+  /* snapshot is optional */
 }
 
   // ─────────────────────────────────────────────
@@ -726,7 +708,7 @@ try {
   // ─────────────────────────────────────────────
   const status: ReviewStatus = userRole === 'admin' ? 'approved' : 'pending';
   const moderationNotes = userRole === 'admin' 
-    ? `Curated review created by admin: ${session.user.email}`
+    ? `Curated review created by admin: ${auth.email}`
     : undefined;
 
   // ─────────────────────────────────────────────
