@@ -82,8 +82,8 @@ async function logSecurityEvent(data: {
       requestId: data.requestId,
       metadata: data.metadata,
     });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -354,11 +354,8 @@ export default async function handler(
       requestId,
     });
 
-  } catch (error: any) {
-    console.error('❌ Unsubscribe error:', {
-      requestId,
-      error: error.message,
-    });
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
 
     await logSecurityEvent({
   type: 'suspicious_activity',
@@ -369,7 +366,7 @@ export default async function handler(
   metadata: {
     context: 'newsletter_unsubscribe',
     reason: 'server_error',
-    error: error.message,
+    error: errMessage,
   },
 });
 

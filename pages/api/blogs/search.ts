@@ -301,8 +301,7 @@ export default async function handler(
       },
     });
 
-  } catch (error) {
-    console.error('Blog Search Error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       message: 'Search failed. Please try again.',

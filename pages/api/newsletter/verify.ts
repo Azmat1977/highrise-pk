@@ -84,8 +84,8 @@ async function logSecurityEvent(data: {
       requestId: data.requestId,
       metadata: data.metadata,
     });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -439,8 +439,7 @@ export default async function handler(
         subscriber.name || 'Subscriber',
         subscriber.unsubscribeToken
       );
-    } catch (emailError) {
-      console.error('Failed to send welcome email:', emailError);
+    } catch {
       // Don't fail verification if welcome email fails
     }
 
@@ -458,14 +457,9 @@ export default async function handler(
         email:         subscriber.email,
         name:          subscriber.name || '',
         leadSource:    subscriber.source || 'website',
-      }).catch((enrollErr: unknown) => {
-        console.error('[Automation] subscriber_joined enroll failed:',
-          enrollErr instanceof Error ? enrollErr.message : enrollErr
-        );
-      });
-    } catch (importErr) {
+      }).catch(() => undefined);
+    } catch {
       // Dynamic import failed — non-fatal
-      console.error('[Automation] Failed to import enrollRecipient:', importErr);
     }
 
     // ─────────────────────────────────────────────
@@ -490,11 +484,8 @@ export default async function handler(
     // ─────────────────────────────────────────────
     return res.redirect(`${SITE_URL}/newsletter/verified?success=true`);
 
-  } catch (error: any) {
-    console.error('❌ Newsletter verification error:', {
-      requestId,
-      error: error.message,
-    });
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
 
     await logSecurityEvent({
   type: 'suspicious_activity',
@@ -505,7 +496,7 @@ export default async function handler(
   metadata: {
     context: 'newsletter_verify',
     reason: 'server_error',
-    error: error.message,
+    error: errMessage,
   },
 });
 

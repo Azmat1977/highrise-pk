@@ -171,8 +171,7 @@ export default async function handler(
       success: true,
       blogs: formattedBlogs,
     });
-  } catch (error) {
-    console.error('Trending blogs error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       message: 'Failed to fetch trending blogs',

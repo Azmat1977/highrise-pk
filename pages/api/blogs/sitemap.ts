@@ -124,8 +124,7 @@ export default async function handler(
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=86400');
     return res.status(200).send(xml);
 
-  } catch (error) {
-    console.error('Sitemap API Error:', error);
+  } catch {
     return res.status(500).json({ success: false, message: 'Failed to generate sitemap' });
   }
 }

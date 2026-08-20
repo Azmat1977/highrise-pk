@@ -658,18 +658,10 @@ export default async function handler(
               email:         sub.email,
               name:          sub.name || '',
               leadSource:    'import',
-            }).catch((err: unknown) => {
-              console.error(
-                '[Automation] subscriber_joined enroll failed for import:',
-                err instanceof Error ? err.message : err
-              );
-            });
+            }).catch(() => undefined);
           }
-        } catch (importErr) {
-          console.error(
-            '[Automation] Failed to import enrollRecipient for bulk import:',
-            importErr
-          );
+        } catch {
+          // dynamic import failed — non-fatal
         }
       })();
     }

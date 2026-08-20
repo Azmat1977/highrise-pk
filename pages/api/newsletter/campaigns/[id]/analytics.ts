@@ -338,8 +338,7 @@ export default async function handler(
         nonOpeners,
       },
     });
-  } catch (error) {
-    console.error('[Campaign Analytics Error]', error);
+  } catch {
     res.status(500).json({
       success: false,
       message: 'Failed to load analytics',

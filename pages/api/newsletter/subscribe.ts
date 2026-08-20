@@ -96,8 +96,8 @@ async function logSecurityEvent(data: {
       requestId: data.requestId,
       metadata: data.metadata,
     });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -123,8 +123,7 @@ async function verifyTurnstile(token: string, ip: string): Promise<boolean> {
 
     const data = await response.json();
     return data.success === true;
-  } catch (error) {
-    console.error('Turnstile verification error:', error);
+  } catch {
     return false;
   }
 }
@@ -140,7 +139,6 @@ async function sendVerificationEmail(
   const verificationUrl = `${SITE_URL}/api/newsletter/verify?token=${token}`;
 
   if (!process.env.RESEND_API_KEY) {
-    console.error('❌ RESEND_API_KEY is not configured');
     return { success: false, error: 'Email service not configured' };
   }
 
@@ -280,9 +278,8 @@ The Highrise.pk Team
 
     console.log('✅ Verification email sent successfully:', result);
     return { success: true };
-  } catch (error: any) {
-    console.error('❌ Failed to send verification email:', error);
-    return { success: false, error: error.message };
+  } catch {
+    return { success: false, error: 'Failed to send verification email' };
   }
 }
 
@@ -579,8 +576,6 @@ export default async function handler(
     const emailResult = await sendVerificationEmail(email, name || 'Subscriber', token);
     
     if (!emailResult.success) {
-      console.error('Failed to send verification email:', emailResult.error);
-
       // Delete subscriber if email fails
       await NewsletterSubscriber.deleteOne({ _id: subscriber._id });
 
@@ -623,11 +618,11 @@ export default async function handler(
       },
     });
 
-  } catch (error: any) {
-    console.error('❌ Newsletter subscription error:', {
-      requestId,
-      error: error.message,
-    });
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errCode = (error instanceof Error && 'code' in error)
+      ? (error as { code?: number }).code
+      : undefined;
 
     await logSecurityEvent({
   type: 'suspicious_activity',
@@ -638,12 +633,12 @@ export default async function handler(
   metadata: {
     context: 'newsletter_subscribe',
     reason: 'server_error',
-    error: error.message,
+    error: errMessage,
   },
 });
 
     // Handle duplicate key error (race condition)
-    if (error.code === 11000) {
+    if (errCode === 11000) {
       return res.status(400).json({
         success: false,
         message: 'This email is already in our system',

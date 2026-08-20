@@ -108,8 +108,7 @@ export default async function handler(
 
     return res.status(200).send(rssXml);
 
-  } catch (error) {
-    console.error('RSS Feed Error:', error);
+  } catch {
     
     // Return valid XML error
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');

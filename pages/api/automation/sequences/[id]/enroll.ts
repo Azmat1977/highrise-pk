@@ -303,14 +303,10 @@ export default async function handler(
 
         enrolledCount++;
 
-      } catch (recipientErr) {
+      } catch {
         // Per-recipient error — continue with others
         const email = String(recipient?.email || 'unknown');
         failedEmails.push(email);
-        console.error(
-          `[Automation Enroll] Failed for ${email}:`,
-          recipientErr instanceof Error ? recipientErr.message : recipientErr
-        );
       }
     }
 

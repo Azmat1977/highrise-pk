@@ -678,14 +678,8 @@ export default async function handler(
         // Small delay between sends to avoid SMTP rate limits
         await sleep(BATCH_DELAY_MS);
 
-      } catch (enrollmentErr) {
-        // Per-enrollment error — log and continue
-        console.error(
-          `[Automation Process] Enrollment ${enrollment._id} failed:`,
-          enrollmentErr instanceof Error
-            ? enrollmentErr.message
-            : enrollmentErr
-        );
+      } catch {
+        // Per-enrollment error — continue
         failedCount++;
       }
     }
