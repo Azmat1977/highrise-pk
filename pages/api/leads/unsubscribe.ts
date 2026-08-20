@@ -31,7 +31,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect                                 from '@/lib/db';
+import dbConnect                                 from '@/lib/dbConnect';
 import Lead                                       from '@/models/Lead';
 import { rateLimitInquiry, sendRateLimitResponse } from '@/lib/rateLimit';
 import { logSecurityEvent }                      from '@/lib/security/logSecurityEvent';

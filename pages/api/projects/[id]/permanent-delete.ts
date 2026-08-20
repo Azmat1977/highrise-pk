@@ -20,7 +20,8 @@ import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
 import Unit from '@/models/Unit';
 
-import { requireAdmin, getClientIp } from '@/lib/requireAuth';
+import { getClientIp } from '@/lib/requireAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 import {
   rateLimitAdmin,
   setRateLimitHeaders,
