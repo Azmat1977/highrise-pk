@@ -53,7 +53,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     author = {
       name: viewer.name || suppliedName || 'Highrise User',
       email: viewer.email || suppliedEmail || 'no-email@highrise.pk',
-      isAdmin: viewer.role === 'admin' || viewer.role === 'superadmin',
+      isAdmin:
+        viewer.authorityRole === 'admin' ||
+        viewer.role === 'admin' ||
+        viewer.role === 'superadmin',
       isVerifiedBuyer: false,
     };
   } else {

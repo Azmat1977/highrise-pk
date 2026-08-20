@@ -250,7 +250,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           .maxTimeMS(MAX_TIME_MS);
 
         // Audit log
-        SecurityEvent.create({
+        void SecurityEvent.create({
           eventType: 'comment_vote_helpful',
           severity: 'low',
           ipAddress: ip,
@@ -259,7 +259,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             commentId,
             previousVote: hasVotedNotHelpful ? 'not-helpful' : null,
           },
-        }).catch(console.error);
+        });
 
         return res.status(200).json({
           success: true,
@@ -320,7 +320,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         .maxTimeMS(MAX_TIME_MS);
 
       // Audit log
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'comment_vote_not_helpful',
         severity: 'low',
         ipAddress: ip,
@@ -329,7 +329,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           commentId,
           previousVote: hasVotedHelpful ? 'helpful' : null,
         },
-      }).catch(console.error);
+      });
 
       return res.status(200).json({
         success: true,

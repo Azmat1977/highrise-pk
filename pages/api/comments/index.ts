@@ -400,7 +400,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       // ✅ AUDIT LOG
       // ═══════════════════════════════════════════════════════════════
 
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'comment_created',
         severity: 'low',
         ipAddress: ip,
@@ -410,7 +410,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           blogSlug,
           contentLength: sanitizedContent.length,
         },
-      }).catch(console.error);
+      });
 
       return res.status(201).json({
         success: true,

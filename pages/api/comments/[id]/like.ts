@@ -279,7 +279,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ AUDIT LOG (Non-blocking)
     // ═══════════════════════════════════════════════════════════════
 
-    SecurityEvent.create({
+    void SecurityEvent.create({
       eventType: 'comment_vote',
       severity: 'low',
       ipAddress: ip,
@@ -292,7 +292,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           hasDisliked,
         },
       },
-    }).catch(console.error);
+    });
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ SUCCESS RESPONSE
