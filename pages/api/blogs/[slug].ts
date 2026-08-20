@@ -2,12 +2,11 @@
 // 🔒 ENTERPRISE v2.0 - Read, Update, Delete Blogs with SEO & Analytics
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Blog from '@/models/Blog';
-import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { getOptionalAuth } from '@/lib/optionalAuth';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitApi, rateLimitApiWrite } from '@/lib/rateLimit';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -38,12 +37,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const rl = await rateLimitApi(req);
       if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
 
-      const session = await getServerSession(req, res, authOptions);
-      const userRole = String(session?.user?.role || '').toLowerCase();
-      const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+      const auth = await getOptionalAuth(req);
+      const userRole = String(auth?.role || '').toLowerCase();
+      const isAdmin =
+        auth?.authorityRole === 'admin' ||
+        userRole === 'admin' ||
+        userRole === 'superadmin';
 
       const query: any = { slug, isDeleted: { $ne: true } };
-      
+
       // Guests only see published posts
       if (!isAdmin) {
         query.status = 'published';
@@ -76,7 +78,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       // Atomic View Tracking (Non-blocking)
-      Blog.findByIdAndUpdate(blog._id, { $inc: { views: 1 } }).exec().catch(console.error);
+      Blog.findByIdAndUpdate(blog._id, { $inc: { views: 1 } }).exec().catch(() => undefined);
 
       // JSON-LD SEO Schema generation
       const jsonLd = {
@@ -114,11 +116,19 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ═══════════════════════════════════════════════════════════════
     // ✅ PROTECTED METHODS: REQUIRE ADMIN
     // ═══════════════════════════════════════════════════════════════
-    const session = await getServerSession(req, res, authOptions);
-    if (!session?.user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+    const writeRl = await rateLimitApiWrite(req);
+    if (!writeRl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
 
-    const user: any = await User.findById(session.user.id).lean();
-    if (!['admin', 'superadmin', 'editor'].includes(user?.role?.toLowerCase())) {
+    const auth = await requireAuth(req, res);
+    if (!auth) return;
+
+    const role = String(auth.role || '').toLowerCase();
+    const isStaff =
+      auth.authorityRole === 'admin' ||
+      role === 'admin' ||
+      role === 'superadmin' ||
+      role === 'editor';
+    if (!isStaff) {
       return res.status(403).json({ success: false, message: 'Forbidden' });
     }
 
@@ -126,9 +136,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ PUT: UPDATE BLOG
     // ═══════════════════════════════════════════════════════════════
     if (req.method === 'PUT') {
-      const rl = await rateLimitApiWrite(req);
-      if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
-
       const updates = { ...req.body };
 
       // Prevent modifying critical fields
@@ -141,7 +148,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       if (updates.excerpt) updates.excerpt = sanitizeHTML(updates.excerpt);
 
       // Tracking edits
-      updates.lastEditedBy = user._id;
+      updates.lastEditedBy = auth.id;
       updates.lastEditedAt = new Date();
       updates.$inc = { editCount: 1 };
 
@@ -157,13 +164,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
 
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'blog_updated',
-        userId: user._id,
+        userId: auth.id,
         severity: 'info',
         ipAddress: ip,
         metadata: { blogId: blog._id, slug }
-      }).catch(console.error);
+      });
 
       return res.status(200).json({ success: true, message: 'Blog updated successfully', blog });
     }
@@ -172,9 +179,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ DELETE: SOFT DELETE BLOG
     // ═══════════════════════════════════════════════════════════════
     if (req.method === 'DELETE') {
-      const rl = await rateLimitApiWrite(req);
-      if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
-
       const blog = await Blog.findOneAndUpdate(
         { slug },
         { 
@@ -187,21 +191,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       if (!blog) return res.status(404).json({ success: false, message: 'Blog not found' });
 
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'blog_deleted',
-        userId: user._id,
+        userId: auth.id,
         severity: 'high',
         ipAddress: ip,
         metadata: { blogId: blog._id, slug }
-      }).catch(console.error);
+      });
 
       return res.status(200).json({ success: true, message: 'Blog moved to trash' });
     }
 
+    res.setHeader('Allow', ['GET', 'PUT', 'DELETE']);
     return res.status(405).json({ success: false, message: 'Method not allowed' });
 
-  } catch (error: any) {
-    console.error('Blog API Error:', error);
+  } catch (error: unknown) {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 }

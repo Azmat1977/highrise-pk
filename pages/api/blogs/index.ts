@@ -2,12 +2,12 @@
 // 🔒 ENTERPRISE v2.0 - Blog List & Creation with Full SEO, XSS Protection & RBAC
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Blog from '@/models/Blog';
 import User from '@/models/User';
 import SecurityEvent from '@/models/SecurityEvent';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
+import { getOptionalAuth } from '@/lib/optionalAuth';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitApi, rateLimitApiWrite } from '@/lib/rateLimit';
 import { z } from 'zod';
 import DOMPurify from 'isomorphic-dompurify';
@@ -105,9 +105,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       const query: any = { isDeleted: { $ne: true } };
 
       // Secure Status checking (Guests can ONLY see published)
-      const session = await getServerSession(req, res, authOptions);
-      const userRole = String(session?.user?.role || '').toLowerCase();
-const isAdmin = userRole === 'admin' || userRole === 'superadmin';
+      const auth = await getOptionalAuth(req);
+      const userRole = String(auth?.role || '').toLowerCase();
+      const isAdmin =
+        auth?.authorityRole === 'admin' ||
+        userRole === 'admin' ||
+        userRole === 'superadmin';
 
       if (!isAdmin || status === 'published') {
         query.status = 'published';
@@ -197,14 +200,21 @@ const isAdmin = userRole === 'admin' || userRole === 'superadmin';
       const rl = await rateLimitApiWrite(req);
       if (!rl.ok) return res.status(429).json({ success: false, message: 'Too many requests' });
 
-      // 1. Authenticate & Authorize
-      const session = await getServerSession(req, res, authOptions);
-      if (!session?.user) return res.status(401).json({ success: false, message: 'Unauthorized' });
+      // 1. Authenticate & Authorize (preserve editor create)
+      const auth = await requireAuth(req, res);
+      if (!auth) return;
 
-      const user: any = await User.findById(session.user.id).lean();
-      if (!['admin', 'superadmin', 'editor'].includes(user?.role?.toLowerCase())) {
+      const role = String(auth.role || '').toLowerCase();
+      const isStaff =
+        auth.authorityRole === 'admin' ||
+        role === 'admin' ||
+        role === 'superadmin' ||
+        role === 'editor';
+      if (!isStaff) {
         return res.status(403).json({ success: false, message: 'Forbidden: Admin access required' });
       }
+
+      const user: any = await User.findById(auth.id).select('name image').lean();
 
       // 2. Validate Body
       const parsed = CreateBlogSchema.safeParse(req.body);
@@ -229,22 +239,22 @@ const isAdmin = userRole === 'admin' || userRole === 'superadmin';
         content: cleanContent,
         excerpt: cleanExcerpt,
         slug: baseSlug,
-        authorId: user._id,
-        authorName: user.name || 'Admin',
-        authorAvatar: user.image,
+        authorId: auth.id,
+        authorName: user?.name || auth.name || 'Admin',
+        authorAvatar: user?.image,
         publishedAt: data.status === 'published' ? new Date() : null,
         scheduledFor: data.scheduledFor ? new Date(data.scheduledFor) : null,
         isDeleted: false,
       });
 
       // 6. Audit Log
-      SecurityEvent.create({
+      void SecurityEvent.create({
         eventType: 'blog_created',
-        userId: user._id,
+        userId: auth.id,
         severity: 'info',
         ipAddress: ip,
         metadata: { blogId: newBlog._id, title: newBlog.title, status: newBlog.status }
-      }).catch(console.error);
+      });
 
       return res.status(201).json({
         success: true,
@@ -253,10 +263,10 @@ const isAdmin = userRole === 'admin' || userRole === 'superadmin';
       });
     }
 
+    res.setHeader('Allow', ['GET', 'POST']);
     return res.status(405).json({ success: false, message: 'Method not allowed' });
 
-  } catch (error: any) {
-    console.error('Blog API Error:', error);
+  } catch (error: unknown) {
     return res.status(500).json({ success: false, message: 'Internal Server Error' });
   }
 }
