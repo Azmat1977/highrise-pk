@@ -37,7 +37,7 @@
 //   }).catch(() => {});  // fire and forget
 // ═══════════════════════════════════════════════════════════════
 
-import dbConnect              from '@/lib/db';
+import dbConnect              from '@/lib/dbConnect';
 import AutomationSequence,
   { AutomationTrigger }       from '@/models/AutomationSequence';
 import AutomationEnrollment   from '@/models/AutomationEnrollment';

@@ -3,7 +3,7 @@
 // NO auth required — called when recipient clicks a link
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import CampaignAnalytics from '@/models/CampaignAnalytics';
 import NewsletterCampaign from '@/models/NewsletterCampaign';
 

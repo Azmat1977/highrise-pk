@@ -27,7 +27,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect                                 from '@/lib/db';
+import dbConnect                                 from '@/lib/dbConnect';
 import NewsletterSubscriber                      from '@/models/NewsletterSubscriber';
 import { requireAdmin }                          from '@/lib/requireAuth';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';

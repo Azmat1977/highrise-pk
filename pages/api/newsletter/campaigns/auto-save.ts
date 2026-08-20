@@ -24,7 +24,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose                                  from 'mongoose';
 import DOMPurify                                 from 'isomorphic-dompurify';
-import dbConnect                                 from '@/lib/db';
+import dbConnect                                 from '@/lib/dbConnect';
 import NewsletterCampaign                        from '@/models/NewsletterCampaign';
 import { requireAdmin }                          from '@/lib/requireAuth';
 import { rateLimitAdmin, sendRateLimitResponse } from '@/lib/rateLimit';

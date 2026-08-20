@@ -1,7 +1,7 @@
 // pages/api/newsletter/subscribe.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import NewsletterSubscriber from '@/models/NewsletterSubscriber';
 import SecurityEvent from '@/models/SecurityEvent';
 import { rateLimitNewsletter } from '@/lib/rateLimit';

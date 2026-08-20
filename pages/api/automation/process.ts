@@ -37,7 +37,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import nodemailer                                from 'highrise-nodemailer';
 import mongoose                                  from 'mongoose';
-import dbConnect                                 from '@/lib/db';
+import dbConnect                                 from '@/lib/dbConnect';
 import AutomationSequence                        from '@/models/AutomationSequence';
 import AutomationEnrollment                      from '@/models/AutomationEnrollment';
 import NewsletterSubscriber                      from '@/models/NewsletterSubscriber';

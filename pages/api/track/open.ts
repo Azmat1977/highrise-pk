@@ -4,7 +4,7 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import CampaignAnalytics from '@/models/CampaignAnalytics';
 import NewsletterCampaign from '@/models/NewsletterCampaign';
 import { getTransparentPixelBuffer } from '@/lib/tracking-pixel';
