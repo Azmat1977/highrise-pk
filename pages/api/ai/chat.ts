@@ -1,10 +1,9 @@
 // pages/api/ai/chat.ts
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import SecurityEvent from '@/models/SecurityEvent';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitAI } from '@/lib/rateLimit';
 import { generateAIResponse, getRandomAgent } from '@/lib/gemini';
 import aiCache from '@/lib/aiCache';
@@ -91,8 +90,8 @@ async function logSecurityEvent(data: {
 }): Promise<void> {
   try {
     await SecurityEvent.create({ ...data, timestamp: new Date() });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // swallow — audit must never break chat
   }
 }
 
@@ -474,9 +473,8 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 2: AUTHENTICATION
     // ─────────────────────────────────────────────
-    const session = await getServerSession(req, res, authOptions);
-
-    if (!session?.user?.id) {
+    const auth = await requireAuth(req, res);
+    if (!auth) {
       await logSecurityEvent({
         eventType: 'ai_chat_unauthorized',
         severity: 'medium',
@@ -484,15 +482,10 @@ export default async function handler(
         userAgent,
         metadata: { endpoint: '/api/ai/chat' },
       });
-
-      return res.status(401).json({
-        success: false,
-        message: 'Authentication required. Please login to use AI chat.',
-        requestId,
-      });
+      return;
     }
 
-    const userId = session.user.id;
+    const userId = auth.id;
 
     // ─────────────────────────────────────────────
     // STEP 3: RATE LIMITING
@@ -664,9 +657,8 @@ if (hasGeminiKey) {
     // Cache successful response
     aiCache.set(message, aiResponse);
 
-  } catch (error: any) {
+  } catch {
     // Gemini failed, use fallback
-    console.error('Gemini API error:', error.message);
     aiResponse = getSmartFallbackResponse(message);
     usedFallback = true;
   }
@@ -711,19 +703,13 @@ if (hasGeminiKey) {
   requestId,
 });
 
-  } catch (error: any) {
-    console.error('❌ AI Chat error:', {
-      requestId,
-      error: error.message,
-    });
-
+  } catch (error: unknown) {
     await logSecurityEvent({
       eventType: 'ai_chat_error',
       severity: 'critical',
       ipAddress: clientIP,
       userAgent,
       metadata: {
-        error: error.message,
         requestId,
       },
     });
