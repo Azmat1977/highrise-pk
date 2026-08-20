@@ -11,8 +11,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession }                     from 'next-auth/next';
-import { authOptions }                          from '@/pages/api/auth/[...nextauth]';
+import { requireAuth }                          from '@/lib/requireAuth';
 import dbConnect                                from '@/lib/dbConnect';
 import Lead                                     from '@/models/Lead';
 import User                                     from '@/models/User';
@@ -30,10 +29,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!rl.ok) return sendRateLimitResponse(res, rl);
 
   // ── Auth check ─────────────────────────────────────────────
-  const session = await getServerSession(req, res, authOptions);
-  if (!session?.user?.id) {
-    return res.status(401).json({ success: false, message: 'Authentication required' });
-  }
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
   await dbConnect();
 
@@ -47,10 +44,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     } = req.body;
 
     // ── 1. Fetch User Profile for Data ───────────────────────
-    const user = await User.findById(session.user.id).lean();
+    const user = await User.findById(auth.id).lean();
     if (!user || !user.phone || !user.isPhoneVerified) {
-      return res.status(403).json({ 
-        success: false, 
+      return res.status(403).json({
+        success: false,
         message: 'Verified phone number required for quick inquiry.',
         code: 'PHONE_NOT_VERIFIED'
       });
@@ -137,8 +134,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       leadId: lead._id
     });
 
-  } catch (error: any) {
-    console.error('[QuickLead API Error]', error.message);
+  } catch (error: unknown) {
     return res.status(500).json({ success: false, message: 'Server error creating lead' });
   }
 }
