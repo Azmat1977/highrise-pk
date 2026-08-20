@@ -3,10 +3,10 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Review, { ReviewStatus } from '@/models/Review';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../auth/[...nextauth]';
+import { getOptionalAuth } from '@/lib/optionalAuth';
+import { requireAdmin } from '@/lib/requireAdmin';
 
 type Data =
   | { success: false; message: string; error?: string }
@@ -16,8 +16,6 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<Data>
 ) {
-  await dbConnect();
-
   const { id } = req.query;
 
   if (!id || typeof id !== 'string' || !mongoose.Types.ObjectId.isValid(id)) {
@@ -52,10 +50,14 @@ async function handleGet(
   id: string
 ) {
   try {
-    const session: any = await getServerSession(req, res, authOptions as any);
-    const isAdmin = session?.user && (session.user as any).role === 'admin';
+    await dbConnect();
 
-    const filter: any = { _id: id, isDeleted: false };
+      const auth = await getOptionalAuth(req);
+      const isAdmin =
+        auth?.authorityRole === 'admin' || auth?.role === 'admin';
+    
+
+    const filter: Record<string, unknown> = { _id: id, isDeleted: false };
     if (!isAdmin) {
       filter.status = 'approved';
     }
@@ -73,12 +75,10 @@ async function handleGet(
       success: true,
       data: review,
     });
-  } catch (error: any) {
-    console.error('[Review GET Error]', error);
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Server error while fetching review',
-      error: error.message,
     });
   }
 }
@@ -94,18 +94,12 @@ async function handlePatch(
   id: string
 ) {
   try {
-    const session: any = await getServerSession(req, res, authOptions as any);
+    const auth = await requireAdmin(req, res);
+    if (!auth) return;
 
-    if (!session || !session.user || (session.user as any).role !== 'admin') {
-      return res.status(403).json({
-        success: false,
-        message: 'Only admin can update reviews',
-      });
-    }
+    await dbConnect();
 
-    const adminUser = session.user as any;
-    const adminId =
-      adminUser.id || adminUser._id || new mongoose.Types.ObjectId().toString();
+    const adminId = auth.id;
 
     const {
       rating,
@@ -121,7 +115,7 @@ async function handlePatch(
       deleteReason,
     } = req.body;
 
-    const update: any = {};
+    const update: Record<string, unknown> = {};
 
     if (typeof rating === 'number') update.rating = rating;
     if (typeof title === 'string') update.title = title;
@@ -193,12 +187,10 @@ async function handlePatch(
       success: true,
       data: updated,
     });
-  } catch (error: any) {
-    console.error('[Review PATCH Error]', error);
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Server error while updating review',
-      error: error.message,
     });
   }
 }
