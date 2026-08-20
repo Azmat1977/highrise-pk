@@ -16,9 +16,8 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/pages/api/auth/[...nextauth]';
-import dbConnect from '@/lib/db';
+import { requireAuth } from '@/lib/requireAuth';
+import dbConnect from '@/lib/dbConnect';
 import Favorite from '@/models/Favorite';
 
 // ─── VALIDATION ───────────────────────────────────────────────────────────────
@@ -78,11 +77,12 @@ export default async function handler(
   }
 
   // ── Auth ──────────────────────────────────────────────────────────────────
-  const session = await getServerSession(req, res, authOptions);
-  const userId = session?.user?.id;
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
+  const userId = auth.id;
 
-  if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
-    res.status(401).json({ success: false, error: 'Authentication required' });
+  if (!mongoose.Types.ObjectId.isValid(userId)) {
+    res.status(400).json({ success: false, error: 'Invalid user ID' });
     return;
   }
 
@@ -138,8 +138,7 @@ export default async function handler(
       success: true,
       notes:   cleanNotes,
     });
-  } catch (err) {
-    console.error('[api/favorites/notes] Failed:', err);
+  } catch {
     res.status(500).json({ success: false, error: 'Failed to update notes' });
   }
 }

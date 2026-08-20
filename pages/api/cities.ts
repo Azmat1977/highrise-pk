@@ -1,6 +1,6 @@
 //C:\dev\highrise-pk\pages\api\cities.ts
 import type { NextApiRequest, NextApiResponse } from "next";
-import dbConnect from "@/lib/db";
+import dbConnect from "@/lib/dbConnect";
 import Property from "@/models/Property";
 import City from "@/models/City";
 
@@ -139,12 +139,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
 
     return res.status(200).json({ success: true, cities });
-  } catch (error: any) {
-    console.error("Error fetching cities:", error);
+  } catch {
     return res.status(500).json({
       success: false,
       message: "Error fetching cities",
-      error: error?.message,
     });
   }
 }

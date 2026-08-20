@@ -16,7 +16,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import { z } from 'zod';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
 import {
   computeStubShield,
@@ -197,8 +197,7 @@ export default async function handler(
     });
 
     res.status(200).json({ success: true, projects });
-  } catch (err) {
-    console.error('[api/projects/batch] Failed:', err);
+  } catch {
     res.status(500).json({
       success:  false,
       projects: [],
