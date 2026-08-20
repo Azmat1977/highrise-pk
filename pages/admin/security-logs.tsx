@@ -3,8 +3,7 @@ import Head from "next/head";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
 import { ShieldAlert, Search, Filter, RefreshCw } from "lucide-react";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "../api/auth/[...nextauth]";
+import { getToken } from "next-auth/jwt";
 import type { GetServerSideProps } from "next";
 
 type SecurityItem = {
@@ -15,15 +14,18 @@ type SecurityItem = {
   role: string;
   ipHashShort: string;
   uaHashShort: string;
-  metadata: Record<string, any>;
+  metadata: Record<string, unknown>;
 };
 
 export const getServerSideProps: GetServerSideProps = async (ctx) => {
-  const session = await getServerSession(ctx.req as any, ctx.res as any, authOptions);
-  const role = (session as any)?.user?.role;
+  const token = await getToken({ req: ctx.req });
+  const authority = String(
+    (token as { authorityRole?: string; role?: string } | null)?.authorityRole ??
+      (token as { role?: string } | null)?.role ??
+      ""
+  ).toLowerCase();
 
-  // SSR hard gate
-  if (!session || role !== "admin") {
+  if (!token || (authority !== "admin" && authority !== "superadmin")) {
     return {
       redirect: { destination: "/login", permanent: false },
     };
@@ -72,8 +74,8 @@ export default function AdminSecurityLogsPage() {
       }
 
       setItems(data.items || []);
-    } catch (e: any) {
-      setError(e?.message || "Failed to load security logs");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to load security logs");
       setItems([]);
     } finally {
       setLoading(false);
