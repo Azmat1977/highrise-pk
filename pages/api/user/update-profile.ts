@@ -4,12 +4,11 @@
 // =====================================================
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
 import crypto from "crypto";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
 import { sendEmail } from "@/lib/email";
-import { authOptions } from "../auth/[...nextauth]";
+import { requireAuth } from "@/lib/requireAuth";
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -345,25 +344,17 @@ export default async function handler(
     });
   }
 
-  const session = await getServerSession(req, res, authOptions);
-  if (!session?.user?.email) {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized. Please login.",
-      requestId,
-    });
-  }
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
-  const sessionEmail = session.user.email.toLowerCase().trim();
   const ip = getClientIp(req);
   const userAgent = String(req.headers["user-agent"] ?? "").slice(0, 500);
 
   try {
     await dbConnect();
 
-    // ── Fetch current user ─────────────────────────
     const currentUser = await User.findOne({
-      email: sessionEmail,
+      _id: auth.id,
       isDeleted: { $ne: true },
     });
 

@@ -10,10 +10,9 @@
 // ═══════════════════════════════════════════════════════════════
 
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession }                     from 'next-auth/next';
-import { authOptions }                          from '@/pages/api/auth/[...nextauth]';
 import dbConnect                                from '@/lib/dbConnect';
 import User                                     from '@/models/User';
+import { requireAuth }                          from '@/lib/requireAuth';
 import { rateLimitApi, sendRateLimitResponse }  from '@/lib/rateLimit';
 import bcrypt                                   from 'bcryptjs';
 
@@ -50,12 +49,8 @@ export default async function handler(
   }
 
   // ── Auth check ─────────────────────────────────────────────
-  const session = await getServerSession(req, res, authOptions);
-
-  if (!session?.user?.id) {
-    res.status(401).json({ success: false, message: 'Unauthorized' });
-    return;
-  }
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
   // ── Input validation ───────────────────────────────────────
   const { otp } = req.body as { otp?: string };
@@ -74,7 +69,7 @@ export default async function handler(
   try {
     // ── Fetch user with security fields (internal-only) ──────
     // Note: phoneOtpHash and phoneOtpExpiresAt are select:false in model
-    const user = await User.findById(session.user.id).select(
+    const user = await User.findById(auth.id).select(
       '+phoneOtpHash +phoneOtpExpiresAt +phoneOtpAttempts phone isPhoneVerified'
     );
 
@@ -111,7 +106,7 @@ export default async function handler(
 
     if (!isValid) {
       // Increment failed attempts
-      await User.findByIdAndUpdate(session.user.id, {
+      await User.findByIdAndUpdate(auth.id, {
         $inc: { phoneOtpAttempts: 1 }
       });
 
@@ -120,7 +115,7 @@ export default async function handler(
     }
 
     // ── Success: Update User ───────────────────────────────
-    await User.findByIdAndUpdate(session.user.id, {
+    await User.findByIdAndUpdate(auth.id, {
       $set: {
         isPhoneVerified:    true,
         phoneVerifiedAt:    new Date(),
@@ -139,8 +134,6 @@ export default async function handler(
     });
 
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Server error';
-    console.error('[verify-phone-otp]', message);
     res.status(500).json({ success: false, message: 'Verification failed. Please try again.' });
   }
 }

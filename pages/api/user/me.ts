@@ -4,11 +4,10 @@
 // =====================================================
 
 import type { NextApiRequest, NextApiResponse } from "next";
-import { getServerSession } from "next-auth/next";
 import crypto from "crypto";
 import dbConnect from "@/lib/dbConnect";
 import User from "@/models/User";
-import { authOptions } from "../auth/[...nextauth]";
+import { requireAuth } from "@/lib/requireAuth";
 
 // ═══════════════════════════════════════════
 // TYPES
@@ -76,27 +75,22 @@ export default async function handler(
   }
 
   // ── Auth ──────────────────────────────────────
-  const session = await getServerSession(req, res, authOptions);
-  if (!session?.user?.email) {
-    return res.status(401).json({
-      success: false,
-      message: "Unauthorized",
-      requestId,
-    });
-  }
+  const auth = await requireAuth(req, res);
+  if (!auth) return;
 
   try {
     await dbConnect();
 
     const user = await User.findOne({
-      email: session.user.email.toLowerCase().trim(),
+      _id: auth.id,
       isDeleted: { $ne: true },
     })
       .select(
         "_id name email displayName role phone city country profession " +
         "companyName licenseNumber ntnNumber officeAddress homeAddress " +
         "profilePictureUrl isVerified kycVerified onboardingStatus " +
-        "ownerVerificationStatus isVerifiedOwner"
+        "ownerVerificationStatus isVerifiedOwner " +
+        "profileChangeCount profileChangeLimit profileChangeLocked"
       )
       .lean<Record<string, unknown>>();
 
