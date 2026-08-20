@@ -1,11 +1,10 @@
 // C:\dev\highrise-pk\pages\api\comments\[id]\report.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '../../auth/[...nextauth]';
-import dbConnect from '@/lib/db';
+import dbConnect from '@/lib/dbConnect';
 import Comment from '@/models/Comment';
 import mongoose from 'mongoose';
 import { rateLimitReport, sendRateLimitResponse, getClientIp, hashValue } from '@/lib/rateLimit';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import { z } from 'zod';
 
 // ----------------------------------------------------------------------
@@ -55,11 +54,11 @@ export default async function handler(
     const { reason } = validation.data;
 
     // 🛡️ 3. Smart User Identification
-    const session = await getServerSession(req, res, authOptions);
+    const auth = await getOptionalAuth(req);
     let userIdentifier: string;
 
-    if (session?.user?.id) {
-      userIdentifier = session.user.id;
+    if (auth?.id) {
+      userIdentifier = auth.id;
     } else {
       const ip = getClientIp(req);
       const userAgent = req.headers['user-agent'] || 'unknown';
@@ -114,8 +113,7 @@ export default async function handler(
       message: 'Thank you for reporting. We will review this comment.',
     });
 
-  } catch (error: any) {
-    console.error('Error reporting comment:', error);
+  } catch (error: unknown) {
     return res.status(500).json({
       success: false,
       message: 'Server Error while reporting comment',
