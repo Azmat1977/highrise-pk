@@ -269,8 +269,7 @@ export default async function handler(
         data: { updated: Object.keys(changes) },
       });
     }
-  } catch (err: unknown) {
-    console.error("[owner/profile] Error:", err);
+  } catch {
 
     return void res.status(500).json({
       success: false,

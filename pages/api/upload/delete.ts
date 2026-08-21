@@ -129,8 +129,8 @@ async function logSecurityEvent(data: {
       ...data,
       timestamp: new Date()
     });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -270,8 +270,7 @@ export default async function handler(
       }
 
       // Other Cloudinary errors
-      console.error('Cloudinary API error:', cloudinaryError);
-      
+
       await logSecurityEvent({
         eventType: 'cloudinary_error',
         severity: 'high',
@@ -417,11 +416,12 @@ export default async function handler(
       result: deleteResult 
     });
 
-  } catch (error: any) {
+  } catch (error: unknown) {
     // =========================================
     // 🚨 ERROR HANDLING
     // =========================================
-    console.error('❌ Delete API Error:', error);
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errName = error instanceof Error ? error.name : 'UnknownError';
 
     await logSecurityEvent({
       eventType: 'system_error',
@@ -430,8 +430,8 @@ export default async function handler(
       userAgent,
       metadata: {
         endpoint: '/api/upload/delete',
-        error: error.message,
-        errorType: error.name
+        error: errMessage,
+        errorType: errName
       }
     });
 

@@ -180,8 +180,8 @@ async function logSecurityEvent(data: {
       ...data,
       timestamp: new Date()
     });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -302,7 +302,6 @@ async function verifyTurnstile(token: string, ip: string): Promise<{ success: bo
   
   const secretKey = process.env.TURNSTILE_SECRET_KEY;
   if (!secretKey) {
-    console.error('TURNSTILE_SECRET_KEY not configured');
     // In development, allow bypass
     if (process.env.NODE_ENV === 'development') {
       return { success: true };
@@ -328,8 +327,7 @@ async function verifyTurnstile(token: string, ip: string): Promise<{ success: bo
     }
     
     return { success: true };
-  } catch (error) {
-    console.error('Turnstile verification error:', error);
+  } catch {
     return { success: false, error: 'CAPTCHA verification failed' };
   }
 }
@@ -447,8 +445,7 @@ async function sendCustomerAutoResponse(data: {
 
     console.log('? Customer auto-response sent to:', data.customerEmail);
     return true;
-  } catch (error) {
-    console.error('? Failed to send customer email:', error);
+  } catch {
     return false;
   }
 }
@@ -523,8 +520,7 @@ async function sendAdminNotification(data: {
 
     console.log('? Admin notification sent to:', adminEmail);
     return true;
-  } catch (error) {
-    console.error('? Failed to send admin notification:', error);
+  } catch {
     return false;
   }
 }
@@ -569,8 +565,9 @@ export default async function handler(
           error: `Method ${req.method} not allowed`,
         });
     }
-  } catch (error: any) {
-    console.error('? Inquiry API Error:', error);
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errName = error instanceof Error ? error.name : 'UnknownError';
 
     await logSecurityEvent({
       eventType: 'system_error',
@@ -580,8 +577,8 @@ export default async function handler(
       metadata: {
         endpoint: '/api/inquiries',
         method: req.method,
-        error: error.message,
-        errorType: error.name,
+        error: errMessage,
+        errorType: errName,
       },
     });
 
@@ -1065,8 +1062,7 @@ async function handlePostInquiry(
         error: 'Property not found or no longer available',
       });
     }
-  } catch (err) {
-    console.error('Property fetch error:', err);
+  } catch {
     return res.status(400).json({
       success: false,
       error: 'Invalid property ID',
@@ -1142,7 +1138,7 @@ async function handlePostInquiry(
     propertyImage: propertyDetails.images?.[0]?.url,
     propertyUrl: propertySlug ? `https://highrise.pk/property/${propertySlug}` : '',
     inquiryId,
-  }).catch(err => console.error('Customer email error:', err));
+  }).catch(() => undefined);
 
   // Admin notification (immediate for high priority)
   sendAdminNotification({
@@ -1162,7 +1158,7 @@ async function handlePostInquiry(
     source: source || 'Website',
     inquiryId,
     ipAddress: clientIP,
-  }).catch(err => console.error('Admin notification error:', err));
+  }).catch(() => undefined);
 
   // ?????????????????????????????????????????????
   // STEP 11: AUDIT LOG

@@ -75,8 +75,8 @@ async function logSecurityEvent(data: {
 }): Promise<void> {
   try {
     await SecurityEvent.create({ ...data, timestamp: new Date() });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -238,7 +238,6 @@ export default async function handler(
     const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'info@highrise.pk';
 
     if (!host || !user || !pass) {
-      console.error('Email not configured');
       return res.status(500).json({
         success: false,
         error: 'Email service not configured',
@@ -259,9 +258,8 @@ export default async function handler(
     // Verify connection
     try {
       await transporter.verify();
-    } catch (verifyError: any) {
-      console.error('SMTP verify error:', verifyError.message);
-      
+    } catch {
+
       await logSecurityEvent({
         eventType: 'smtp_error',
         severity: 'high',
@@ -351,8 +349,11 @@ export default async function handler(
       message: 'Email sent successfully',
     });
 
-  } catch (error: any) {
-    console.error('❌ Email send error:', error);
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errCode = (error instanceof Error && 'code' in error)
+      ? (error as { code?: string }).code
+      : undefined;
 
     await logSecurityEvent({
       eventType: 'system_error',
@@ -361,14 +362,14 @@ export default async function handler(
       userAgent,
       metadata: {
         endpoint: '/api/inquiries/send-email',
-        error: error.message,
+        error: errMessage,
       },
     });
 
     // Safe error message (no credential exposure)
     let userMessage = 'Failed to send email';
-    if (error.code === 'EAUTH') userMessage = 'Email authentication failed';
-    else if (error.code === 'ECONNECTION') userMessage = 'Cannot connect to email server';
+    if (errCode === 'EAUTH') userMessage = 'Email authentication failed';
+    else if (errCode === 'ECONNECTION') userMessage = 'Cannot connect to email server';
 
     return res.status(500).json({
       success: false,

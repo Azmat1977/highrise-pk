@@ -90,8 +90,8 @@ async function logSecurityEvent(data: {
 }): Promise<void> {
   try {
     await SecurityEvent.create({ ...data, timestamp: new Date() });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -186,14 +186,14 @@ export default async function handler(
         res.setHeader('Allow', ['GET', 'PATCH', 'DELETE']);
         return res.status(405).json({ success: false, error: 'Method not allowed' });
     }
-  } catch (error: any) {
-    console.error('❌ Inquiry API Error:', error);
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
     await logSecurityEvent({
       eventType: 'system_error',
       severity: 'critical',
       ipAddress: clientIP,
       userAgent,
-      metadata: { endpoint: `/api/inquiries/${id}`, error: error.message },
+      metadata: { endpoint: `/api/inquiries/${id}`, error: errMessage },
     });
     return res.status(500).json({ success: false, error: 'An error occurred' });
   }

@@ -561,8 +561,6 @@ export default async function handler(
       });
     }
 
-    console.error("[owner/submit-verification] Error:", err);
-
     return void res.status(500).json({
       success: false,
       message: "An unexpected error occurred. Please try again.",

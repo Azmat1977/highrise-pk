@@ -170,8 +170,7 @@ export default async function handler(
         remainingListings,
       },
     });
-  } catch (err: unknown) {
-    console.error("[owner/verification-status] Error:", err);
+  } catch {
 
     return void res.status(500).json({
       success: false,
