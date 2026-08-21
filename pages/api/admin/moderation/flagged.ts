@@ -70,8 +70,7 @@ if (!cached) setCachedRisk(cacheKey, risk, 10 * 60 * 1000);
       totalPages: Math.ceil(total / limitNum),
       items,
     });
-  } catch (err: any) {
-    console.error("admin moderation flagged error", err);
+  } catch {
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 }

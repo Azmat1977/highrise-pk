@@ -67,9 +67,8 @@ export default async function handler(
       success: true,
       message: 'Click recorded',
     });
-  } catch (error) {
-    console.error('Error recording banner click:', error);
-    
+  } catch {
+
     // Return success anyway to not block user navigation
     return res.status(200).json({
       success: true,

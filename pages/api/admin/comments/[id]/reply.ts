@@ -273,7 +273,7 @@ undefined
         contentLength: sanitizedContent.length,
         autoApproved: autoApprove && comment.status === 'approved',
       },
-    }).catch(console.error);
+    }).catch(() => undefined);
 
     // ═══════════════════════════════════════════════════════════════
     // ✅ SUCCESS RESPONSE

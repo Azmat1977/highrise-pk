@@ -44,11 +44,10 @@ export default async function handler(
       }
 
       return res.status(200).json({ success: true, message: 'Media found', media });
-    } catch (error: any) {
+    } catch {
       return res.status(500).json({
         success: false,
         message: 'Error fetching media',
-        error: error.message,
       });
     }
   }
@@ -76,11 +75,10 @@ export default async function handler(
         message: 'Media updated successfully',
         media,
       });
-    } catch (error: any) {
+    } catch {
       return res.status(500).json({
         success: false,
         message: 'Error updating media',
-        error: error.message,
       });
     }
   }
@@ -124,11 +122,10 @@ export default async function handler(
           media,
         });
       }
-    } catch (error: any) {
+    } catch {
       return res.status(500).json({
         success: false,
         message: 'Error deleting media',
-        error: error.message,
       });
     }
   }
@@ -157,11 +154,10 @@ export default async function handler(
       }
 
       return res.status(400).json({ success: false, message: 'Invalid action' });
-    } catch (error: any) {
+    } catch {
       return res.status(500).json({
         success: false,
         message: 'Error restoring media',
-        error: error.message,
       });
     }
   }

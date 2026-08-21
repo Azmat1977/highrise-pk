@@ -180,7 +180,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         ipAddress: ip,
         userAgent: ua,
         severity: "info",
-      }).catch(console.error);
+      }).catch(() => undefined);
 
       return res.status(200).json({
         success: true,
@@ -273,7 +273,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       ipAddress: ip,
       userAgent: ua,
       severity: "info",
-    }).catch(console.error);
+    }).catch(() => undefined);
 
     return res.status(201).json({
       success: true,

@@ -261,7 +261,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         verificationMethod,
         propertyId: verifiedPropertyId ? String(verifiedPropertyId) : null,
       },
-    }).catch(console.error);
+    }).catch(() => undefined);
 
     return res.status(200).json({
       success: true,

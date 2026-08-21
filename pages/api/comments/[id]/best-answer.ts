@@ -258,7 +258,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           blogId: String(comment.blogId?._id),
           markedBy: isAdmin ? 'admin' : 'author',
         },
-      }).catch(console.error);
+      }).catch(() => undefined);
 
       return res.status(200).json({
         success: true,
@@ -302,7 +302,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         commentId,
         blogId: String(comment.blogId?._id),
       },
-    }).catch(console.error);
+    }).catch(() => undefined);
 
     return res.status(200).json({
       success: true,

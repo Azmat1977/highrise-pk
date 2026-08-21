@@ -301,7 +301,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
           resultCount: comments.length,
           page,
         },
-      }).catch(console.error);
+      }).catch(() => undefined);
     }
 
     // ═══════════════════════════════════════════════════════════════

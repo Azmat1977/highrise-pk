@@ -233,7 +233,7 @@ undefined
           blogId: String(comment.blogId),
           reason: reason || 'No reason provided',
         },
-      }).catch(console.error);
+      }).catch(() => undefined);
 
       return res.status(200).json({
         success: true,
@@ -282,7 +282,7 @@ undefined
         commentId,
         blogId: String(comment.blogId),
       },
-    }).catch(console.error);
+    }).catch(() => undefined);
 
     return res.status(200).json({
       success: true,

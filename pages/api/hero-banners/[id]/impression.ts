@@ -66,9 +66,8 @@ export default async function handler(
       success: true,
       message: 'Impression recorded',
     });
-  } catch (error) {
-    console.error('Error recording banner impression:', error);
-    
+  } catch {
+
     // Return success anyway to not affect homepage UX
     return res.status(200).json({
       success: true,

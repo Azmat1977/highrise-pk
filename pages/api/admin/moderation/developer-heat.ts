@@ -100,8 +100,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       results,
       cached: false,
     });
-  } catch (err) {
-    console.error("developer heat error", err);
+  } catch {
     return res.status(500).json({ ok: false, error: "Server error" });
   }
 }
