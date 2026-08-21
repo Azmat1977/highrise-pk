@@ -117,8 +117,7 @@ export default async function handler(
         limit: MAX_ITEMS,
       },
     });
-  } catch (error) {
-    console.error('[api/compare/remove] Error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       error:   'Server error while removing from comparison',

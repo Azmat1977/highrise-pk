@@ -242,8 +242,7 @@ export default async function handler(
         sessionId: comparison.sessionId ?? null,
       },
     });
-  } catch (error) {
-    console.error('[api/compare/add] Error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       error:   'Server error while adding to comparison',

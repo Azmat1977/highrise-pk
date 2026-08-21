@@ -77,9 +77,7 @@ export default async function handler(
     // ─────────────────────────────────────────────────────────────
     if (!comparison.isShared) {
       // Background async update (no need to await it and slow down the GET request)
-      Comparison.findByIdAndUpdate(comparison._id, { $set: { isShared: true } }).catch(e => 
-        console.error('Failed to update isShared flag:', e)
-      );
+      Comparison.findByIdAndUpdate(comparison._id, { $set: { isShared: true } }).catch(() => undefined);
     }
 
     // ─────────────────────────────────────────────────────────────
@@ -98,8 +96,7 @@ export default async function handler(
       },
     });
 
-  } catch (error: any) {
-    console.error('Shared comparison fetch error:', error);
+  } catch {
     // 🛡️ Security: Never expose raw database errors to public users
     return res.status(500).json({
       success: false,

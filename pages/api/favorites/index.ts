@@ -110,8 +110,8 @@ async function logSecurityEvent(data: {
 }): Promise<void> {
   try {
     await SecurityEvent.create({ ...data, timestamp: new Date() });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -282,11 +282,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ═══════════════════════════════════════════════════════════
     return handleListMode(req, res, userOid, userId, requestId);
 
-  } catch (error: any) {
-    console.error('❌ Favorites API Error:', {
-      requestId,
-      error: error.message,
-    });
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
 
     await logSecurityEvent({
       eventType: 'system_error',
@@ -295,7 +292,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       userAgent,
       metadata: {
         endpoint: '/api/favorites',
-        error: error.message,
+        error: errMessage,
       },
     });
 

@@ -120,8 +120,8 @@ async function logSecurityEvent(data: {
       ...data,
       timestamp: new Date(),
     });
-  } catch (error) {
-    console.error('Failed to log security event:', error);
+  } catch {
+    // best-effort audit logging
   }
 }
 
@@ -269,8 +269,7 @@ async function updateAnalytics(
         { $set: { favoriteCount: 0 } }
       );
     }
-  } catch (error) {
-    console.error('Analytics update error:', error);
+  } catch {
     // Don't throw - background task
   }
 }
@@ -584,11 +583,11 @@ export default async function handler(
       },
       requestId,
     });
-  } catch (error: any) {
-    console.error('❌ Favorites toggle error:', {
-      requestId,
-      error: error.message,
-    });
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errCode = (error instanceof Error && 'code' in error)
+      ? (error as { code?: number }).code
+      : undefined;
 
     await logSecurityEvent({
       eventType: 'system_error',
@@ -597,12 +596,12 @@ export default async function handler(
       userAgent,
       metadata: {
         endpoint: '/api/favorites/toggle',
-        error: error.message,
+        error: errMessage,
       },
     });
 
     // Handle duplicate key error (race condition)
-    if (error.code === 11000) {
+    if (errCode === 11000) {
       const body = req.body as Partial<ToggleRequest>;
       return res.status(200).json({
         success: true,

@@ -54,12 +54,10 @@ export default async function handler(
       message: 'Recently viewed history cleared',
       deletedCount: result.deletedCount,
     });
-  } catch (error: any) {
-    console.error('Recently viewed clear error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       error: 'Failed to clear recently viewed',
-      message: error.message,
     });
   }
 }

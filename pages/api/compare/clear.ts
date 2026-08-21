@@ -93,8 +93,7 @@ export default async function handler(
       message: 'Comparison cleared successfully',
     });
 
-  } catch (error: any) {
-    console.error('Compare clear error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       error: 'Server error while clearing comparison',

@@ -143,11 +143,13 @@ export default async function handler(
         viewedAt: recentView.viewedAt,
       },
     });
-  } catch (error: any) {
-    console.error('Recently viewed add error:', error);
+  } catch (error: unknown) {
+    const errCode = (error instanceof Error && 'code' in error)
+      ? (error as { code?: number }).code
+      : undefined;
 
     // Handle duplicate key error gracefully
-    if (error.code === 11000) {
+    if (errCode === 11000) {
       return res.status(200).json({
         success: true,
         message: 'View already tracked',
@@ -157,7 +159,6 @@ export default async function handler(
     return res.status(500).json({
       success: false,
       error: 'Failed to track recently viewed',
-      message: error.message,
     });
   }
 }

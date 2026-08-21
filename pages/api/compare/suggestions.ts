@@ -343,8 +343,7 @@ export default async function handler(
       context: matchContext,
     });
 
-  } catch (error) {
-    console.error('[api/compare/suggestions] Error:', error);
+  } catch {
     return res.status(500).json({
       success:  false,
       projects: [],

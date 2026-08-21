@@ -226,8 +226,7 @@ export default async function handler(
         expiresAt:  comparison.expiresAt,
       },
     });
-  } catch (error) {
-    console.error('[api/compare] Error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       message: 'Server error while fetching comparison list',

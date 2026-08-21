@@ -115,12 +115,10 @@ export default async function handler(
         hasMore: skip + formattedViews.length < total,
       },
     });
-  } catch (error: any) {
-    console.error('Recently viewed fetch error:', error);
+  } catch {
     return res.status(500).json({
       success: false,
       error: 'Failed to fetch recently viewed',
-      message: error.message,
       data: [],
     });
   }
