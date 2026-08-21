@@ -921,12 +921,16 @@ export default async function handler(
           writeConcern: { w: "majority" },
         }
       );
-    } catch (error: any) {
-      if (error?.code === "SIGNUP_CHALLENGE_CONSUMED") {
+    } catch (error: unknown) {
+      const errCode = (error instanceof Error && 'code' in error)
+        ? (error as { code?: string | number }).code
+        : undefined;
+
+      if (errCode === "SIGNUP_CHALLENGE_CONSUMED") {
         return sendSafeFailure(res, requestId);
       }
 
-      if (error?.code === "ACCOUNT_ALREADY_EXISTS" || error?.code === 11000) {
+      if (errCode === "ACCOUNT_ALREADY_EXISTS" || errCode === 11000) {
         await SignupCode.deleteMany({
           email,
           codeType: SIGNUP_CODE_TYPE,
@@ -988,16 +992,12 @@ export default async function handler(
       message: "Account created successfully! Welcome to Highrise.pk 🎉",
       requestId,
     });
-  } catch (error: any) {
-    console.error("[Auth][VerifySignup] Request failed", {
-      requestId,
-      code: typeof error?.code === "string" || typeof error?.code === "number"
-        ? error.code
-        : "UNKNOWN",
-      name: typeof error?.name === "string" ? error.name : "Error",
-    });
+  } catch (error: unknown) {
+    const errCode = (error instanceof Error && 'code' in error)
+      ? (error as { code?: string | number }).code
+      : undefined;
 
-    if (error?.code === 11000) {
+    if (errCode === 11000) {
       return sendError(
         res,
         409,
@@ -1012,7 +1012,7 @@ export default async function handler(
       userAgent,
       action: "server_error",
       success: false,
-      reason: typeof error?.code === "string" ? error.code : "UNEXPECTED_ERROR",
+      reason: typeof errCode === "string" ? errCode : "UNEXPECTED_ERROR",
       requestId,
     });
 

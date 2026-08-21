@@ -65,9 +65,8 @@ export default async function handler(
       },
       createdAt: new Date(),
     });
-  } catch (e) {
+  } catch {
     // Non-fatal — deprecated endpoint log failure should not block response
-    console.error("[login.ts] SecurityEvent log failed:", e);
   }
 
   // 5. Return 410 Gone

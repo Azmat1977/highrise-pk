@@ -148,12 +148,7 @@ export default async function handler(
       message: "All sessions invalidated. Please login again.",
       requestId,
     });
-  } catch (error: unknown) {
-    console.error("[logout-all] Error:", {
-      requestId,
-      userId,
-      error: error instanceof Error ? error.message : String(error),
-    });
+  } catch {
 
     return res.status(500).json({
       success: false,

@@ -860,8 +860,8 @@ export const authOptions: AuthOptions = {
               typeof user.tokenVersion === "number" ? user.tokenVersion : 0,
             rememberMe,
           };
-        } catch (error: any) {
-          const msg = String(error?.message || "");
+        } catch (error: unknown) {
+          const msg = error instanceof Error ? error.message : "";
 
           // ✅ Preserve specific error messages
           if (

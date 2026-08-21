@@ -1163,13 +1163,15 @@ export default async function handler(
     });
 
     return sendSuccess(res, requestId);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const errMessage = error instanceof Error ? error.message : 'Unknown error';
+
     await logSignupAttempt({
       ip,
       userAgent,
       action: "server_error",
       success: false,
-      reason: error.message,
+      reason: errMessage,
       requestId,
     });
 
