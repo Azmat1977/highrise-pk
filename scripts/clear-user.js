@@ -20,4 +20,4 @@ async function clear() {
 
   process.exit(0);
 }
-clear().catch(console.error);
+clear().catch(() => undefined);

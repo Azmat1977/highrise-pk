@@ -8,4 +8,4 @@ async function clear() {
   console.log("Deleted:", result.deletedCount, "signup codes");
   process.exit(0);
 }
-clear().catch(console.error);
+clear().catch(() => undefined);
