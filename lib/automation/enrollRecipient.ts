@@ -241,19 +241,11 @@ export async function enrollRecipient(
           }
         );
 
-      } catch (seqErr) {
-        // Per-sequence error — log and continue to next sequence
-        console.error(
-          `[Automation] Failed to enroll in sequence "${sequence?.name}":`,
-          seqErr instanceof Error ? seqErr.message : seqErr
-        );
+      } catch {
+        // Per-sequence error — continue to next sequence
       }
     }
-  } catch (err) {
-    // Top-level error — log and return silently
-    console.error(
-      '[Automation] enrollRecipient failed:',
-      err instanceof Error ? err.message : err
-    );
+  } catch {
+    // Top-level error — return silently
   }
 }
