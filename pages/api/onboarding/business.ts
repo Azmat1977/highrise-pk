@@ -1066,14 +1066,6 @@ export default async function handler(
     try {
       await userDoc.save();
     } catch (saveError: unknown) {
-      const errMsg = saveError instanceof Error ? saveError.message : "Unknown save error";
-      console.error("═══════════════════════════════════════");
-      console.error("🔴 USER SAVE ERROR (Onboarding):");
-      console.error("Message:", errMsg);
-      console.error("Stack:", saveError instanceof Error ? saveError.stack : "N/A");
-      console.error("User ID:", String(user._id));
-      console.error("Needs CNIC:", needsCnicProcessing);
-      console.error("═══════════════════════════════════════");
       throw saveError;  // Re-throw to trigger main error handler
     }
 
@@ -1171,18 +1163,6 @@ export default async function handler(
   } catch (error: unknown) {
     const message =
       error instanceof Error ? error.message : "An unexpected error occurred";
-    const stack =
-      error instanceof Error ? error.stack : "No stack trace";
-
-    // Detailed console logging for debugging
-    console.error("═══════════════════════════════════════");
-    console.error("🔴 ONBOARDING BUSINESS ERROR:");
-    console.error("Request ID:", requestId);
-    console.error("User ID:", auth?.id ?? "unknown");
-    console.error("Message:", message);
-    console.error("Stack:", stack);
-    console.error("Full error:", error);
-    console.error("═══════════════════════════════════════");
 
     await logSecurityEvent({
       type: "system_error",

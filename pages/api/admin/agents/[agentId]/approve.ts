@@ -438,9 +438,8 @@ export default async function handler(
         await fullProfile.calculateTrustScore();
         await fullProfile.save();
       }
-    } catch (trustErr) {
-      // Non-fatal: log but don't fail the approval
-      console.error("[Agent Approve] Trust score calculation failed:", trustErr);
+    } catch {
+      // Non-fatal — don't fail the approval
     }
 
     // ── Step 2: Promote User to agent + increment tokenVersion ───

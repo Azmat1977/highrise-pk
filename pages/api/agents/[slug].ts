@@ -231,8 +231,6 @@ export default async function handler(
     const message =
       error instanceof Error ? error.message : "Unexpected error occurred";
 
-    console.error("[Agent Slug] Error:", error);
-
     await logSecurityEvent({
       type:     "system_error",
       severity: "high",

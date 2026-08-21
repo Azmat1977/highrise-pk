@@ -263,8 +263,8 @@ export default async function handler(
           cnicFull                = decryptCnic(rawAgent.cnicEncrypted, auditInfo);
           decryptionResults.cnic  = true;
         }
-      } catch (err) {
-        console.error('[Admin Agent GET] CNIC decrypt failed:', err instanceof Error ? err.message : 'unknown');
+      } catch {
+        // best-effort CNIC decrypt — continue
       }
 
       try {
@@ -272,8 +272,8 @@ export default async function handler(
           ntnFull                = decryptNtn(rawAgent.ntnEncrypted, auditInfo);
           decryptionResults.ntn  = true;
         }
-      } catch (err) {
-        console.error('[Admin Agent GET] NTN decrypt failed:', err instanceof Error ? err.message : 'unknown');
+      } catch {
+        // best-effort NTN decrypt — continue
       }
 
       try {
@@ -281,8 +281,8 @@ export default async function handler(
           licenseFull               = decryptLicense(rawAgent.licenseEncrypted, auditInfo);
           decryptionResults.license = true;
         }
-      } catch (err) {
-        console.error('[Admin Agent GET] License decrypt failed:', err instanceof Error ? err.message : 'unknown');
+      } catch {
+        // best-effort license decrypt — continue
       }
 
       try {
@@ -290,8 +290,8 @@ export default async function handler(
           phoneFull               = decryptPhone(rawAgent.phoneEncrypted, auditInfo);
           decryptionResults.phone = true;
         }
-      } catch (err) {
-        console.error('[Admin Agent GET] Phone decrypt failed:', err instanceof Error ? err.message : 'unknown');
+      } catch {
+        // best-effort phone decrypt — continue
       }
 
       try {
@@ -299,8 +299,8 @@ export default async function handler(
           whatsappFull               = decryptPhone(rawAgent.whatsappEncrypted, auditInfo);
           decryptionResults.whatsapp = true;
         }
-      } catch (err) {
-        console.error('[Admin Agent GET] WhatsApp decrypt failed:', err instanceof Error ? err.message : 'unknown');
+      } catch {
+        // best-effort WhatsApp decrypt — continue
       }
 
       // ── Merge documents from User model (fallback for existing agents) ──

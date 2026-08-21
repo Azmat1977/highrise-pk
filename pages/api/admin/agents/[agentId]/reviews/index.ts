@@ -343,8 +343,6 @@ export default async function handler(
     const message =
       err instanceof Error ? err.message : "Unexpected error occurred";
 
-    console.error("[Reviews API] Error:", err);
-
     await logSecurityEvent({
       type:     "admin_action",
       severity: "high",
