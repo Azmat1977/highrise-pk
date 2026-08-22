@@ -8,6 +8,7 @@ import { rateLimitAI } from '@/lib/rateLimit';
 import { generateAIResponse, getRandomAgent } from '@/lib/gemini';
 import { extractSearchSlots } from '@/lib/aleem/extractSlots';
 import { searchProperties } from '@/lib/aleem/searchProperties';
+import { createAleemLead, detectConsent, validateListingSlugs } from '@/lib/aleem/createAleemLead';
 import aiCache from '@/lib/aiCache';
 interface GeminiMessage {
   role: 'user' | 'assistant' | 'system';
@@ -626,6 +627,42 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 5: CHECK CACHE
     // ─────────────────────────────────────────────
+    // ── STEP 4.6: CONSENT → CALLBACK LEAD (ALEEM) ──
+    const consentSlugs = validateListingSlugs(req.body?.lastListings);
+
+    if (consentSlugs.length > 0 && detectConsent(message)) {
+      try {
+        const leadResult = await createAleemLead(userId, consentSlugs);
+
+        await logSecurityEvent({
+          eventType: leadResult.success ? 'aleem_lead_created' : 'aleem_lead_failed',
+          severity: leadResult.success ? 'low' : 'medium',
+          userId,
+          ipAddress: clientIP,
+          userAgent,
+          metadata: {
+            listingCount: consentSlugs.length,
+            code: leadResult.code ?? null,
+          },
+        });
+
+        return res.status(200).json({
+          success: true,
+          response: leadResult.success
+            ? 'Callback arranged! Our team will contact you shortly about the listings you selected.'
+            : (leadResult.code === 'PHONE_NOT_VERIFIED'
+              ? 'To arrange a callback, please verify your phone number first.'
+              : 'Sorry, those listings are no longer available. Please search again.'),
+          lead: leadResult.success ? { id: leadResult.leadId, listingCount: leadResult.listingCount } : null,
+          grounded: true,
+          cached: false,
+          requestId,
+        });
+      } catch {
+        // Lead creation failed — fall through to the normal AI flow.
+      }
+    }
+
     const cachedResponse = aiCache.get(message);
 
     if (cachedResponse) {

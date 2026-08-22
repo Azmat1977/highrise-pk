@@ -42,7 +42,8 @@ export type LeadSource =
   | 'direct' 
   | 'referral'
   | 'whatsapp'           // 🆕
-  | 'call';              // 🆕
+  | 'call'               // 🆕
+  | 'aleem_chat';        // 🆕 ALEEM grounded-search callback
 
 export type AssignedToRole = 'admin' | 'developer' | 'sales_team' | 'agent' | 'owner';  // 🆕 Added agent
 
@@ -184,6 +185,7 @@ export interface ILead extends Document {
   // SOURCE TRACKING (Marketing Analytics)
   // ===================================
   source: LeadSource;
+  listingIds?: string[];  // ALEEM: property slugs shown to the user
   utmSource?: string;
   utmMedium?: string;
   utmCampaign?: string;
@@ -530,7 +532,7 @@ const LeadSchema = new Schema<ILead>(
     // SOURCE TRACKING
     source: {
       type: String,
-      enum: ['project_page', 'property_page', 'listing_page', 'search_results', 'developer_profile', 'agent_profile', 'direct', 'referral', 'whatsapp', 'call'],
+      enum: ['project_page', 'property_page', 'listing_page', 'search_results', 'developer_profile', 'agent_profile', 'direct', 'referral', 'whatsapp', 'call', 'aleem_chat'],
       default: 'project_page',
     },
     utmSource: { type: String },
@@ -599,6 +601,7 @@ const LeadSchema = new Schema<ILead>(
     // ADMIN MANAGEMENT
     notes: { type: String, maxlength: 5000 },
     tags: [{ type: String }],
+    listingIds: [{ type: String }],
     isArchived: { 
       type: Boolean, 
       default: false,
@@ -735,6 +738,7 @@ LeadSchema.methods.calculateLeadScore = function(): number {
     'whatsapp': 8,
     'call': 10,
     'direct': 5,
+    'aleem_chat': 14,
   };
   score += sourceScores[this.source as LeadSource] || 5;
 
