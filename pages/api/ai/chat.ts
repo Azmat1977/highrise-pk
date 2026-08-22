@@ -217,234 +217,91 @@ Format your responses:
 function getSmartFallbackResponse(message: string): string {
   const lowerMessage = message.toLowerCase();
 
-  // Investment queries
-  if (lowerMessage.includes('invest') || lowerMessage.includes('investment')) {
-    return `Great question about investment! 📈 Based on current market trends in Pakistan:
-
-**Top Investment Areas 2025:**
-1. **DHA Phase 5-6, Lahore** - 15-20% annual appreciation
-2. **Bahria Town Lahore** - Good rental yields (5-8%)
-3. **DHA Islamabad** - Premium segment, stable growth
-4. **Gwadar** - Long-term investment potential (CPEC)
-
-**Investment Tips:**
-• For quick returns: Look at developed areas with existing infrastructure
-• For long-term: Consider upcoming societies with payment plans
-• Commercial properties offer higher rental yields (8-12%)
-
-Would you like me to show you specific properties in any of these areas? Or would you like to speak with an investment advisor?`;
-  }
-
-  // Price queries
-  if (lowerMessage.includes('price') || lowerMessage.includes('cost') || lowerMessage.includes('average')) {
-    return `Here are the current average property prices in major cities:
-
-**Lahore:**
-• DHA: PKR 3-8 Crore (5 Marla house)
-• Bahria Town: PKR 2-5 Crore (5 Marla house)
-• Gulberg: PKR 5-15 Crore (varies by block)
-
-**Karachi:**
-• DHA: PKR 5-12 Crore (200 sq yards)
-• Clifton: PKR 8-20 Crore (premium)
-
-**Islamabad:**
-• DHA: PKR 4-10 Crore (7 Marla)
-• Bahria Town: PKR 2-6 Crore
-
-These are approximate ranges - actual prices depend on location, condition, and amenities. Would you like me to search for properties in a specific budget range?`;
-  }
-
-  // Buying advice
-  if (lowerMessage.includes('buy') || lowerMessage.includes('buying') || lowerMessage.includes('purchase')) {
-    return `Excellent! Here's a quick guide to buying property in Pakistan:
-
-**Step-by-Step Process:**
-1. **Define Budget** - Include registration fees (5-6% of value)
-2. **Choose Location** - Consider commute, schools, hospitals
-3. **Verify Documents** - Title deed, NOC, approved map
-4. **Legal Check** - Hire a lawyer for due diligence
-5. **Negotiation** - Typically 5-10% negotiable
-6. **Registration** - At local registrar office
-
-**Documents to Check:**
-✅ Original title deed
-✅ Approved building plan
-✅ NOC from society
-✅ Utility bills (no outstanding)
-✅ CNIC of owner
-
-**Red Flags:**
-⚠️ Prices significantly below market
-⚠️ Urgency to close deal
-⚠️ Missing or unclear documents
-
-What type of property are you looking for? I can help you search our verified listings!`;
-  }
-
-  // Selling advice
-  if (lowerMessage.includes('sell') || lowerMessage.includes('selling')) {
-    return `Looking to sell your property? Here's how we can help:
-
-**How to Get the Best Price:**
-1. **Professional Photography** - Quality images get 2x more views
-2. **Competitive Pricing** - Based on recent sales in your area
-3. **Complete Documentation** - Ready all paperwork in advance
-4. **Property Condition** - Minor repairs can boost value 5-10%
-
-**Selling Through Highrise.pk:**
-• ✅ Free property listing
-• ✅ Reach 50,000+ active buyers
-• ✅ Verified buyer leads
-• ✅ Professional support
-
-**Timeline:**
-• Average sale time: 2-4 months
-• Hot properties: 2-4 weeks
-
-Would you like to list your property? I can guide you through the process or connect you with our team!`;
-  }
-
-  // Rent queries
-  if (lowerMessage.includes('rent') || lowerMessage.includes('rental') || lowerMessage.includes('tenant')) {
-    return `Looking for rental properties? Here's what you need to know:
-
-**Average Monthly Rents:**
-📍 **Lahore DHA:** PKR 80,000 - 250,000
-📍 **Bahria Lahore:** PKR 50,000 - 150,000
-📍 **Karachi DHA:** PKR 100,000 - 300,000
-📍 **Islamabad:** PKR 80,000 - 200,000
-
-**What's Included:**
-• Furnished: +30-50% premium
-• Utilities: Usually tenant pays
-• Maintenance: Varies by agreement
-
-**Rental Process:**
-1. Security deposit (2-3 months rent)
-2. Advance rent (1-3 months)
-3. Rental agreement (registered)
-4. Post-dated cheques (common practice)
-
-Would you like to browse rental properties in a specific area?`;
-  }
-
-  // DHA specific
-  if (lowerMessage.includes('dha')) {
-    return `DHA (Defence Housing Authority) is one of Pakistan's most prestigious residential areas:
-
-**DHA Lahore Phases:**
-• Phase 1-5: Established, premium prices
-• Phase 6: Popular, good infrastructure
-• Phase 7-8: Growing, more affordable
-• Phase 9 (Prism): Newest, investment opportunity
-
-**DHA Karachi:**
-• Phase 1-6: Premium, established
-• Phase 7-8: Developing, good potential
-
-**Key Benefits:**
-✅ Secure, gated community
-✅ Quality infrastructure
-✅ Good resale value
-✅ Reliable utilities
-✅ Commercial areas nearby
-
-**Price Range (5 Marla House):**
-• DHA Lahore: PKR 3-8 Crore
-• DHA Karachi: PKR 5-12 Crore
-
-Would you like to see available properties in any specific DHA phase?`;
-  }
-
-  // Bahria Town specific
-  if (lowerMessage.includes('bahria')) {
-    return `Bahria Town is a popular choice for families and investors:
-
-**Bahria Town Lahore:**
-• Sector A-F: Established, premium
-• Safari Villas: Affordable option
-• Bahria Orchard: Budget-friendly
-
-**Bahria Town Karachi:**
-• Precinct 1-10: Varying prices
-• Jinnah Avenue: Premium commercial
-
-**Bahria Town Islamabad:**
-• Phase 1-8: Various options
-
-**Benefits:**
-✅ Affordable payment plans
-✅ Modern amenities
-✅ Self-contained communities
-✅ Good rental demand
-
-**Investment Tip:**
-Bahria Town offers 10-year payment plans, making it accessible for new investors!
-
-Would you like me to find properties in Bahria Town?`;
-  }
-
-  // Greeting
+  // Greeting (no prices — always safe)
   if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey') || lowerMessage.includes('assalam')) {
     return `Hello! 👋 Welcome to Highrise.pk!
 
-I'm your AI Real Estate Assistant, ready to help you with:
+I'm your AI Real Estate Assistant. I can help you:
 
-🏠 **Finding Properties** - Houses, apartments, plots
-💰 **Investment Advice** - Best areas and ROI
-📊 **Market Insights** - Prices and trends
-📋 **Buying/Selling Guide** - Step-by-step help
-🏢 **Developer Projects** - New launches and payment plans
+🏠 **Find verified properties** — houses, apartments, plots
+📍 **Search by location & budget** — real listings, real prices
+📊 **Market guidance** — how to evaluate areas and listings
+📋 **Buying/selling process** — step-by-step, no surprises
 
-What can I help you with today?`;
+Tell me what you're looking for — for example:
+- "5 marla plot in B-17 under 60 lakh"
+- "3-bedroom house in Islamabad"
+
+I'll search our verified inventory and show you real, current listings.`;
   }
 
-  // 3-bedroom house query
-  if (lowerMessage.includes('3 bed') || lowerMessage.includes('3-bed') || lowerMessage.includes('three bed')) {
-    return `Looking for a 3-bedroom house? Great choice for families! Here's what I found:
+  // Price / investment / area / property-type queries → steer to grounded search
+  if (
+    lowerMessage.includes('price') ||
+    lowerMessage.includes('cost') ||
+    lowerMessage.includes('average') ||
+    lowerMessage.includes('rate') ||
+    lowerMessage.includes('invest') ||
+    lowerMessage.includes('investment') ||
+    lowerMessage.includes('roi') ||
+    lowerMessage.includes('buy') ||
+    lowerMessage.includes('rent') ||
+    lowerMessage.includes('dha') ||
+    lowerMessage.includes('bahria') ||
+    lowerMessage.includes('bed')
+  ) {
+    return `Property prices change constantly and depend on the exact location, size, and condition — so I won't guess a number.
 
-**Popular Options:**
+Instead, I can show you **real, current listings** from our verified inventory. Just tell me:
+- **What** you want (plot, house, apartment, shop)
+- **Where** (city or society — e.g. DHA, Bahria, B-17)
+- **Budget** (e.g. "under 60 lakh")
 
-📍 **DHA Lahore (5 Marla)**
-• Price: PKR 3.5 - 5 Crore
-• 3 beds, 3 baths, parking
+For example: "5 marla plot in B-17 under 60 lakh"
 
-📍 **Bahria Town Lahore**
-• Price: PKR 2 - 3.5 Crore
-• Modern design, gated community
-
-📍 **Gulberg/Garden Town**
-• Price: PKR 4 - 7 Crore
-• Central location, established area
-
-**Features to Look For:**
-✅ Covered parking
-✅ Servant quarter
-✅ Utility/store room
-✅ Back lawn/garden
-
-Would you like me to search our listings for 3-bedroom houses in a specific area or budget?`;
+I'll pull verified listings with their actual asking prices so you can compare honestly.`;
   }
 
-  // Default response
-  return `Thanks for your question! I'd be happy to help you with your real estate needs. 
+  // Buying / selling → honest guidance, no invented rates
+  if (
+    lowerMessage.includes('sell') ||
+    lowerMessage.includes('selling') ||
+    lowerMessage.includes('buy') ||
+    lowerMessage.includes('purchase')
+  ) {
+    return `Here's a reliable buying/selling checklist:
 
-Here's what I can assist with:
+**Always verify:**
+✅ Title deed and ownership
+✅ NOC from the society/authority
+✅ Approved map / layout plan
+✅ No outstanding dues
 
-1. **Property Search** - Tell me your budget, location preference, and property type
-2. **Investment Advice** - I can suggest the best areas for investment
-3. **Market Prices** - Current rates in any city or area
-4. **Buying/Selling Process** - Step-by-step guidance
-5. **Legal Requirements** - Documentation and verification
+**Costs to expect (verify current rates):**
+- Registration & transfer costs (CVT, stamp duty) — check the latest rates on FBR/IRIS
+- Agency/legal fees — vary by professional
 
-Could you please provide more details about what you're looking for? For example:
-- "I want to buy a 3-bedroom house in DHA Lahore under 5 crore"
-- "Best areas to invest in Karachi"
-- "How to sell my property quickly"
+**Red flags:**
+⚠️ Prices far below market
+⚠️ Urgency to close immediately
+⚠️ Missing or unclear documents
 
-I'm here to help! 🏠`;
+Want me to show you verified listings in your budget and area? Tell me the location and budget.`;
+  }
+
+  // Default
+  return `I can help you find verified properties on Highrise.pk.
+
+Tell me:
+1. **What** — plot, house, apartment, or commercial
+2. **Where** — city or society
+3. **Budget** — e.g. "under 60 lakh" or "1 to 2 crore"
+
+Example: "5 marla plot in B-17 under 60 lakh"
+
+I'll show you real listings from our verified inventory — with actual prices, no guesses.`;
 }
+
 
 // ═══════════════════════════════════════════════════════════════
 // 🚀 MAIN HANDLER
