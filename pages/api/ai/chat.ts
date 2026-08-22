@@ -6,6 +6,8 @@ import SecurityEvent from '@/models/SecurityEvent';
 import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitAI } from '@/lib/rateLimit';
 import { generateAIResponse, getRandomAgent } from '@/lib/gemini';
+import { extractSearchSlots } from '@/lib/aleem/extractSlots';
+import { searchProperties } from '@/lib/aleem/searchProperties';
 import aiCache from '@/lib/aiCache';
 interface GeminiMessage {
   role: 'user' | 'assistant' | 'system';
@@ -554,6 +556,72 @@ export default async function handler(
 
     // Validate and sanitize history
     const history = validateHistory(rawHistory);
+
+    // ── STEP 4.5: GROUNDED PROPERTY SEARCH (DB-backed, Gemini-independent) ──
+    // Runs before cache so a search query always reflects live inventory.
+    // Only fires when the message carries a clear property-search signal.
+    const searchSlots = extractSearchSlots(message);
+
+    if (searchSlots) {
+      try {
+        const searchResult = await searchProperties(searchSlots);
+        const matchCount = searchResult.matches.length;
+
+        if (matchCount > 0) {
+          await logSecurityEvent({
+            eventType: 'ai_chat_grounded_search',
+            severity: 'low',
+            userId,
+            ipAddress: clientIP,
+            userAgent,
+            metadata: {
+              matchCount,
+              filters: searchResult.filters,
+            },
+          });
+
+          return res.status(200).json({
+            success: true,
+            response:
+              `Here ${matchCount === 1 ? 'is' : 'are'} ${matchCount} verified ` +
+              `listing${matchCount === 1 ? '' : 's'} matching your search — ` +
+              `all details are from our live inventory:`,
+            listings: searchResult.matches,
+            search: searchResult.filters,
+            grounded: true,
+            cached: false,
+            requestId,
+          });
+        }
+
+        // Zero matches — honest reply, never invented prices.
+        await logSecurityEvent({
+          eventType: 'ai_chat_grounded_search',
+          severity: 'low',
+          userId,
+          ipAddress: clientIP,
+          userAgent,
+          metadata: { matchCount: 0, filters: searchResult.filters },
+        });
+
+        return res.status(200).json({
+          success: true,
+          response:
+            'I could not find any verified listings matching that exact search ' +
+            'right now. You can refine your filters — try a different location, ' +
+            'size, or a higher budget — or browse all verified listings using ' +
+            'the filters on the /properties page.',
+          listings: [],
+          search: searchResult.filters,
+          grounded: true,
+          cached: false,
+          requestId,
+        });
+      } catch {
+        // Search failed (e.g. DB unavailable) — fall through to the normal
+        // AI / fallback flow below rather than fabricating results.
+      }
+    }
 
     // ─────────────────────────────────────────────
     // STEP 5: CHECK CACHE
