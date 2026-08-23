@@ -9,6 +9,7 @@ import { generateAIResponse, getRandomAgent } from '@/lib/gemini';
 import { extractSearchSlots } from '@/lib/aleem/extractSlots';
 import { searchProperties } from '@/lib/aleem/searchProperties';
 import { createAleemLead, detectConsent, validateListingSlugs } from '@/lib/aleem/createAleemLead';
+import { parseAleemContext, resolveAleemContext } from '@/lib/aleem/aleemContext';
 import aiCache from '@/lib/aiCache';
 interface GeminiMessage {
   role: 'user' | 'assistant' | 'system';
@@ -372,7 +373,7 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 4: VALIDATE INPUT
     // ─────────────────────────────────────────────
-    const { message: rawMessage, history: rawHistory } = req.body;
+    const { message: rawMessage, history: rawHistory, context: rawContext } = req.body;
 
     if (!rawMessage || typeof rawMessage !== 'string') {
       return res.status(400).json({
@@ -403,6 +404,10 @@ export default async function handler(
 
     // Validate and sanitize history
     const history = validateHistory(rawHistory);
+
+    // Validate optional page context. Navigation hints only - the client can
+    // say which page the user is on, never what is true about that page.
+    const pageContext = parseAleemContext(rawContext);
 
     // ── STEP 4.5: GROUNDED PROPERTY SEARCH (DB-backed, Gemini-independent) ──
     // Runs before cache so a search query always reflects live inventory.
@@ -509,7 +514,29 @@ export default async function handler(
       }
     }
 
-    const cachedResponse = aiCache.get(message);
+    // STEP 4.7: RESOLVE PAGE CONTEXT (server-side, DB-grounded)
+    // Runs after grounded search and consent so those fast paths never pay for
+    // an extra query. Every fact is re-read from Mongo through the canonical
+    // public-property filter; unverified or missing records drop the context.
+    let resolvedContext = null as Awaited<ReturnType<typeof resolveAleemContext>>;
+
+    if (pageContext) {
+      try {
+        resolvedContext = await resolveAleemContext(pageContext);
+      } catch {
+        // Context lookup failed. Continue with no context rather than
+        // repeating anything the client claimed.
+        resolvedContext = null;
+      }
+    }
+
+    // Cache key is namespaced by context so a reply about one property can
+    // never be served to a user sitting on a different property page.
+    const cacheKey = resolvedContext
+      ? `${resolvedContext.fingerprint}|${message}`
+      : message;
+
+    const cachedResponse = aiCache.get(cacheKey);
 
     if (cachedResponse) {
       await logSecurityEvent({
@@ -598,15 +625,16 @@ if (hasGeminiKey) {
       message,
       chatHistory,
       agentName,
-      agentGender
+      agentGender,
+      resolvedContext?.block
     );
 
     aiResponse = result.response;
     tokensUsed = result.tokensUsed || 0;
     dailyRequestCount++;
 
-    // Cache successful response
-    aiCache.set(message, aiResponse);
+    // Cache successful response under the context-namespaced key
+    aiCache.set(cacheKey, aiResponse);
 
   } catch {
     // Gemini failed, use fallback
@@ -654,7 +682,7 @@ if (hasGeminiKey) {
   requestId,
 });
 
-  } catch (error: unknown) {
+  } catch {
     await logSecurityEvent({
       eventType: 'ai_chat_error',
       severity: 'critical',
@@ -665,8 +693,10 @@ if (hasGeminiKey) {
       },
     });
 
-    // Use fallback on error
-    const fallbackResponse = getSmartFallbackResponse(req.body.message || '');
+    // Use fallback on error. Read the body defensively: if body parsing itself
+    // failed, req.body can be undefined and must not throw inside the handler.
+    const rawBodyMessage = typeof req.body?.message === 'string' ? req.body.message : '';
+    const fallbackResponse = getSmartFallbackResponse(rawBodyMessage);
 
     return res.status(200).json({
       success: true,

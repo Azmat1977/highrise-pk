@@ -45,6 +45,7 @@ export async function generateAIResponse(
   chatHistory: { role: string; content: string }[],
   agentName: string,
   _agentGender: 'male' | 'female',
+  contextBlock?: string,
 ): Promise<{ response: string; tokensUsed: number }> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
@@ -52,7 +53,10 @@ export async function generateAIResponse(
   const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
   if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new Error('Invalid GEMINI_MODEL');
 
-  const systemInstruction = SYSTEM_PROMPT.replace(/{AGENT_NAME}/g, agentName);
+  const basePrompt = SYSTEM_PROMPT.replace(/{AGENT_NAME}/g, agentName);
+  const systemInstruction = contextBlock
+    ? `${basePrompt}\n\nCURRENT PAGE CONTEXT (server-verified - authoritative):\n${contextBlock.slice(0, 1200)}`
+    : basePrompt;
   const contents = [
     ...chatHistory.slice(-8).map((msg) => ({
       role: msg.role === 'assistant' ? 'model' : 'user',
