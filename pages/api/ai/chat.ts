@@ -26,6 +26,8 @@ import {
   encodeProfileForStorage,
 } from '@/lib/aleem/profileStore';
 import aiCache from '@/lib/aiCache';
+
+/** Shape used by validateHistory() for sanitised conversation turns. */
 interface GeminiMessage {
   role: 'user' | 'assistant' | 'system';
   content: string;
@@ -656,11 +658,9 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 7: PREPARE MESSAGES FOR AI
     // ─────────────────────────────────────────────
-    const messages: GeminiMessage[] = [
-      { role: 'system', content: SYSTEM_PROMPT },
-      ...history,
-      { role: 'user', content: message },
-    ];
+    // NOTE: the Gemini-facing persona lives in lib/gemini.ts (SYSTEM_PROMPT,
+    // sent as system_instruction). There is deliberately no local prompt
+    // assembly here - a second copy would silently drift out of sync.
 
     // ─────────────────────────────────────────────
 // STEP 8: CALL GEMINI API
