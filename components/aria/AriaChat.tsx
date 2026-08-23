@@ -57,13 +57,40 @@ interface AriaChatProps {
   onClose:    () => void;
 }
 
+/** Verified listing card returned by the grounded ALEEM search. */
+interface AleemListing {
+  slug:         string;
+  title:        string;
+  city:         string;
+  society:      string;
+  propertyType: string;
+  listingType:  string;
+  price:        number;
+  area:         number;
+  unit:         string;
+  imageUrl:     string | null;
+  isFeatured:   boolean;
+}
+
+/** Response contract of POST /api/ai/chat. */
+interface AleemChatResponse {
+  success?:      boolean;
+  response?:     string;
+  listings?:     AleemListing[];
+  conversationId?: string | null;
+  requiresAuth?: boolean;
+  grounded?:     boolean;
+  message?:      string;
+  requestId?:    string;
+}
+
 // ─── Quick reply buttons (context-aware) ─────────────────────────────────────
 
 const QUICK_REPLIES_GENERAL = [
   { label: '🏠 I want to buy', value: 'I want to buy a property in Pakistan.' },
   { label: '💰 Investment advice', value: 'I am looking for investment opportunities in real estate.' },
   { label: '🏘️ Check society NOC', value: 'I want to check the NOC status of a housing society.' },
-  { label: '📊 Market prices', value: 'What are the current property prices?' },
+  { label: '📊 Search verified listings', value: 'Show me verified listings â€” 5 marla plot in B-17 under 60 lakh.' },
 ];
 
 const QUICK_REPLIES_PROPERTY = [
@@ -73,9 +100,9 @@ const QUICK_REPLIES_PROPERTY = [
   { label: '📄 Documents needed?', value: 'What documents are required for this purchase?' },
 ];
 
-const QUICK_REPLIES_SOCIETY = [
+const QUICK_REPLIES_SOCIETY = [ 
   { label: '📋 NOC details', value: 'Tell me more about the NOC status of this society.' },
-  { label: '💰 Plot prices', value: 'What are the current plot prices in this society?' },
+  { label: 'ً💰 Verified listings here', value: 'Show me verified listings available in this society.' },
   { label: '⚠️ Any risks?', value: 'Are there any risks I should know about before investing?' },
   { label: '📅 Schedule visit', value: 'I would like to visit this society.' },
 ];
@@ -362,6 +389,12 @@ export default function AriaChat({
   const [error,           setError]            = useState('');
   const [quotaMode,       setQuotaMode]        = useState<QuotaMode>('normal');
 
+  // Slugs of the verified listings ALEEM showed last turn. Sent back on the
+  // next message so an explicit "yes, arrange a callback" can be matched to
+  // the exact listings the user actually saw.
+  const [lastListings,    setLastListings]     = useState<string[]>([]);
+  const [listings,        setListings]         = useState<AleemListing[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef       = useRef<HTMLInputElement>(null);
 
@@ -400,62 +433,59 @@ export default function AriaChat({
     setIsTyping(true);
 
     try {
-      const res = await fetch('/api/aria/chat', {
+      // Only navigation fields are sent. The server re-reads every fact from
+      // MongoDB, so client-claimed price/NOC/score values are ignored anyway.
+      const res = await fetch('/api/ai/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message:        text.trim(),
+          message: text.trim(),
           sessionId,
-          context,
-          conversationId,
+          context: {
+            type:         context.type,
+            id:           context.id,
+            slug:         context.slug,
+            title:        context.title,
+            city:         context.city,
+            canonicalUrl: context.canonicalUrl,
+          },
+          lastListings,
         }),
       });
 
-      const data = await res.json() as {
-        reply?:           string;
-        conversationId?:  string;
-        error?:           string;
-        code?:            string;
-        quotaMode?:       QuotaMode;
-        quotaPercentage?: number;
-      };
+      const data = await res.json() as AleemChatResponse;
 
       if (!res.ok) {
-        if (res.status === 429) {
-          setError('Thoda wait karein — aap ne bohot saaray messages bheje hain.');
-        } else if (res.status === 503 && data.code === 'QUOTA_EXCEEDED') {
-          setError('');
-          setQuotaMode('lead_only');
-          setShowLeadForm(true);
-          const sysMsg: Message = {
-            id:        crypto.randomUUID(),
-            role:      'assistant',
-            content:   data.error ?? 'Aleem bohot busy hai. Aap apna detail share karein.',
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, sysMsg]);
-        } else {
-          setError(data.error ?? 'Aleem temporarily unavailable. Please try again.');
-        }
+        // ALEEM returns a specific message for guest vs signed-in limits, so
+        // prefer the server text over a generic one.
+        setError(
+          data.message ??
+          (res.status === 429
+            ? 'Thoda wait karein â€” aap ne bohot saaray messages bheje hain.'
+            : 'Aleem temporarily unavailable. Please try again.')
+        );
         return;
       }
 
       if (data.conversationId) setConversationId(data.conversationId);
-      if (data.quotaMode)      setQuotaMode(data.quotaMode);
 
       const assistantMsg: Message = {
         id:        crypto.randomUUID(),
         role:      'assistant',
-        content:   data.reply ?? 'Main aap ki baat samajh nahi saka. Dobara try karein.',
+        content:   data.response ?? 'Main aap ki baat samajh nahi saka. Dobara try karein.',
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Lead form trigger logic
-      const threshold = data.quotaMode === 'priority' ? 2 : 4;
-      if (!leadCaptured && messages.length >= threshold) {
-        setShowLeadForm(true);
+      // Grounded verified listings. Remember exactly which slugs were shown so
+      // a later consent message can be matched to them.
+      if (Array.isArray(data.listings)) {
+        setListings(data.listings);
+        setLastListings(data.listings.map((item) => item.slug));
       }
+
+      // No engagement-based lead prompting. A callback is created only when
+      // the user explicitly asks for one, which the server handles.
 
     } catch {
       setError('Network error. Please check your connection.');
@@ -482,7 +512,7 @@ export default function AriaChat({
       {
         id:        crypto.randomUUID(),
         role:      'assistant',
-        content:   'Shukriya! 🎉 Hamari team 24 hours mein aap se call karegi. Tab tak aap aur properties browse kar sakte hain.',
+        content:   'Shukriya! Aap ki request note kar li gayi hai 🎉” hamari team aap se raabta karegi. Tab tak aap aur verified properties browse kar sakte hain.',
         timestamp: new Date(),
       },
     ]);
