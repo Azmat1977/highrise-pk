@@ -18,6 +18,8 @@ import type {
   MessageRole,
 } from '@/models/Conversation';
 import type { AleemContextInput } from '@/lib/aleem/aleemContext';
+import type { ExtractedProfile } from '@/lib/aleem/extractProfile';
+import { encodeProfileForStorage } from '@/lib/aleem/profileStore';
 
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -35,6 +37,10 @@ export interface HistoryItem {
 export interface StoredConversation {
   conversationId: string | null;
   history: HistoryItem[];
+  /** Which contact fields we already hold. Values are never returned. */
+  knownProfile: ExtractedProfile;
+  /** Number of user turns already stored in this session. */
+  turnCount: number;
 }
 
 // ---------------------------------------------------------------------------
@@ -116,13 +122,37 @@ export async function loadConversationHistory(
     }
 
     const doc = await Conversation.findOne(query)
-      .select('_id messages')
+      .select('_id messages capturedProfile')
       .sort({ lastActivityAt: -1 })
       .maxTimeMS(QUERY_MS)
-      .lean<{ _id: mongoose.Types.ObjectId; messages?: HistoryItem[] } | null>()
+      .lean<{
+        _id: mongoose.Types.ObjectId;
+        messages?: HistoryItem[];
+        capturedProfile?: {
+          name?: string;
+          city?: string;
+          phoneMasked?: string;
+          emailMasked?: string;
+        };
+      } | null>()
       .exec();
 
-    if (!doc) return { conversationId: null, history: [] };
+    if (!doc) {
+      return { conversationId: null, history: [], knownProfile: {}, turnCount: 0 };
+    }
+
+    // Presence only. Masked values stand in for the real ones so nothing
+    // sensitive is decrypted merely to decide what still needs asking.
+    const saved = doc.capturedProfile;
+    const knownProfile: ExtractedProfile = {};
+    if (saved?.name) knownProfile.name = saved.name;
+    if (saved?.city) knownProfile.city = saved.city;
+    if (saved?.phoneMasked) knownProfile.phone = saved.phoneMasked;
+    if (saved?.emailMasked) knownProfile.email = saved.emailMasked;
+
+    const turnCount = (doc.messages ?? []).filter(
+      (msg: HistoryItem) => msg?.role === 'user',
+    ).length;
 
     const history = (doc.messages ?? [])
       .filter(
@@ -134,9 +164,9 @@ export async function loadConversationHistory(
       .slice(-MAX_PROMPT_MESSAGES)
       .map((msg: HistoryItem) => ({ role: msg.role, content: msg.content }));
 
-    return { conversationId: String(doc._id), history };
+    return { conversationId: String(doc._id), history, knownProfile, turnCount };
   } catch {
-    return { conversationId: null, history: [] };
+    return { conversationId: null, history: [], knownProfile: {}, turnCount: 0 };
   }
 }
 
@@ -152,6 +182,8 @@ export interface PersistTurnInput {
   assistantMessage: string;
   ipAddress?: string;
   userAgent?: string;
+  /** Newly captured contact fields to merge. Never overwrites known values. */
+  newProfile?: ExtractedProfile;
 }
 
 /**
@@ -202,6 +234,24 @@ export async function persistTurn(input: PersistTurnInput): Promise<void> {
     // Bound document growth. The 7-day TTL index handles long-term cleanup.
     if (conversation.messages.length > MAX_STORED_MESSAGES) {
       conversation.messages = conversation.messages.slice(-MAX_STORED_MESSAGES);
+    }
+
+    // Merge newly captured contact details. Encryption happens in
+    // profileStore; a field that cannot be encrypted is dropped, never stored
+    // in plain text. Existing values are never overwritten.
+    if (input.newProfile && Object.keys(input.newProfile).length > 0) {
+      const { fields } = encodeProfileForStorage(input.newProfile);
+      if (Object.keys(fields).length > 0) {
+        const current = conversation.capturedProfile ?? {};
+        const next = { ...current };
+        (Object.keys(fields) as Array<keyof typeof fields>).forEach((key) => {
+          if (next[key] === undefined || next[key] === null) {
+            // @ts-expect-error - index assignment across a union of field types
+            next[key] = fields[key];
+          }
+        });
+        conversation.capturedProfile = next;
+      }
     }
 
     const userTexts = conversation.messages

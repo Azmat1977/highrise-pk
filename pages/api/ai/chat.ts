@@ -15,6 +15,16 @@ import {
   loadConversationHistory,
   persistTurn,
 } from '@/lib/aleem/conversationStore';
+import {
+  extractProfile,
+  mergeProfile,
+  missingFields,
+} from '@/lib/aleem/extractProfile';
+import {
+  buildCaptureAcknowledgement,
+  buildProfileNudge,
+  encodeProfileForStorage,
+} from '@/lib/aleem/profileStore';
 import aiCache from '@/lib/aiCache';
 interface GeminiMessage {
   role: 'user' | 'assistant' | 'system';
@@ -420,14 +430,28 @@ export default async function handler(
     // client, so it replaces whatever history the browser sent.
     const sessionId = validateSessionId(rawSessionId);
     let conversationId: string | null = null;
+    let knownProfile: ReturnType<typeof extractProfile> = {};
+    let turnCount = 0;
 
     if (sessionId) {
       const stored = await loadConversationHistory(sessionId, userId);
       conversationId = stored.conversationId;
+      knownProfile = stored.knownProfile;
+      turnCount = stored.turnCount;
       if (stored.history.length > 0) {
         history = stored.history;
       }
     }
+
+    // Progressive capture: read any contact details this message reveals.
+    // Capture is NOT consent - a callback still requires explicit agreement.
+    const foundProfile = extractProfile(message);
+    const { merged: fullProfile, added: newlyAdded } = mergeProfile(
+      knownProfile,
+      foundProfile,
+    );
+
+    const newProfile = newlyAdded.length > 0 ? foundProfile : undefined;
 
     // Validate optional page context. Navigation hints only - the client can
     // say which page the user is on, never what is true about that page.
@@ -654,10 +678,18 @@ const chatHistory = history.map(msg => ({
   content: msg.content,
 }));
 
+// Server-controlled guidance so ALEEM earns ONE missing detail naturally.
+// Appended to the context block; the persona in lib/gemini.ts is untouched.
+const profileNudge = buildProfileNudge(missingFields(fullProfile), turnCount);
+const combinedContext = [resolvedContext?.block ?? '', profileNudge]
+  .filter(Boolean)
+  .join('')
+  .trim();
+
 const aiResult = await generateChatResponse({
   message,
   history: chatHistory,
-  contextBlock: resolvedContext?.block,
+  contextBlock: combinedContext || undefined,
 });
 
 if (aiResult) {
@@ -698,6 +730,14 @@ if (aiResult) {
     // ─────────────────────────────────────────────
     // Persist this turn. Fire-and-forget by design: memory must never delay or
     // break the customer's reply, so this is deliberately not awaited.
+    // Tell the user plainly what was noted, using MASKED values so a full
+    // phone number is never echoed back into the transcript.
+    if (newlyAdded.length > 0) {
+      const { masked } = encodeProfileForStorage(foundProfile);
+      const ack = buildCaptureAcknowledgement(newlyAdded, masked);
+      if (ack) aiResponse += ack;
+    }
+
     if (sessionId) {
       void persistTurn({
         sessionId,
@@ -707,6 +747,7 @@ if (aiResult) {
         assistantMessage: aiResponse,
         ipAddress: clientIP,
         userAgent,
+        newProfile,
       });
     }
 
