@@ -5,7 +5,7 @@ import dbConnect from '@/lib/dbConnect';
 import SecurityEvent from '@/models/SecurityEvent';
 import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitAI } from '@/lib/rateLimit';
-import { generateAIResponse, getRandomAgent } from '@/lib/gemini';
+import { generateChatResponse } from '@/lib/ai/generateChatResponse';
 import { extractSearchSlots } from '@/lib/aleem/extractSlots';
 import { searchProperties } from '@/lib/aleem/searchProperties';
 import { createAleemLead, detectConsent, validateListingSlugs } from '@/lib/aleem/createAleemLead';
@@ -604,45 +604,33 @@ export default async function handler(
 let aiResponse: string;
 let tokensUsed = 0;
 let usedFallback = false;
+let aiProvider: string | null = null;
+let aiModelName: string | null = null;
 
-// Check if Gemini API key is available
-const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY);
+// Multi-provider AI call: Gemini primary, Groq fallback. Each vendor has its
+// own Redis-backed daily budget and circuit breaker inside this helper.
+const chatHistory = history.map(msg => ({
+  role: msg.role,
+  content: msg.content,
+}));
 
-if (hasGeminiKey) {
-  try {
-    // Get random agent for personality
-    const agentName = getRandomAgent('female');
-    const agentGender: 'male' | 'female' = 'female';
+const aiResult = await generateChatResponse({
+  message,
+  history: chatHistory,
+  contextBlock: resolvedContext?.block,
+});
 
-    // Build chat history from validated history
-    const chatHistory = history.map(msg => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+if (aiResult) {
+  aiResponse = aiResult.response;
+  tokensUsed = aiResult.tokensUsed || 0;
+  aiProvider = aiResult.provider;
+  aiModelName = aiResult.modelName;
+  dailyRequestCount++;
 
-    // Call your existing Gemini function
-    const result = await generateAIResponse(
-      message,
-      chatHistory,
-      agentName,
-      agentGender,
-      resolvedContext?.block
-    );
-
-    aiResponse = result.response;
-    tokensUsed = result.tokensUsed || 0;
-    dailyRequestCount++;
-
-    // Cache successful response under the context-namespaced key
-    aiCache.set(cacheKey, aiResponse);
-
-  } catch {
-    // Gemini failed, use fallback
-    aiResponse = getSmartFallbackResponse(message);
-    usedFallback = true;
-  }
+  // Cache successful response under the context-namespaced key
+  aiCache.set(cacheKey, aiResponse);
 } else {
-  // Gemini not available, use fallback
+  // Every provider unavailable: honest guidance, never invented content.
   aiResponse = getSmartFallbackResponse(message);
   usedFallback = true;
 }
@@ -674,8 +662,8 @@ if (hasGeminiKey) {
   usedFallback,
   tokensUsed,
   modelInfo: usedFallback ? null : {
-    name: 'gemini-flash-latest',
-    provider: 'Google Gemini',
+    name: aiModelName ?? 'unknown',
+    provider: aiProvider === 'groq' ? 'Groq' : 'Google Gemini',
     tier: 'Free',
   },
   cached: false,

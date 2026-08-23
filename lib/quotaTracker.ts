@@ -9,6 +9,9 @@ import { Redis } from '@upstash/redis';
 
 export type QuotaMode = 'normal' | 'priority' | 'lead_only';
 
+/** AI vendors tracked independently. Each has its own daily budget. */
+export type AIProviderName = 'gemini' | 'groq';
+
 export interface QuotaStatus {
   used:        number;
   limit:       number;
@@ -70,9 +73,12 @@ function incrementMemoryCount(key: string): number {
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function getDailyKey(): string {
+function getDailyKey(provider: AIProviderName = 'groq'): string {
   const date = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  return `${QUOTA_KEY_PREFIX}:${date}`;
+  // 'groq' keeps its original key shape so today's live counters survive.
+  return provider === 'groq'
+    ? `${QUOTA_KEY_PREFIX}:${date}`
+    : `hr:quota:${provider}:${date}`;
 }
 
 function getAlertKey(threshold: number): string {
@@ -91,8 +97,13 @@ function getMidnightUtcMs(): number {
   return midnight.getTime();
 }
 
-function getLimit(): number {
-  return parseInt(process.env.GROQ_DAILY_LIMIT ?? '14400', 10);
+function getLimit(provider: AIProviderName = 'groq'): number {
+  const raw =
+    provider === 'gemini'
+      ? process.env.GEMINI_DAILY_LIMIT ?? '1500'
+      : process.env.GROQ_DAILY_LIMIT ?? '14400';
+  const parsed = parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 1;
 }
 
 function getPriorityThreshold(): number {
@@ -111,8 +122,8 @@ function determineMode(percentage: number): QuotaMode {
  * Increment quota counter atomically.
  * Returns new count after increment.
  */
-export async function incrementQuota(): Promise<number> {
-  const key = getDailyKey();
+export async function incrementQuota(provider: AIProviderName = 'groq'): Promise<number> {
+  const key = getDailyKey(provider);
   const r   = getRedis();
 
   if (r) {
@@ -135,9 +146,9 @@ export async function incrementQuota(): Promise<number> {
  * Get current quota status WITHOUT incrementing.
  * Safe to call frequently.
  */
-export async function getQuotaStatus(): Promise<QuotaStatus> {
-  const key   = getDailyKey();
-  const limit = getLimit();
+export async function getQuotaStatus(provider: AIProviderName = 'groq'): Promise<QuotaStatus> {
+  const key   = getDailyKey(provider);
+  const limit = getLimit(provider);
   const r     = getRedis();
 
   let used = 0;
