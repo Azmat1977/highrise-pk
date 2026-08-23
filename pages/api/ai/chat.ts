@@ -3,7 +3,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import dbConnect from '@/lib/dbConnect';
 import SecurityEvent from '@/models/SecurityEvent';
-import { requireAuth } from '@/lib/requireAuth';
+import { getOptionalAuth } from '@/lib/optionalAuth';
 import { rateLimitAI } from '@/lib/rateLimit';
 import { generateChatResponse } from '@/lib/ai/generateChatResponse';
 import { extractSearchSlots } from '@/lib/aleem/extractSlots';
@@ -328,19 +328,13 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 2: AUTHENTICATION
     // ─────────────────────────────────────────────
-    const auth = await requireAuth(req, res);
-    if (!auth) {
-      await logSecurityEvent({
-        eventType: 'ai_chat_unauthorized',
-        severity: 'medium',
-        ipAddress: clientIP,
-        userAgent,
-        metadata: { endpoint: '/api/ai/chat' },
-      });
-      return;
-    }
-
-    const userId = auth.id;
+    // Public endpoint: anonymous visitors may ask questions and see verified
+    // listings. getOptionalAuth never writes a response - a missing, expired,
+    // revoked or suspended session simply resolves to null and we continue as
+    // a guest. Guests cannot create leads (guarded at the consent step below).
+    const auth = await getOptionalAuth(req);
+    const userId = auth?.id;
+    const isGuest = !userId;
 
     // ─────────────────────────────────────────────
     // STEP 3: RATE LIMITING
@@ -364,6 +358,10 @@ export default async function handler(
         success: false,
         message: rateLimitResult.limit === 15
           ? 'Global AI rate limit reached. Please try again in a minute.'
+          : rateLimitResult.limit === 8
+          ? 'You have reached the hourly guest limit. Please sign in to continue chatting with ALEEM.'
+          : rateLimitResult.limit === 20
+          ? 'You have reached the daily guest limit. Please sign in to continue chatting with ALEEM.'
           : rateLimitResult.limit === 10
           ? 'You have reached the hourly limit of 10 messages. Please try again later.'
           : 'You have reached the daily limit of 30 messages. Please try again tomorrow.',
@@ -373,6 +371,8 @@ export default async function handler(
       });
     }
 
+    // getOptionalAuth only connects when a token exists, so a true guest has
+    // no connection yet. Connect explicitly before any DB work.
     await dbConnect();
 
     // ─────────────────────────────────────────────
@@ -505,7 +505,23 @@ export default async function handler(
     // ── STEP 4.6: CONSENT → CALLBACK LEAD (ALEEM) ──
     const consentSlugs = validateListingSlugs(req.body?.lastListings);
 
-    if (consentSlugs.length > 0 && detectConsent(message)) {
+    if (consentSlugs.length > 0 && detectConsent(message) && isGuest) {
+      // Guests may browse and ask freely, but a callback lead requires an
+      // account with a verified phone. No lead is created here.
+      return res.status(200).json({
+        success: true,
+        response:
+          'I can arrange a callback for those listings. Please sign in to ' +
+          'your Highrise account first so our team can reach you on your ' +
+          'verified number.',
+        requiresAuth: true,
+        grounded: true,
+        cached: false,
+        requestId,
+      });
+    }
+
+    if (consentSlugs.length > 0 && detectConsent(message) && userId) {
       try {
         const leadResult = await createAleemLead(userId, consentSlugs);
 

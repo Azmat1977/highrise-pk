@@ -76,6 +76,12 @@ const RATE_LIMITS = {
   AI_CHAT_HOURLY: { requests: 10, window: "1 h", prefix: "hr:rl:ai_hourly" },
   AI_CHAT_DAILY: { requests: 30, window: "1 d", prefix: "hr:rl:ai_daily" },
 
+  // Anonymous AI chat - keyed by IP only. Deliberately lower than the
+  // signed-in caps so registering is worth it, and so one abusive IP cannot
+  // drain the shared daily AI budget.
+  AI_GUEST_HOURLY: { requests: 8, window: "1 h", prefix: "hr:rl:ai_guest_hourly" },
+  AI_GUEST_DAILY: { requests: 20, window: "1 d", prefix: "hr:rl:ai_guest_daily" },
+
   // Admin Operations (relaxed but tracked)
   ADMIN_ACTION: { requests: 200, window: "1 m", prefix: "hr:rl:admin" },
 
@@ -438,7 +444,16 @@ export async function rateLimitAI(req: NextApiRequest, userId?: string): Promise
     return hourlyResult;
   }
 
-  return globalResult;
+  // Anonymous caller. No identifier is passed, so rateLimit() keys on IP alone.
+  // Without these an unauthenticated client would only face the shared 15/min
+  // global bucket, i.e. no daily ceiling on AI spend at all.
+  const guestHourly = await rateLimit(req, RATE_LIMITS.AI_GUEST_HOURLY);
+  if (!guestHourly.ok) return guestHourly;
+
+  const guestDaily = await rateLimit(req, RATE_LIMITS.AI_GUEST_DAILY);
+  if (!guestDaily.ok) return guestDaily;
+
+  return guestHourly;
 }
 
 export async function rateLimitAdmin(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.ADMIN_ACTION); }
