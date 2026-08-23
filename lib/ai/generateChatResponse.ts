@@ -38,6 +38,23 @@ export interface GenerateChatResult {
   modelName: string;
 }
 
+/** Why each provider was skipped or how it failed. Never shown to customers. */
+export interface ProviderAttempt {
+  provider: AIProviderName;
+  outcome: 'no_key' | 'breaker_open' | 'no_budget' | 'failed' | 'ok';
+  error?: string;
+}
+
+let lastAttempts: ProviderAttempt[] = [];
+
+/**
+ * Diagnostics for the most recent generateChatResponse() call on this
+ * instance. Read by the route for audit logging when every provider fails.
+ */
+export function getLastProviderDiagnostics(): ProviderAttempt[] {
+  return lastAttempts;
+}
+
 // ---------------------------------------------------------------------------
 // Tunables
 // ---------------------------------------------------------------------------
@@ -183,11 +200,21 @@ export async function generateChatResponse(
   opts: GenerateChatOptions,
 ): Promise<GenerateChatResult | null> {
   const agentName = getRandomAgent('female');
+  const attempts: ProviderAttempt[] = [];
 
   for (const provider of PROVIDER_ORDER) {
-    if (!hasKey(provider)) continue;
-    if (isBreakerOpen(provider)) continue;
-    if (!(await hasBudget(provider))) continue;
+    if (!hasKey(provider)) {
+      attempts.push({ provider, outcome: 'no_key' });
+      continue;
+    }
+    if (isBreakerOpen(provider)) {
+      attempts.push({ provider, outcome: 'breaker_open' });
+      continue;
+    }
+    if (!(await hasBudget(provider))) {
+      attempts.push({ provider, outcome: 'no_budget' });
+      continue;
+    }
 
     try {
       if (provider === 'gemini') {
@@ -217,10 +244,16 @@ export async function generateChatResponse(
         provider,
         modelName: result.modelName,
       };
-    } catch {
+    } catch (err: unknown) {
       recordFailure(provider);
+      attempts.push({
+        provider,
+        outcome: 'failed',
+        error: err instanceof Error ? err.message.slice(0, 300) : 'unknown error',
+      });
     }
   }
 
+  lastAttempts = attempts;
   return null;
 }
