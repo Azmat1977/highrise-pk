@@ -10,6 +10,11 @@ import { extractSearchSlots } from '@/lib/aleem/extractSlots';
 import { searchProperties } from '@/lib/aleem/searchProperties';
 import { createAleemLead, detectConsent, validateListingSlugs } from '@/lib/aleem/createAleemLead';
 import { parseAleemContext, resolveAleemContext } from '@/lib/aleem/aleemContext';
+import {
+  validateSessionId,
+  loadConversationHistory,
+  persistTurn,
+} from '@/lib/aleem/conversationStore';
 import aiCache from '@/lib/aiCache';
 interface GeminiMessage {
   role: 'user' | 'assistant' | 'system';
@@ -373,7 +378,12 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 4: VALIDATE INPUT
     // ─────────────────────────────────────────────
-    const { message: rawMessage, history: rawHistory, context: rawContext } = req.body;
+    const {
+      message: rawMessage,
+      history: rawHistory,
+      context: rawContext,
+      sessionId: rawSessionId,
+    } = req.body;
 
     if (!rawMessage || typeof rawMessage !== 'string') {
       return res.status(400).json({
@@ -402,8 +412,22 @@ export default async function handler(
       });
     }
 
-    // Validate and sanitize history
-    const history = validateHistory(rawHistory);
+    // Validate and sanitize client-supplied history. This is a FALLBACK only:
+    // if the server already has a transcript for this session, that wins.
+    let history = validateHistory(rawHistory);
+
+    // Server-authoritative memory. A stored transcript cannot be forged by the
+    // client, so it replaces whatever history the browser sent.
+    const sessionId = validateSessionId(rawSessionId);
+    let conversationId: string | null = null;
+
+    if (sessionId) {
+      const stored = await loadConversationHistory(sessionId, userId);
+      conversationId = stored.conversationId;
+      if (stored.history.length > 0) {
+        history = stored.history;
+      }
+    }
 
     // Validate optional page context. Navigation hints only - the client can
     // say which page the user is on, never what is true about that page.
@@ -656,9 +680,25 @@ if (aiResult) {
     // ─────────────────────────────────────────────
     // STEP 10: RETURN RESPONSE
     // ─────────────────────────────────────────────
+    // Persist this turn. Fire-and-forget by design: memory must never delay or
+    // break the customer's reply, so this is deliberately not awaited.
+    if (sessionId) {
+      void persistTurn({
+        sessionId,
+        userId,
+        context: pageContext,
+        userMessage: message,
+        assistantMessage: aiResponse,
+        ipAddress: clientIP,
+        userAgent,
+      });
+    }
+
     return res.status(200).json({
   success: true,
   response: aiResponse,
+  conversationId,
+  sessionId,
   usedFallback,
   tokensUsed,
   modelInfo: usedFallback ? null : {
