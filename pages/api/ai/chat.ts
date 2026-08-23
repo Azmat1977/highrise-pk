@@ -5,7 +5,10 @@ import dbConnect from '@/lib/dbConnect';
 import SecurityEvent from '@/models/SecurityEvent';
 import { getOptionalAuth } from '@/lib/optionalAuth';
 import { rateLimitAI } from '@/lib/rateLimit';
-import { generateChatResponse } from '@/lib/ai/generateChatResponse';
+import {
+  generateChatResponse,
+  getLastProviderDiagnostics,
+} from '@/lib/ai/generateChatResponse';
 import { extractSearchSlots } from '@/lib/aleem/extractSlots';
 import { searchProperties } from '@/lib/aleem/searchProperties';
 import { createAleemLead, detectConsent, validateListingSlugs } from '@/lib/aleem/createAleemLead';
@@ -26,6 +29,12 @@ import {
   encodeProfileForStorage,
 } from '@/lib/aleem/profileStore';
 import aiCache from '@/lib/aiCache';
+import { getFallbackReply } from '@/lib/aleem/fallbackReplies';
+import {
+  detectReplyLang,
+  buildMatchesReply,
+  buildNoMatchesReply,
+} from '@/lib/aleem/searchReplies';
 
 /** Shape used by validateHistory() for sanitised conversation turns. */
 interface GeminiMessage {
@@ -222,10 +231,18 @@ FORMAT:
 // ═══════════════════════════════════════════════════════════════
 
 function getSmartFallbackResponse(message: string): string {
+  // Short, human replies live in lib/aleem/fallbackReplies.ts. The long
+  // brochure-style text that used to live here read like a product tour,
+  // not a conversation.
+  return getFallbackReply(message);
+}
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function legacyFallbackUnused(message: string): string {
   const lowerMessage = message.toLowerCase();
 
   // Greeting (no prices — always safe)
-  if (lowerMessage.includes('hello') || lowerMessage.includes('hi') || lowerMessage.includes('hey') || lowerMessage.includes('assalam')) {
+  if (/\b(hello|hi|hey|salam|assalam|assalamualaikum)\b/i.test(lowerMessage)) {
     return `Hello! 👋 Welcome to Highrise.pk!
 
 I'm your AI Real Estate Assistant. I can help you:
@@ -484,10 +501,15 @@ export default async function handler(
 
           return res.status(200).json({
             success: true,
-            response:
-              `Here ${matchCount === 1 ? 'is' : 'are'} ${matchCount} verified ` +
-              `listing${matchCount === 1 ? '' : 's'} matching your search — ` +
-              `all details are from our live inventory:`,
+            // Language-aware and deterministic: this path runs before any AI
+            // provider, so it must stay correct even when every provider is
+            // down. Includes a real /property/<slug> link per listing.
+            response: buildMatchesReply(
+              detectReplyLang(message),
+              matchCount,
+              searchResult.matches,
+              searchSlots.listingType === 'rent',
+            ),
             listings: searchResult.matches,
             search: searchResult.filters,
             grounded: true,
@@ -508,11 +530,10 @@ export default async function handler(
 
         return res.status(200).json({
           success: true,
-          response:
-            'I could not find any verified listings matching that exact search ' +
-            'right now. You can refine your filters — try a different location, ' +
-            'size, or a higher budget — or browse all verified listings using ' +
-            'the filters on the /properties page.',
+          response: buildNoMatchesReply(
+            detectReplyLang(message),
+            searchSlots.listingType === 'rent',
+          ),
           listings: [],
           search: searchResult.filters,
           grounded: true,
@@ -565,11 +586,17 @@ export default async function handler(
 
         return res.status(200).json({
           success: true,
-          response: leadResult.success
-            ? 'Callback arranged! Our team will contact you shortly about the listings you selected.'
-            : (leadResult.code === 'PHONE_NOT_VERIFIED'
-              ? 'To arrange a callback, please verify your phone number first.'
-              : 'Sorry, those listings are no longer available. Please search again.'),
+        response: leadResult.success
+          ? (detectReplyLang(message) === 'english'
+            ? 'Done - our team will get in touch about those listings.'
+            : 'Theek hai, hamari team un listings ke baare mein aap se raabta karegi.')
+          : (leadResult.code === 'PHONE_NOT_VERIFIED'
+            ? (detectReplyLang(message) === 'english'
+              ? 'Please verify your phone number first, then I can arrange the callback.'
+              : 'Pehle apna phone number verify kar lein, phir main callback arrange kar dunga.')
+            : (detectReplyLang(message) === 'english'
+              ? 'Those listings are no longer available. Shall we search again?'
+              : 'Woh listings ab available nahi hain. Dobara search karein?')),
           lead: leadResult.success ? { id: leadResult.leadId, listingCount: leadResult.listingCount } : null,
           grounded: true,
           cached: false,
@@ -703,8 +730,18 @@ if (aiResult) {
   aiCache.set(cacheKey, aiResponse);
 } else {
   // Every provider unavailable: honest guidance, never invented content.
+  // Record WHY so a silent outage cannot masquerade as normal operation.
   aiResponse = getSmartFallbackResponse(message);
   usedFallback = true;
+
+  await logSecurityEvent({
+    eventType: 'ai_all_providers_failed',
+    severity: 'high',
+    userId,
+    ipAddress: clientIP,
+    userAgent,
+    metadata: { attempts: getLastProviderDiagnostics() },
+  });
 }
     // ─────────────────────────────────────────────
     // STEP 9: LOG USAGE
@@ -730,13 +767,9 @@ if (aiResult) {
     // ─────────────────────────────────────────────
     // Persist this turn. Fire-and-forget by design: memory must never delay or
     // break the customer's reply, so this is deliberately not awaited.
-    // Tell the user plainly what was noted, using MASKED values so a full
-    // phone number is never echoed back into the transcript.
-    if (newlyAdded.length > 0) {
-      const { masked } = encodeProfileForStorage(foundProfile);
-      const ack = buildCaptureAcknowledgement(newlyAdded, masked);
-      if (ack) aiResponse += ack;
-    }
+    // Capture happens silently. ALEEM should sound like a person, not a form.
+    // Details are still encrypted at rest and nobody is contacted without
+    // explicit consent, which is handled at the consent step above.
 
     if (sessionId) {
       void persistTurn({

@@ -26,6 +26,8 @@ export const PropertySearchSlotsSchema = z
     intent: z.enum(ALEEM_INTENTS).optional(),
     // What kind of property the user is looking for.
     type: z.enum(ALEEM_PROPERTY_TYPES).optional(),
+    // Rent vs sale. Without this a "for rent" search returns sale listings.
+    listingType: z.enum(['rent', 'sale']).optional(),
     // Plot size in marla (1 marla = 272.25 sq ft = 30.25 sq yd).
     marla: z.number().positive().max(10000).optional(),
     // Free-text location: city, society, or locality (e.g. "Islamabad", "B-17").
@@ -76,10 +78,11 @@ export function parseBudgetExpression(input: string): number | null {
 
   if (!raw) return null;
 
-  const croreMatch = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*crore$/);
+  const croreMatch = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:crore|crores|karor|kror|croar)$/);
   if (croreMatch) return Math.round(parseFloat(croreMatch[1]) * CRORE);
 
-  const lakhMatch = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*lakh$/);
+  // Accept common spellings: lakh, lac, lack, lackh, lakhs.
+  const lakhMatch = raw.match(/^([0-9]+(?:\.[0-9]+)?)\s*(?:lakh|lakhs|lac|lacs|lack|lackh)$/);
   if (lakhMatch) return Math.round(parseFloat(lakhMatch[1]) * LAKH);
 
   const plain = raw.match(/^([0-9]+)$/);

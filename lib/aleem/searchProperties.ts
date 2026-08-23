@@ -47,6 +47,7 @@ export interface SearchPropertiesResult {
   total: number;
   filters: {
     type?: string;
+    listingType?: string;
     location?: string;
     marla?: number;
     budgetMinPKR?: number;
@@ -117,7 +118,12 @@ export async function searchProperties(
   if (slots.type) {
     clauses.push(buildTypeFilter(slots.type));
   }
-
+  // Rent vs sale. Without this clause a "for rent" search silently returns
+  // sale listings, which breaks the verified promise.
+  if (slots.listingType) {
+    const lt = escapeRegex(slots.listingType);
+    clauses.push({ listingType: { $regex: `^${lt}$`, $options: 'i' } });
+  }
   // ── Location (city / society / locality) ────────────────
   if (slots.location) {
     const safe = escapeRegex(slots.location);
@@ -181,6 +187,7 @@ export async function searchProperties(
     total: matches.length,
     filters: {
       type: slots.type,
+      listingType: slots.listingType,
       location: slots.location,
       marla: slots.marla,
       budgetMinPKR: slots.budgetMinPKR,

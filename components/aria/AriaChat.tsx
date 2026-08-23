@@ -87,10 +87,10 @@ interface AleemChatResponse {
 // ─── Quick reply buttons (context-aware) ─────────────────────────────────────
 
 const QUICK_REPLIES_GENERAL = [
-  { label: '🏠 I want to buy', value: 'I want to buy a property in Pakistan.' },
-  { label: '💰 Investment advice', value: 'I am looking for investment opportunities in real estate.' },
-  { label: '🏘️ Check society NOC', value: 'I want to check the NOC status of a housing society.' },
-  { label: '📊 Search verified listings', value: 'Show me verified listings â€” 5 marla plot in B-17 under 60 lakh.' },
+  { label: 'Buy', value: 'Mujhe property khareedni hai' },
+  { label: 'Rent', value: 'Kiraye par ghar chahiye' },
+  { label: 'Check NOC', value: 'Society ka NOC check karna hai' },
+  { label: 'Find listings', value: '5 marla plot B-17 mein, 60 lakh tak' },
 ];
 
 const QUICK_REPLIES_PROPERTY = [
@@ -403,17 +403,8 @@ export default function AriaChat({
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
 
-  // Initial greeting
-  useEffect(() => {
-    const greeting = buildGreeting(context, session?.user?.name);
-    setMessages([{
-      id:        crypto.randomUUID(),
-      role:      'assistant',
-      content:   greeting,
-      timestamp: new Date(),
-    }]);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // No auto-greeting. The customer speaks first; ALEEM answers what was
+  // actually asked instead of opening with a scripted pitch.
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isTyping) return;

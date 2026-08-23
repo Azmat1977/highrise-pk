@@ -38,6 +38,12 @@ function detectType(lower: string): PropertySearchSlots['type'] | undefined {
   return undefined;
 }
 
+function detectListingType(lower: string): 'rent' | 'sale' | undefined {
+  if (/\b(rent|rental|kiraya|kirae|kiraye|kirai|lease|tenant)\b/.test(lower)) return 'rent';
+  if (/\b(buy|purchase|kharid|khareed|kharidna|sale|for sale|bechna)\b/.test(lower)) return 'sale';
+  return undefined;
+}
+
 function detectMarla(lower: string): number | undefined {
   const m = lower.match(/(\d+(?:\.\d+)?)\s*marla/);
   if (!m) return undefined;
@@ -53,7 +59,7 @@ interface Budget {
 function detectBudget(lower: string): Budget | undefined {
   // Capture every "<number> <lakh/lac/crore/kror>" occurrence with a small
   // window of preceding text so we can tell min vs max intent.
-  const amountRe = /(\d+(?:\.\d+)?)\s*(lakh|lac|crore|kror)/g;
+  const amountRe = /(\d+(?:\.\d+)?)\s*(lakhs|lakh|lacs|lac|lackh|lack|crores|crore|karor|kror|croar)/g;
   const hits: Array<{ value: number; prefix: string; index: number }> = [];
 
   let match: RegExpExecArray | null;
@@ -111,8 +117,12 @@ export function extractSearchSlots(message: string): PropertySearchSlots | null 
 
   const type = detectType(lower);
   const marla = detectMarla(lower);
+  const listingType = detectListingType(lower);
 
-  if (!type && !marla) return null;
+  // A clear rent request is a real search signal on its own: "house for rent"
+  // has a type, but "I need something on rent in Lahore" should also work.
+  const hasLocation = detectLocation(lower) !== undefined;
+  if (!type && !marla && !(listingType === 'rent' && hasLocation)) return null;
 
   const budget = detectBudget(lower);
   const location = detectLocation(lower);
@@ -120,6 +130,7 @@ export function extractSearchSlots(message: string): PropertySearchSlots | null 
 
   const slots: PropertySearchSlots = {
     type,
+    listingType,
     marla,
     location,
     intent,
