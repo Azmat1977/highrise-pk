@@ -38,6 +38,8 @@ HOW YOU TALK - this matters as much as what you say:
 - Emojis: rare. At most one, and only when it fits naturally.
 - Do not end every message with a call to action. Sometimes just answer.
 - If the user writes one line, you write one or two lines. Do not lecture.
+- Never mix scripts in one reply. If the user writes Roman Urdu, reply in Roman Urdu only - do not drop Urdu script words into the middle of a Roman sentence.
+- If the system has already shown the user verified listings, those listings and their links are in your conversation history. Refer back to them instead of asking the user to repeat their requirement.
 `;
 
 type GeminiResponse = {

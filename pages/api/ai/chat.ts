@@ -499,17 +499,31 @@ export default async function handler(
             },
           });
 
+          const matchesReply = buildMatchesReply(
+            detectReplyLang(message, history.map((h) => h.content)),
+            matchCount,
+            searchResult.matches,
+            searchSlots.listingType === 'rent',
+          );
+
+          // Persist this turn. Without it ALEEM forgets the listings it just
+          // showed, so a follow-up like "send me that link" starts from zero.
+          if (sessionId) {
+            void persistTurn({
+              sessionId,
+              userId,
+              context: pageContext,
+              userMessage: message,
+              assistantMessage: matchesReply,
+              ipAddress: clientIP,
+              userAgent,
+              newProfile,
+            });
+          }
+
           return res.status(200).json({
             success: true,
-            // Language-aware and deterministic: this path runs before any AI
-            // provider, so it must stay correct even when every provider is
-            // down. Includes a real /property/<slug> link per listing.
-            response: buildMatchesReply(
-              detectReplyLang(message, history.map((h) => h.content)),
-              matchCount,
-              searchResult.matches,
-              searchSlots.listingType === 'rent',
-            ),
+            response: matchesReply,
             listings: searchResult.matches,
             search: searchResult.filters,
             grounded: true,
@@ -528,12 +542,27 @@ export default async function handler(
           metadata: { matchCount: 0, filters: searchResult.filters },
         });
 
+        const noMatchReply = buildNoMatchesReply(
+          detectReplyLang(message, history.map((h) => h.content)),
+          searchSlots.listingType === 'rent',
+        );
+
+        if (sessionId) {
+          void persistTurn({
+            sessionId,
+            userId,
+            context: pageContext,
+            userMessage: message,
+            assistantMessage: noMatchReply,
+            ipAddress: clientIP,
+            userAgent,
+            newProfile,
+          });
+        }
+
         return res.status(200).json({
           success: true,
-          response: buildNoMatchesReply(
-            detectReplyLang(message, history.map((h) => h.content)),
-            searchSlots.listingType === 'rent',
-          ),
+          response: noMatchReply,
           listings: [],
           search: searchResult.filters,
           grounded: true,
