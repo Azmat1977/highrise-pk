@@ -505,7 +505,7 @@ export default async function handler(
             // provider, so it must stay correct even when every provider is
             // down. Includes a real /property/<slug> link per listing.
             response: buildMatchesReply(
-              detectReplyLang(message),
+              detectReplyLang(message, history.map((h) => h.content)),
               matchCount,
               searchResult.matches,
               searchSlots.listingType === 'rent',
@@ -531,7 +531,7 @@ export default async function handler(
         return res.status(200).json({
           success: true,
           response: buildNoMatchesReply(
-            detectReplyLang(message),
+            detectReplyLang(message, history.map((h) => h.content)),
             searchSlots.listingType === 'rent',
           ),
           listings: [],

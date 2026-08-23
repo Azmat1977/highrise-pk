@@ -8,13 +8,14 @@
 //
 // Hard rule unchanged: never invent a price, rate, ROI or market average.
 
-import { detectLanguage } from '@/lib/gemini';
+import { detectReplyLang, type ReplyLang } from '@/lib/aleem/searchReplies';
 
-type Lang = 'urdu' | 'english' | 'roman-urdu';
+type Lang = ReplyLang;
 
 function pick(lang: Lang, roman: string, urdu: string, english: string): string {
   if (lang === 'urdu') return urdu;
-  if (lang === 'roman-urdu') return roman;
+  // Regional speakers get Roman Urdu with a language offer, never fake fluency.
+  if (lang === 'roman-urdu' || lang === 'other-regional') return roman;
   return english;
 }
 
@@ -34,18 +35,13 @@ const HELP = /\b(help|madad|guide|advice|mashwara|suggest)\b/i;
  * Short offline reply. Mirrors the user's language and asks ONE question -
  * the way a person actually replies when they are busy but helpful.
  */
-export function getFallbackReply(message: string): string {
+export function getFallbackReply(message: string, previous: string[] = []): string {
   const text = typeof message === 'string' ? message.trim() : '';
   if (!text) {
     return 'Ji, batayein?';
   }
 
-  let lang: Lang = 'english';
-  try {
-    lang = detectLanguage(text);
-  } catch {
-    lang = 'english';
-  }
+  const lang: Lang = detectReplyLang(text, previous);
 
   if (GREETING.test(text) && text.length < 60) {
     return pick(

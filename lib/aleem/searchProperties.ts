@@ -120,9 +120,13 @@ export async function searchProperties(
   }
   // Rent vs sale. Without this clause a "for rent" search silently returns
   // sale listings, which breaks the verified promise.
-  if (slots.listingType) {
-    const lt = escapeRegex(slots.listingType);
-    clauses.push({ listingType: { $regex: `^${lt}$`, $options: 'i' } });
+  // DB stores listingType as 'rent' or 'full_payment' (a payment mode, not a
+  // literal "sale"). Rent matches exactly; "sale" means anything not rent, so
+  // future values like 'installment' keep working without another patch.
+  if (slots.listingType === 'rent') {
+    clauses.push({ listingType: { $regex: '^rent$', $options: 'i' } });
+  } else if (slots.listingType === 'sale') {
+    clauses.push({ listingType: { $not: { $regex: '^rent$', $options: 'i' } } });
   }
   // ── Location (city / society / locality) ────────────────
   if (slots.location) {

@@ -18,24 +18,60 @@ import type { PropertyCard } from '@/lib/aleem/searchProperties';
 export type ReplyLang = 'english' | 'urdu' | 'roman-urdu' | 'other-regional';
 
 const URDU_SCRIPT = /[\u0600-\u06FF]/;
-// Letters that appear in Pashto but not standard Urdu.
 const PASHTO_ONLY = /[\u067C\u0681\u0685\u0689\u0693\u0696\u069A\u06AB\u06BC\u06CD]/;
-// Distinctive Roman Punjabi / Pashto words.
+
 const ROMAN_REGIONAL =
-  /\b(tuhada|tuhanu|tusi|assi|menu|mainu|kithe|kinna|changa|hega|sanu|za|zama|staso|tase|څنګه|pekhawar)\b/i;
+  /\b(tuhada|tuhanu|tusi|assi|kithe|kinna|changa|hega|sanu|zama|staso|tase|senga|pekhawar|khpal)\b/i;
 
-const ROMAN_URDU_HINTS =
-  /\b(hai|hain|kya|kia|mein|main|aap|ap|chahiye|chahye|karna|kar|mujhe|mujhy|dhoond|dhundh|batao|batayein|acha|theek|ghar|zameen|paisay|kitna|kahan|kaise)\b/i;
+// Greetings and courtesy words that are strong Urdu/Pakistani signals even
+// when they appear alone in a one-word message.
+const URDU_GREETING =
+  /\b(salam|slam|salaam|assalam|assalamualaikum|asalam|aoa|walaikum|walekum|shukriya|shukria|jazakallah|inshallah|mashallah|khuda hafiz|allah hafiz)\b/i;
 
-/** Detect the reply language from the user's own message. */
-export function detectReplyLang(message: string): ReplyLang {
+// Everyday Roman Urdu vocabulary. Deliberately broad: a false positive only
+// means we reply in Roman Urdu to someone typing English words like "ghar",
+// which is far less jarring than replying in English to an Urdu speaker.
+const ROMAN_URDU_HINTS = new RegExp(
+  [
+    '\\b(hai|hain|hoon|hun|ho|tha|thi|thay|karna|karni|kar|karo|karein|kare)\\b',
+    '\\b(kya|kia|kyun|kyu|kaise|kaisay|kahan|kahaan|kab|kitna|kitni|kitne)\\b',
+    '\\b(mein|main|mujhe|mujhy|mera|meri|mere|hum|humein|aap|ap|apna|apni)\\b',
+    '\\b(chahiye|chahye|chaiye|chahta|chahti|dhoond|dhundh|dhundna|talash)\\b',
+    '\\b(acha|accha|theek|thik|bilkul|zaroor|haan|han|nahi|nahin|nai)\\b',
+    '\\b(ghar|makan|zameen|zamin|jagah|paisa|paisay|paise|qeemat|keemat)\\b',
+    '\\b(batao|batayein|bataen|dekho|dekhein|samajh|samjha|lena|dena|milega)\\b',
+    '\\b(kiraya|kiraye|kirai|bechna|kharidna|khareedna|lagta|lagti)\\b',
+  ].join('|'),
+  'i',
+);
+
+/**
+ * Detect the language to reply in. `previous` holds earlier user messages so a
+ * short follow-up ("ok", "ji") inherits the language already established in
+ * the conversation instead of snapping back to English.
+ */
+export function detectReplyLang(message: string, previous: string[] = []): ReplyLang {
   const text = typeof message === 'string' ? message : '';
-  if (!text.trim()) return 'english';
 
-  if (PASHTO_ONLY.test(text)) return 'other-regional';
-  if (URDU_SCRIPT.test(text)) return 'urdu';
-  if (ROMAN_REGIONAL.test(text)) return 'other-regional';
-  if (ROMAN_URDU_HINTS.test(text)) return 'roman-urdu';
+  const classify = (input: string): ReplyLang | null => {
+    if (!input.trim()) return null;
+    if (PASHTO_ONLY.test(input)) return 'other-regional';
+    if (URDU_SCRIPT.test(input)) return 'urdu';
+    if (ROMAN_REGIONAL.test(input)) return 'other-regional';
+    if (URDU_GREETING.test(input)) return 'roman-urdu';
+    if (ROMAN_URDU_HINTS.test(input)) return 'roman-urdu';
+    return null;
+  };
+
+  const current = classify(text);
+  if (current) return current;
+
+  // Inconclusive: inherit from the most recent conclusive user message.
+  for (let i = previous.length - 1; i >= 0; i--) {
+    const earlier = classify(previous[i]);
+    if (earlier) return earlier;
+  }
+
   return 'english';
 }
 
