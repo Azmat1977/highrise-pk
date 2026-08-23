@@ -44,8 +44,27 @@ export interface IAriaContext {
   canonicalUrl?: string;
 }
 
+/**
+ * Contact details revealed during conversation. Phone and email are encrypted
+ * at rest with AES-256-GCM via lib/kycCrypto; only masked forms are safe to
+ * display. Capture is NOT consent to be contacted - a callback still requires
+ * explicit consent through createAleemLead().
+ */
+export interface ICapturedProfile {
+  name?: string;
+  city?: string;
+  phoneEncrypted?: string;
+  phoneHash?: string;
+  phoneMasked?: string;
+  emailEncrypted?: string;
+  emailHash?: string;
+  emailMasked?: string;
+  capturedAt?: Date;
+}
+
 export interface IConversation extends Document {
   _id: mongoose.Types.ObjectId;
+  capturedProfile?: ICapturedProfile;
 
   // Session
   sessionId: string;           // crypto.randomUUID() — links anonymous sessions
@@ -112,12 +131,33 @@ const AriaContextSchema = new Schema<IAriaContext>(
   { _id: false }
 );
 
+const CapturedProfileSchema = new Schema<ICapturedProfile>(
+  {
+    name:           { type: String, maxlength: 60 },
+    city:           { type: String, maxlength: 100 },
+    phoneEncrypted: { type: String, maxlength: 500 },
+    phoneHash:      { type: String, maxlength: 128, index: true },
+    phoneMasked:    { type: String, maxlength: 40 },
+    emailEncrypted: { type: String, maxlength: 500 },
+    emailHash:      { type: String, maxlength: 128, index: true },
+    emailMasked:    { type: String, maxlength: 120 },
+    capturedAt:     { type: Date },
+  },
+  { _id: false }
+);
+
 const ConversationSchema = new Schema<IConversation>(
   {
     sessionId: {
       type:     String,
       required: true,
       index:    true,
+    },
+
+    // Progressive profile captured mid-chat. Encrypted at rest.
+    capturedProfile: {
+      type:     CapturedProfileSchema,
+      required: false,
     },
     userId: {
       type:  Schema.Types.ObjectId,
