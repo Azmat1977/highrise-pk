@@ -64,7 +64,10 @@ const BREAKER_THRESHOLD = 3;
 const BREAKER_COOLDOWN_MS = 60_000;
 const MAX_HISTORY = 8;
 const MAX_TEXT_CHARS = 2000;
-const MAX_GROQ_TOKENS = 1024;
+// gpt-oss models are reasoning models: they burn hidden "reasoning tokens"
+// before writing anything. Keep the ceiling tight so ALEEM stays concise, and
+// ask for minimal reasoning since property chat is not a maths problem.
+const MAX_GROQ_TOKENS = 700;
 const CONTEXT_BLOCK_CHARS = 1200;
 
 // ---------------------------------------------------------------------------
@@ -152,12 +155,17 @@ async function callGroq(
     { role: 'user', content: opts.message.slice(0, MAX_TEXT_CHARS) },
   ];
 
+  const isReasoningModel = /gpt-oss|reasoning/i.test(modelName);
+
   const completion = await groq.chat.completions.create({
     messages,
     model: modelName,
     temperature: 0.7,
     max_tokens: MAX_GROQ_TOKENS,
     top_p: 0.9,
+    // Reasoning models spend tokens thinking before they answer. Property
+    // conversation needs warmth, not deliberation, so keep it minimal.
+    ...(isReasoningModel ? { reasoning_effort: 'low' as const } : {}),
   });
 
   const text = completion.choices[0]?.message?.content?.trim() ?? '';

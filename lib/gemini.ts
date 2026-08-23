@@ -56,7 +56,9 @@ export async function generateAIResponse(
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error('GEMINI_API_KEY is not configured');
 
-  const model = process.env.GEMINI_MODEL || 'gemini-3.5-flash';
+  // gemini-3.5-flash does not exist. If GEMINI_MODEL is ever missing this
+  // default must still be a real model, or Gemini fails silently.
+  const model = process.env.GEMINI_MODEL || 'gemini-2.0-flash';
   if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new Error('Invalid GEMINI_MODEL');
 
   const basePrompt = SYSTEM_PROMPT.replace(/{AGENT_NAME}/g, agentName);
