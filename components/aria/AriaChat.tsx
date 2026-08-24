@@ -190,6 +190,7 @@ interface LeadFormProps {
   sessionId:      string;
   quotaMode?:     QuotaMode;
   onSuccess:      () => void;
+  onClose:        () => void;
 }
 
 function LeadCaptureForm({
@@ -198,6 +199,7 @@ function LeadCaptureForm({
   sessionId,
   quotaMode = 'normal',
   onSuccess,
+  onClose,
 }: LeadFormProps): React.ReactElement {
 
   const [form, setForm] = useState<LeadForm>({
@@ -252,12 +254,27 @@ function LeadCaptureForm({
     }
   }, [form, conversationId, sessionId, context, quotaMode, onSuccess]);
 
-  return (
+   return (
     <form onSubmit={handleSubmit} className="p-4 bg-[#f0f9ff] border-t border-[#029bba]/20">
-      <p className="text-sm font-semibold text-[#004063] mb-3 flex items-center gap-2">
-        <User className="w-4 h-4" />
-        Share your details — our team will contact you within 24 hours
-      </p>
+      <div className="flex items-start justify-between gap-2 mb-3">
+        <div>
+          <p className="text-sm font-semibold text-[#004063] flex items-center gap-2">
+            <User className="w-4 h-4" />
+            Talk to a Highrise expert
+          </p>
+          <p className="text-xs text-gray-600 mt-0.5">
+            Share your details and our team will reach out. No spam, no pressure.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close form"
+          className="p-1.5 -mt-1 -mr-1 rounded-lg text-[#004063]/60 hover:text-[#004063] hover:bg-white transition-colors focus:outline-none focus:ring-2 focus:ring-[#029bba] flex-shrink-0"
+        >
+          <X className="w-4 h-4" />
+        </button>
+      </div>
 
       {/* Intent buttons (LARGER) */}
       <div className="flex gap-1.5 mb-3 flex-wrap">
@@ -362,7 +379,7 @@ function LeadCaptureForm({
       </button>
 
       <p className="text-xs text-gray-500 text-center mt-2.5">
-        📵 Your number is never shared publicly. Managed marketplace model.
+        📵 Your number stays private. Highrise connects you, sellers never get it directly.
       </p>
     </form>
   );
@@ -600,7 +617,11 @@ export default function AriaChat({
       {/* Lead capture form */}
       {showLeadForm && !leadCaptured && conversationId && (
         <>
-          {(quotaMode === 'priority' || quotaMode === 'lead_only') && (
+          {/* Disabled: this banner promised a callback "within 1 hour", the
+              same timing promise removed everywhere else. quotaMode is never
+              set by /api/ai/chat, so it was already unreachable. The block is
+              deleted properly in A4 with the rest of the legacy lead path. */}
+          {false && (
             <div className="px-4 py-3 bg-gradient-to-r from-[#029bba] to-[#004063] text-white text-center">
               <p className="text-sm font-bold">
                 {quotaMode === 'lead_only'
@@ -618,6 +639,7 @@ export default function AriaChat({
             sessionId={sessionId}
             quotaMode={quotaMode}
             onSuccess={handleLeadSuccess}
+            onClose={() => setShowLeadForm(false)}
           />
         </>
       )}
