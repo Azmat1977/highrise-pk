@@ -122,3 +122,200 @@ export async function createAleemLead(
     listingCount: slugs.length,
   };
 }
+
+// EXPERT CALLBACK LEAD
+// Replaces the legacy /api/aria/leads path so Highrise has ONE lead system.
+//
+// Differences from createAleemLead():
+//   - Works for guests. Most first-time enquiries have no account yet, and
+//     blocking them would close the funnel entirely.
+//   - Takes the phone from the form, and records honestly whether it has been
+//     verified so the sales team knows what they are calling.
+//
+// Deliberately NOT copied from the legacy endpoint:
+//   - No fabricated snapshot values ("city: Unknown", "price: 0").
+//   - No synthetic email address. An absent email stays absent.
+//   - No callback timing promise anywhere.
+
+const PK_PHONE = /^(?:\+?92|0092|0)?[\s-]?3\d{2}[\s-]?\d{7}$/;
+const MAX_NAME = 80;
+const MAX_MESSAGE = 500;
+
+export type ExpertLeadIntent = 'buy' | 'rent' | 'invest' | 'verify';
+
+export interface CreateExpertLeadInput {
+  name: string;
+  phone: string;
+  email?: string;
+  intent?: ExpertLeadIntent;
+  message?: string;
+  /** Public slug of the page the user was on, when it is a property page. */
+  propertySlug?: string;
+  /** Authenticated user id, when signed in. */
+  userId?: string;
+  sessionId?: string;
+}
+
+export interface CreateExpertLeadResult {
+  success: boolean;
+  leadId?: string;
+  code?: 'INVALID_NAME' | 'INVALID_PHONE' | 'FAILED';
+}
+
+/** Normalise any Pakistani mobile format to local 03XXXXXXXXX. */
+function normalizePhone(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '');
+  let local: string | null = null;
+  if (digits.startsWith('0092') && digits.length === 14) local = `0${digits.slice(4)}`;
+  else if (digits.startsWith('92') && digits.length === 12) local = `0${digits.slice(2)}`;
+  else if (digits.startsWith('03') && digits.length === 11) local = digits;
+  else if (digits.startsWith('3') && digits.length === 10) local = `0${digits}`;
+  return local && /^03\d{9}$/.test(local) ? local : null;
+}
+
+function cleanText(value: string | undefined, max: number): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.replace(/[\r\n\t]+/g, ' ').replace(/\s{2,}/g, ' ').trim();
+  return trimmed ? trimmed.slice(0, max) : undefined;
+}
+
+const INTENT_TO_LEAD_TYPE: Record<ExpertLeadIntent, string> = {
+  buy: 'property_inquiry',
+  rent: 'rent_inquiry',
+  invest: 'project_interest',
+  verify: 'general_inquiry',
+};
+
+interface LeanProperty {
+  _id: unknown;
+  slug?: string;
+  title?: string;
+  city?: string;
+  society?: string;
+  price?: number;
+  propertyType?: string;
+  listingType?: string;
+}
+
+/**
+ * Create an expert callback lead from the in-chat form.
+ * Guests are allowed; the record states plainly whether the phone is verified.
+ */
+export async function createExpertLead(
+  input: CreateExpertLeadInput,
+): Promise<CreateExpertLeadResult> {
+  const name = cleanText(input.name, MAX_NAME);
+  if (!name || name.length < 2) return { success: false, code: 'INVALID_NAME' };
+
+  if (!PK_PHONE.test(input.phone.trim())) {
+    return { success: false, code: 'INVALID_PHONE' };
+  }
+  const formPhone = normalizePhone(input.phone);
+  if (!formPhone) return { success: false, code: 'INVALID_PHONE' };
+
+  await dbConnect();
+
+  // Prefer a verified number on file over anything typed into a form.
+  let phone = formPhone;
+  let phoneVerified = false;
+  let email = cleanText(input.email, 254)?.toLowerCase();
+  let accountName: string | undefined;
+
+  if (input.userId) {
+    try {
+      const user = await User.findById(input.userId)
+        .select('name email phone isPhoneVerified')
+        .lean<{
+          name?: string;
+          email?: string;
+          phone?: string;
+          isPhoneVerified?: boolean;
+        } | null>();
+
+      if (user) {
+        accountName = user.name;
+        if (!email && user.email) email = user.email.toLowerCase();
+        if (user.phone && user.isPhoneVerified) {
+          phone = user.phone;
+          phoneVerified = true;
+        }
+      }
+    } catch {
+      // Account lookup failed; continue with the form values.
+    }
+  }
+
+  // Re-read the property server side. Never trust a client-supplied snapshot,
+  // and never invent placeholder values for fields we do not have.
+  let snapshot: Record<string, unknown> | undefined;
+  let propertyId: unknown;
+
+  if (input.propertySlug && /^[a-z0-9-]{1,120}$/.test(input.propertySlug)) {
+    try {
+      const doc = await Property.findOne({
+        ...PUBLIC_PROPERTY_FILTER,
+        slug: input.propertySlug,
+      })
+        .select('slug title city society price propertyType listingType')
+        .maxTimeMS(2000)
+        .lean<LeanProperty | null>();
+
+      if (doc) {
+        propertyId = doc._id;
+        snapshot = {
+          _id: doc._id,
+          title: doc.title,
+          slug: doc.slug,
+          city: doc.city,
+          society: doc.society,
+          price: doc.price,
+          propertyType: doc.propertyType,
+          listingType: doc.listingType,
+        };
+      }
+    } catch {
+      // Property lookup failed; the lead is still worth creating.
+    }
+  }
+
+  const intent: ExpertLeadIntent = input.intent ?? 'buy';
+  const message = cleanText(input.message, MAX_MESSAGE);
+
+  const verificationNote = phoneVerified
+    ? 'Phone verified on the Highrise account.'
+    : 'Phone entered in the chat form and NOT verified. Confirm identity on the call.';
+
+  try {
+    const lead = await Lead.create({
+      name: accountName && phoneVerified ? accountName : name,
+      // No synthetic address: an absent email stays absent.
+      ...(email ? { email } : {}),
+      phone,
+
+      leadType: INTENT_TO_LEAD_TYPE[intent],
+      entityType: 'property',
+      source: 'aleem_chat',
+      status: 'new',
+
+      ...(message ? { message } : {}),
+      ...(propertyId ? { property: propertyId } : {}),
+      ...(snapshot ? { propertySnapshot: snapshot } : {}),
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+
+      notes:
+        `[ALEEM] Expert callback requested from chat. Intent: ${intent}. ` +
+        `${verificationNote} No fund custody - sales/seller handoff only.`,
+
+      tags: [
+        'aleem_chat',
+        'expert_callback',
+        phoneVerified ? 'phone_verified' : 'phone_unverified',
+        input.userId ? 'registered_user' : 'guest',
+      ],
+    });
+
+    return { success: true, leadId: String(lead._id) };
+  } catch {
+    return { success: false, code: 'FAILED' };
+  }
+}
