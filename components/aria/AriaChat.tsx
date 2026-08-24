@@ -26,6 +26,7 @@ import {
   ShoppingCart,
   Search,
   PhoneCall,
+  ShieldCheck,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
@@ -378,8 +379,9 @@ function LeadCaptureForm({
         )}
       </button>
 
-      <p className="text-xs text-gray-500 text-center mt-2.5">
-        📵 Your number stays private. Highrise connects you, sellers never get it directly.
+      <p className="text-xs text-gray-500 text-center mt-2.5 flex items-center justify-center gap-1.5">
+        <ShieldCheck className="w-3.5 h-3.5 text-[#10b981] flex-shrink-0" />
+        Your number stays private. Highrise connects you, sellers never get it directly.
       </p>
     </form>
   );
