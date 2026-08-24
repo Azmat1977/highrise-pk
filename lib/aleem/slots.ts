@@ -30,8 +30,14 @@ export const PropertySearchSlotsSchema = z
     listingType: z.enum(['rent', 'sale']).optional(),
     // Plot size in marla (1 marla = 272.25 sq ft = 30.25 sq yd).
     marla: z.number().positive().max(10000).optional(),
+    // Bedroom count for houses and apartments.
+    bedrooms: z.number().int().positive().max(20).optional(),
     // Free-text location: city, society, or locality (e.g. "Islamabad", "B-17").
+    // Only ever set to a value that exists in verified inventory.
     location: z.string().trim().min(1).max(120).optional(),
+    // A location the user named that has NO verified inventory. Carried so the
+    // reply can say so honestly instead of silently dropping the filter.
+    unavailableLocation: z.string().trim().min(1).max(120).optional(),
     // Budget in PKR (60 lakh = 6,000,000).
     budgetMinPKR: z.number().int().nonnegative().optional(),
     budgetMaxPKR: z.number().int().positive().optional(),

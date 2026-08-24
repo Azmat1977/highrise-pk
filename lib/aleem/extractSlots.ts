@@ -9,27 +9,15 @@
 
 import type { PropertySearchSlots } from '@/lib/aleem/slots';
 import { parseBudgetExpression } from '@/lib/aleem/slots';
+import { resolveLocation } from '@/lib/aleem/locationResolver';
 
-const CITIES = [
-  'islamabad', 'rawalpindi', 'lahore', 'karachi', 'faisalabad', 'multan',
-  'peshawar', 'quetta', 'gujranwala', 'sialkot', 'bahawalpur', 'sargodha',
-  'hyderabad', 'gujrat', 'jhelum', 'abbottabad', 'mardan', 'sukkur',
-  'murree', 'taxila', 'attock', 'wah cantt',
-];
-
-// More specific than cities — checked first (e.g. "DHA Lahore" → "dha").
-// Include hyphenated and non-hyphenated variants of Islamabad sector codes.
-const SOCIETIES = [
-  'capital smart city', 'blue world city', 'park view', 'top city', 'eighteen',
-  'rudn enclave', 'faisal hills', 'gulraiz', 'bahria orchard', 'navy housing',
-  'dha', 'bahria', 'gulberg', 'clifton', 'pwd',
-  'b-17', 'b17', 'g-13', 'g13', 'g-14', 'g14', 'f-8', 'f8', 'f-10', 'f10',
-  'e-11', 'e11', 'd-12', 'd12', 'g-15', 'g15', 'f-17', 'f17', 'i-8', 'i8',
-];
+// Location lists are gone on purpose. They only covered ~30 societies, so
+// anything else (F-6, Faisal Town) was silently dropped and the search ran
+// unfiltered. Locations now come from real inventory via locationResolver.
 
 function detectType(lower: string): PropertySearchSlots['type'] | undefined {
   if (/\b(apartment|flat|flats)\b/.test(lower)) return 'apartment';
-  if (/\b(house|home|villa|bungalow)\b/.test(lower)) return 'house';
+  if (/\b(house|home|villa|bungalow|ghar|makan|kothi)\b/.test(lower)) return 'house';
   if (/\bplot\b|\bplots\b|plot file|residential plot/.test(lower)) return 'plot';
   if (/\bshop\b/.test(lower)) return 'shop';
   if (/\boffice\b/.test(lower)) return 'office';
@@ -42,6 +30,13 @@ function detectListingType(lower: string): 'rent' | 'sale' | undefined {
   if (/\b(rent|rental|kiraya|kirae|kiraye|kirai|lease|tenant)\b/.test(lower)) return 'rent';
   if (/\b(buy|purchase|kharid|khareed|kharidna|sale|for sale|bechna)\b/.test(lower)) return 'sale';
   return undefined;
+}
+
+function detectBedrooms(lower: string): number | undefined {
+  const m = lower.match(/(\d{1,2})\s*(?:-|\s)?\s*(?:bed|beds|bedroom|bedrooms|bhk|kamray|kamre|kamra)\b/);
+  if (!m) return undefined;
+  const v = parseInt(m[1], 10);
+  return Number.isFinite(v) && v > 0 && v <= 20 ? v : undefined;
 }
 
 function detectMarla(lower: string): number | undefined {
@@ -89,17 +84,6 @@ function detectBudget(lower: string): Budget | undefined {
   return { max: first.value };
 }
 
-function detectLocation(lower: string): string | undefined {
-  // More specific first (society), then city.
-  for (const s of SOCIETIES) {
-    if (lower.includes(s)) return s;
-  }
-  for (const c of CITIES) {
-    if (lower.includes(c)) return c;
-  }
-  return undefined;
-}
-
 function detectIntent(lower: string): PropertySearchSlots['intent'] | undefined {
   if (/\b(invest|investment|roi|return on|capital gain)\b/.test(lower)) return 'investment';
   if (/\b(live|move in|residence|family home|settle)\b/.test(lower)) return 'living';
@@ -112,31 +96,42 @@ function detectIntent(lower: string): PropertySearchSlots['intent'] | undefined 
  * property-search intent. Returns null unless an explicit type or marla is
  * present — this keeps greetings and advice questions on the normal path.
  */
-export function extractSearchSlots(message: string): PropertySearchSlots | null {
+export async function extractSearchSlots(
+  message: string,
+): Promise<PropertySearchSlots | null> {
   const lower = message.toLowerCase();
 
   const type = detectType(lower);
   const marla = detectMarla(lower);
+  const bedrooms = detectBedrooms(lower);
   const listingType = detectListingType(lower);
-
-  // A clear rent request is a real search signal on its own: "house for rent"
-  // has a type, but "I need something on rent in Lahore" should also work.
-  const hasLocation = detectLocation(lower) !== undefined;
-  if (!type && !marla && !(listingType === 'rent' && hasLocation)) return null;
-
   const budget = detectBudget(lower);
-  const location = detectLocation(lower);
-  const intent = detectIntent(lower);
 
-  const slots: PropertySearchSlots = {
+  // Locations come from real inventory. `matched` exists in our data and is
+  // safe to filter on; `recognized` is a real place we simply have nothing in.
+  const { matched, recognized } = await resolveLocation(message);
+
+  // Any concrete signal is enough. Naming a location we actually stock is a
+  // search on its own: "Bahria mein kuch acha dikhao" should return listings.
+  const hasSearchSignal =
+    Boolean(type) ||
+    marla !== undefined ||
+    bedrooms !== undefined ||
+    Boolean(matched) ||
+    Boolean(recognized) ||
+    (listingType !== undefined && budget !== undefined);
+
+  if (!hasSearchSignal) return null;
+
+  return {
     type,
     listingType,
     marla,
-    location,
-    intent,
+    bedrooms,
+    location: matched ?? undefined,
+    unavailableLocation: matched ? undefined : (recognized ?? undefined),
+    intent: detectIntent(lower),
     budgetMinPKR: budget?.min,
     budgetMaxPKR: budget?.max,
   };
-
-  return slots;
 }

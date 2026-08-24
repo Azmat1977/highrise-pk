@@ -479,7 +479,7 @@ export default async function handler(
     // ── STEP 4.5: GROUNDED PROPERTY SEARCH (DB-backed, Gemini-independent) ──
     // Runs before cache so a search query always reflects live inventory.
     // Only fires when the message carries a clear property-search signal.
-    const searchSlots = extractSearchSlots(message);
+    const searchSlots = await extractSearchSlots(message);
 
     if (searchSlots) {
       try {
@@ -504,6 +504,8 @@ export default async function handler(
             matchCount,
             searchResult.matches,
             searchSlots.listingType === 'rent',
+            searchSlots.location,
+            searchSlots.unavailableLocation,
           );
 
           // Persist this turn. Without it ALEEM forgets the listings it just
@@ -545,6 +547,8 @@ export default async function handler(
         const noMatchReply = buildNoMatchesReply(
           detectReplyLang(message, history.map((h) => h.content)),
           searchSlots.listingType === 'rent',
+          searchSlots.location,
+          searchSlots.unavailableLocation,
         );
 
         if (sessionId) {

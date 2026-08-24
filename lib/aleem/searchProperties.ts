@@ -48,6 +48,7 @@ export interface SearchPropertiesResult {
   filters: {
     type?: string;
     listingType?: string;
+    bedrooms?: number;
     location?: string;
     marla?: number;
     budgetMinPKR?: number;
@@ -142,12 +143,18 @@ export async function searchProperties(
     if (slots.budgetMaxPKR !== undefined) price.$lte = slots.budgetMaxPKR;
     clauses.push({ price });
   }
+    // Bedrooms. Only meaningful for houses and apartments.
+  if (slots.bedrooms !== undefined) {
+    clauses.push({ bedrooms: slots.bedrooms });
+  }
 
   // ── Plot size (marla) ───────────────────────────────────
   // `area` stores a number in a free-text `unit` field. For plots we match a
   // tolerance band across the three common units so a "5 marla" query finds
   // real listings regardless of how the owner entered the size.
-  if (slots.marla !== undefined && slots.type === 'plot') {
+  // Applies to any property type, not just plots. A "5 marla house" search
+  // previously ignored the size completely.
+  if (slots.marla !== undefined) {
     const lo = slots.marla * (1 - AREA_TOLERANCE);
     const hi = slots.marla * (1 + AREA_TOLERANCE);
     clauses.push({
@@ -193,6 +200,7 @@ export async function searchProperties(
       type: slots.type,
       listingType: slots.listingType,
       location: slots.location,
+      bedrooms: slots.bedrooms,
       marla: slots.marla,
       budgetMinPKR: slots.budgetMinPKR,
       budgetMaxPKR: slots.budgetMaxPKR,

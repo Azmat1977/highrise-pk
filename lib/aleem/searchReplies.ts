@@ -121,37 +121,95 @@ function forRentWord(lang: ReplyLang, isRent: boolean): string {
   return ' for rent';
 }
 
+/**
+ * Tell the user which location filter was actually applied. Silence here is
+ * what made the old search dangerous: an unrecognised area was dropped and
+ * unrelated listings were presented as if they matched.
+ */
+function locationNote(
+  lang: ReplyLang,
+  location?: string,
+  unavailableLocation?: string,
+): string {
+  if (location) {
+    if (lang === 'urdu') return ` (${location} میں)`;
+    return ` in ${location}`;
+  }
+
+  if (unavailableLocation) {
+    if (lang === 'urdu') {
+      return `\n\nنوٹ: ${unavailableLocation} میں ابھی کوئی تصدیق شدہ لسٹنگ نہیں، اس لیے یہ دوسرے علاقوں سے ہیں۔`;
+    }
+    if (lang === 'english') {
+      return `\n\nNote: nothing verified in ${unavailableLocation} yet, so these are from other areas.`;
+    }
+    return `\n\nNote: ${unavailableLocation} mein abhi koi verified listing nahi, is liye yeh doosray areas se hain.`;
+  }
+
+  return '';
+}
+
 /** Header shown above the listing lines when matches were found. */
 export function buildMatchesReply(
   lang: ReplyLang,
   count: number,
   listings: PropertyCard[],
   isRent: boolean,
+  location?: string,
+  unavailableLocation?: string,
 ): string {
   const lines = formatListingLines(listings);
   const rentWord = forRentWord(lang, isRent);
 
+  const inLocation = location ? locationNote(lang, location) : '';
+  const caveat = location ? '' : locationNote(lang, undefined, unavailableLocation);
+
   if (lang === 'urdu') {
-    return `${count} تصدیق شدہ${rentWord} پراپرٹی ملی ہیں:\n\n${lines}`;
+    return `${count} تصدیق شدہ${rentWord} پراپرٹی${inLocation} ملی ہیں:\n\n${lines}${caveat}`;
   }
 
   if (lang === 'roman-urdu') {
-    return `${count} verified${rentWord} property mil gayi hain:\n\n${lines}`;
+    return `${count} verified${rentWord} property${inLocation} mil gayi hain:\n\n${lines}${caveat}`;
   }
 
   if (lang === 'other-regional') {
     return (
-      `${count} verified${rentWord} property mil gayi hain:\n\n${lines}\n\n` +
+      `${count} verified${rentWord} property${inLocation} mil gayi hain:\n\n${lines}${caveat}\n\n` +
       `(Aap Urdu ya English mein baat karna chahein to bata dein.)`
     );
   }
 
-  return `Found ${count} verified${rentWord} ${count === 1 ? 'listing' : 'listings'}:\n\n${lines}`;
+  return `Found ${count} verified${rentWord} ${count === 1 ? 'listing' : 'listings'}${inLocation}:\n\n${lines}${caveat}`;
 }
 
 /** Honest zero-result reply. Never suggests a price, never invents stock. */
-export function buildNoMatchesReply(lang: ReplyLang, isRent: boolean): string {
+export function buildNoMatchesReply(
+  lang: ReplyLang,
+  isRent: boolean,
+  location?: string,
+  unavailableLocation?: string,
+): string {
   const rentWord = forRentWord(lang, isRent);
+  const place = location ?? unavailableLocation;
+
+  if (place) {
+    if (lang === 'urdu') {
+      return `${place} میں ابھی کوئی تصدیق شدہ${rentWord} پراپرٹی نہیں ملی۔ کسی اور علاقے یا بجٹ میں دیکھیں؟`;
+    }
+    if (lang === 'english') {
+      return `No verified${rentWord} listings in ${place} right now. Want to try another area or budget?`;
+    }
+    if (lang === 'other-regional') {
+      // Pashto, Punjabi and similar: we do not fake fluency, so reply in the
+      // closest widely understood language and offer an explicit choice.
+      return (
+        `${place} mein abhi koi verified${rentWord} property nahi mili. ` +
+        `Kisi aur area ya budget mein dekhein? ` +
+        `(Aap Urdu ya English mein baat karna chahein to bata dein.)`
+      );
+    }
+    return `${place} mein abhi koi verified${rentWord} property nahi mili. Kisi aur area ya budget mein dekhein?`;
+  }
 
   if (lang === 'urdu') {
     return `اس سرچ پر ابھی کوئی تصدیق شدہ${rentWord} پراپرٹی نہیں ملی۔ ایریا یا بجٹ تھوڑا بدل کر بتائیں؟`;
