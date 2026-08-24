@@ -187,7 +187,6 @@ function TypingIndicator(): React.ReactElement {
 
 interface LeadFormProps {
   context:        IAriaContext;
-  conversationId: string;
   sessionId:      string;
   quotaMode?:     QuotaMode;
   onSuccess:      () => void;
@@ -196,7 +195,6 @@ interface LeadFormProps {
 
 function LeadCaptureForm({
   context,
-  conversationId,
   sessionId,
   quotaMode = 'normal',
   onSuccess,
@@ -220,29 +218,25 @@ function LeadCaptureForm({
 
     setSubmitting(true);
     try {
-      const res = await fetch('/api/aria/leads', {
+      // ALEEM is the single lead path. The legacy /api/aria/leads endpoint
+      // built its own Lead records with placeholder values, so it is no
+      // longer used. Only the property slug is sent; the server re-reads the
+      // listing itself rather than trusting a client snapshot.
+      const res = await fetch('/api/aleem/lead', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name:        form.name.trim(),
-          phone:       form.phone.trim(),
-          email:       form.email.trim() || undefined,
-          conversationId,
+          name:         form.name.trim(),
+          phone:        form.phone.trim(),
+          email:        form.email.trim() || undefined,
+          intent:       form.intent,
+          message:      form.message.trim() || undefined,
+          propertySlug: context.type === 'property' ? context.slug : undefined,
           sessionId,
-          intent:      form.intent,
-          urgency:     form.urgency,
-          budgetTier:  form.budgetTier || undefined,
-          message:     form.message.trim() || undefined,
-          sourceType:  context.type,
-          sourceId:    context.id,
-          sourceSlug:  context.slug,
-          sourceTitle: context.title,
-          sourceUrl:   context.canonicalUrl,
-          quotaMode,
         }),
       });
 
-      const data = await res.json() as { success?: boolean; error?: string };
+      const data = await res.json() as { success?: boolean; error?: string; leadId?: string };
       if (!res.ok || !data.success) {
         setError(data.error ?? 'Unable to submit. Please try again.');
         return;
@@ -253,7 +247,7 @@ function LeadCaptureForm({
     } finally {
       setSubmitting(false);
     }
-  }, [form, conversationId, sessionId, context, quotaMode, onSuccess]);
+  }, [form, sessionId, context, onSuccess]);
 
    return (
     <form onSubmit={handleSubmit} className="p-4 bg-[#f0f9ff] border-t border-[#029bba]/20">
@@ -617,7 +611,7 @@ export default function AriaChat({
       )}
 
       {/* Lead capture form */}
-      {showLeadForm && !leadCaptured && conversationId && (
+      {showLeadForm && !leadCaptured && (
         <>
           {/* Disabled: this banner promised a callback "within 1 hour", the
               same timing promise removed everywhere else. quotaMode is never
@@ -637,7 +631,6 @@ export default function AriaChat({
           )}
           <LeadCaptureForm
             context={context}
-            conversationId={conversationId}
             sessionId={sessionId}
             quotaMode={quotaMode}
             onSuccess={handleLeadSuccess}
@@ -673,7 +666,7 @@ export default function AriaChat({
         </form>
 
         {/* PROMINENT Request Callback button */}
-        {!showLeadForm && !leadCaptured && conversationId && messages.length >= 2 && (
+        {!showLeadForm && !leadCaptured && messages.length >= 2 && (
           <button
             onClick={() => setShowLeadForm(true)}
             className="w-full mt-3 py-3 bg-gradient-to-r from-[#10b981] to-[#059669] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md"
