@@ -31,6 +31,20 @@ const URDU_GREETING =
 // Everyday Roman Urdu vocabulary. Deliberately broad: a false positive only
 // means we reply in Roman Urdu to someone typing English words like "ghar",
 // which is far less jarring than replying in English to an Urdu speaker.
+// Explicit English detection. Without this, an English message with no Urdu
+// words returned null and inherited the previous language, so "how much cvt
+// on property in pakistan?" was answered in Roman Urdu.
+const ENGLISH_HINTS = new RegExp(
+  [
+    '\\b(the|is|are|was|were|have|has|do|does|did|can|could|would|should|will)\\b',
+    '\\b(i|you|we|they|my|your|our|their|me|us|them)\\b',
+    '\\b(what|how|why|when|where|which|who)\\b',
+    '\\b(want|need|know|looking|find|show|tell|help|please|thanks|thank)\\b',
+    '\\b(property|house|plot|rent|buy|price|tax|about|much|many)\\b',
+  ].join('|'),
+  'i',
+);
+
 const ROMAN_URDU_HINTS = new RegExp(
   [
     '\\b(hai|hain|hoon|hun|ho|tha|thi|thay|karna|karni|kar|karo|karein|kare)\\b',
@@ -60,6 +74,8 @@ export function detectReplyLang(message: string, previous: string[] = []): Reply
     if (ROMAN_REGIONAL.test(input)) return 'other-regional';
     if (URDU_GREETING.test(input)) return 'roman-urdu';
     if (ROMAN_URDU_HINTS.test(input)) return 'roman-urdu';
+    // Only reached when there is no Urdu signal at all.
+    if (ENGLISH_HINTS.test(input)) return 'english';
     return null;
   };
 
@@ -228,4 +244,60 @@ export function buildNoMatchesReply(
   }
 
   return `No verified${rentWord} listings match that search right now. Want to try a different area or budget?`;
+}
+
+/**
+ * Per-message language directive injected into the model prompt.
+ *
+ * A general persona rule ("never mix scripts") proved too weak: the model
+ * still answered "Aap ko kis cheez mein madad chahiye - plot, [urdu script]?"
+ * to a Roman Urdu question. An explicit, per-request instruction naming the
+ * exact script is far harder to ignore than a standing guideline.
+ */
+export function buildLanguageDirective(lang: ReplyLang): string {
+  const header = '\n\nLANGUAGE FOR THIS REPLY (server-detected, follow exactly):';
+
+  if (lang === 'urdu') {
+    return (
+      `${header}\n` +
+      '- The user wrote in Urdu script. Reply ONLY in Urdu script.\n' +
+      '- Do not mix Latin/Roman letters into the sentence, except for numbers, ' +
+      'listing references and place codes such as G-13 or F-6.'
+    );
+  }
+
+  if (lang === 'roman-urdu') {
+    return (
+      `${header}\n` +
+      '- The user wrote Roman Urdu (Urdu using English letters). Reply ONLY in Roman Urdu.\n' +
+      '- Use Latin letters only. Do NOT output any Urdu script characters at all.\n' +
+      '- Wrong: mixing an Urdu-script word into a Roman Urdu sentence.\n' +
+      '- Right: "Aap ko kya chahiye - plot, ghar ya rent?"\n' +
+      '- Mirror the user register: simple, warm, conversational.\n' +
+      '- This overrides the conversation history. If earlier turns were in ' +
+      'English but the user has now switched to Roman Urdu, follow the switch.'
+    );
+  }
+
+  if (lang === 'other-regional') {
+    return (
+      `${header}\n` +
+      '- The user wrote in a regional language (Punjabi, Pashto, Sindhi or Balochi).\n' +
+      '- If you can genuinely write that language well, do so.\n' +
+      '- If not, reply in Roman Urdu using Latin letters only, and ask once ' +
+      'whether they prefer Urdu or English. Never fake fluency.\n' +
+      '- Do not mix scripts in one reply.'
+    );
+  }
+
+  return (
+    `${header}\n` +
+    '- The user just wrote in ENGLISH. Reply ONLY in English.\n' +
+    '- This overrides the conversation history. Even if earlier turns were in ' +
+    'Roman Urdu or Urdu, this reply must be in English, because the user has ' +
+    'switched language and you must follow them.\n' +
+    '- Do not insert Urdu or Roman Urdu words. No "aap", no "hai", no "kar".\n' +
+    '- Wrong: "CVT wo tax hai jo property par lagta hai"\n' +
+    '- Right: "CVT is a tax applied to the property value"'
+  );
 }

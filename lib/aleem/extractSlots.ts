@@ -11,24 +11,97 @@ import type { PropertySearchSlots } from '@/lib/aleem/slots';
 import { parseBudgetExpression } from '@/lib/aleem/slots';
 import { resolveLocation } from '@/lib/aleem/locationResolver';
 
+/**
+ * Questions that mention a property type but ask for GUIDANCE, not inventory.
+ * "Plot kharidne se pehle kya check karna chahiye?" is advice; running a
+ * grounded search on it returns "no listings found", which is both wrong and
+ * unhelpful. Let the AI answer these properly instead.
+ */
+const ADVICE_MARKERS = new RegExp(
+  [
+    '\\b(how|what|why|when|which|should|can i|do i|is it|are there|explain|tell me about|guide|advice|tips|process|difference between|better)\\b',
+    // "chahiye" alone is a requirement ("mujhe plot chahiye"), not advice.
+    // Only treat it as advice when paired with a question word.
+    '\\b(kaise|kaisay|kyun|kyu|kaunsa|konsa|samjhao|tareeqa|farq|mashwara)\\b',
+    '\\b(kya|kia)\\b.*\\b(check|karna|hota|matlab|zaroori|behtar|faida|nuqsan)\\b',
+    '\\bkarna chahiye\\b',
+    '\\bcheck karna\\b',
+  ].join('|'),
+  'i',
+);
+
+/** Concrete inventory signals: a real requirement, not a question about one. */
+const INVENTORY_MARKERS = new RegExp(
+  [
+    '\\b(show|dikhao|dikhaein|find|search|available|listing|listings)\\b',
+    '\\b\\d+(?:\\.\\d+)?\\s*(marla|kanal|lakh|lakhs|lac|crore|karor)\\b',
+    '\\b(under|below|upto|up to|within|budget|tak)\\b',
+  ].join('|'),
+  'i',
+);
+
+function isAdviceQuestion(message: string): boolean {
+  const lower = message.toLowerCase();
+  if (INVENTORY_MARKERS.test(lower)) return false;
+  return ADVICE_MARKERS.test(lower);
+}
+
 // Location lists are gone on purpose. They only covered ~30 societies, so
 // anything else (F-6, Faisal Town) was silently dropped and the search ran
 // unfiltered. Locations now come from real inventory via locationResolver.
 
+const TYPE_PATTERNS: Array<{ type: NonNullable<PropertySearchSlots['type']>; re: RegExp }> = [
+  { type: 'apartment', re: /\b(apartment|apartments|flat|flats)\b/gi },
+  { type: 'house',     re: /\b(house|houses|home|homes|villa|bungalow|ghar|makan|kothi)\b/gi },
+  { type: 'plot',      re: /\b(plot|plots)\b/gi },
+  { type: 'shop',      re: /\b(shop|shops|dukan|dukaan)\b/gi },
+  { type: 'office',    re: /\b(office|offices)\b/gi },
+  { type: 'warehouse', re: /\b(warehouse|godown)\b/gi },
+  { type: 'building',  re: /\b(building|plaza)\b/gi },
+];
+
+// Roman Urdu places the negation AFTER the noun ("ghar nahi plot"), English
+// before it ("not a house, a plot"). Handle both, otherwise "ghar nahi plot"
+// matches house first and the user is shown exactly what they ruled out.
+const NEG_AFTER = /^\s*(nahi|nahin|nai|nhi|na)\b/i;
+const NEG_BEFORE = /\b(not|no|dont|don't)\s+(a\s+|an\s+|the\s+)?$/i;
+
 function detectType(lower: string): PropertySearchSlots['type'] | undefined {
-  if (/\b(apartment|flat|flats)\b/.test(lower)) return 'apartment';
-  if (/\b(house|home|villa|bungalow|ghar|makan|kothi)\b/.test(lower)) return 'house';
-  if (/\bplot\b|\bplots\b|plot file|residential plot/.test(lower)) return 'plot';
-  if (/\bshop\b/.test(lower)) return 'shop';
-  if (/\boffice\b/.test(lower)) return 'office';
-  if (/\b(warehouse|godown)\b/.test(lower)) return 'warehouse';
-  if (/\b(building|plaza)\b/.test(lower)) return 'building';
-  return undefined;
+  const hits: Array<{ type: NonNullable<PropertySearchSlots['type']>; index: number; negated: boolean }> = [];
+
+  for (const { type, re } of TYPE_PATTERNS) {
+    re.lastIndex = 0;
+    let m: RegExpExecArray | null;
+    while ((m = re.exec(lower)) !== null) {
+      const after = lower.slice(m.index + m[0].length);
+      const before = lower.slice(0, m.index);
+      hits.push({
+        type,
+        index: m.index,
+        negated: NEG_AFTER.test(after) || NEG_BEFORE.test(before),
+      });
+    }
+  }
+
+  const affirmed = hits.filter((h) => !h.negated);
+  if (affirmed.length === 0) return undefined;
+
+  // Last affirmed mention wins: "ghar nahi plot chahiye" resolves to plot.
+  affirmed.sort((a, b) => a.index - b.index);
+  return affirmed[affirmed.length - 1].type;
 }
 
 function detectListingType(lower: string): 'rent' | 'sale' | undefined {
   if (/\b(rent|rental|kiraya|kirae|kiraye|kirai|lease|tenant)\b/.test(lower)) return 'rent';
-  if (/\b(buy|purchase|kharid|khareed|kharidna|sale|for sale|bechna)\b/.test(lower)) return 'sale';
+  if (/\b(buy|buying|purchase|kharid|khareed|kharidna|sale|for sale|bechna|lena)\b/.test(lower)) return 'sale';
+
+  // A lump-sum budget ("50 lakh", "1 crore") is a purchase signal. Without
+  // this the rent price field is compared against a purchase budget, so a
+  // PKR 120,000/month rental looks like it fits a 50 lakh buying budget.
+  if (/\b\d+(?:\.\d+)?\s*(lakhs|lakh|lacs|lac|lackh|lack|crores|crore|karor|kror|croar)\b/i.test(lower)) {
+    return 'sale';
+  }
+
   return undefined;
 }
 
@@ -39,11 +112,26 @@ function detectBedrooms(lower: string): number | undefined {
   return Number.isFinite(v) && v > 0 && v <= 20 ? v : undefined;
 }
 
+const MARLA_PER_KANAL = 20;
+
+/**
+ * Size in marla. Kanal is converted (1 kanal = 20 marla) because the search
+ * layer works in marla. Without this, "2 kanal house" silently lost its size.
+ */
 function detectMarla(lower: string): number | undefined {
-  const m = lower.match(/(\d+(?:\.\d+)?)\s*marla/);
-  if (!m) return undefined;
-  const v = parseFloat(m[1]);
-  return Number.isFinite(v) && v > 0 ? v : undefined;
+  const kanal = lower.match(/(\d+(?:\.\d+)?)\s*kanal/);
+  if (kanal) {
+    const v = parseFloat(kanal[1]);
+    if (Number.isFinite(v) && v > 0) return v * MARLA_PER_KANAL;
+  }
+
+  const marla = lower.match(/(\d+(?:\.\d+)?)\s*marla/);
+  if (marla) {
+    const v = parseFloat(marla[1]);
+    if (Number.isFinite(v) && v > 0) return v;
+  }
+
+  return undefined;
 }
 
 interface Budget {
@@ -99,13 +187,18 @@ function detectIntent(lower: string): PropertySearchSlots['intent'] | undefined 
 export async function extractSearchSlots(
   message: string,
 ): Promise<PropertySearchSlots | null> {
+  // Advice questions go to the AI, not to inventory search.
+  if (isAdviceQuestion(message)) return null;
+
   const lower = message.toLowerCase();
 
   const type = detectType(lower);
   const marla = detectMarla(lower);
   const bedrooms = detectBedrooms(lower);
-  const listingType = detectListingType(lower);
   const budget = detectBudget(lower);
+
+  // Runs after budget so a lump-sum amount can imply a purchase.
+  const listingType = detectListingType(lower);
 
   // Locations come from real inventory. `matched` exists in our data and is
   // safe to filter on; `recognized` is a real place we simply have nothing in.

@@ -33,12 +33,23 @@ function getOrCreateSessionId(): string {
 
 type WidgetState = 'hidden' | 'bubble' | 'open' | 'minimized';
 
+/**
+ * Hover hint. Shown only on deliberate hover or keyboard focus, never on a
+ * timer: an unprompted popup reads as an ad, not as help.
+ */
+function getHoverHint(context: IAriaContext): string {
+  if (context.type === 'property') return 'Ask ALEEM about this property';
+  if (context.type === 'society') return 'Ask ALEEM about this society';
+  if (context.type === 'project') return 'Ask ALEEM about this project';
+  return 'Need help? Talk to ALEEM';
+}
+
 // ─── Main widget ──────────────────────────────────────────────────────────────
 
 export default function AriaWidget({ context }: AriaWidgetProps): React.ReactElement | null {
   const [widgetState, setWidgetState] = useState<WidgetState>('bubble');
   const [sessionId,   setSessionId]   = useState<string>('');
-  const [hasNewMsg,   setHasNewMsg]   = useState(false);
+  const [isHovered,   setIsHovered]   = useState(false);
   const [mounted,     setMounted]     = useState(false);
 
   // Hydration guard — widget uses sessionStorage
@@ -47,18 +58,11 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
     setMounted(true);
   }, []);
 
-  // Show unread indicator after 8 seconds if widget hasn't been opened
-  useEffect(() => {
-    if (!mounted) return;
-    const timer = setTimeout(() => {
-      if (widgetState === 'bubble') setHasNewMsg(true);
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [mounted, widgetState]);
+  // No timed popup. The hint appears on hover or keyboard focus only.
 
   const handleOpen = useCallback(() => {
     setWidgetState('open');
-    setHasNewMsg(false);
+    setIsHovered(false);
   }, []);
 
   const handleMinimize = useCallback(() => {
@@ -116,12 +120,16 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
 
       {/* ── Floating bubble (default state) ── */}
       {widgetState === 'bubble' && (
-        <div className="fixed bottom-6 right-6 z-[200] flex flex-col items-end gap-2">
-          {/* Tooltip bubble (appears after delay) */}
-          {hasNewMsg && (
-            <div className="flex items-start gap-2 max-w-[260px]">
-              <div className="bg-white border border-gray-200 rounded-2xl rounded-br-sm px-4 py-3 shadow-lg text-sm text-gray-700 leading-relaxed font-medium">
-                {getContextHint(fullContext)}
+        <div
+          className="fixed bottom-6 right-6 z-[200] flex flex-col items-end gap-2"
+          onMouseEnter={() => setIsHovered(true)}
+          onMouseLeave={() => setIsHovered(false)}
+        >
+          {/* Hint on hover / keyboard focus only */}
+          {isHovered && (
+            <div className="flex items-start gap-2 max-w-[240px]">
+              <div className="bg-white border border-gray-200 rounded-2xl rounded-br-sm px-4 py-2.5 shadow-lg text-sm text-[#004063] leading-snug font-semibold whitespace-nowrap">
+                {getHoverHint(fullContext)}
               </div>
             </div>
           )}
@@ -129,8 +137,10 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
           {/* Main bubble button */}
           <button
             onClick={handleOpen}
-            aria-label="Open Aleem property specialist"
-            className="group relative w-14 h-14 bg-gradient-to-br from-[#029bba] to-[#004063] rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-110 active:scale-95 flex items-center justify-center"
+            onFocus={() => setIsHovered(true)}
+            onBlur={() => setIsHovered(false)}
+            aria-label="Open ALEEM property specialist"
+            className="group relative w-14 h-14 bg-gradient-to-br from-[#029bba] to-[#004063] rounded-full shadow-xl hover:shadow-2xl transition-all hover:scale-110 active:scale-95 flex items-center justify-center focus:outline-none focus:ring-4 focus:ring-[#029bba]/40"
           >
             <Bot className="w-7 h-7 text-white" />
 
@@ -140,12 +150,6 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
             {/* Pulse ring */}
             <span className="absolute inset-0 rounded-full bg-[#029bba]/30 animate-ping" />
 
-            {/* Unread dot */}
-            {hasNewMsg && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-[#ef4444] rounded-full border-2 border-white flex items-center justify-center">
-                <span className="text-[8px] text-white font-bold">1</span>
-              </span>
-            )}
           </button>
 
           {/* Label below bubble */}

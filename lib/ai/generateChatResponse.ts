@@ -157,16 +157,22 @@ async function callGroq(
 
   const isReasoningModel = /gpt-oss|reasoning/i.test(modelName);
 
-  const completion = await groq.chat.completions.create({
-    messages,
-    model: modelName,
-    temperature: 0.7,
-    max_tokens: MAX_GROQ_TOKENS,
-    top_p: 0.9,
-    // Reasoning models spend tokens thinking before they answer. Property
-    // conversation needs warmth, not deliberation, so keep it minimal.
-    ...(isReasoningModel ? { reasoning_effort: 'low' as const } : {}),
-  });
+  // Hard timeout. Gemini already has AbortSignal.timeout(12_000); Groq had
+  // none, so a slow reasoning model could leave the request hanging with no
+  // reply and no fallback. 20s then fail over to the next provider.
+  const completion = await groq.chat.completions.create(
+    {
+      messages,
+      model: modelName,
+      temperature: 0.7,
+      max_tokens: MAX_GROQ_TOKENS,
+      top_p: 0.9,
+      // Reasoning models spend tokens thinking before they answer. Property
+      // conversation needs warmth, not deliberation, so keep it minimal.
+      ...(isReasoningModel ? { reasoning_effort: 'low' as const } : {}),
+    },
+    { timeout: 20_000 },
+  );
 
   const text = completion.choices[0]?.message?.content?.trim() ?? '';
   if (!text) throw new Error('Groq returned an empty response');

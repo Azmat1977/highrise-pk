@@ -34,7 +34,12 @@ import {
   detectReplyLang,
   buildMatchesReply,
   buildNoMatchesReply,
+  buildLanguageDirective,
 } from '@/lib/aleem/searchReplies';
+import {
+  detectSafetyTopics,
+  buildSafetyDirective,
+} from '@/lib/aleem/safetyDirective';
 
 /** Shape used by validateHistory() for sanitised conversation turns. */
 interface GeminiMessage {
@@ -741,7 +746,29 @@ const chatHistory = history.map(msg => ({
 // Server-controlled guidance so ALEEM earns ONE missing detail naturally.
 // Appended to the context block; the persona in lib/gemini.ts is untouched.
 const profileNudge = buildProfileNudge(missingFields(fullProfile), turnCount);
-const combinedContext = [resolvedContext?.block ?? '', profileNudge]
+
+// Explicit per-message language instruction. The standing persona rule was
+// not enough on its own - the model still mixed Urdu script into Roman Urdu
+// replies, so the exact script is now named on every single request.
+const languageDirective = buildLanguageDirective(
+  detectReplyLang(message, history.map((h) => h.content)),
+);
+
+// Hard constraints for risky topics. The standing persona rules were not
+// enough on their own: asked for CVT the model answered "2-5%", and asked for
+// the best society it named Bahria, DHA and Emaar with appreciation claims.
+const safetyDirective = buildSafetyDirective(detectSafetyTopics(message));
+
+// Order matters. Models weight the END of a prompt most heavily, and the
+// conversation history can be many turns of one language. The language
+// instruction therefore goes LAST so it is the final thing read before
+// generating - otherwise the model mirrors the history instead.
+const combinedContext = [
+  resolvedContext?.block ?? '',
+  profileNudge,
+  safetyDirective,
+  languageDirective,
+]
   .filter(Boolean)
   .join('')
   .trim();

@@ -198,7 +198,7 @@ export async function searchProperties(
     total: matches.length,
     filters: {
       type: slots.type,
-      listingType: slots.listingType,
+      listingType: slots.listingType ?? 'sale',
       location: slots.location,
       bedrooms: slots.bedrooms,
       marla: slots.marla,
