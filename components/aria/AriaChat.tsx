@@ -662,13 +662,50 @@ export default function AriaChat({
         {!showLeadForm && !leadCaptured && messages.length >= 2 && (
           <button
             onClick={() => setShowLeadForm(true)}
-            className="w-full mt-3 py-3 bg-gradient-to-r from-[#10b981] to-[#059669] text-white rounded-xl font-semibold text-sm hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shadow-md"
+            className="aleem-cta w-full mt-3 py-3 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-md focus:outline-none focus:ring-4 focus:ring-[#029bba]/40"
           >
             <PhoneCall className="w-4 h-4" />
             Request a Callback from Our Team
           </button>
         )}
       </div>
+
+      {/* Brand-coloured CTA. A slow gradient drift draws the eye without the
+          blinking that makes an interface feel like an advert. Motion is
+          disabled for anyone who has asked their system to reduce it. */}
+      <style jsx>{`
+        .aleem-cta {
+          background-image: linear-gradient(
+            110deg,
+            #029bba 0%,
+            #004063 35%,
+            #0288a6 65%,
+            #029bba 100%
+          );
+          background-size: 220% 100%;
+          background-position: 0% 50%;
+          animation: aleem-cta-slide 6s ease-in-out infinite;
+          transition: filter 0.2s ease, transform 0.2s ease;
+        }
+        .aleem-cta:hover {
+          filter: brightness(1.08);
+          transform: translateY(-1px);
+        }
+        .aleem-cta:active {
+          transform: translateY(0);
+        }
+        @keyframes aleem-cta-slide {
+          0%   { background-position: 0% 50%; }
+          50%  { background-position: 100% 50%; }
+          100% { background-position: 0% 50%; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .aleem-cta {
+            animation: none;
+            background-position: 0% 50%;
+          }
+        }
+      `}</style>
     </div>
   );
 }
