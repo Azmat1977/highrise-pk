@@ -509,17 +509,10 @@ export default function AriaChat({
   }, [sendMessage]);
 
   const handleLeadSuccess = useCallback(() => {
+    // The confirmation banner below already says this. A second chat bubble
+    // repeated it, in a language the user may not have been writing in.
     setLeadCaptured(true);
     setShowLeadForm(false);
-    setMessages((prev) => [
-      ...prev,
-      {
-        id:        crypto.randomUUID(),
-        role:      'assistant',
-        content:   'Shukriya! Aap ki request note kar li gayi hai 🎉” hamari team aap se raabta karegi. Tab tak aap aur verified properties browse kar sakte hain.',
-        timestamp: new Date(),
-      },
-    ]);
   }, []);
 
   return (
@@ -585,7 +578,7 @@ export default function AriaChat({
           <div className="flex items-center gap-2 px-3 py-2.5 bg-[#f0fdf4] border border-[#10b981]/30 rounded-xl mb-3">
             <CheckCircle className="w-5 h-5 text-[#10b981] flex-shrink-0" />
             <p className="text-sm text-[#10b981] font-semibold">
-              Details submitted ✓ Team will contact you soon
+              Details received. Our team will be in touch.
             </p>
           </div>
         )}
