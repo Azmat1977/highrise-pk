@@ -514,6 +514,8 @@ export default async function handler(
             searchSlots.listingType === 'rent',
             searchSlots.location,
             searchSlots.unavailableLocation,
+            searchResult.isAlternative,
+            searchResult.relaxationApplied,
           );
 
           // Persist this turn. Without it ALEEM forgets the listings it just

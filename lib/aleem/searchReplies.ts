@@ -173,9 +173,35 @@ export function buildMatchesReply(
   isRent: boolean,
   location?: string,
   unavailableLocation?: string,
+  isAlternative?: boolean,
+  relaxationApplied?: 'budget_expanded' | 'location_dropped' | 'type_dropped' | 'inventory_showcase' | null,
 ): string {
   const lines = formatListingLines(listings);
   const rentWord = forRentWord(lang, isRent);
+
+  if (isAlternative) {
+    let headerUrdu = 'آپ کی تلاش کے مطابق زیکٹ میچ نہیں ملا۔ یہ فی الحال دستیاب تصدیق شدہ پراپرٹیز ہیں:';
+    let headerRoman = 'Aap ki exact search ke mutabiq match nahi mili. Yeh closest verified options hain:';
+    let headerEnglish = 'No exact match found for your query. Here are verified alternative options currently available:';
+
+    if (relaxationApplied === 'budget_expanded') {
+      headerUrdu = 'آپ کے بجٹ میں زیکٹ میچ نہیں ملا۔ یہ تھوڑے سے زیادہ بجٹ (+20%) کے ساتھ تصدیق شدہ آپشنز ہیں:';
+      headerRoman = 'Aap ke budget mein exact match nahi mili. Yeh thode se zyada budget (+20%) ke saath verified options hain:';
+      headerEnglish = 'No exact matches within your budget. Here are verified options with a slightly higher budget (+20%):';
+    } else if (relaxationApplied === 'location_dropped') {
+      headerUrdu = 'اس مخصوص علاقے میں زیکٹ میچ نہیں ملا۔ یہ دوسرے علاقوں میں تصدیق شدہ آپشنز ہیں:';
+      headerRoman = 'Is specific location mein exact match nahi mili. Yeh doosray areas mein verified options hain:';
+      headerEnglish = 'No exact matches in that location. Here are verified listings available in other areas:';
+    } else if (relaxationApplied === 'type_dropped') {
+      headerUrdu = 'اس پراپرٹی قسم میں میچ نہیں ملا۔ یہ دیگر دستیاب تصدیق شدہ آپشنز ہیں:';
+      headerRoman = 'Is property type ke liye exact match nahi mili. Yeh doosray available verified options hain:';
+      headerEnglish = 'No exact matches for that property type. Here are available verified options:';
+    }
+
+    if (lang === 'urdu') return `${headerUrdu}\n\n${lines}`;
+    if (lang === 'roman-urdu' || lang === 'other-regional') return `${headerRoman}\n\n${lines}`;
+    return `${headerEnglish}\n\n${lines}`;
+  }
 
   const inLocation = location ? locationNote(lang, location) : '';
   const caveat = location ? '' : locationNote(lang, undefined, unavailableLocation);

@@ -45,6 +45,8 @@ export interface PropertyCard {
 export interface SearchPropertiesResult {
   matches: PropertyCard[];
   total: number;
+  isAlternative?: boolean;
+  relaxationApplied?: 'budget_expanded' | 'location_dropped' | 'type_dropped' | 'inventory_showcase' | null;
   filters: {
     type?: string;
     listingType?: string;
@@ -166,36 +168,109 @@ export async function searchProperties(
     });
   }
 
-  // ALWAYS wrap in the canonical public filter.
-  const query: FilterQuery<IProperty> =
-    clauses.length > 0 ? withPublicPropertyFilter({ $and: clauses }) : { ...PUBLIC_PROPERTY_FILTER };
+  async function executeQuery(queryClauses: FilterQuery<IProperty>[]): Promise<PropertyCard[]> {
+    const query: FilterQuery<IProperty> =
+      queryClauses.length > 0 ? withPublicPropertyFilter({ $and: queryClauses }) : { ...PUBLIC_PROPERTY_FILTER };
 
-  const docs = await Property.find(query)
-    .select(
-      'slug title city society propertyType listingType price area unit isFeatured images coverImage primaryImage verification.status',
-    )
-    .sort({ isFeatured: -1, createdAt: -1 })
-    .limit(MAX_RESULTS)
-    .maxTimeMS(MAX_TIME_MS)
-    .lean();
+    const docs = await Property.find(query)
+      .select(
+        'slug title city society propertyType listingType price area unit isFeatured images coverImage primaryImage verification.status',
+      )
+      .sort({ isFeatured: -1, createdAt: -1 })
+      .limit(MAX_RESULTS)
+      .maxTimeMS(MAX_TIME_MS)
+      .lean();
 
-  const matches: PropertyCard[] = (docs as unknown as LeanPropertyDoc[]).map((doc) => ({
-    slug: doc.slug ?? '',
-    title: doc.title ?? '',
-    city: doc.city ?? '',
-    society: doc.society ?? '',
-    propertyType: doc.propertyType ?? '',
-    listingType: doc.listingType ?? '',
-    price: doc.price ?? 0,
-    area: doc.area ?? 0,
-    unit: doc.unit ?? '',
-    imageUrl: resolveImageUrl(doc),
-    isFeatured: doc.isFeatured ?? false,
-  }));
+    return (docs as unknown as LeanPropertyDoc[]).map((doc) => ({
+      slug: doc.slug ?? '',
+      title: doc.title ?? '',
+      city: doc.city ?? '',
+      society: doc.society ?? '',
+      propertyType: doc.propertyType ?? '',
+      listingType: doc.listingType ?? '',
+      price: doc.price ?? 0,
+      area: doc.area ?? 0,
+      unit: doc.unit ?? '',
+      imageUrl: resolveImageUrl(doc),
+      isFeatured: doc.isFeatured ?? false,
+    }));
+  }
+
+  let matches = await executeQuery(clauses);
+  let isAlternative = false;
+  let relaxationApplied: SearchPropertiesResult['relaxationApplied'] = null;
+
+  // Fallback relaxation if zero exact matches found
+  if (matches.length === 0) {
+    // Tier 1: Expand Budget (+20%)
+    if (slots.budgetMaxPKR !== undefined) {
+      const expandedMax = Math.round(slots.budgetMaxPKR * 1.2);
+      const fallbackClauses = clauses.map((c) => {
+        if (c.price) {
+          return { price: { ...c.price, $lte: expandedMax } };
+        }
+        return c;
+      });
+      matches = await executeQuery(fallbackClauses);
+      if (matches.length > 0) {
+        isAlternative = true;
+        relaxationApplied = 'budget_expanded';
+      }
+    }
+
+    // Tier 2: Drop Location filter (search whole city/inventory)
+    if (matches.length === 0 && slots.location) {
+      const fallbackClauses = clauses.filter((c) => {
+        if (c.$or && Array.isArray(c.$or)) {
+          const isLoc = c.$or.some((sub: any) => sub.city || sub.society || sub.locality);
+          if (isLoc) return false;
+        }
+        return true;
+      });
+      matches = await executeQuery(fallbackClauses);
+      if (matches.length > 0) {
+        isAlternative = true;
+        relaxationApplied = 'location_dropped';
+      }
+    }
+
+    // Tier 3: Drop Property Type filter
+    if (matches.length === 0 && slots.type) {
+      const fallbackClauses = clauses.filter((c) => {
+        if (c.$or && Array.isArray(c.$or)) {
+          const isType = c.$or.some((sub: any) => sub.residentialType || sub.commercialType || sub.propertyType);
+          if (isType) return false;
+        }
+        return true;
+      });
+      matches = await executeQuery(fallbackClauses);
+      if (matches.length > 0) {
+        isAlternative = true;
+        relaxationApplied = 'type_dropped';
+      }
+    }
+
+    // Tier 4: Inventory Showcase (Show verified properties currently available)
+    if (matches.length === 0) {
+      const showcaseClauses: FilterQuery<IProperty>[] = [];
+      if (slots.listingType === 'rent') {
+        showcaseClauses.push({ listingType: { $regex: '^rent$', $options: 'i' } });
+      } else if (slots.listingType === 'sale') {
+        showcaseClauses.push({ listingType: { $not: { $regex: '^rent$', $options: 'i' } } });
+      }
+      matches = await executeQuery(showcaseClauses);
+      if (matches.length > 0) {
+        isAlternative = true;
+        relaxationApplied = 'inventory_showcase';
+      }
+    }
+  }
 
   return {
     matches,
     total: matches.length,
+    isAlternative,
+    relaxationApplied,
     filters: {
       type: slots.type,
       listingType: slots.listingType ?? 'sale',
