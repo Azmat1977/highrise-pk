@@ -103,12 +103,17 @@ export const SECURITY_EVENT_TYPES = [
   "vpn_detected",
   "geo_anomaly",
 
-  // AI & ALEEM Chatbot (5)
+  // AI & ALEEM Chatbot (10)
   "ai_chat_success",
   "ai_chat_failed",
+  "ai_chat_error",
   "ai_all_providers_failed",
   "ai_chat_grounded_search",
+  "ai_chat_rate_limit",
+  "ai_chat_cache_hit",
+  "ai_daily_quota_exceeded",
   "aleem_lead_created",
+  "aleem_lead_failed",
 ] as const;
 
 export type SecurityEventType = typeof SECURITY_EVENT_TYPES[number];

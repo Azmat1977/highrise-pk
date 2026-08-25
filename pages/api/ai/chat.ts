@@ -125,8 +125,11 @@ async function logSecurityEvent(data: {
 }): Promise<void> {
   try {
     await SecurityEvent.create({ ...data, timestamp: new Date() });
-  } catch {
-    // swallow — audit must never break chat
+  } catch (err: unknown) {
+    if (process.env.NODE_ENV !== 'production') {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn('[logSecurityEvent failed]:', msg);
+    }
   }
 }
 
