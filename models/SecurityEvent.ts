@@ -102,6 +102,13 @@ export const SECURITY_EVENT_TYPES = [
   "rate_limit_exceeded",
   "vpn_detected",
   "geo_anomaly",
+
+  // AI & ALEEM Chatbot (5)
+  "ai_chat_success",
+  "ai_chat_failed",
+  "ai_all_providers_failed",
+  "ai_chat_grounded_search",
+  "aleem_lead_created",
 ] as const;
 
 export type SecurityEventType = typeof SECURITY_EVENT_TYPES[number];
@@ -268,6 +275,7 @@ function getSeverityForEventType(type: SecurityEventType): SeverityLevel {
     "account_deleted",
     "user_impersonated",
     "ip_blocked",
+    "ai_all_providers_failed",
   ];
 
   const criticalEvents: SecurityEventType[] = [
