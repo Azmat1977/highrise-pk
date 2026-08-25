@@ -10,7 +10,7 @@ import { Redis } from '@upstash/redis';
 export type QuotaMode = 'normal' | 'priority' | 'lead_only';
 
 /** AI vendors tracked independently. Each has its own daily budget. */
-export type AIProviderName = 'gemini' | 'groq';
+export type AIProviderName = 'gemini' | 'groq' | 'nvidia';
 
 export interface QuotaStatus {
   used:        number;

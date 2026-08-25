@@ -59,7 +59,7 @@ export function getLastProviderDiagnostics(): ProviderAttempt[] {
 // Tunables
 // ---------------------------------------------------------------------------
 
-const PROVIDER_ORDER: AIProviderName[] = ['gemini', 'groq'];
+const PROVIDER_ORDER: AIProviderName[] = ['groq', 'nvidia', 'gemini'];
 const BREAKER_THRESHOLD = 3;
 const BREAKER_COOLDOWN_MS = 60_000;
 const MAX_HISTORY = 8;
@@ -187,13 +187,75 @@ async function callGroq(
 }
 
 // ---------------------------------------------------------------------------
+// NVIDIA Nemotron 3 Ultra 550B
+// ---------------------------------------------------------------------------
+
+async function callNemotron(
+  opts: GenerateChatOptions,
+  agentName: string,
+): Promise<{ response: string; tokensUsed: number; modelName: string }> {
+  const apiKey = process.env.NVIDIA_API_KEY;
+  if (!apiKey) throw new Error('NVIDIA_API_KEY is not configured');
+
+  const modelName = process.env.NVIDIA_MODEL || 'nvidia/nemotron-3-ultra-550b-a55b';
+  const baseUrl = process.env.NVIDIA_BASE_URL || 'https://integrate.api.nvidia.com/v1';
+
+  const messages = [
+    { role: 'system', content: buildSystemInstruction(agentName, opts.contextBlock) },
+    ...opts.history.slice(-MAX_HISTORY).map((msg) => ({
+      role: msg.role === 'assistant' ? 'assistant' : 'user',
+      content: String(msg.content).slice(0, MAX_TEXT_CHARS),
+    })),
+    { role: 'user', content: opts.message.slice(0, MAX_TEXT_CHARS) },
+  ];
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20_000); // 20s timeout
+
+  try {
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: modelName,
+        messages,
+        temperature: 0.7,
+        max_tokens: 1000,
+      }),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '');
+      throw new Error(`NVIDIA API HTTP ${res.status}: ${errText.slice(0, 200)}`);
+    }
+
+    const data = await res.json();
+    const text = data.choices?.[0]?.message?.content?.trim() ?? '';
+    if (!text) throw new Error('NVIDIA Nemotron returned an empty response');
+
+    const tokensUsed = data.usage?.total_tokens ?? Math.ceil((opts.message.length + text.length) / 4);
+
+    return { response: text, tokensUsed, modelName };
+  } catch (err: unknown) {
+    clearTimeout(timeoutId);
+    throw err;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
 function hasKey(provider: AIProviderName): boolean {
-  return provider === 'gemini'
-    ? Boolean(process.env.GEMINI_API_KEY)
-    : Boolean(process.env.GROQ_API_KEY);
+  if (provider === 'gemini') return Boolean(process.env.GEMINI_API_KEY);
+  if (provider === 'nvidia') return Boolean(process.env.NVIDIA_API_KEY);
+  return Boolean(process.env.GROQ_API_KEY);
 }
 
 async function hasBudget(provider: AIProviderName): Promise<boolean> {
@@ -246,6 +308,18 @@ export async function generateChatResponse(
           tokensUsed: result.tokensUsed,
           provider,
           modelName: process.env.GEMINI_MODEL || 'gemini-3.5-flash',
+        };
+      }
+
+      if (provider === 'nvidia') {
+        const result = await callNemotron(opts, agentName);
+        recordSuccess(provider);
+        void incrementQuota(provider).catch(() => undefined);
+        return {
+          response: result.response,
+          tokensUsed: result.tokensUsed,
+          provider,
+          modelName: result.modelName,
         };
       }
 
