@@ -64,3 +64,6 @@ developer-profile-lint.json
 edit-project-lint.json
 login-form-lint.json
 new-project-lint.json
+
+# AI audit reports
+/audit-reports/
