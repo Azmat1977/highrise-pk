@@ -41,7 +41,6 @@ export interface PropertyCard {
   imageUrl: string | null;
   isFeatured: boolean;
 }
-
 export interface SearchPropertiesResult {
   matches: PropertyCard[];
   total: number;
@@ -56,6 +55,40 @@ export interface SearchPropertiesResult {
     budgetMinPKR?: number;
     budgetMaxPKR?: number;
   };
+}
+
+/**
+ * Fetch specific verified properties by slugs for side-by-side comparison.
+ * Always applies PUBLIC_PROPERTY_FILTER so unverified/flagged properties are never loaded.
+ */
+export async function getPropertiesBySlugs(slugs: string[]): Promise<PropertyCard[]> {
+  if (!slugs || slugs.length === 0) return [];
+  await dbConnect();
+
+  const cleanSlugs = slugs.map((s) => String(s).trim()).filter(Boolean).slice(0, 4);
+  const query = withPublicPropertyFilter({ slug: { $in: cleanSlugs } });
+
+  const docs = await Property.find(query)
+    .select(
+      'slug title city society propertyType listingType price area unit isFeatured images coverImage primaryImage verification.status',
+    )
+    .limit(4)
+    .maxTimeMS(MAX_TIME_MS)
+    .lean();
+
+  return (docs as unknown as LeanPropertyDoc[]).map((doc) => ({
+    slug: doc.slug ?? '',
+    title: doc.title ?? '',
+    city: doc.city ?? '',
+    society: doc.society ?? '',
+    propertyType: doc.propertyType ?? '',
+    listingType: doc.listingType ?? '',
+    price: doc.price ?? 0,
+    area: doc.area ?? 0,
+    unit: doc.unit ?? '',
+    imageUrl: resolveImageUrl(doc),
+    isFeatured: doc.isFeatured ?? false,
+  }));
 }
 
 // Lean doc shape after .lean(). Only public, non-PII fields are selected.
