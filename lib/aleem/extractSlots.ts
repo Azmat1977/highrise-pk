@@ -20,10 +20,9 @@ import { resolveLocation } from '@/lib/aleem/locationResolver';
 const ADVICE_MARKERS = new RegExp(
   [
     '\\b(how|what|why|when|which|should|can i|do i|is it|are there|explain|tell me about|guide|advice|tips|process|difference between|better)\\b',
-    // "chahiye" alone is a requirement ("mujhe plot chahiye"), not advice.
-    // Only treat it as advice when paired with a question word.
     '\\b(kaise|kaisay|kyun|kyu|kaunsa|konsa|samjhao|tareeqa|farq|mashwara)\\b',
     '\\b(kya|kia)\\b.*\\b(check|karna|hota|matlab|zaroori|behtar|faida|nuqsan)\\b',
+    '\\b(yield|rental yield|appreciation|growth|roi|return|returns|prospects|expect|expectations|kitna percent|kitne percent)\\b',
     '\\bkarna chahiye\\b',
     '\\bcheck karna\\b',
   ].join('|'),
