@@ -42,6 +42,20 @@ const INVENTORY_MARKERS = new RegExp(
 
 function isAdviceQuestion(message: string): boolean {
   const lower = message.toLowerCase();
+
+  // City-wide price / value range questions are guidance, not inventory dumps.
+  // Example: "Islamabad mein 10 marla ghar min/max kis range mein mil sakta hai?"
+  // A bare "10 marla" must NOT force grounded search + alternative cards.
+  const asksMarketRange =
+    /\b(minimum|maximum|\bmin\b|\bmax\b|range|values?|city\s*-?\s*wise|citywise)\b/i.test(
+      lower,
+    ) &&
+    /\b(price|prices|value|values|qeemat|keemat|kitne|kitni|mil\s*sakta|mil\s*sakti|milta|milti|mil\s*sakte)\b/i.test(
+      lower,
+    );
+
+  if (asksMarketRange) return true;
+
   if (INVENTORY_MARKERS.test(lower)) return false;
   return ADVICE_MARKERS.test(lower);
 }
@@ -92,13 +106,58 @@ function detectType(lower: string): PropertySearchSlots['type'] | undefined {
 }
 
 function detectListingType(lower: string): 'rent' | 'sale' | undefined {
-  if (/\b(rent|rental|kiraya|kirae|kiraye|kirai|lease|tenant)\b/.test(lower)) return 'rent';
-  if (/\b(buy|buying|purchase|kharid|khareed|kharidna|sale|for sale|bechna|lena)\b/.test(lower)) return 'sale';
+  // Tenanted / rented asset offered for SALE (investment language).
+  // "rent par laga", "kiraye par charha", "tenanted" = buyer wants ownership,
+  // NOT a tenancy. Must never map to listingType rent.
+  const tenantedForSale =
+    /\b(rent|kiraya|kiraye|kirai|kirae)\s*par\s*(laga|lagi|lage|lagaya|lagayi|charha|charhi|chara|chari|chadh|chadha|chadhi)\b/.test(
+      lower,
+    ) ||
+    /\b(tenanted|rented\s+(house|home|property|ghar|makan)|with\s+(a\s+)?tenant|tenant\s+occupied|occupied\s+by\s+tenant)\b/.test(
+      lower,
+    ) ||
+    /\b(rental\s+income|rent\s+income|passive\s+income|yield\s+wali|income\s+wali\s+property)\b/.test(
+      lower,
+    );
+
+  // User explicitly rejects renting as the deal type.
+  const rentNegated =
+    /\b(rent|rental|kiraya|kiraye|kirai|kirae)\s*(kay|ke|ki)?\s*(liye|keliye)?\s*(nahi|nahin|nai|nhi)\b/.test(
+      lower,
+    ) ||
+    /\b(nahi|nahin|nai|nhi)\s+(rent|rental|kiraya|kiraye|kirai|kirae)\b/.test(lower) ||
+    /\b(not\s+(for\s+)?rent|no\s+rent|rent\s+nahi)\b/.test(lower);
+
+  // Clear purchase / investment signals (checked BEFORE bare "rent" token).
+  const wantsSale =
+    tenantedForSale ||
+    rentNegated ||
+    /\b(buy|buying|purchase|kharid|khareed|kharidna|khareedna|for\s+sale|sale|bechna|investment|invest|investor)\b/.test(
+      lower,
+    ) ||
+    /\b(property\s+value|ownership|registry|bayana)\b/.test(lower);
+
+  if (wantsSale) return 'sale';
+
+  // True rent intent: user wants to take a place on rent.
+  const wantsRent =
+    /\b(for\s+rent|on\s+rent|to\s+rent|rent\s+chahiye|kiraya\s+chahiye|kiraye\s+(par|pe)\s+(chahiye|leni|lena|leni\s+hai)|lease)\b/.test(
+      lower,
+    ) ||
+    (/\b(rent|rental|kiraya|kirae|kiraye|kirai)\b/.test(lower) &&
+      !tenantedForSale &&
+      !rentNegated);
+
+  if (wantsRent) return 'rent';
 
   // A lump-sum budget ("50 lakh", "1 crore") is a purchase signal. Without
   // this the rent price field is compared against a purchase budget, so a
   // PKR 120,000/month rental looks like it fits a 50 lakh buying budget.
-  if (/\b\d+(?:\.\d+)?\s*(lakhs|lakh|lacs|lac|lackh|lack|crores|crore|karor|kror|croar)\b/i.test(lower)) {
+  if (
+    /\b\d+(?:\.\d+)?\s*(lakhs|lakh|lacs|lac|lackh|lack|crores|crore|karor|kror|croar)\b/i.test(
+      lower,
+    )
+  ) {
     return 'sale';
   }
 
