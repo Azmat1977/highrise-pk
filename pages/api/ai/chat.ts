@@ -10,7 +10,8 @@ import {
   getLastProviderDiagnostics,
 } from '@/lib/ai/generateChatResponse';
 import { extractSearchSlots } from '@/lib/aleem/extractSlots';
-import { searchProperties } from '@/lib/aleem/searchProperties';
+import { searchProperties, getPropertiesBySlugs } from '@/lib/aleem/searchProperties';
+import { isComparisonRequest, buildComparisonContextBlock } from '@/lib/aleem/compareProperties';
 import { createAleemLead, detectConsent, validateListingSlugs } from '@/lib/aleem/createAleemLead';
 import { parseAleemContext, resolveAleemContext } from '@/lib/aleem/aleemContext';
 import {
@@ -764,18 +765,35 @@ const languageDirective = buildLanguageDirective(
 // the best society it named Bahria, DHA and Emaar with appreciation claims.
 const safetyDirective = buildSafetyDirective(detectSafetyTopics(message));
 
+// Grounded Property Comparison Context
+let comparisonDirective = '';
+if (isComparisonRequest(message)) {
+  const comparisonSlugs = validateListingSlugs(req.body?.lastListings);
+  if (comparisonSlugs.length > 0) {
+    try {
+      const comparedProperties = await getPropertiesBySlugs(comparisonSlugs);
+      if (comparedProperties.length > 0) {
+        comparisonDirective = buildComparisonContextBlock(comparedProperties);
+      }
+    } catch {
+      // Non-fatal if comparison lookup fails
+    }
+  }
+}
+
 // Order matters. Models weight the END of a prompt most heavily, and the
 // conversation history can be many turns of one language. The language
 // instruction therefore goes LAST so it is the final thing read before
 // generating - otherwise the model mirrors the history instead.
 const combinedContext = [
   resolvedContext?.block ?? '',
+  comparisonDirective,
   profileNudge,
   safetyDirective,
   languageDirective,
 ]
   .filter(Boolean)
-  .join('')
+  .join('\n\n')
   .trim();
 
 const aiResult = await generateChatResponse({
