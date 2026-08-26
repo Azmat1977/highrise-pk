@@ -92,10 +92,11 @@ export function buildSafetyDirective(flags: SafetyFlags): string {
 
   if (flags.price) {
     blocks.push(
-      'PRICE OR COST QUESTION - ABSOLUTE RULE:\n' +
-      '- Do not invent market averages, per-marla rates, construction costs or material prices.\n' +
-      '- Only quote figures that appear in verified Highrise listings provided to you in this conversation.\n' +
-      '- If you have no verified figure, say so plainly and offer to search real listings for the area and budget.',
+      'PRICE OR COST QUESTION - CONSULTANT GUIDELINES:\n' +
+      '- Provide realistic, estimated sector-wise or area-wise price bands (e.g. Prime/Posh vs Established vs Suburban sectors).\n' +
+      '- Explain key value drivers: location tier, NOC status, road access, and construction quality.\n' +
+      '- Always clarify that these are general market estimated ranges, and encourage checking Highrise verified listings for exact active inventory.\n' +
+      '- For official tax rates or construction material costs (cement/steel), explain the calculation mechanism and refer to official sources (FBR/IRIS) or Highrise verified tools.',
     );
   }
 
