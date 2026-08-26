@@ -44,6 +44,9 @@ export interface IAriaContext {
   canonicalUrl?: string;
 }
 
+/** Preferred alias for Highrise AI customer concierge context */
+export type IAleemContext = IAriaContext;
+
 /**
  * Contact details revealed during conversation. Phone and email are encrypted
  * at rest with AES-256-GCM via lib/kycCrypto; only masked forms are safe to

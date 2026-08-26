@@ -14,7 +14,7 @@ import { DeveloperProvider } from '../components/developer/DeveloperContext';
 import { Header } from '../components/layout/header';
 import { Footer } from '../components/layout/footer';
 import { FloatingWhatsApp } from '../components/common/floating-whatsapp';
-import AriaWidget from '../components/aria/AriaWidget';
+import AleemWidget from '../components/aleem/AleemWidget';
 import CompareBar from '../components/compare/CompareBar';
 import '../styles/globals.css';
 
@@ -180,9 +180,9 @@ export default function App({ Component, pageProps }: HighriseAppProps): React.R
         {/* Floating WhatsApp — external direct contact (different purpose than Aria) */}
         <FloatingWhatsApp />
 
-        {/* Aria AI Sales Bot — sole AI chat assistant (replaced ChatWidget V6.2.1) */}
+        {/* ALEEM AI Assistant — sole AI chat assistant */}
         {/* Context is 'general' by default. Property/society/project pages pass their own context. */}
-        <AriaWidget />
+        <AleemWidget />
 
       </div>
     </SessionProvider>

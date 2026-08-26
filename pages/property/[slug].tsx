@@ -27,7 +27,7 @@ import TrueCostCard, {
 } from "@/components/property/TrueCostCard";
 import ReportListingModal from "@/components/property/ReportListingModal";
 import { addToRecentlyViewed } from "@/lib/recently-viewed";
-import AriaWidget from "@/components/aria/AriaWidget";
+import AleemWidget from "@/components/aleem/AleemWidget";
 import SafeDealBanner from "@/components/safedeal/SafeDealBanner";
 import VerifiedOwnerBadge from "@/components/badges/VerifiedOwnerBadge";
 import { useFavorites } from "@/hooks/useFavorites";
@@ -2640,7 +2640,7 @@ export default function PropertySlugPage({
       )}
 
       {/* Aria AI — property context */}
-      <AriaWidget
+      <AleemWidget
         context={{
           type:         'property',
           id:           property._id,

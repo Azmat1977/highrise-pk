@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import type { IAriaContext } from '@/models/Conversation';
-import AriaChat from './AriaChat';
+import AleemChat from './AleemChat';
 import { MessageCircle, X, Bot, ChevronDown } from 'lucide-react';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -93,7 +93,7 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
           className="fixed bottom-6 right-6 z-[200] w-[360px] h-[560px] max-h-[85vh] bg-white rounded-3xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden"
           style={{ boxShadow: '0 25px 60px rgba(0, 64, 99, 0.25)' }}
         >
-          <AriaChat
+          <AleemChat
             context={fullContext}
             sessionId={sessionId}
             onMinimize={handleMinimize}
