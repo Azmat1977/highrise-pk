@@ -400,7 +400,13 @@ export function useCompare(
         };
         if (sessionId) body.sessionId = sessionId;
 
-        const res = await fetch('/api/compare/remove', {
+        const queryParams = new URLSearchParams({
+          entityType: type,
+          entityId: entityId,
+        });
+        if (sessionId) queryParams.set('sessionId', sessionId);
+
+        const res = await fetch(`/api/compare/remove?${queryParams.toString()}`, {
           method:      'DELETE',
           credentials: 'include',
           headers:     { 'Content-Type': 'application/json' },
