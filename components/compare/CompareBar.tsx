@@ -157,10 +157,10 @@ function FilledSlot({
         }}
         disabled={isRemoving}
         aria-label={`Remove ${item.title} from comparison`}
-        className="absolute top-1/2 -translate-y-1/2 right-1.5
+        className="absolute top-1/2 -translate-y-1/2 right-1.5 z-10
                    w-6 h-6 rounded-full bg-red-500 text-white
                    flex items-center justify-center
-                   opacity-0 group-hover:opacity-100
+                   opacity-90 hover:opacity-100
                    hover:bg-red-600 hover:scale-110
                    transition-all duration-200
                    focus:outline-none focus:ring-2 focus:ring-red-400

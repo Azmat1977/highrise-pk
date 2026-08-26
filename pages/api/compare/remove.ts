@@ -81,25 +81,22 @@ export default async function handler(
       : { sessionId };
 
     // ─── Atomic pull from BOTH items[] and legacy properties[] ──
-    const objectId = new mongoose.Types.ObjectId(entityId);
+    const isValId = mongoose.Types.ObjectId.isValid(entityId);
+    const objectId = isValId ? new mongoose.Types.ObjectId(entityId) : null;
+
+    const pullItemsFilter: Record<string, unknown>[] = [{ entityId: entityId }];
+    if (objectId) {
+      pullItemsFilter.push({ entityId: objectId });
+    }
 
     const updateOps: Record<string, unknown> = {
       $pull: {
         items: {
-          $or: [
-            { entityId: objectId },
-            { entityId: entityId },
-          ],
+          $or: pullItemsFilter,
         },
+        properties: objectId ? objectId : entityId,
       },
     };
-
-    // Legacy: also pull from properties[] array if property
-    if (entityType === 'property') {
-      (updateOps.$pull as Record<string, unknown>).properties = {
-        $in: [objectId, entityId],
-      };
-    }
 
     const updatedComparison = await Comparison.findOneAndUpdate(
       query,
