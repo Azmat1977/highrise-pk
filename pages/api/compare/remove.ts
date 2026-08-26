@@ -80,20 +80,25 @@ export default async function handler(
       ? { userId: new mongoose.Types.ObjectId(userId) }
       : { sessionId };
 
-    // ─── Atomic pull from BOTH items[] and legacy properties[] ─
+    // ─── Atomic pull from BOTH items[] and legacy properties[] ──
+    const objectId = new mongoose.Types.ObjectId(entityId);
+
     const updateOps: Record<string, unknown> = {
       $pull: {
         items: {
-          entityType,
-          entityId: new mongoose.Types.ObjectId(entityId),
+          $or: [
+            { entityId: objectId },
+            { entityId: entityId },
+          ],
         },
       },
     };
 
-    // Legacy: also pull from properties[] if property
+    // Legacy: also pull from properties[] array if property
     if (entityType === 'property') {
-      (updateOps.$pull as Record<string, unknown>).properties =
-        new mongoose.Types.ObjectId(entityId);
+      (updateOps.$pull as Record<string, unknown>).properties = {
+        $in: [objectId, entityId],
+      };
     }
 
     const updatedComparison = await Comparison.findOneAndUpdate(
