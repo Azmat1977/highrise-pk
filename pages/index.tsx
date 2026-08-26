@@ -16,7 +16,10 @@ import {
   TreePine, Store, Warehouse, Factory, FileText, Grid3X3,
   BadgeCheck, Crown, Zap, ShieldCheck, AlertTriangle,
   Calculator, TrendingDown, Activity, Building, Info,
+  BarChart3, Check,
 } from 'lucide-react';
+
+import { useCompare } from '@/hooks/useCompare';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1229,6 +1232,14 @@ export default function HomePage(): React.ReactElement {
   const router = useRouter();
   const { data: session } = useSession();
 
+  // Unified Compare Hook
+  const {
+    isInCompare,
+    toggle: toggleCompare,
+    actionState: compareState,
+    isMaxReached,
+  } = useCompare({ defaultEntityType: 'property' });
+
   // Data states
   const [featuredProperties, setFeaturedProperties] = useState<PropertyItem[]>([]);
   const [installmentProperties, setInstallmentProperties] = useState<PropertyItem[]>([]);
@@ -2277,7 +2288,35 @@ export default function HomePage(): React.ReactElement {
                                 <Maximize className="w-3.5 h-3.5 text-gray-500" /> {getAreaLabel(property)}
                               </span>
                             </div>
-                            <div className="mt-4 pt-3 border-t border-gray-100 flex items-center justify-between">
+                            {/* Compare Button */}
+                            <button
+                              type="button"
+                              disabled={compareState === 'pending' || (!isInCompare(String(property._id), 'property') && isMaxReached)}
+                              onClick={async (e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                await toggleCompare(String(property._id), 'property');
+                              }}
+                              className={`w-full mt-3 py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200 ${
+                                isInCompare(String(property._id), 'property')
+                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
+                                  : 'border-gray-200 text-gray-600 hover:border-[#029bba]/40 hover:text-[#029bba] hover:bg-[#029bba]/5'
+                              }`}
+                            >
+                              {isInCompare(String(property._id), 'property') ? (
+                                <>
+                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                  <span>Added to Compare</span>
+                                </>
+                              ) : (
+                                <>
+                                  <BarChart3 className="w-3.5 h-3.5 text-[#029bba]" />
+                                  <span>Add to Compare</span>
+                                </>
+                              )}
+                            </button>
+
+                            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
                               <div className="flex items-center gap-2">
                                 <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center">
                                   <Home className="w-3 h-3 text-white" />
