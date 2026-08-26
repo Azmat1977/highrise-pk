@@ -43,13 +43,11 @@ interface Message {
 }
 
 interface LeadForm {
-  name:       string;
-  phone:      string;
-  email:      string;
-  intent:     string;
-  urgency:    string;
-  budgetTier: string;
-  message:    string;
+  name:    string;
+  phone:   string;
+  email:   string;
+  intent:  string;
+  message: string;
 }
 
 type QuotaMode = 'normal' | 'priority' | 'lead_only';
@@ -117,22 +115,7 @@ function getQuickReplies(context: IAriaContext): typeof QUICK_REPLIES_GENERAL {
   return QUICK_REPLIES_GENERAL;
 }
 
-// ─── Budget tier options ──────────────────────────────────────────────────────
-
-const BUDGET_TIERS = [
-  { value: 'under_50L', label: 'Under 50 Lakh' },
-  { value: '50L_1Cr',   label: '50L – 1 Crore'  },
-  { value: '1Cr_3Cr',   label: '1 – 3 Crore'    },
-  { value: '3Cr_5Cr',   label: '3 – 5 Crore'    },
-  { value: 'above_5Cr', label: 'Above 5 Crore'  },
-];
-
-const URGENCY_OPTIONS = [
-  { value: 'immediate',       label: 'ASAP'           },
-  { value: 'within_month',    label: 'Within a month' },
-  { value: 'within_3months',  label: 'Within 3 months'},
-  { value: 'exploring',       label: 'Just exploring' },
-];
+// Unused legacy constants removed (A4 cleanup)
 
 const INTENT_OPTIONS = [
   { value: 'buy',     label: '🏠 Buy',     icon: ShoppingCart },
@@ -281,8 +264,7 @@ function LeadCaptureForm({
 
   const [form, setForm] = useState<LeadForm>({
     name: '', phone: '', email: '',
-    intent: 'buy', urgency: 'exploring',
-    budgetTier: '', message: '',
+    intent: 'buy', message: '',
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
@@ -408,28 +390,7 @@ function LeadCaptureForm({
         </div>
       </div>
 
-      {/* Budget + Urgency row */}
-      <div className="grid grid-cols-2 gap-2 mb-2.5">
-        <select
-          value={form.budgetTier}
-          onChange={(e) => setForm((f) => ({ ...f, budgetTier: e.target.value }))}
-          className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] bg-white text-gray-700"
-        >
-          <option value="">Budget range</option>
-          {BUDGET_TIERS.map((t) => (
-            <option key={t.value} value={t.value}>{t.label}</option>
-          ))}
-        </select>
-        <select
-          value={form.urgency}
-          onChange={(e) => setForm((f) => ({ ...f, urgency: e.target.value }))}
-          className="px-3 py-2.5 text-sm border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] bg-white text-gray-700"
-        >
-          {URGENCY_OPTIONS.map((u) => (
-            <option key={u.value} value={u.value}>{u.label}</option>
-          ))}
-        </select>
-      </div>
+      {/* Budget & Urgency fields removed (A4 cleanup) */}
 
       {/* Error */}
       {error && (
