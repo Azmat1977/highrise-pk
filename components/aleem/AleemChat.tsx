@@ -126,6 +126,71 @@ const INTENT_OPTIONS = [
 
 // ─── Message bubble (LARGER TEXT) ─────────────────────────────────────────────
 
+function FormattedMessage({ content, isUser }: { content: string; isUser: boolean }): React.ReactElement {
+  if (isUser) {
+    return <span className="whitespace-pre-wrap">{content}</span>;
+  }
+
+  // Clean raw LaTeX math symbols if any remain
+  const cleaned = content
+    .replace(/\\\[\s*/g, '')
+    .replace(/\s*\\\]/g, '')
+    .replace(/\\left\(/g, '(')
+    .replace(/\\right\)/g, ')')
+    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, '($1 ÷ $2)')
+    .replace(/\\text\{([^}]+)\}/g, '$1');
+
+  const lines = cleaned.split('\n');
+
+  return (
+    <div className="space-y-2 text-[15px] leading-relaxed">
+      {lines.map((line, idx) => {
+        const trimmed = line.trim();
+        if (!trimmed) return <div key={idx} className="h-1" />;
+
+        // Table row (simple pipe detection)
+        if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
+          const cells = trimmed.split('|').map((c) => c.trim()).filter(Boolean);
+          // Skip divider rows like |---|---|
+          if (cells.every((c) => /^[-:]+$/.test(c))) return null;
+
+          return (
+            <div key={idx} className="grid grid-cols-3 gap-1 bg-gray-50 p-1.5 rounded border border-gray-200 text-xs font-medium text-gray-700">
+              {cells.map((cell, cIdx) => (
+                <span key={cIdx} className="truncate">{cell}</span>
+              ))}
+            </div>
+          );
+        }
+
+        // Bullet point
+        if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
+          const bulletText = trimmed.replace(/^[-*•]\s*/, '');
+          return (
+            <div key={idx} className="flex items-start gap-2 pl-1">
+              <span className="text-[#029bba] font-bold text-base leading-none">•</span>
+              <span>{formatBoldText(bulletText)}</span>
+            </div>
+          );
+        }
+
+        // Section header / regular text
+        return <p key={idx}>{formatBoldText(trimmed)}</p>;
+      })}
+    </div>
+  );
+}
+
+function formatBoldText(text: string): (string | React.ReactElement)[] {
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, i) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong key={i} className="font-bold text-gray-900">{part.slice(2, -2)}</strong>;
+    }
+    return part;
+  });
+}
+
 function ListingCard({ item }: { item: AleemListing }): React.ReactElement {
   const formattedPrice = item.price > 0 ? `PKR ${item.price.toLocaleString('en-US')}` : 'Price on request';
   const locationText = [item.society, item.city].filter(Boolean).join(', ') || 'Pakistan';
@@ -203,13 +268,13 @@ function MessageBubble({ message }: { message: Message }): React.ReactElement {
       <div className="flex flex-col max-w-[85%]">
         {/* Bubble text */}
         <div
-          className={`px-4 py-3 rounded-2xl text-[15px] leading-relaxed ${
+          className={`px-4 py-3 rounded-2xl text-[15px] leading-relaxed overflow-hidden ${
             isUser
               ? 'bg-[#029bba] text-white rounded-br-sm'
               : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm shadow-sm'
           }`}
         >
-          {message.content}
+          <FormattedMessage content={message.content} isUser={isUser} />
         </div>
 
         {/* Rich Listing Cards Container */}
