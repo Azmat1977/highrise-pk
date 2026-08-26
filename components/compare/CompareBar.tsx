@@ -209,7 +209,8 @@ export default function CompareBar(): React.ReactElement | null {
 
   // Hide on compare page (avoid redundancy)
   const isOnComparePage = router.pathname === '/compare'
-    || router.pathname.startsWith('/compare/');
+    || router.pathname.startsWith('/compare/')
+    || router.asPath?.startsWith('/compare');
 
   // ── Fetch full item details when count changes ────────────────────────────
   const loadItemDetails = useCallback(async () => {

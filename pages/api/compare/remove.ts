@@ -80,42 +80,41 @@ export default async function handler(
       ? { userId: new mongoose.Types.ObjectId(userId) }
       : { sessionId };
 
-    // ─── Atomic pull from BOTH items[] and legacy properties[] ──
-    const isValId = mongoose.Types.ObjectId.isValid(entityId);
-    const objectId = isValId ? new mongoose.Types.ObjectId(entityId) : null;
+    // ─── Retrieve, Mutate in JS, and Save (Enterprise safe-delete) ──
+    const comparison = await Comparison.findOne(query);
 
-    const pullItemsFilter: Record<string, unknown>[] = [{ entityId: entityId }];
-    if (objectId) {
-      pullItemsFilter.push({ entityId: objectId });
-    }
-
-    const updateOps: Record<string, unknown> = {
-      $pull: {
-        items: {
-          $or: pullItemsFilter,
-        },
-        properties: objectId ? objectId : entityId,
-      },
-    };
-
-    const updatedComparison = await Comparison.findOneAndUpdate(
-      query,
-      updateOps,
-      { new: true },
-    );
-
-    if (!updatedComparison) {
+    if (!comparison) {
       return res.status(404).json({
         success: false,
         error:   'Comparison list not found',
       });
     }
 
+    const targetIdStr = entityId.toString();
+
+    // 1. Filter V2 items array
+    if (Array.isArray(comparison.items)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      comparison.items = comparison.items.filter(
+        (item: any) => item?.entityId?.toString() !== targetIdStr
+      );
+    }
+
+    // 2. Filter legacy properties array (prevent ghost resurrection)
+    if (Array.isArray(comparison.properties)) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      comparison.properties = comparison.properties.filter(
+        (pid: any) => pid?.toString() !== targetIdStr
+      );
+    }
+
+    await comparison.save();
+
     return res.status(200).json({
       success: true,
       message: `${entityType === 'property' ? 'Property' : 'Project'} removed from comparison`,
       data: {
-        count: updatedComparison.items?.length ?? 0,
+        count: comparison.items?.length ?? comparison.properties?.length ?? 0,
         limit: MAX_ITEMS,
       },
     });
