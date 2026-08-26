@@ -15,8 +15,8 @@ export default async function handler(
   res: NextApiResponse
 ): Promise<void> {
 
-  if (req.method !== 'GET') {
-    res.setHeader('Allow', 'GET');
+  if (req.method !== 'GET' && req.method !== 'DELETE') {
+    res.setHeader('Allow', 'GET, DELETE');
     res.status(405).json({ success: false, error: 'Method not allowed' });
     return;
   }
@@ -41,6 +41,33 @@ export default async function handler(
 
   await dbConnect();
 
+  // ── DELETE Method Handler ────────────────────────────────────
+  if (req.method === 'DELETE') {
+    try {
+      const deleted = await Conversation.findByIdAndDelete(id);
+      if (!deleted) {
+        res.status(404).json({ success: false, error: 'Conversation not found', code: 'NOT_FOUND' });
+        return;
+      }
+
+      res.status(200).json({
+        success: true,
+        message: 'Conversation deleted successfully',
+      });
+      return;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      res.status(500).json({
+        success: false,
+        error: 'Failed to delete conversation',
+        code: 'SERVER_ERROR',
+        ...(process.env.NODE_ENV !== 'production' && { debug: errorMessage } as Record<string, string>),
+      });
+      return;
+    }
+  }
+
+  // ── GET Method Handler ───────────────────────────────────────
   try {
     const conversation = await Conversation.findById(id).lean();
 

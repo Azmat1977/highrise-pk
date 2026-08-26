@@ -14,6 +14,7 @@ import {
   Filter,
   Loader2,
   Eye,
+  Trash2,
   X,
   ChevronLeft,
   ChevronRight,
@@ -106,10 +107,15 @@ export default function AleemConversationsPage(): React.ReactElement {
   const [search, setSearch]               = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
 
-  // Modal
+  // Modal & Deletion State
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [fullConv, setFullConv]     = useState<FullConversation | null>(null);
   const [modalLoading, setModalLoading] = useState(false);
+
+  // Deletion Modal
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
+  const [deleting, setDeleting]                 = useState(false);
+  const [deleteError, setDeleteError]           = useState<string | null>(null);
 
   // Auth guard
   useEffect(() => {
@@ -184,6 +190,30 @@ export default function AleemConversationsPage(): React.ReactElement {
   const closeModal = () => {
     setSelectedId(null);
     setFullConv(null);
+  };
+
+  const handleDelete = async (id: string) => {
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/admin/aleem/conversations/${id}`, {
+        method: 'DELETE',
+      });
+      const data = await res.json() as { success: boolean; error?: string };
+      if (!res.ok || !data.success) {
+        setDeleteError(data.error || 'Failed to delete conversation');
+        return;
+      }
+      setDeleteConfirmId(null);
+      if (selectedId === id) {
+        closeModal();
+      }
+      await fetchConversations();
+    } catch {
+      setDeleteError('Network error while deleting');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const formatDate = (iso: string) => {
@@ -367,13 +397,22 @@ export default function AleemConversationsPage(): React.ReactElement {
                         {formatDate(c.lastActivityAt)}
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          onClick={() => viewConversation(c._id)}
-                          className="p-2 hover:bg-[#029bba]/10 text-[#029bba] rounded-lg transition-colors"
-                          title="View Full Conversation"
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            onClick={() => viewConversation(c._id)}
+                            className="p-2 hover:bg-[#029bba]/10 text-[#029bba] rounded-lg transition-colors"
+                            title="View Full Conversation"
+                          >
+                            <Eye className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => { setDeleteError(null); setDeleteConfirmId(c._id); }}
+                            className="p-2 hover:bg-red-50 text-red-500 rounded-lg transition-colors"
+                            title="Delete Conversation"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}
@@ -425,9 +464,20 @@ export default function AleemConversationsPage(): React.ReactElement {
                   <p className="text-xs text-white/80 mt-1 font-mono">{fullConv.sessionId}</p>
                 )}
               </div>
-              <button onClick={closeModal} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                {fullConv && (
+                  <button
+                    onClick={() => { setDeleteError(null); setDeleteConfirmId(fullConv._id); }}
+                    className="px-3 py-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-xs font-bold transition-colors flex items-center gap-1.5 shadow-sm"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
+                  </button>
+                )}
+                <button onClick={closeModal} className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Body */}
@@ -513,15 +563,56 @@ export default function AleemConversationsPage(): React.ReactElement {
                     ))}
                   </div>
                 </div>
-              ) : (
-                <div className="text-center py-12">
-                  <p className="text-gray-500">Failed to load conversation</p>
+                  ) : (
+                    <div className="text-center py-12">
+                      <p className="text-gray-500">Failed to load conversation</p>
+                    </div>
+                  )}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        </div>
-      )}
-    </AdminLayout>
-  );
-}
+          )}
+
+          {/* Delete Confirmation Modal */}
+          {deleteConfirmId && (
+            <div className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl space-y-4">
+                <div className="w-12 h-12 rounded-full bg-red-50 flex items-center justify-center text-red-500">
+                  <Trash2 className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">Delete Conversation?</h3>
+                  <p className="text-sm text-gray-500 mt-1">
+                    This conversation and its entire message history will be permanently deleted. This action cannot be undone.
+                  </p>
+                </div>
+                {deleteError && (
+                  <div className="p-3 bg-red-50 border border-red-200 rounded-xl text-xs text-red-700 font-medium">
+                    {deleteError}
+                  </div>
+                )}
+                <div className="flex items-center gap-3 pt-2">
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={() => { setDeleteConfirmId(null); setDeleteError(null); }}
+                    className="flex-1 py-2.5 px-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl text-sm font-semibold transition-colors disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deleting}
+                    onClick={() => handleDelete(deleteConfirmId)}
+                    className="flex-1 py-2.5 px-4 bg-red-500 hover:bg-red-600 text-white rounded-xl text-sm font-bold transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                    Delete
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </AdminLayout>
+      );
+    }
