@@ -28,11 +28,12 @@ import {
   UserPlus,
   Lock,
   TrendingDown,
-  Maximize,
   Shield,
+  BarChart3,
+  Check,
 } from 'lucide-react';
 
-import { addEntityToCompare, removeEntityFromCompare, isInCompareV2 } from '@/lib/compare';
+import { useCompare } from '@/hooks/useCompare';
 // import { getOptimizedImageUrl } from "@/utils/cloudinaryTransform"; // Replaced with local version to fix URL bug
 
 // ✅ Local, corrected version to fix Cloudinary 400 error
@@ -428,6 +429,9 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage,
 // ============================================
 
 export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType = 'property', showQuickContact = true }) => {
+  // Normalize id once (enterprise: use everywhere)
+  const propertyId = useMemo(() => toIdString(property._id) || toIdString(property.id), [property._id, property.id]);
+
   const [imageError, setImageError] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
@@ -435,20 +439,25 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [isCompared, setIsCompared] = useState(false);
-  
-  // ═══════════════════════════════════════════
-  // 🍞 TOAST STATE — Lightweight notification
-  // ═══════════════════════════════════════════
+
+  // Unified Compare Hook
+  const {
+    isInCompare,
+    toggle: toggleCompare,
+    actionState: compareState,
+    isMaxReached,
+  } = useCompare({ defaultEntityType: 'property' });
+
+  const isCompared = propertyId ? isInCompare(propertyId, 'property') : false;
+  const comparePending = compareState === 'pending';
+
+  // TOAST STATE Lightweight notification
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
   const showToast = useCallback((message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
     setTimeout(() => setToast(null), 3000);
   }, []);
-
-  // Normalize id once (enterprise: use everywhere)
-  const propertyId = useMemo(() => toIdString(property._id) || toIdString(property.id), [property._id, property.id]);
 
   useEffect(() => setMounted(true), []);
 
@@ -502,11 +511,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
     };
   }, [mounted, propertyId]);
 
-  // Compare initialize
-  useEffect(() => {
-    if (!propertyId) return;
-    setIsCompared(isInCompareV2('property', propertyId));
-  }, [propertyId]);
+  // (Compare initialized reactively via useCompare hook)
 
   // Enterprise: safer JSON parsing (function declaration = hoisted, avoids TS "used before declaration")
   async function safeJson(res: Response): Promise<any> {
@@ -777,34 +782,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
     if (!propertyId) return;
 
-    if (isCompared) {
-      await removeEntityFromCompare('property', propertyId);
-
-      // Reflect actual V2 state in case backend persistence rolled back.
-      setIsCompared(isInCompareV2('property', propertyId));
-    } else {
-      const result = await addEntityToCompare(
-        'property',
-        propertyId
-      );
-
-      if (result.success) {
-        setIsCompared(true);
-      } else if (result.reason === 'limit_reached') {
-        alert('You can compare up to 4 properties at a time.');
-      } else {
-        showToast(
-          result.message ||
-            'Could not add this property to comparison.',
-          'error'
-        );
-      }
-    }
-
-    if (typeof window !== 'undefined') {
-      window.dispatchEvent(
-        new Event('compare-updated')
-      );
+    const success = await toggleCompare(propertyId, 'property');
+    if (!success && !isCompared && isMaxReached) {
+      showToast('Maximum 4 items can be compared at once', 'error');
     }
   };
 
@@ -1073,14 +1053,21 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               {propertyId && (
                 <button
                   onClick={handleToggleCompare}
-                  className={`w-full mb-2 text-xs font-medium rounded-lg border px-3 py-1.5 flex items-center justify-center gap-1.5 transition-colors ${
-                    isCompared ? 'border-emerald-500 text-emerald-600 bg-emerald-50' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                  disabled={comparePending || (!isCompared && isMaxReached)}
+                  className={`w-full mb-2 text-xs font-bold rounded-xl border px-3 py-2 flex items-center justify-center gap-1.5 transition-all duration-200 ${
+                    isCompared
+                      ? 'border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100'
+                      : 'border-gray-200 text-gray-600 hover:border-[#029bba]/40 hover:text-[#029bba] hover:bg-[#029bba]/5'
                   }`}
                   type="button"
                   aria-label={isCompared ? 'Remove from compare' : 'Add to compare'}
                 >
-                  <Maximize className="w-3 h-3" />
-                  {isCompared ? 'In Compare' : 'Add to Compare'}
+                  {isCompared ? (
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                  ) : (
+                    <BarChart3 className="w-3.5 h-3.5 text-[#029bba]" />
+                  )}
+                  {isCompared ? 'Added to Compare' : 'Add to Compare'}
                 </button>
               )}
 
