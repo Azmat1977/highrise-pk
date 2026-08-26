@@ -73,21 +73,25 @@ export default async function handler(
     // ─────────────────────────────────────────────────────────────
     // ⚡ 6. Atomic Database Update (1-Step Fast Execution)
     // ─────────────────────────────────────────────────────────────
-    // Using $set to instantly empty the array without fetching it first
-    const updatedComparison = await Comparison.findOneAndUpdate(
+    // Clear ALL matching comparison docs (multi-doc ghost fix)
+    const result = await Comparison.updateMany(
       query,
       { $set: { properties: [], items: [] } },
-      { new: true } // Return updated document
     );
 
-    if (!updatedComparison) {
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, private',
+    );
+    res.setHeader('Pragma', 'no-cache');
+
+    if (!result.matchedCount) {
       return res.status(200).json({
         success: true,
         message: 'No comparison to clear',
       });
     }
 
-    // 📤 7. Return Secure Response
     return res.status(200).json({
       success: true,
       message: 'Comparison cleared successfully',

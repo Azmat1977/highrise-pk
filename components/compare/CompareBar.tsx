@@ -230,7 +230,11 @@ export default function CompareBar(): React.ReactElement | null {
         ? `/api/compare?sessionId=${sessionId}`
         : '/api/compare';
 
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      });
       if (!res.ok) {
         setItems([]);
         return;

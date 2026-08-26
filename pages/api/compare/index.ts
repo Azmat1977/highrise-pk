@@ -31,6 +31,12 @@ export default async function handler(
   }
 
   try {
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, private',
+    );
+    res.setHeader('Pragma', 'no-cache');
+
     const rateLimitResult = await rateLimitApi(req);
     if (!rateLimitResult.ok) {
       return sendRateLimitResponse(res, rateLimitResult);

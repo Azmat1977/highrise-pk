@@ -145,6 +145,8 @@ export function useCompare(
       const res = await fetch(url, {
         credentials: 'include',
         signal:      abortRef.current.signal,
+        cache:       'no-store',
+        headers:     { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       });
 
       if (!res.ok) return;

@@ -80,41 +80,56 @@ export default async function handler(
       ? { userId: new mongoose.Types.ObjectId(userId) }
       : { sessionId };
 
-    // ─── Retrieve, Mutate in JS, and Save (Enterprise safe-delete) ──
-    const comparison = await Comparison.findOne(query);
+    // Delete from ALL matching docs (multi-doc ghost fix).
+    // GET uses sort createdAt:-1; a single findOne can hit a different doc.
+    const comparisons = await Comparison.find(query).sort({ createdAt: -1 });
 
-    if (!comparison) {
+    if (!comparisons.length) {
       return res.status(404).json({
         success: false,
         error:   'Comparison list not found',
       });
     }
 
-    const targetIdStr = entityId.toString();
+    const targetIdStr = String(entityId);
 
-    // 1. Filter V2 items array
-    if (Array.isArray(comparison.items)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      comparison.items = comparison.items.filter(
-        (item: any) => item?.entityId?.toString() !== targetIdStr
-      );
+    for (const comparison of comparisons) {
+      const nextItems = Array.isArray(comparison.items)
+        ? comparison.items.filter(
+            (item) => String(item?.entityId ?? '') !== targetIdStr,
+          )
+        : [];
+
+      const nextProperties = Array.isArray(comparison.properties)
+        ? comparison.properties.filter(
+            (pid) => String(pid ?? '') !== targetIdStr,
+          )
+        : [];
+
+      comparison.set('items', nextItems);
+      comparison.set('properties', nextProperties);
+      comparison.markModified('items');
+      comparison.markModified('properties');
+      await comparison.save();
     }
 
-    // 2. Filter legacy properties array (prevent ghost resurrection)
-    if (Array.isArray(comparison.properties)) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      comparison.properties = comparison.properties.filter(
-        (pid: any) => pid?.toString() !== targetIdStr
-      );
-    }
+    const primary = comparisons[0];
+    const remaining =
+      primary.items?.length
+      ?? primary.properties?.length
+      ?? 0;
 
-    await comparison.save();
+    res.setHeader(
+      'Cache-Control',
+      'no-store, no-cache, must-revalidate, private',
+    );
+    res.setHeader('Pragma', 'no-cache');
 
     return res.status(200).json({
       success: true,
       message: `${entityType === 'property' ? 'Property' : 'Project'} removed from comparison`,
       data: {
-        count: comparison.items?.length ?? comparison.properties?.length ?? 0,
+        count: remaining,
         limit: MAX_ITEMS,
       },
     });

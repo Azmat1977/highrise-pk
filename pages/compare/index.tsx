@@ -100,7 +100,11 @@ const ComparePage: NextPage = () => {
         ? `/api/compare?sessionId=${sessionId}`
         : '/api/compare';
 
-      const res = await fetch(url, { credentials: 'include' });
+      const res = await fetch(url, {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+      });
 
       if (!res.ok) {
         throw new Error(`HTTP ${res.status}`);
@@ -113,56 +117,15 @@ const ComparePage: NextPage = () => {
         };
       };
 
-      // ── SUCCESS PATH: backend has entities ──
-      if (data.success && data.data?.entities && data.data.entities.length > 0) {
-        setEntities(data.data.entities);
+      // Server is authoritative on successful response (including empty).
+      // Never rehydrate from localStorage after a successful empty GET —
+      // that path was resurrecting deleted compare items on refresh.
+      if (data.success) {
+        setEntities(data.data?.entities ?? []);
         setLoading(false);
         return;
       }
 
-      // ── FALLBACK PATH: backend empty BUT localStorage has items ──
-      // This happens when:
-      //  - Guest added items, session cookie expired
-      //  - Add API failed silently but localStorage saved
-      //  - Cross-device localStorage sync scenarios
-      if (localItems.length > 0) {
-        console.warn('[compare] Backend empty, falling back to localStorage', {
-          localCount:   localItems.length,
-          backendCount: data.data?.entities?.length ?? 0,
-        });
-
-        // Fetch full project data for the localStorage IDs
-        const projectIds = localItems
-          .filter(i => i.entityType === 'project')
-          .map(i => i.entityId);
-
-        if (projectIds.length > 0) {
-          const batchRes = await fetch('/api/projects/batch', {
-            method:      'POST',
-            headers:     { 'Content-Type': 'application/json' },
-            body:        JSON.stringify({ projectIds }),
-          });
-
-          if (batchRes.ok) {
-            const batchData = await batchRes.json() as {
-              success:  boolean;
-              projects: Record<string, unknown>[];
-            };
-
-            if (batchData.success && batchData.projects.length > 0) {
-              const fallbackEntities: CompareEntity[] = batchData.projects.map(p => ({
-                entityType: 'project' as const,
-                data:       p,
-              }));
-              setEntities(fallbackEntities);
-              setLoading(false);
-              return;
-            }
-          }
-        }
-      }
-
-      // ── TRULY EMPTY: no backend items, no localStorage items ──
       setEntities([]);
     } catch (err) {
       console.error('[compare] Load failed:', err);
