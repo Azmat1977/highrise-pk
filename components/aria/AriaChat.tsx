@@ -27,6 +27,8 @@ import {
   Search,
   PhoneCall,
   ShieldCheck,
+  Building,
+  MapPin,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 
@@ -37,6 +39,7 @@ interface Message {
   role:      'user' | 'assistant';
   content:   string;
   timestamp: Date;
+  listings?: AleemListing[];
 }
 
 interface LeadForm {
@@ -140,8 +143,71 @@ const INTENT_OPTIONS = [
 
 // ─── Message bubble (LARGER TEXT) ─────────────────────────────────────────────
 
+function ListingCard({ item }: { item: AleemListing }): React.ReactElement {
+  const formattedPrice = item.price > 0 ? `PKR ${item.price.toLocaleString('en-US')}` : 'Price on request';
+  const locationText = [item.society, item.city].filter(Boolean).join(', ') || 'Pakistan';
+  const areaText = item.area > 0 ? `${item.area}${item.unit ? ` ${item.unit}` : ''}` : '';
+
+  return (
+    <div className="w-[220px] flex-shrink-0 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+      {/* Image Thumbnail */}
+      <div className="relative h-28 bg-gray-100 flex items-center justify-center overflow-hidden">
+        {item.imageUrl ? (
+          <img
+            src={item.imageUrl}
+            alt={item.title}
+            className="w-full h-full object-cover"
+            loading="lazy"
+          />
+        ) : (
+          <div className="flex flex-col items-center justify-center text-gray-400 p-2 text-center">
+            <Building className="w-8 h-8 mb-1 opacity-50" />
+            <span className="text-[10px]">No image</span>
+          </div>
+        )}
+        {/* Verified Badge */}
+        <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
+          <CheckCircle className="w-3 h-3" />
+          <span>Verified</span>
+        </div>
+      </div>
+
+      {/* Details */}
+      <div className="p-3">
+        <h4 className="text-xs font-bold text-gray-900 line-clamp-1 mb-1" title={item.title}>
+          {item.title}
+        </h4>
+
+        <div className="flex items-center gap-1 text-[11px] text-gray-500 mb-1.5 line-clamp-1">
+          <MapPin className="w-3 h-3 text-[#029bba] flex-shrink-0" />
+          <span>{locationText}</span>
+        </div>
+
+        <div className="flex items-center justify-between text-xs font-semibold text-gray-800 mb-2">
+          <span className="text-[#004063]">{formattedPrice}</span>
+          {areaText && <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{areaText}</span>}
+        </div>
+
+        {/* View Details Button */}
+        {item.slug && (
+          <a
+            href={`/property/${item.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block w-full text-center py-1.5 bg-gradient-to-r from-[#029bba] to-[#004063] text-white text-xs font-semibold rounded-lg hover:opacity-95 transition-opacity"
+          >
+            View Details
+          </a>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function MessageBubble({ message }: { message: Message }): React.ReactElement {
   const isUser = message.role === 'user';
+  const hasListings = Array.isArray(message.listings) && message.listings.length > 0;
+
   return (
     <div className={`flex items-end gap-2 mb-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* Avatar */}
@@ -150,15 +216,27 @@ function MessageBubble({ message }: { message: Message }): React.ReactElement {
           <Bot className="w-4 h-4 text-white" />
         </div>
       )}
-      {/* Bubble — text-[15px] for better readability */}
-      <div
-        className={`max-w-[80%] px-4 py-3 rounded-2xl text-[15px] leading-relaxed ${
-          isUser
-            ? 'bg-[#029bba] text-white rounded-br-sm'
-            : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm shadow-sm'
-        }`}
-      >
-        {message.content}
+
+      <div className="flex flex-col max-w-[85%]">
+        {/* Bubble text */}
+        <div
+          className={`px-4 py-3 rounded-2xl text-[15px] leading-relaxed ${
+            isUser
+              ? 'bg-[#029bba] text-white rounded-br-sm'
+              : 'bg-white text-gray-800 border border-gray-100 rounded-bl-sm shadow-sm'
+          }`}
+        >
+          {message.content}
+        </div>
+
+        {/* Rich Listing Cards Container */}
+        {hasListings && (
+          <div className="mt-3 flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-gray-300">
+            {message.listings!.map((item, idx) => (
+              <ListingCard key={item.slug || idx} item={item} />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -478,6 +556,7 @@ export default function AriaChat({
         role:      'assistant',
         content:   data.response ?? 'Main aap ki baat samajh nahi saka. Dobara try karein.',
         timestamp: new Date(),
+        listings:  Array.isArray(data.listings) ? data.listings : undefined,
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
