@@ -662,8 +662,117 @@ export async function notifyDeveloperRejected(developer: {
   });
 }
 
+/**
+ * Notify admin of a new ALEEM callback lead (chat form or consent-based).
+ */
+export async function notifyAdminNewLead(lead: {
+  name: string;
+  phone: string;
+  email?: string;
+  intent?: string;
+  message?: string;
+  leadType?: string;
+  source?: string;
+  propertyTitle?: string;
+  propertyCity?: string;
+  propertySociety?: string;
+  propertyPrice?: number;
+  phoneVerified?: boolean;
+  isGuest?: boolean;
+  leadId?: string;
+}): Promise<EmailResult> {
+  const adminEmail = process.env.ADMIN_EMAIL || process.env.EMAIL_USER;
+  if (!adminEmail) {
+    return { success: false, error: "Admin email not configured" };
+  }
+
+  const siteUrl =
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://highrise.pk";
+
+  const safe = {
+    name: escapeHtml(lead.name),
+    phone: escapeHtml(lead.phone),
+    email: escapeHtml(lead.email || "Not provided"),
+    intent: escapeHtml(lead.intent || lead.leadType || "buy"),
+    message: escapeHtml(lead.message || "No message"),
+    source: escapeHtml(lead.source || "aleem_chat"),
+    propertyTitle: escapeHtml(lead.propertyTitle || "N/A"),
+    propertyCity: escapeHtml(lead.propertyCity || "N/A"),
+    propertySociety: escapeHtml(lead.propertySociety || "N/A"),
+    propertyPrice: lead.propertyPrice
+      ? `PKR ${lead.propertyPrice.toLocaleString("en-US")}`
+      : "N/A",
+    phoneStatus: lead.phoneVerified
+      ? '<span style="color:#10b981;font-weight:bold;">Verified</span>'
+      : '<span style="color:#ef4444;font-weight:bold;">Unverified (confirm on call)</span>',
+    userType: lead.isGuest
+      ? '<span style="color:#f59e0b;font-weight:bold;">Guest (no account)</span>'
+      : '<span style="color:#10b981;font-weight:bold;">Registered User</span>',
+    leadId: escapeHtml(lead.leadId || "N/A"),
+  };
+
+  const content = `
+    <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+      <tr>
+        <td style="background: linear-gradient(135deg, #029bba 0%, #004063 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">New ALEEM Lead</h1>
+          <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">Callback request received via AI chat</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 30px;">
+          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="margin: 0 0 12px; font-size: 16px; color: #004063;">Lead Details</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #666; width: 35%;">Name:</td><td style="padding: 8px 0; font-weight: bold;">${safe.name}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Phone:</td><td style="padding: 8px 0; font-weight: bold;">${safe.phone}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Email:</td><td style="padding: 8px 0;">${safe.email}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Intent:</td><td style="padding: 8px 0; text-transform: capitalize;">${safe.intent}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Phone Status:</td><td style="padding: 8px 0;">${safe.phoneStatus}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">User Type:</td><td style="padding: 8px 0;">${safe.userType}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Source:</td><td style="padding: 8px 0;">${safe.source}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Lead ID:</td><td style="padding: 8px 0; font-family: monospace; font-size: 12px;">${safe.leadId}</td></tr>
+            </table>
+          </div>
+
+          <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="margin: 0 0 12px; font-size: 16px; color: #004063;">Property Interest</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #666; width: 35%;">Property:</td><td style="padding: 8px 0; font-weight: bold;">${safe.propertyTitle}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">City:</td><td style="padding: 8px 0;">${safe.propertyCity}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Society:</td><td style="padding: 8px 0;">${safe.propertySociety}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Price:</td><td style="padding: 8px 0; font-weight: bold; color: #004063;">${safe.propertyPrice}</td></tr>
+            </table>
+          </div>
+
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px;">
+            <h2 style="margin: 0 0 8px; font-size: 14px; color: #004063;">Customer Message</h2>
+            <p style="margin: 0; color: #555; font-size: 14px; line-height: 1.6;">${safe.message}</p>
+          </div>
+
+          <div style="text-align: center;">
+            <a href="${siteUrl}/admin/leads"
+               style="display: inline-block; background: #029bba; color: #ffffff; padding: 14px 28px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 16px;">
+              View All Leads
+            </a>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  return sendEmail({
+    to: adminEmail,
+    subject: `New ALEEM Lead: ${lead.name} (${lead.intent || lead.leadType || "inquiry"})`,
+    html: wrapEmailTemplate(content, "New ALEEM Lead"),
+    fromName: "Highrise.pk Leads",
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════
-// 🔐 UTILITY EXPORTS
+// UTILITY EXPORTS
 // ═══════════════════════════════════════════════════════════════
 
 export { isValidEmail, isDisposableEmail, normalizeEmail };
