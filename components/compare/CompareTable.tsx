@@ -870,7 +870,7 @@ export default function CompareTable({
                 <div className="py-12 text-center space-y-3">
                   <Loader2 className="w-8 h-8 text-[#029bba] animate-spin mx-auto" />
                   <p className="text-xs font-semibold text-gray-500">
-                    ALEEM (NVIDIA Nemotron) is analyzing your {normalized.length} compared properties...
+                    ALEEM is analyzing your {normalized.length} compared properties...
                   </p>
                 </div>
               ) : (
@@ -881,7 +881,7 @@ export default function CompareTable({
             </div>
 
             <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-              <span className="text-[10px] text-gray-400 font-semibold">Powered by Nemotron 3 Ultra 550B &amp; Highrise Intelligence</span>
+                            <span className="text-[10px] text-gray-400 font-semibold">Powered by Highrise Property Intelligence</span>
               <button
                 type="button"
                 onClick={() => setShowAiModal(false)}
