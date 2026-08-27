@@ -202,6 +202,11 @@ export interface CreateExpertLeadResult {
   success: boolean;
   leadId?: string;
   code?: 'INVALID_NAME' | 'INVALID_PHONE' | 'FAILED';
+  assignedAgent?: {
+    name?: string;
+    phone?: string;
+    matchTier?: 'area_match' | 'city_match' | 'none';
+  };
 }
 
 /** Normalise any Pakistani mobile format to local 03XXXXXXXXX. */
@@ -379,25 +384,40 @@ export async function createExpertLead(
       }
     });
 
-    // Fire-and-forget regional agent routing & notification
-    void routeLeadToRegionalAgent({
-      leadId: String(lead._id),
-      propertyCity: snap?.city,
-      propertySociety: snap?.society,
-      propertyTitle: snap?.title,
-      propertyPrice: snap?.price,
-      customerName: accountName && phoneVerified ? accountName : name,
-      customerPhone: phone,
-      customerEmail: email,
-      intent,
-      message,
-    }).catch((err) => {
+    // Perform regional agent routing and capture assignment for instant UI handoff
+    let assignedAgentInfo: CreateExpertLeadResult['assignedAgent'] = undefined;
+    try {
+      const routingResult = await routeLeadToRegionalAgent({
+        leadId: String(lead._id),
+        propertyCity: snap?.city,
+        propertySociety: snap?.society,
+        propertyTitle: snap?.title,
+        propertyPrice: snap?.price,
+        customerName: accountName && phoneVerified ? accountName : name,
+        customerPhone: phone,
+        customerEmail: email,
+        intent,
+        message,
+      });
+
+      if (routingResult.assigned && routingResult.agentPhone) {
+        assignedAgentInfo = {
+          name: routingResult.agentName,
+          phone: routingResult.agentPhone,
+          matchTier: routingResult.matchTier,
+        };
+      }
+    } catch (err) {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[routeLeadToRegionalAgent failed]:', err);
       }
-    });
+    }
 
-    return { success: true, leadId: String(lead._id) };
+    return {
+      success: true,
+      leadId: String(lead._id),
+      ...(assignedAgentInfo ? { assignedAgent: assignedAgentInfo } : {}),
+    };
   } catch {
     return { success: false, code: 'FAILED' };
   }
