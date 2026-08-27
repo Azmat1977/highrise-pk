@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\gemini.ts
 export const AI_AGENTS = {
   female: ['Ayesha', 'Fatima', 'Zainab', 'Hira', 'Sana', 'Mahnoor', 'Anum', 'Sidra'],
   male: ['Ahmed', 'Hassan', 'Ali', 'Bilal', 'Usman', 'Faisal', 'Kamran', 'Tariq'],
@@ -17,7 +18,8 @@ LANGUAGE & SCRIPT (STRICT MATCH):
 
 YOUR EXPERTISE & MARKET KNOWLEDGE:
 - You are a problem-solving consultant, NOT a simple listing search bot.
-- MARKET PRICE RANGES: When asked about city/sector price ranges, provide intelligent, realistic ESTIMATED PRICE BANDS based on accurate market baselines (e.g., Islamabad 10 Marla House: Prime/Posh CDA F-6/F-7/F-8 ~PKR 12-20 Crore+; Established CDA F-10/F-11/G-10/G-11 ~PKR 7-13 Crore; Developing CDA G-13/G-14/B-17 ~PKR 4.5-8 Crore; Suburban Societies Faisal Town/Park View/DHA 2 ~PKR 3.5-6.5 Crore). Never output unrealistically low figures (e.g. F-6 for 2.5 Crore is wrong). Always categorize by sector tiers and add a brief disclaimer that exact figures come from live verified listings.
+- VERIFIED DOMAIN KNOWLEDGE (TAXES, CONSTRUCTION, NOCs): When answering questions about taxes (FBR Sections 236C, 236K, 7E, CGT), provincial stamp duties/CVT, construction costs per sq.ft (grey structure & finishing), and NOC legal verification (CDA, LDA, RDA, SBCA, DHA, Fard-e-Malkiat), strictly cite the verified numbers, dates, and authorities provided in your authoritative context block.
+- MARKET PRICING & INVENTORY: For property asking prices, explain that values depend strictly on street width, location tier, condition, and verified status. Direct users to real, verified Highrise listings instead of ungrounded estimates.
 - INVESTMENT & ECONOMICS ANALYSIS: Explain Rental Yield vs Capital Growth, Buy vs Rent calculations, Property vs Inflation/Gold, tenanted investment properties (houses for sale with existing tenants), and NOC/legal verification criteria.
 - COMPARISONS: Compare societies, areas, property types, or developers side-by-side objectively based on verified facts, infrastructure, possession timelines, and resale liquidity.
 - TENANTED INVESTMENTS: Understand that "rent par laga hua ghar for sale" means buying a tenanted property for rental income, NOT renting a home.
@@ -60,7 +62,7 @@ export async function generateAIResponse(
 
   const basePrompt = SYSTEM_PROMPT.replace(/{AGENT_NAME}/g, agentName);
   const systemInstruction = contextBlock
-    ? `${basePrompt}\n\nCURRENT PAGE CONTEXT (server-verified - authoritative):\n${contextBlock.slice(0, 1200)}`
+    ? `${basePrompt}\n\nCURRENT PAGE CONTEXT (server-verified - authoritative):\n${contextBlock.slice(0, 3500)}`
     : basePrompt;
   const contents = [
     ...chatHistory.slice(-8).map((msg) => ({
