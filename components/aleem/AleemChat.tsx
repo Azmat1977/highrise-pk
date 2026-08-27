@@ -50,6 +50,12 @@ interface LeadForm {
   message: string;
 }
 
+interface AssignedAgentInfo {
+  name?: string;
+  phone?: string;
+  matchTier?: 'area_match' | 'city_match' | 'none';
+}
+
 type QuotaMode = 'normal' | 'priority' | 'lead_only';
 
 interface AriaChatProps {
@@ -309,7 +315,7 @@ interface LeadFormProps {
   context:        IAriaContext;
   sessionId:      string;
   quotaMode?:     QuotaMode;
-  onSuccess:      () => void;
+  onSuccess:      (agent?: AssignedAgentInfo) => void;
   onClose:        () => void;
 }
 
@@ -351,12 +357,17 @@ function LeadCaptureForm({
         }),
       });
 
-      const data = await res.json() as { success?: boolean; error?: string; leadId?: string };
+      const data = await res.json() as {
+        success?: boolean;
+        error?: string;
+        leadId?: string;
+        assignedAgent?: AssignedAgentInfo;
+      };
       if (!res.ok || !data.success) {
         setError(data.error ?? 'Unable to submit. Please try again.');
         return;
       }
-      onSuccess();
+      onSuccess(data.assignedAgent);
     } catch {
       setError('Network error. Please try again.');
     } finally {
@@ -483,6 +494,7 @@ export default function AriaChat({
   const [conversationId,  setConversationId]   = useState<string | undefined>();
   const [showLeadForm,    setShowLeadForm]     = useState(false);
   const [leadCaptured,    setLeadCaptured]     = useState(false);
+  const [assignedAgent,   setAssignedAgent]    = useState<AssignedAgentInfo | null>(null);
   const [quickReplies]                          = useState(getQuickReplies(context));
   const [showQuickReplies, setShowQuickReplies] = useState(true);
   const [error,           setError]            = useState('');
@@ -597,10 +609,27 @@ export default function AriaChat({
     sendMessage(value);
   }, [sendMessage]);
 
-  const handleLeadSuccess = useCallback(() => {
+  const handleLeadSuccess = useCallback((agent?: AssignedAgentInfo) => {
     setLeadCaptured(true);
     setShowLeadForm(false);
+    if (agent && agent.phone) {
+      setAssignedAgent(agent);
+    }
   }, []);
+
+  // Helper for generating clean international WhatsApp URLs
+  const getWhatsAppLink = (phone: string, title?: string) => {
+    let clean = phone.replace(/\D/g, '');
+    if (clean.startsWith('0')) clean = '92' + clean.slice(1);
+    else if (!clean.startsWith('92')) clean = '92' + clean;
+
+    const msg = encodeURIComponent(
+      title
+        ? `Assalam-u-Alaikum, I am inquiring regarding ${title} via Highrise.pk.`
+        : `Assalam-u-Alaikum, I requested a callback on Highrise.pk.`
+    );
+    return `https://wa.me/${clean}?text=${msg}`;
+  };
 
   return (
     <div className="fixed inset-0 sm:relative sm:inset-auto z-50 sm:z-0 flex flex-col h-full w-full sm:h-[600px] sm:w-[400px] bg-gray-50 sm:rounded-2xl sm:shadow-2xl overflow-hidden border border-gray-100 animate-slideUp sm:animate-none">
@@ -692,11 +721,55 @@ export default function AriaChat({
           </div>
         )}
         {leadCaptured && (
-          <div className="flex items-center gap-2 px-3 py-2.5 bg-[#f0fdf4] border border-[#10b981]/30 rounded-xl mb-3">
-            <CheckCircle className="w-5 h-5 text-[#10b981] flex-shrink-0" />
-            <p className="text-sm text-[#10b981] font-semibold">
-              Details received. Our team will be in touch.
-            </p>
+          <div className="bg-white border border-[#10b981]/40 rounded-2xl p-4 shadow-sm mb-3 animate-slideUp">
+            <div className="flex items-start gap-2.5 mb-3">
+              <div className="w-8 h-8 rounded-full bg-[#10b981]/15 flex items-center justify-center flex-shrink-0 mt-0.5">
+                <CheckCircle className="w-5 h-5 text-[#10b981]" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-gray-900 leading-tight">
+                  Callback Request Confirmed!
+                </p>
+                <p className="text-xs text-gray-500 mt-0.5 leading-relaxed">
+                  {assignedAgent
+                    ? `Assigned to verified regional specialist: ${assignedAgent.name || 'Regional Agent'}`
+                    : 'Our certified property desk will contact you shortly.'}
+                </p>
+              </div>
+            </div>
+
+            {/* Instant WhatsApp & Call Handoff Buttons */}
+            {assignedAgent?.phone ? (
+              <div className="space-y-2 mt-2 pt-2 border-t border-gray-100">
+                <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                  Don&apos;t want to wait? Connect instantly:
+                </p>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <a
+                    href={getWhatsAppLink(assignedAgent.phone, context.title)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 py-2.5 px-3 bg-[#10b981] text-white rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 shadow hover:bg-[#059669] transition-colors active:scale-95 text-center"
+                  >
+                    <MessageCircle className="w-4 h-4" />
+                    Chat on WhatsApp
+                  </a>
+                  <a
+                    href={`tel:${assignedAgent.phone}`}
+                    className="py-2.5 px-3 bg-gray-100 text-[#004063] rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-gray-200 transition-colors active:scale-95"
+                  >
+                    <Phone className="w-3.5 h-3.5" />
+                    Call
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="mt-2 pt-2 border-t border-gray-100">
+                <p className="text-xs text-gray-600">
+                  A Highrise property consultant will review your request and call back.
+                </p>
+              </div>
+            )}
           </div>
         )}
         <div ref={messagesEndRef} />
