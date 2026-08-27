@@ -68,7 +68,9 @@ const MAX_TEXT_CHARS = 2000;
 // before writing anything. Keep the ceiling tight so ALEEM stays concise, and
 // ask for minimal reasoning since property chat is not a maths problem.
 const MAX_GROQ_TOKENS = 700;
-const CONTEXT_BLOCK_CHARS = 1200;
+// Expanded to 3500 characters to comfortably accommodate verified K1 knowledge blocks
+// (FBR taxes, provincial duties, construction rate tables, NOC checklists) alongside page context.
+const CONTEXT_BLOCK_CHARS = 3500;
 
 // ---------------------------------------------------------------------------
 // Circuit breaker (per provider, per serverless instance)
