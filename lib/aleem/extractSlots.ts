@@ -55,6 +55,15 @@ function isAdviceQuestion(message: string): boolean {
 
   if (asksMarketRange) return true;
 
+  // K1 Knowledge triggers (taxes, construction cost, legal verification, NOC)
+  // must NEVER be hijacked by inventory search even if marla or property type is mentioned.
+  const isKnowledgeQuery =
+    /\b(construction|construct|build|banane|tamir|tameer|grey structure|finishing|sariya|cement|labor cost|kharcha)\b/i.test(lower) ||
+    /\b(236c|236k|7e|cgt|withholding|wht|stamp duty|cvt|transfer fee|tax|taxes|filer|non-?filer)\b/i.test(lower) ||
+    /\b(noc|lda|cda|rda|sbca|fard|allotment letter|transfer letter|nec|registry|illegal society|verification|verify)\b/i.test(lower);
+
+  if (isKnowledgeQuery) return true;
+
   if (INVENTORY_MARKERS.test(lower)) return false;
   return ADVICE_MARKERS.test(lower);
 }
