@@ -63,19 +63,14 @@ export function buildSafetyDirective(flags: SafetyFlags): string {
 
   if (flags.tax) {
     blocks.push(
-      'TAX QUESTION - ABSOLUTE RULE:\n' +
-      '- You do NOT know the current rate. Do not state one. Not a number, not a range, not "typically", not "usually around", not "2 to 5 percent".\n' +
-      '- Rates change with every finance act and differ for filer and non-filer.\n' +
-      '- Explain WHAT the tax is and WHO pays it in plain language.\n' +
-      '- Then ALWAYS give the user a working way to get the real number. Do not leave them stuck.\n' +
-      '- Copy these two links CHARACTER FOR CHARACTER. Both end in ".pk". Do not shorten, do not drop the .pk, do not reformat:\n' +
+      'TAX QUESTION - KNOWLEDGE GROUNDING RULES:\n' +
+      '- If an [AUTHORITATIVE REAL-ESTATE KNOWLEDGE BASE] block is provided above, cite those exact rates, sections (236C, 236K, 7E, CGT, Stamp Duty, CVT), and effective dates verbatim.\n' +
+      '- For any tax or city-specific fee NOT covered in the knowledge block, state honestly that tax policies vary and refer them to official channels.\n' +
+      '- Explain WHAT the tax is and WHO pays it (Buyer vs Seller / Filer vs Non-Filer) in clear terms.\n' +
+      '- When directing users to official sources, provide these exact links:\n' +
       '    FBR official site: https://www.fbr.gov.pk\n' +
       '    IRIS tax portal: https://iris.fbr.gov.pk\n' +
-      '- A truncated link is worse than no link: it can send someone to a phishing domain.\n' +
-      '- Tell them what to look for there: the latest Finance Act rates, and the FBR valuation table for their city, since property tax is calculated on FBR valuation and not on the price they pay.\n' +
-      '- Also mention that a tax consultant or lawyer can confirm their specific case.\n' +
-      '- Only ever link fbr.gov.pk or iris.fbr.gov.pk. Never link any other tax site, and never invent a URL.\n' +
-      '- Inventing a percentage here can cost the customer real money. Never do it.',
+      '- Always remind the user that property transfer taxes are calculated on the official FBR/DC Valuation tables, not necessarily on the private transaction value.',
     );
   }
 
@@ -92,11 +87,10 @@ export function buildSafetyDirective(flags: SafetyFlags): string {
 
   if (flags.price) {
     blocks.push(
-      'PRICE OR COST QUESTION - CONSULTANT GUIDELINES:\n' +
-      '- Provide realistic, estimated sector-wise or area-wise price bands (e.g. Prime/Posh vs Established vs Suburban sectors).\n' +
-      '- Explain key value drivers: location tier, NOC status, road access, and construction quality.\n' +
-      '- Always clarify that these are general market estimated ranges, and encourage checking Highrise verified listings for exact active inventory.\n' +
-      '- For official tax rates or construction material costs (cement/steel), explain the calculation mechanism and refer to official sources (FBR/IRIS) or Highrise verified tools.',
+      'CONSTRUCTION & PRICE INQUIRIES:\n' +
+      '- For construction cost questions, rely strictly on the verified per sq.ft. rates (Economy, Standard, Premium) provided in the knowledge block.\n' +
+      '- For property market prices, explain that asking prices depend on exact block, location, and verified condition. Guide the user to search Highrise verified inventory rather than relying on ungrounded market gossip.\n' +
+      '- Always clarify that construction material costs (steel/cement) fluctuate with market indexes.',
     );
   }
 
