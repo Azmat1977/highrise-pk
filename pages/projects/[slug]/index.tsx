@@ -419,8 +419,8 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
     description: project.shortDescription || plainDesc.slice(0, 250),
     url: canonicalUrl,
     image: primaryImage ? [primaryImage] : undefined,
-    datePosted: project.createdAt,
-    dateModified: project.updatedAt,
+    datePosted: project.createdAt || new Date().toISOString(),
+    dateModified: project.updatedAt || project.createdAt || new Date().toISOString(),
     address: {
       '@type': 'PostalAddress',
       addressLocality: areaDisplay,
