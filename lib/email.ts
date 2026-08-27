@@ -771,6 +771,127 @@ export async function notifyAdminNewLead(lead: {
   });
 }
 
+/**
+ * Notify an assigned agent of a new regional lead routed to them.
+ */
+export async function notifyAgentNewLead(agent: {
+  name: string;
+  email: string;
+}, lead: {
+  name: string;
+  phone: string;
+  email?: string;
+  intent?: string;
+  message?: string;
+  propertyTitle?: string;
+  propertyCity?: string;
+  propertySociety?: string;
+  propertyPrice?: number;
+  leadId?: string;
+}): Promise<EmailResult> {
+  const siteUrl =
+    process.env.NEXTAUTH_URL ||
+    process.env.NEXT_PUBLIC_APP_URL ||
+    "https://highrise.pk";
+
+  const safe = {
+    agentName: escapeHtml(agent.name),
+    customerName: escapeHtml(lead.name),
+    customerPhone: escapeHtml(lead.phone),
+    customerEmail: escapeHtml(lead.email || "Not provided"),
+    intent: escapeHtml(lead.intent || "callback"),
+    message: escapeHtml(lead.message || "No custom message provided."),
+    propertyTitle: escapeHtml(lead.propertyTitle || "N/A"),
+    propertyCity: escapeHtml(lead.propertyCity || "N/A"),
+    propertySociety: escapeHtml(lead.propertySociety || "N/A"),
+    propertyPrice: lead.propertyPrice
+      ? `PKR ${lead.propertyPrice.toLocaleString("en-US")}`
+      : "N/A",
+    leadId: escapeHtml(lead.leadId || "N/A"),
+  };
+
+  // Format clean international phone number for WhatsApp quick link
+  // Assumes phone is already validated as 03XXXXXXXXX or +92XXXXXXXXX
+  let waPhone = safe.customerPhone.replace(/\D/g, "");
+  if (waPhone.startsWith("0")) {
+    waPhone = "92" + waPhone.slice(1);
+  } else if (!waPhone.startsWith("92")) {
+    waPhone = "92" + waPhone;
+  }
+
+  const waText = encodeURIComponent(
+    `Assalam-u-Alaikum ${safe.customerName}, I am contacting you regarding your interest in ${safe.propertyTitle} on Highrise.pk.`
+  );
+
+  const content = `
+    <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 16px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+      <tr>
+        <td style="background: linear-gradient(135deg, #029bba 0%, #004063 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+          <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700;">Naya Lead Mila Hai! 🎯</h1>
+          <p style="color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px;">Highrise.pk Automatic Regional Lead Routing</p>
+        </td>
+      </tr>
+      <tr>
+        <td style="padding: 30px;">
+          <p style="font-size: 16px; color: #333; margin: 0 0 20px;">Assalam-u-Alaikum <strong>${safe.agentName}</strong>,</p>
+          <p style="font-size: 15px; color: #555; line-height: 1.6; margin: 0 0 20px;">
+            Aapki covering society aur region ke mutabiq, ALEEM (AI Assistant) ne yeh callback inquiry automatically aapko assign kar di hai. Foran rabta karein!
+          </p>
+
+          <div style="background: #f8fafc; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0;">
+            <h2 style="margin: 0 0 12px; font-size: 16px; color: #004063;">Customer Profile</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #666; width: 35%;">Name:</td><td style="padding: 8px 0; font-weight: bold; color: #333;">${safe.customerName}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Phone:</td><td style="padding: 8px 0; font-weight: bold; color: #333;">${safe.customerPhone}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Email:</td><td style="padding: 8px 0; color: #333;">${safe.customerEmail}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Intent:</td><td style="padding: 8px 0; text-transform: capitalize; font-weight: bold; color: #029bba;">${safe.intent}</td></tr>
+            </table>
+          </div>
+
+          <div style="background: #f0f9ff; padding: 20px; border-radius: 8px; margin-bottom: 25px; border: 1px solid #bae6fd;">
+            <h2 style="margin: 0 0 12px; font-size: 16px; color: #004063;">Property Specifications</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #004063; width: 35%;">Title:</td><td style="padding: 8px 0; font-weight: bold; color: #333;">${safe.propertyTitle}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">City:</td><td style="padding: 8px 0; color: #333;">${safe.propertyCity}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Society/Area:</td><td style="padding: 8px 0; font-weight: bold; color: #333;">${safe.propertySociety}</td></tr>
+              <tr><td style="padding: 8px 0; color: #666;">Price:</td><td style="padding: 8px 0; font-weight: bold; color: #029bba;">${safe.propertyPrice}</td></tr>
+            </table>
+          </div>
+
+          <div style="background: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 25px; border-left: 4px solid #029bba;">
+            <h2 style="margin: 0 0 8px; font-size: 14px; color: #004063;">User Message</h2>
+            <p style="margin: 0; color: #555; font-size: 14px; line-height: 1.6;">${safe.message}</p>
+          </div>
+
+          <div style="text-align: center; margin-bottom: 20px;">
+            <a href="tel:${safe.customerPhone}"
+               style="display: inline-block; background: #004063; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin-right: 10px; margin-bottom: 10px;">
+              📞 Call Customer
+            </a>
+            <a href="https://wa.me/${waPhone}?text=${waText}"
+               style="display: inline-block; background: #10b981; color: #ffffff; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: 600; font-size: 15px; margin-bottom: 10px;">
+              💬 WhatsApp Chat
+            </a>
+          </div>
+
+          <div style="text-align: center; border-top: 1px solid #e2e8f0; padding-top: 20px;">
+            <a href="${siteUrl}/agent/leads" style="color: #029bba; text-decoration: none; font-weight: bold; font-size: 14px;">
+              View Lead in Dashboard &rarr;
+            </a>
+          </div>
+        </td>
+      </tr>
+    </table>
+  `;
+
+  return sendEmail({
+    to: agent.email,
+    subject: `🎯 New Regional Lead Assigned: ${safe.customerName} (${safe.propertySociety})`,
+    html: wrapEmailTemplate(content, "New Lead Assignment"),
+    fromName: "Highrise.pk Leads",
+  });
+}
+
 // ═══════════════════════════════════════════════════════════════
 // UTILITY EXPORTS
 // ═══════════════════════════════════════════════════════════════
