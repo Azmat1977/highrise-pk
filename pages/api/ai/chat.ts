@@ -41,6 +41,10 @@ import {
   detectSafetyTopics,
   buildSafetyDirective,
 } from '@/lib/aleem/safetyDirective';
+import {
+  detectKnowledgeTopics,
+  buildKnowledgeDirective,
+} from '@/lib/aleem/knowledgeDirective';
 
 /** Shape used by validateHistory() for sanitised conversation turns. */
 interface GeminiMessage {
@@ -760,9 +764,11 @@ const languageDirective = buildLanguageDirective(
   detectReplyLang(message, history.map((h) => h.content)),
 );
 
-// Hard constraints for risky topics. The standing persona rules were not
-// enough on their own: asked for CVT the model answered "2-5%", and asked for
-// the best society it named Bahria, DHA and Emaar with appreciation claims.
+// Verified Domain Knowledge (FBR Taxes, Provincial Duties, Construction Costs, NOC Verification)
+// Dynamically detected from user query and injected with high priority.
+const knowledgeDirective = buildKnowledgeDirective(detectKnowledgeTopics(message));
+
+// Hard constraints for risky topics.
 const safetyDirective = buildSafetyDirective(detectSafetyTopics(message));
 
 // Grounded Property Comparison Context
@@ -781,15 +787,17 @@ if (isComparisonRequest(message)) {
   }
 }
 
-// Order matters. Models weight the END of a prompt most heavily, and the
-// conversation history can be many turns of one language. The language
-// instruction therefore goes LAST so it is the final thing read before
-// generating - otherwise the model mirrors the history instead.
+// Order matters:
+// 1. Authoritative Knowledge Base (Top priority - grounding facts)
+// 2. Page & Comparison context
+// 3. Safety directives & Profile nudges
+// 4. Language directive (LAST - model mirrors language & script of the final directive)
 const combinedContext = [
+  knowledgeDirective,
   resolvedContext?.block ?? '',
   comparisonDirective,
-  profileNudge,
   safetyDirective,
+  profileNudge,
   languageDirective,
 ]
   .filter(Boolean)
