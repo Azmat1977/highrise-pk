@@ -10,6 +10,8 @@
 import type { PropertySearchSlots } from '@/lib/aleem/slots';
 import { parseBudgetExpression } from '@/lib/aleem/slots';
 import { resolveLocation } from '@/lib/aleem/locationResolver';
+import { extractSearchSlotsWithAI } from '@/lib/aleem/aiSlotExtractor';
+import type { ChatHistoryItem } from '@/lib/ai/generateChatResponse';
 
 /**
  * Questions that mention a property type but ask for GUIDANCE, not inventory.
@@ -247,12 +249,13 @@ function detectIntent(lower: string): PropertySearchSlots['intent'] | undefined 
 }
 
 /**
- * Extract search slots from a message, or null when there is no clear
- * property-search intent. Returns null unless an explicit type or marla is
- * present — this keeps greetings and advice questions on the normal path.
+ * Extract search slots from a message (using deterministic regex first,
+ * with structured AI extraction fallback). Returns null when there is no
+ * clear property-search intent — this keeps greetings and advice questions on the normal path.
  */
 export async function extractSearchSlots(
   message: string,
+  history: ChatHistoryItem[] = [],
 ): Promise<PropertySearchSlots | null> {
   // Advice questions go to the AI, not to inventory search.
   if (isAdviceQuestion(message)) return null;
@@ -281,7 +284,10 @@ export async function extractSearchSlots(
     Boolean(recognized) ||
     (listingType !== undefined && budget !== undefined);
 
-  if (!hasSearchSignal) return null;
+  if (!hasSearchSignal) {
+    // Deterministic signals not found; invoke AI fallback with conversational history context.
+    return await extractSearchSlotsWithAI(message, history);
+  }
 
   return {
     type,
