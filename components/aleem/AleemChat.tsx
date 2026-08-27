@@ -1,6 +1,6 @@
-// components/aria/AriaChat.tsx
+// components/aleem/AleemChat.tsx
 // Highrise.pk — Aleem AI chat interface
-// V6.4.1 — Improved UI: larger text, prominent buttons, mobile-friendly
+// V7.0.0 — PHASE UI R2: Mobile Native Drawer Sheet, Horizontal Suggestions, Empty State & Scroll Lock
 // NO framer-motion | NO external modal lib | NO axios
 
 import React, {
@@ -89,10 +89,10 @@ interface AleemChatResponse {
 // ─── Quick reply buttons (context-aware) ─────────────────────────────────────
 
 const QUICK_REPLIES_GENERAL = [
-  { label: 'Buy', value: 'Mujhe property khareedni hai' },
-  { label: 'Rent', value: 'Kiraye par ghar chahiye' },
-  { label: 'Check NOC', value: 'Society ka NOC check karna hai' },
-  { label: 'Find listings', value: '5 marla plot B-17 mein, 60 lakh tak' },
+  { label: 'Buy Property 🏠', value: 'Mujhe property khareedni hai' },
+  { label: 'Rent Home 🔑', value: 'Kiraye par ghar chahiye' },
+  { label: 'Check Society NOC 📋', value: 'Society ka NOC check karna hai' },
+  { label: 'Plot Search 📍', value: '5 marla plot B-17 mein, 60 lakh tak' },
 ];
 
 const QUICK_REPLIES_PROPERTY = [
@@ -104,7 +104,7 @@ const QUICK_REPLIES_PROPERTY = [
 
 const QUICK_REPLIES_SOCIETY = [ 
   { label: '📋 NOC details', value: 'Tell me more about the NOC status of this society.' },
-  { label: 'ً💰 Verified listings here', value: 'Show me verified listings available in this society.' },
+  { label: '💰 Verified listings here', value: 'Show me verified listings available in this society.' },
   { label: '⚠️ Any risks?', value: 'Are there any risks I should know about before investing?' },
   { label: '📅 Schedule visit', value: 'I would like to visit this society.' },
 ];
@@ -114,8 +114,6 @@ function getQuickReplies(context: IAriaContext): typeof QUICK_REPLIES_GENERAL {
   if (context.type === 'society')  return QUICK_REPLIES_SOCIETY;
   return QUICK_REPLIES_GENERAL;
 }
-
-// Unused legacy constants removed (A4 cleanup)
 
 const INTENT_OPTIONS = [
   { value: 'buy',     label: '🏠 Buy',     icon: ShoppingCart },
@@ -151,7 +149,6 @@ function FormattedMessage({ content, isUser }: { content: string; isUser: boolea
         // Table row (simple pipe detection)
         if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
           const cells = trimmed.split('|').map((c) => c.trim()).filter(Boolean);
-          // Skip divider rows like |---|---|
           if (cells.every((c) => /^[-:]+$/.test(c))) return null;
 
           return (
@@ -258,7 +255,6 @@ function MessageBubble({ message }: { message: Message }): React.ReactElement {
 
   return (
     <div className={`flex items-end gap-2 mb-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
-      {/* Avatar */}
       {!isUser && (
         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center flex-shrink-0 mb-1">
           <Bot className="w-4 h-4 text-white" />
@@ -266,7 +262,6 @@ function MessageBubble({ message }: { message: Message }): React.ReactElement {
       )}
 
       <div className="flex flex-col max-w-[85%]">
-        {/* Bubble text */}
         <div
           className={`px-4 py-3 rounded-2xl text-[15px] leading-relaxed overflow-hidden ${
             isUser
@@ -277,7 +272,6 @@ function MessageBubble({ message }: { message: Message }): React.ReactElement {
           <FormattedMessage content={message.content} isUser={isUser} />
         </div>
 
-        {/* Rich Listing Cards Container */}
         {hasListings && (
           <div className="mt-3 flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-gray-300">
             {message.listings!.map((item, idx) => (
@@ -343,10 +337,6 @@ function LeadCaptureForm({
 
     setSubmitting(true);
     try {
-      // ALEEM is the single lead path. The legacy /api/aria/leads endpoint
-      // built its own Lead records with placeholder values, so it is no
-      // longer used. Only the property slug is sent; the server re-reads the
-      // listing itself rather than trusting a client snapshot.
       const res = await fetch('/api/aleem/lead', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -396,7 +386,6 @@ function LeadCaptureForm({
         </button>
       </div>
 
-      {/* Intent buttons (LARGER) */}
       <div className="flex gap-1.5 mb-3 flex-wrap">
         {INTENT_OPTIONS.map((opt) => (
           <button
@@ -414,7 +403,6 @@ function LeadCaptureForm({
         ))}
       </div>
 
-      {/* Name (text-base prevents iOS zoom) */}
       <div className="mb-2.5">
         <input
           type="text"
@@ -426,7 +414,6 @@ function LeadCaptureForm({
         />
       </div>
 
-      {/* Phone (text-base prevents iOS zoom) */}
       <div className="mb-2.5">
         <div className="relative">
           <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -441,7 +428,6 @@ function LeadCaptureForm({
         </div>
       </div>
 
-      {/* Email (optional, text-base) */}
       <div className="mb-2.5">
         <div className="relative">
           <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
@@ -455,20 +441,16 @@ function LeadCaptureForm({
         </div>
       </div>
 
-      {/* Budget & Urgency fields removed (A4 cleanup) */}
-
-      {/* Error */}
       {error && (
         <div className="mb-2 px-3 py-2 bg-[#fef2f2] border-l-4 border-[#ef4444] text-red-700 text-sm rounded-lg">
           {error}
         </div>
       )}
 
-      {/* Submit button (LARGER) */}
       <button
         type="submit"
         disabled={submitting}
-        className="w-full py-3 bg-[#029bba] text-white rounded-xl text-base font-semibold hover:bg-[#027a94] disabled:opacity-60 transition-colors flex items-center justify-center gap-2"
+        className="w-full py-3 bg-[#029bba] text-white rounded-xl text-base font-semibold hover:bg-[#027a94] disabled:opacity-60 transition-colors flex items-center justify-center gap-2 active:scale-[0.98]"
       >
         {submitting ? (
           <><Loader2 className="w-5 h-5 animate-spin" /> Submitting...</>
@@ -485,7 +467,7 @@ function LeadCaptureForm({
   );
 }
 
-// ─── Main chat component ──────────────────────────────────────────────────────
+// ─── Main chat component (NATIVE SM TAKEOVER) ──────────────────────────────────
 
 export default function AriaChat({
   context,
@@ -506,22 +488,33 @@ export default function AriaChat({
   const [error,           setError]            = useState('');
   const [quotaMode,       setQuotaMode]        = useState<QuotaMode>('normal');
 
-  // Slugs of the verified listings ALEEM showed last turn. Sent back on the
-  // next message so an explicit "yes, arrange a callback" can be matched to
-  // the exact listings the user actually saw.
   const [lastListings,    setLastListings]     = useState<string[]>([]);
   const [listings,        setListings]         = useState<AleemListing[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef       = useRef<HTMLInputElement>(null);
 
+  // 1. MOBILE BODY SCROLL LOCK
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 640) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
+      }
+    };
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
-
-  // No auto-greeting. The customer speaks first; ALEEM answers what was
-  // actually asked instead of opening with a scripted pitch.
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isTyping) return;
@@ -541,8 +534,6 @@ export default function AriaChat({
     setIsTyping(true);
 
     try {
-      // Only navigation fields are sent. The server re-reads every fact from
-      // MongoDB, so client-claimed price/NOC/score values are ignored anyway.
       const res = await fetch('/api/ai/chat', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -564,12 +555,10 @@ export default function AriaChat({
       const data = await res.json() as AleemChatResponse;
 
       if (!res.ok) {
-        // ALEEM returns a specific message for guest vs signed-in limits, so
-        // prefer the server text over a generic one.
         setError(
           data.message ??
           (res.status === 429
-            ? 'Thoda wait karein â€” aap ne bohot saaray messages bheje hain.'
+            ? 'Thoda wait karein — aap ne bohot saaray messages bheje hain.'
             : 'Aleem temporarily unavailable. Please try again.')
         );
         return;
@@ -586,15 +575,10 @@ export default function AriaChat({
       };
       setMessages((prev) => [...prev, assistantMsg]);
 
-      // Grounded verified listings. Remember exactly which slugs were shown so
-      // a later consent message can be matched to them.
       if (Array.isArray(data.listings)) {
         setListings(data.listings);
         setLastListings(data.listings.map((item) => item.slug));
       }
-
-      // No engagement-based lead prompting. A callback is created only when
-      // the user explicitly asks for one, which the server handles.
 
     } catch {
       setError('Network error. Please check your connection.');
@@ -602,7 +586,7 @@ export default function AriaChat({
       setIsTyping(false);
       inputRef.current?.focus();
     }
-  }, [isTyping, sessionId, context, conversationId, leadCaptured, messages.length]);
+  }, [isTyping, sessionId, context, lastListings]);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -614,17 +598,15 @@ export default function AriaChat({
   }, [sendMessage]);
 
   const handleLeadSuccess = useCallback(() => {
-    // The confirmation banner below already says this. A second chat bubble
-    // repeated it, in a language the user may not have been writing in.
     setLeadCaptured(true);
     setShowLeadForm(false);
   }, []);
 
   return (
-    <div className="flex flex-col h-full bg-gray-50">
+    <div className="fixed inset-0 sm:relative sm:inset-auto z-50 sm:z-0 flex flex-col h-full w-full sm:h-[600px] sm:w-[400px] bg-gray-50 sm:rounded-2xl sm:shadow-2xl overflow-hidden border border-gray-100 animate-slideUp sm:animate-none">
 
       {/* Header (LARGER text) */}
-      <div className="flex items-center justify-between px-4 py-3 bg-gradient-to-r from-[#029bba] to-[#004063] text-white flex-shrink-0">
+      <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-[#029bba] to-[#004063] text-white flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
             <Bot className="w-5 h-5 text-white" />
@@ -640,19 +622,20 @@ export default function AriaChat({
           }`} />
         </div>
         <div className="flex items-center gap-1">
+          {/* Hide minimize button on mobile since overlay occupies full screen */}
           <button
             onClick={onMinimize}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Minimize"
           >
             <Minimize2 className="w-4 h-4" />
           </button>
           <button
             onClick={onClose}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors active:scale-95"
             aria-label="Close"
           >
-            <X className="w-4 h-4" />
+            <X className="w-5 h-5 sm:w-4 sm:h-4" />
           </button>
         </div>
       </div>
@@ -668,7 +651,37 @@ export default function AriaChat({
       )}
 
       {/* Messages area */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 min-h-0">
+      <div 
+        className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
+        aria-live="polite"
+      >
+        {/* Organic Suggestions Empty State Hub */}
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center min-h-[80%] p-4 text-center">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center shadow-md mb-4 animate-bounce">
+              <Bot className="w-7 h-7 text-white" />
+            </div>
+            <h3 className="text-lg font-black text-[#004063] mb-1">Assalam-u-Alaikum!</h3>
+            <p className="text-sm text-gray-600 max-w-xs mb-6">
+              Main Aleem hoon, Highrise.pk se. Main aap ka AI property specialist aur construction advisor hoon. Main unverified listings or fake rates se pak accurate analysis deta hoon.
+            </p>
+            <div className="w-full max-w-sm space-y-2.5 text-left">
+              <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pl-1">Mujhse Poochhein:</p>
+              <div className="flex flex-col gap-2">
+                {quickReplies.slice(0, 3).map((qr) => (
+                  <button
+                    key={qr.value}
+                    onClick={() => handleQuickReply(qr.value)}
+                    className="w-full text-left px-4 py-3 bg-white border border-gray-200 rounded-xl text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:border-[#029bba]/30 hover:text-[#029bba] transition-all shadow-sm active:scale-[0.98]"
+                  >
+                    {qr.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
         {messages.map((msg) => (
           <MessageBubble key={msg.id} message={msg} />
         ))}
@@ -678,7 +691,6 @@ export default function AriaChat({
             {error}
           </div>
         )}
-        {/* Lead captured success */}
         {leadCaptured && (
           <div className="flex items-center gap-2 px-3 py-2.5 bg-[#f0fdf4] border border-[#10b981]/30 rounded-xl mb-3">
             <CheckCircle className="w-5 h-5 text-[#10b981] flex-shrink-0" />
@@ -690,16 +702,15 @@ export default function AriaChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick replies (LARGER text) */}
-      {showQuickReplies && messages.length === 1 && (
+      {/* Quick replies HORIZONTAL SWIPE (Preserves real estate height) */}
+      {showQuickReplies && messages.length > 0 && (
         <div className="px-4 pb-3 flex-shrink-0">
-          <p className="text-xs text-gray-500 mb-2 font-medium">Quick questions:</p>
-          <div className="flex flex-col gap-2">
+          <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none snap-x touch-pan-x">
             {quickReplies.map((qr) => (
               <button
                 key={qr.value}
                 onClick={() => handleQuickReply(qr.value)}
-                className="w-full text-left px-3.5 py-2.5 bg-white border border-gray-200 rounded-xl text-sm text-gray-700 hover:bg-[#029bba]/5 hover:border-[#029bba]/30 transition-colors font-medium"
+                className="flex-shrink-0 snap-center px-4 py-2.5 bg-white border border-gray-200 rounded-full text-xs font-bold text-[#004063] hover:bg-[#029bba]/5 hover:border-[#029bba]/30 hover:text-[#029bba] transition-all shadow-sm active:scale-95"
               >
                 {qr.label}
               </button>
@@ -710,31 +721,13 @@ export default function AriaChat({
 
       {/* Lead capture form */}
       {showLeadForm && !leadCaptured && (
-        <>
-          {/* Disabled: this banner promised a callback "within 1 hour", the
-              same timing promise removed everywhere else. quotaMode is never
-              set by /api/ai/chat, so it was already unreachable. The block is
-              deleted properly in A4 with the rest of the legacy lead path. */}
-          {false && (
-            <div className="px-4 py-3 bg-gradient-to-r from-[#029bba] to-[#004063] text-white text-center">
-              <p className="text-sm font-bold">
-                {quotaMode === 'lead_only'
-                  ? '🌟 VIP Priority Callback'
-                  : '⭐ Premium Personal Service'}
-              </p>
-              <p className="text-xs opacity-90 mt-0.5">
-                Hamari expert team within 1 hour call karegi
-              </p>
-            </div>
-          )}
-          <LeadCaptureForm
-            context={context}
-            sessionId={sessionId}
-            quotaMode={quotaMode}
-            onSuccess={handleLeadSuccess}
-            onClose={() => setShowLeadForm(false)}
-          />
-        </>
+        <LeadCaptureForm
+          context={context}
+          sessionId={sessionId}
+          quotaMode={quotaMode}
+          onSuccess={handleLeadSuccess}
+          onClose={() => setShowLeadForm(false)}
+        />
       )}
 
       {/* Input area (LARGER) */}
@@ -746,14 +739,14 @@ export default function AriaChat({
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="Apna sawal likhein..."
-            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-[#029bba] focus:bg-white transition-colors placeholder:text-gray-400"
+            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#029bba]/10 focus:border-[#029bba] focus:bg-white transition-all placeholder:text-gray-400"
             maxLength={1000}
             disabled={isTyping}
           />
           <button
             type="submit"
             disabled={!input.trim() || isTyping}
-            className="w-12 h-12 bg-[#029bba] text-white rounded-xl flex items-center justify-center hover:bg-[#027a94] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0"
+            className="w-12 h-12 bg-[#029bba] text-white rounded-xl flex items-center justify-center hover:bg-[#027a94] disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex-shrink-0 active:scale-95"
             aria-label="Send"
           >
             {isTyping
@@ -767,7 +760,7 @@ export default function AriaChat({
         {!showLeadForm && !leadCaptured && messages.length >= 2 && (
           <button
             onClick={() => setShowLeadForm(true)}
-            className="aleem-cta w-full mt-3 py-3 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-md focus:outline-none focus:ring-4 focus:ring-[#029bba]/40"
+            className="aleem-cta w-full mt-3 py-3 text-white rounded-xl font-semibold text-sm flex items-center justify-center gap-2 shadow-md focus:outline-none focus:ring-4 focus:ring-[#029bba]/40 active:scale-[0.98]"
           >
             <PhoneCall className="w-4 h-4" />
             Request a Callback from Our Team
@@ -775,9 +768,7 @@ export default function AriaChat({
         )}
       </div>
 
-      {/* Brand-coloured CTA. A slow gradient drift draws the eye without the
-          blinking that makes an interface feel like an advert. Motion is
-          disabled for anyone who has asked their system to reduce it. */}
+      {/* CSS Animations */}
       <style jsx>{`
         .aleem-cta {
           background-image: linear-gradient(
@@ -804,34 +795,30 @@ export default function AriaChat({
           50%  { background-position: 100% 50%; }
           100% { background-position: 0% 50%; }
         }
+        @keyframes aleem-slide-up {
+          from { transform: translateY(100%); }
+          to   { transform: translateY(0); }
+        }
+        .animate-slideUp {
+          animation: aleem-slide-up 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .scrollbar-none::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-none {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
         @media (prefers-reduced-motion: reduce) {
           .aleem-cta {
             animation: none;
             background-position: 0% 50%;
           }
+          .animate-slideUp {
+            animation: none;
+          }
         }
       `}</style>
     </div>
   );
-}
-
-// ─── Greeting builder ─────────────────────────────────────────────────────────
-
-function buildGreeting(context: IAriaContext, userName?: string | null): string {
-  const name = userName ? `, ${userName.split(' ')[0]}` : '';
-
-  if (context.type === 'property' && context.title) {
-    return `Assalam-u-Alaikum${name}! 👋 Main Aleem hoon, Highrise.pk se.\n\nAap "${context.title}"${context.city ? ` (${context.city})` : ''} property dekh rahe hain. Kya main aap ki kuch madad kar sakta hoon? Price, location, ya kuch aur jaanna chahein? 🏠`;
-  }
-
-  if (context.type === 'society' && context.title) {
-    const riskNote = context.overallRiskLevel === 'safe'
-      ? '✅ Ye society safe category mein hai.'
-      : context.overallRiskLevel === 'avoid'
-      ? '⚠️ Please careful rahein — is society mein kuch risks hain.'
-      : '';
-    return `Assalam-u-Alaikum${name}! 👋 Main Aleem hoon, Highrise.pk se.\n\nAap "${context.title}"${context.nocStatus ? ` (NOC: ${context.nocStatus})` : ''} dekh rahe hain. ${riskNote}\n\nKya aap invest karna chahte hain ya bas verify kar rahe hain?`;
-  }
-
-  return `Assalam-u-Alaikum${name}! 👋 Main Aleem hoon, Highrise.pk se.\n\nProperty dhundh rahe hain ya invest karna chahte hain? Mujhe batayein, main aap ki best property find karne mein madad karunga.\n\n(Aap English, Urdu, ya Roman Urdu — jo bhi language comfortable hai, use kar saktay hain)`;
 }
