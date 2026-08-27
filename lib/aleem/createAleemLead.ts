@@ -10,6 +10,7 @@ import Lead from '@/models/Lead';
 import User from '@/models/User';
 import Property from '@/models/Property';
 import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
+import { notifyAdminNewLead } from '@/lib/email';
 
 const SLUG_PATTERN = /^[a-z0-9-]{1,120}$/;
 const MAX_LISTINGS = 8;
@@ -114,6 +115,28 @@ export async function createAleemLead(
       `[ALEEM] Callback requested via grounded AI search (${slugs.length} listing(s)). ` +
       `Routed to sales/seller queue — no fund custody. Shown slugs: ${slugs.join(', ')}`,
     tags: ['aleem_chat', 'callback', 'grounded_search'],
+  });
+
+  // Fire-and-forget admin email notification (never blocks customer response)
+  const firstSnap = snapshots[0] as Record<string, any> | undefined;
+  void notifyAdminNewLead({
+    name: user.name ?? 'Registered User',
+    phone: user.phone ?? 'N/A',
+    email: user.email,
+    intent: 'callback',
+    leadType: 'call_back',
+    source: 'aleem_chat (grounded search)',
+    propertyTitle: firstSnap?.title,
+    propertyCity: firstSnap?.city,
+    propertySociety: firstSnap?.society,
+    propertyPrice: firstSnap?.price,
+    phoneVerified: true,
+    isGuest: false,
+    leadId: String(lead._id),
+  }).catch((err) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[notifyAdminNewLead failed]:', err);
+    }
   });
 
   return {
@@ -312,6 +335,29 @@ export async function createExpertLead(
         phoneVerified ? 'phone_verified' : 'phone_unverified',
         input.userId ? 'registered_user' : 'guest',
       ],
+    });
+
+    // Fire-and-forget admin email notification (never blocks customer response)
+    const snap = snapshot as Record<string, any> | undefined;
+    void notifyAdminNewLead({
+      name: accountName && phoneVerified ? accountName : name,
+      phone,
+      email,
+      intent,
+      message,
+      leadType: INTENT_TO_LEAD_TYPE[intent],
+      source: 'aleem_chat (expert form)',
+      propertyTitle: snap?.title,
+      propertyCity: snap?.city,
+      propertySociety: snap?.society,
+      propertyPrice: snap?.price,
+      phoneVerified,
+      isGuest: !input.userId,
+      leadId: String(lead._id),
+    }).catch((err) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[notifyAdminNewLead failed]:', err);
+      }
     });
 
     return { success: true, leadId: String(lead._id) };
