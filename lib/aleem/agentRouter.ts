@@ -26,6 +26,7 @@ export interface RoutingResult {
   agentId?: string;
   agentName?: string;
   agentEmail?: string;
+  agentPhone?: string;
   matchTier?: 'area_match' | 'city_match' | 'none';
 }
 
@@ -175,6 +176,7 @@ export async function routeLeadToRegionalAgent(
       agentId: String(assignedAgent._id),
       agentName: assignedAgent.name,
       agentEmail: assignedAgent.email,
+      agentPhone: assignedAgent.phone,
       matchTier,
     };
   } catch (error) {
