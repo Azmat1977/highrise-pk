@@ -499,7 +499,8 @@ export default function PropertiesListingPage(): React.ReactElement {
 
       if (safeSearch)       params.append("search",       safeSearch);
       if (safeCity)         params.append("city",         safeCity);
-
+
+
       const safePropertyCategory = clampEnum(filters.propertyCategory, VALID_CATEGORIES);
       if (safePropertyCategory) params.append("propertyCategory", safePropertyCategory);
       const types = getPropertyTypesForQuery();
@@ -664,7 +665,6 @@ export default function PropertiesListingPage(): React.ReactElement {
     }
     return "Properties in Pakistan | Buy, Rent & Installments | Highrise.pk";
   }, [filters.propertyCategory]);
-
   const pageDescription = useMemo(() => {
     if (hasActiveFilters) {
       return "Browse verified properties in Pakistan with your selected filters. Find homes, plots & commercial listings on Highrise.pk.";
@@ -679,6 +679,32 @@ export default function PropertiesListingPage(): React.ReactElement {
     Boolean(filters.bedrooms) ||
     currentPage > 1;
 
+  // CollectionPage & BreadcrumbList Schema for Directory SEO
+  const directoryJsonLd = useMemo(() => {
+    return [
+      {
+        '@context': 'https://schema.org',
+        '@type': 'CollectionPage',
+        name: pageTitle,
+        url: canonicalUrl,
+        description: pageDescription,
+        provider: {
+          '@type': 'Organization',
+          name: 'Highrise.pk',
+          url: SITE_URL,
+        },
+      },
+      {
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: 'Home', item: `${SITE_URL}/` },
+          { '@type': 'ListItem', position: 2, name: 'Properties', item: baseCanonical },
+        ],
+      },
+    ];
+  }, [pageTitle, pageDescription, canonicalUrl, baseCanonical, SITE_URL]);
+
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
@@ -688,13 +714,14 @@ export default function PropertiesListingPage(): React.ReactElement {
         <link rel="canonical" href={canonicalUrl} />
         {isDeepFiltered && <meta name="robots" content="noindex,follow" />}
         <meta property="og:type" content="website" />
-        <meta property="og:title" content="Highrise.pk Properties" />
-        <meta
-          property="og:description"
-          content="Find verified properties for sale, rent & installments across Pakistan."
-        />
+        <meta property="og:title" content={pageTitle} />
+        <meta property="og:description" content={pageDescription} />
         <meta property="og:url" content={canonicalUrl} />
         <meta name="twitter:card" content="summary_large_image" />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }}
+        />
       </Head>
 
       <div className="min-h-screen bg-[#f8f9fa]">

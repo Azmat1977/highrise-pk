@@ -137,6 +137,33 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
 
   const noindex = activeFilterCount >= 3 || filters.page > 1;
 
+  // Directory Schemas for Google Rich Snippets
+  const projectDirectoryJsonLd = [
+    {
+      '@context': 'https://schema.org',
+      '@type': 'CollectionPage',
+      name: pageTitle,
+      url: canonical,
+      description: pageDesc,
+      provider: {
+        '@type': 'Organization',
+        name: 'Highrise.pk',
+        url: 'https://highrise.pk',
+      },
+    },
+    {
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      itemListElement: [
+        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://highrise.pk/' },
+        { '@type': 'ListItem', position: 2, name: 'Projects', item: 'https://highrise.pk/projects' },
+        ...(filters.city
+          ? [{ '@type': 'ListItem', position: 3, name: filters.city, item: canonical }]
+          : []),
+      ],
+    },
+  ];
+
   return (
     <>
       <Head>
@@ -154,6 +181,10 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
           content="summary_large_image" />
         <meta name="twitter:title"       content={pageTitle} />
         <meta name="twitter:description" content={pageDesc} />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(projectDirectoryJsonLd) }}
+        />
       </Head>
 
       <div className="bg-gray-50 min-h-screen">
