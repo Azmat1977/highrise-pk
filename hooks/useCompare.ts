@@ -274,6 +274,8 @@ export function useCompare(
       }
 
       inFlightRef.current.add(debounceKey);
+      // Auto-expire lock after 3s to prevent deadlocks from aborted/canceled requests
+      setTimeout(() => inFlightRef.current.delete(debounceKey), 3000);
       setActionState('pending');
       setErrorMessage(null);
 
@@ -378,6 +380,8 @@ export function useCompare(
       const previous = currentItems;
 
       inFlightRef.current.add(debounceKey);
+      // Auto-expire lock after 3s to prevent deadlocks from aborted/canceled requests
+      setTimeout(() => inFlightRef.current.delete(debounceKey), 3000);
       setActionState('pending');
 
       const filtered = currentItems.filter(

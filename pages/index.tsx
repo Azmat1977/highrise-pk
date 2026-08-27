@@ -24,44 +24,48 @@ import { useCompare } from '@/hooks/useCompare';
 // ─── Types ────────────────────────────────────────────────────────────────────
 function toIdString(v: unknown): string {
   if (v == null) return '';
-  if (typeof v === 'string') return v.trim();
-  if (typeof v === 'number') return String(v);
 
+  // 1. Direct string containing a 24-hex ObjectId
+  if (typeof v === 'string') {
+    const match = v.match(/[0-9a-fA-F]{24}/);
+    if (match) return match[0];
+    const trimmed = v.trim();
+    return trimmed !== '[object Object]' ? trimmed : '';
+  }
+
+  // 2. Object extraction (prioritizing id -> _id -> JSON string scan)
   if (typeof v === 'object') {
     const obj = v as Record<string, unknown>;
 
-    // Mongo Extended JSON: { $oid: "..." }
-    const oid = obj.$oid;
-    if (typeof oid === 'string' && oid.trim()) return oid.trim();
+    // Check obj.id first
+    if (obj.id) {
+      const idStr = toIdString(obj.id);
+      if (idStr) return idStr;
+    }
 
-    // Common nested patterns
+    // Check obj._id second
     if (obj._id && obj._id !== v) {
-      const nested = toIdString(obj._id);
-      if (nested) return nested;
-    }
-    if (obj.id && obj.id !== v) {
-      const nested = toIdString(obj.id);
-      if (nested) return nested;
+      const idStr = toIdString(obj._id);
+      if (idStr) return idStr;
     }
 
-    // Mongoose ObjectId
-    const toHexString = (v as { toHexString?: () => unknown }).toHexString;
-    if (typeof toHexString === 'function') {
-      try {
-        const resolved = toHexString.call(v);
-        if (typeof resolved === 'string' && resolved.trim()) return resolved.trim();
-      } catch {}
+    // Extended JSON {$oid: "..."}
+    if (obj.$oid && typeof obj.$oid === 'string') {
+      const match = obj.$oid.match(/[0-9a-fA-F]{24}/);
+      if (match) return match[0];
     }
 
-    const toStringFn = (v as { toString?: () => unknown }).toString;
-    if (typeof toStringFn === 'function') {
-      try {
-        const str = toStringFn.call(v);
-        if (typeof str === 'string' && str.trim() && str.trim() !== '[object Object]') {
-          return str.trim();
-        }
-      } catch {}
-    }
+    // Full JSON scan fallback for any 24-hex string
+    try {
+      const jsonStr = JSON.stringify(obj);
+      if (jsonStr) {
+        const idMatch = jsonStr.match(/"(?:_id|id)":"([0-9a-fA-F]{24})"/);
+        if (idMatch && idMatch[1]) return idMatch[1];
+
+        const hexMatch = jsonStr.match(/[0-9a-fA-F]{24}/);
+        if (hexMatch) return hexMatch[0];
+      }
+    } catch {}
   }
 
   return '';
@@ -2235,6 +2239,7 @@ export default function HomePage(): React.ReactElement {
               <>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
                   {featuredProperties.slice(0, 6).map((property) => {
+                    console.log('[DEBUG PROPERTY OBJECT]:', { _id: property._id, id: property.id, slug: property.slug, raw: property });
                     const propId = toIdString(property._id) || toIdString(property.id);
                     const fKey = getFavoriteKey('property', propId);
                     const cardHref = `/property/${property.slug || propId}`;
@@ -2342,35 +2347,53 @@ export default function HomePage(): React.ReactElement {
                               </span>
                             </div>
 
-                            {/* Compare Button (Outside Link, completely interactive) */}
-                            <button
-                              type="button"
-                              onClick={async (e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                console.log('COMPARE CLICKED FOR ID:', propId);
-                                if (propId) {
-                                  await toggleCompare(propId, 'property');
-                                }
-                              }}
-                              className={`w-full py-2 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer relative z-20 ${
-                                isInCompare(propId, 'property')
-                                  ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100'
-                                  : 'border-gray-200 text-gray-600 hover:border-[#029bba]/40 hover:text-[#029bba] hover:bg-[#029bba]/5'
-                              }`}
-                            >
-                              {isInCompare(propId, 'property') ? (
-                                <>
-                                  <Check className="w-3.5 h-3.5 text-emerald-600" />
-                                  <span>Added to Compare</span>
-                                </>
-                              ) : (
-                                <>
-                                  <BarChart3 className="w-3.5 h-3.5 text-[#029bba]" />
-                                  <span>Add to Compare</span>
-                                </>
-                              )}
-                            </button>
+                                               {/* Real Add to Compare Button */}
+                            <div className="mt-3 relative z-30 pointer-events-auto" onClick={(e) => e.stopPropagation()}>
+                              <button
+                                type="button"
+                                onClick={async (e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+
+                                  const targetId = propId || toIdString(property._id) || toIdString(property.id) || toIdString(property);
+                                  console.log('[Highrise Compare] Target ID resolved:', targetId);
+
+                                  if (!targetId) {
+                                    showToast('Could not resolve property ID', 'error');
+                                    return;
+                                  }
+
+                                  if (!isInCompare(targetId, 'property') && isMaxReached) {
+                                    showToast('Maximum 4 items can be compared at once', 'error');
+                                    return;
+                                  }
+
+                                  try {
+                                    const success = await toggleCompare(targetId, 'property');
+                                    console.log('[Highrise Compare] Toggle result:', success);
+                                  } catch (err) {
+                                    console.error('[Highrise Compare] Toggle error:', err);
+                                  }
+                                }}
+                                className={`w-full py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
+                                  isInCompare(propId, 'property')
+                                    ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 shadow-sm'
+                                    : 'bg-white border-gray-200 text-gray-700 hover:border-[#029bba] hover:text-[#029bba] hover:bg-[#029bba]/5 shadow-sm'
+                                }`}
+                              >
+                                {isInCompare(propId, 'property') ? (
+                                  <>
+                                    <Check className="w-3.5 h-3.5 text-emerald-600 flex-shrink-0" />
+                                    <span>Added to Compare</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <BarChart3 className="w-3.5 h-3.5 text-[#029bba] flex-shrink-0" />
+                                    <span>Add to Compare</span>
+                                  </>
+                                )}
+                              </button>
+                            </div>
 
                             <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
                               <div className="flex items-center gap-2">
@@ -2549,10 +2572,11 @@ export default function HomePage(): React.ReactElement {
               <>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
                   {installmentProperties.slice(0, 6).map((property, idx) => {
-                    const fKey = getFavoriteKey('property', String(property._id));
+                    const propId = toIdString(property._id) || toIdString(property.id);
+                    const fKey = getFavoriteKey('property', propId);
                     const isFeatured = idx === 0; // First card gets "Best Deal" badge
                     return (
-                      <Link key={property._id} href={`/property/${property.slug || property._id}`}>
+                      <Link key={propId} href={`/property/${property.slug || propId}`}>
                         <div className="group relative bg-white border-2 border-gray-100 hover:border-[#029bba]/40 rounded-3xl overflow-hidden h-full flex flex-col transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_25px_50px_rgba(2,155,186,0.18)] cursor-pointer">
 
                           {/* Best Deal Pulse Badge (first card only) */}

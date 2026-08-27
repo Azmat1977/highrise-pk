@@ -256,9 +256,28 @@ const SENSITIVE_KEYS = new Set([
 ]);
 
 function scrubValue(val: unknown): unknown {
-  if (val === null || val === undefined)  return val;
-  if (typeof val !== 'object')            return val;
-  if (Array.isArray(val))                 return val.map(scrubValue);
+  if (val === null || val === undefined) return val;
+  if (typeof val !== 'object') return val;
+
+  // Handle Mongoose / BSON ObjectId (convert to 24-hex string)
+  if (
+    val instanceof mongoose.Types.ObjectId ||
+    (val as { _bsontype?: string })._bsontype === 'ObjectID'
+  ) {
+    return val.toString();
+  }
+
+  // Handle Date objects
+  if (val instanceof Date) {
+    return val.toISOString();
+  }
+
+  // Handle objects with toHexString
+  if (typeof (val as { toHexString?: unknown }).toHexString === 'function') {
+    return (val as { toHexString: () => string }).toHexString();
+  }
+
+  if (Array.isArray(val)) return val.map(scrubValue);
 
   const obj = val as Record<string, unknown>;
   const out: Record<string, unknown> = {};
