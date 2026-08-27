@@ -489,10 +489,10 @@ export default async function handler(
     // say which page the user is on, never what is true about that page.
     const pageContext = parseAleemContext(rawContext);
 
-    // ── STEP 4.5: GROUNDED PROPERTY SEARCH (DB-backed, Gemini-independent) ──
+    // ── STEP 4.5: GROUNDED PROPERTY SEARCH (DB-backed, Hybrid Slot Extraction) ──
     // Runs before cache so a search query always reflects live inventory.
-    // Only fires when the message carries a clear property-search signal.
-    const searchSlots = await extractSearchSlots(message);
+    // Hybrid extractor checks deterministic regex first, then structured AI fallback with history context.
+    const searchSlots = await extractSearchSlots(message, history);
 
     if (searchSlots) {
       try {
