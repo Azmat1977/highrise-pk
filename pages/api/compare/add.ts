@@ -80,14 +80,14 @@ export default async function handler(
 
     await dbConnect();
 
-    // ─── Verify entity exists ─────────────────────────────────
+    // ─── Verify entity exists ──────────────────────────────────
     let entityExists = false;
 
     if (entityType === 'property') {
       entityExists = Boolean(
         await Property.exists({
-          _id:    entityId,
-          ...PUBLIC_PROPERTY_FILTER,
+          _id:       entityId,
+          isDeleted: { $ne: true },
         }),
       );
     } else if (entityType === 'project') {
