@@ -12,6 +12,7 @@ import Property from '@/models/Property';
 import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import { notifyAdminNewLead } from '@/lib/email';
 import { routeLeadToRegionalAgent } from '@/lib/aleem/agentRouter';
+import { routeLeadToProjectDeveloper } from '@/lib/aleem/developerRouter';
 
 const SLUG_PATTERN = /^[a-z0-9-]{1,120}$/;
 const MAX_LISTINGS = 8;
@@ -417,6 +418,211 @@ export async function createExpertLead(
       success: true,
       leadId: String(lead._id),
       ...(assignedAgentInfo ? { assignedAgent: assignedAgentInfo } : {}),
+    };
+  } catch {
+    return { success: false, code: 'FAILED' };
+  }
+}
+
+// ============================================
+// PROJECT LEAD CREATION
+// ============================================
+
+export interface CreateProjectLeadInput {
+  name: string;
+  phone: string;
+  email?: string;
+  intent?: 'buy' | 'invest' | 'brochure' | 'visit' | 'general';
+  message?: string;
+  /** Public slug of the project page the user was on. */
+  projectSlug?: string;
+  /** Authenticated user id, when signed in. */
+  userId?: string;
+  sessionId?: string;
+}
+
+export interface CreateProjectLeadResult {
+  success: boolean;
+  leadId?: string;
+  code?: 'INVALID_NAME' | 'INVALID_PHONE' | 'PROJECT_NOT_FOUND' | 'FAILED';
+  routedToDeveloper?: boolean;
+}
+
+// Project-specific intent mapping (extends beyond ExpertLeadIntent)
+const PROJECT_INTENT_TO_LEAD_TYPE: Record<string, string> = {
+  buy: 'project_interest',
+  invest: 'project_interest',
+  brochure: 'brochure_download',
+  visit: 'site_visit',
+  general: 'general_inquiry',
+};
+
+/**
+ * Create a project inquiry lead.
+ * - Works for guests and registered users.
+ * - Resolves project slug to verify it exists and is verified.
+ * - Routes to the project developer if verified & approved.
+ */
+export async function createProjectLead(
+  input: CreateProjectLeadInput,
+): Promise<CreateProjectLeadResult> {
+  const name = cleanText(input.name, 80);
+  if (!name || name.length < 2) return { success: false, code: 'INVALID_NAME' };
+
+  if (!input.phone || !/^(?:\+?92|0092|0)?[\s-]?3\d{2}[\s-]?\d{7}$/.test(input.phone.trim())) {
+    return { success: false, code: 'INVALID_PHONE' };
+  }
+  const formPhone = normalizePhone(input.phone);
+  if (!formPhone) return { success: false, code: 'INVALID_PHONE' };
+
+  await dbConnect();
+
+  // Prefer verified phone on file for registered users
+  let phone = formPhone;
+  let phoneVerified = false;
+  let email = cleanText(input.email, 254)?.toLowerCase();
+  let accountName: string | undefined;
+
+  if (input.userId) {
+    try {
+      const user = await User.findById(input.userId)
+        .select('name email phone isPhoneVerified')
+        .lean<{ name?: string; email?: string; phone?: string; isPhoneVerified?: boolean } | null>();
+
+      if (user) {
+        accountName = user.name;
+        if (!email && user.email) email = user.email.toLowerCase();
+        if (user.phone && user.isPhoneVerified) {
+          phone = user.phone;
+          phoneVerified = true;
+        }
+      }
+    } catch {
+      // Account lookup failed; continue with form values.
+    }
+  }
+
+  // Resolve project by slug
+  let projectDoc: any = null;
+  let projectId: any = null;
+  let projectSnapshot: Record<string, any> | undefined;
+
+  if (input.projectSlug && /^[a-z0-9-]{1,120}$/.test(input.projectSlug)) {
+    try {
+      const { default: Project } = await import('@/models/Projects');
+      projectDoc = await Project.findOne({
+        slug: input.projectSlug,
+        status: 'verified',
+        isDeleted: { $ne: true },
+      })
+        .select('slug projectName city area developerId developerApprovalStatus verificationStatus isVerified minPrice maxPrice projectCategory projectNature')
+        .lean();
+
+      if (projectDoc) {
+        projectId = projectDoc._id;
+        projectSnapshot = {
+          _id: projectDoc._id,
+          projectName: projectDoc.projectName,
+          slug: projectDoc.slug,
+          city: projectDoc.city,
+          area: projectDoc.area,
+          minPrice: projectDoc.minPrice,
+          maxPrice: projectDoc.maxPrice,
+          projectCategory: projectDoc.projectCategory,
+          projectNature: projectDoc.projectNature,
+        };
+      }
+    } catch {
+      // Project lookup failed; lead still worth creating but won't route.
+    }
+  }
+
+  if (!projectDoc) {
+    return { success: false, code: 'PROJECT_NOT_FOUND' };
+  }
+
+  const intent = input.intent ?? 'buy';
+  const message = cleanText(input.message, 500);
+
+  const verificationNote = phoneVerified
+    ? 'Phone verified on the Highrise account.'
+    : 'Phone entered in the chat form and NOT verified. Confirm identity on the call.';
+
+  try {
+    const lead = await Lead.create({
+      name: accountName && phoneVerified ? accountName : name,
+      ...(email ? { email } : {}),
+      phone,
+
+      leadType: PROJECT_INTENT_TO_LEAD_TYPE[intent],
+      entityType: 'project',
+      source: 'aleem_chat',
+      status: 'new',
+
+      project: projectId,
+      projectSnapshot,
+
+      ...(message ? { message } : {}),
+      ...(input.sessionId ? { sessionId: input.sessionId } : {}),
+
+      notes:
+        `[ALEEM] Project inquiry from chat. Intent: ${intent}. ` +
+        `${verificationNote} No fund custody - developer/sales handoff only.`,
+
+      tags: [
+        'aleem_chat',
+        'project_inquiry',
+        phoneVerified ? 'phone_verified' : 'phone_unverified',
+        input.userId ? 'registered_user' : 'guest',
+      ],
+    });
+
+    // Admin notification
+    const snap = projectSnapshot;
+    void notifyAdminNewLead({
+      name: accountName && phoneVerified ? accountName : name,
+      phone,
+      email,
+      intent,
+      message,
+      leadType: PROJECT_INTENT_TO_LEAD_TYPE[intent],
+      source: 'aleem_chat (project form)',
+      propertyTitle: snap?.projectName,
+      propertyCity: snap?.city,
+      propertySociety: snap?.area,
+      propertyPrice: snap?.maxPrice,
+      phoneVerified,
+      isGuest: !input.userId,
+      leadId: String(lead._id),
+    }).catch((err) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[notifyAdminNewLead failed]:', err);
+      }
+    });
+
+    // Route to project developer
+    let routedToDeveloper = false;
+    try {
+      const routingResult = await routeLeadToProjectDeveloper({
+        leadId: String(lead._id),
+        projectId: String(projectId),
+        customerName: accountName && phoneVerified ? accountName : name,
+        customerPhone: phone,
+        customerEmail: email,
+        intent,
+        message,
+      });
+      routedToDeveloper = routingResult.routed;
+    } catch (err) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[routeLeadToProjectDeveloper failed]:', err);
+      }
+    }
+
+    return {
+      success: true,
+      leadId: String(lead._id),
+      routedToDeveloper,
     };
   } catch {
     return { success: false, code: 'FAILED' };
