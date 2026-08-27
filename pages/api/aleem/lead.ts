@@ -77,5 +77,9 @@ export default async function handler(
     return;
   }
 
-  res.status(201).json({ success: true, leadId: result.leadId });
+  res.status(201).json({
+    success: true,
+    leadId: result.leadId,
+    assignedAgent: result.assignedAgent,
+  });
 }
