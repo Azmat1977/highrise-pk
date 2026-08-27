@@ -11,6 +11,7 @@ import User from '@/models/User';
 import Property from '@/models/Property';
 import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import { notifyAdminNewLead } from '@/lib/email';
+import { routeLeadToRegionalAgent } from '@/lib/aleem/agentRouter';
 
 const SLUG_PATTERN = /^[a-z0-9-]{1,120}$/;
 const MAX_LISTINGS = 8;
@@ -136,6 +137,24 @@ export async function createAleemLead(
   }).catch((err) => {
     if (process.env.NODE_ENV !== 'production') {
       console.warn('[notifyAdminNewLead failed]:', err);
+    }
+  });
+
+  // Fire-and-forget regional agent routing & notification
+  void routeLeadToRegionalAgent({
+    leadId: String(lead._id),
+    propertyCity: firstSnap?.city,
+    propertySociety: firstSnap?.society,
+    propertyTitle: firstSnap?.title,
+    propertyPrice: firstSnap?.price,
+    customerName: user.name ?? 'Registered User',
+    customerPhone: user.phone ?? '',
+    customerEmail: user.email,
+    intent: 'callback',
+    message: `Grounded search callback for ${slugs.join(', ')}`,
+  }).catch((err) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[routeLeadToRegionalAgent failed]:', err);
     }
   });
 
@@ -357,6 +376,24 @@ export async function createExpertLead(
     }).catch((err) => {
       if (process.env.NODE_ENV !== 'production') {
         console.warn('[notifyAdminNewLead failed]:', err);
+      }
+    });
+
+    // Fire-and-forget regional agent routing & notification
+    void routeLeadToRegionalAgent({
+      leadId: String(lead._id),
+      propertyCity: snap?.city,
+      propertySociety: snap?.society,
+      propertyTitle: snap?.title,
+      propertyPrice: snap?.price,
+      customerName: accountName && phoneVerified ? accountName : name,
+      customerPhone: phone,
+      customerEmail: email,
+      intent,
+      message,
+    }).catch((err) => {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[routeLeadToRegionalAgent failed]:', err);
       }
     });
 
