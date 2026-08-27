@@ -34,6 +34,46 @@ export default function App({ Component, pageProps }: HighriseAppProps): React.R
   const router = useRouter();
   const isDeveloperArea = router.pathname === '/developer' || router.pathname.startsWith('/developer/');
 
+  // Global Sitewide JSON-LD (Organization + Sitelinks Search Box)
+  const globalOrganizationSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    '@id': 'https://highrise.pk/#organization',
+    name: 'Highrise.pk',
+    url: 'https://highrise.pk',
+    logo: 'https://highrise.pk/logo.png',
+    description: "Pakistan's First Property Intelligence Platform. Verify housing societies, estimate fair market prices, and discover verified properties.",
+    sameAs: [
+      'https://facebook.com/highrisepk',
+      'https://twitter.com/highrisepk',
+      'https://linkedin.com/company/highrisepk',
+    ],
+    contactPoint: {
+      '@type': 'ContactPoint',
+      telephone: '+92-300-0000000',
+      contactType: 'customer service',
+      areaServed: 'PK',
+      availableLanguage: ['en', 'ur'],
+    },
+  };
+
+  const globalWebSiteSchema = {
+    '@context': 'https://schema.org',
+    '@type': 'WebSite',
+    '@id': 'https://highrise.pk/#website',
+    url: 'https://highrise.pk',
+    name: 'Highrise.pk',
+    description: "Buy, Rent, & Verify Real Estate in Pakistan",
+    publisher: {
+      '@id': 'https://highrise.pk/#organization',
+    },
+    potentialAction: {
+      '@type': 'SearchAction',
+      target: 'https://highrise.pk/properties?search={search_term_string}',
+      'query-input': 'required name=search_term_string',
+    },
+  };
+
   // ── Enterprise Scroll Behavior ─────────────────────────────
   // Matches Zameen / MagicBricks / Zillow / Rightmove standards:
   //
@@ -144,6 +184,16 @@ export default function App({ Component, pageProps }: HighriseAppProps): React.R
 
   return (
     <SessionProvider session={session}>
+      <React.Fragment>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(globalOrganizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(globalWebSiteSchema) }}
+        />
+      </React.Fragment>
       <div className="min-h-screen flex flex-col">
 
         <Header />
