@@ -103,7 +103,7 @@ export const SECURITY_EVENT_TYPES = [
   "vpn_detected",
   "geo_anomaly",
 
-  // AI & ALEEM Chatbot (10)
+  // AI & ALEEM Chatbot
   "ai_chat_success",
   "ai_chat_failed",
   "ai_chat_error",
@@ -111,9 +111,25 @@ export const SECURITY_EVENT_TYPES = [
   "ai_chat_grounded_search",
   "ai_chat_rate_limit",
   "ai_chat_cache_hit",
+  "ai_chat_bot_blocked",
   "ai_daily_quota_exceeded",
   "aleem_lead_created",
   "aleem_lead_failed",
+  "aleem_lead_error",
+  "aleem_lead_rate_limit",
+  "aleem_lead_bot_blocked",
+  "aleem_project_lead_created",
+  "aleem_project_lead_failed",
+  "aleem_project_lead_error",
+  "aleem_project_lead_rate_limit",
+  "aleem_project_lead_bot_blocked",
+
+  // Observability / client monitoring
+  "client_error",
+  "client_boundary_error",
+  "api_slow_request",
+  "api_unhandled_error",
+  "observability_webhook_failed",
 ] as const;
 
 export type SecurityEventType = typeof SECURITY_EVENT_TYPES[number];
@@ -281,6 +297,11 @@ function getSeverityForEventType(type: SecurityEventType): SeverityLevel {
     "user_impersonated",
     "ip_blocked",
     "ai_all_providers_failed",
+    "ai_chat_error",
+    "aleem_lead_error",
+    "aleem_project_lead_error",
+    "client_boundary_error",
+    "api_unhandled_error",
   ];
 
   const criticalEvents: SecurityEventType[] = [
