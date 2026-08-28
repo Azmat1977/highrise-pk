@@ -252,6 +252,7 @@ export default async function handler(
     // Calculate Conversion & Win Rates
     const totalLeads = totals.totalLeads || 0;
     const totalWon = totals.totalWon || 0;
+    const totalLost = totals.totalLost || 0;
     const winRatePct = totalLeads > 0 ? Number(((totalWon / totalLeads) * 100).toFixed(1)) : 0;
 
     const chatLeads = (leadData.bySource || []).find(
