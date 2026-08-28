@@ -112,6 +112,7 @@ export const SECURITY_EVENT_TYPES = [
   "aleem_project_lead_error",
   "aleem_project_lead_rate_limit",
   "aleem_project_lead_bot_blocked",
+  "aleem_session_reset",
 
   // ALEEM AI Feedback & Tuning
   "aleem_feedback_positive",

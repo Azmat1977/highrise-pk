@@ -3,7 +3,7 @@
 // Stores user ratings (thumbs up/down) + optional structured reason tags.
 // NO PII (no raw names, emails, phones, or raw message text).
 
-import mongoose, { Schema, model, models, Document, Model } from 'mongoose';
+import mongoose, { Schema, model, Document, Model } from 'mongoose';
 
 export const FEEDBACK_REASONS = [
   'price_mismatch',
@@ -88,7 +88,7 @@ AleemFeedbackSchema.index({ rating: 1, createdAt: -1 });
 AleemFeedbackSchema.index({ reason: 1, createdAt: -1 });
 
 const AleemFeedback =
-  (models.AleemFeedback as Model<IAleemFeedback>) ||
+  (mongoose.models?.AleemFeedback as Model<IAleemFeedback>) ||
   model<IAleemFeedback>('AleemFeedback', AleemFeedbackSchema);
 
 export default AleemFeedback;

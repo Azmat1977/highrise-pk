@@ -1,7 +1,7 @@
 // components/aleem/FeedbackButtons.tsx
 // Highrise.pk — ALEEM Assistant Response Feedback Widget
 // Modern, brand-aligned (#029bba / #004063 / #10b981 / #ef4444), mobile-touch safe.
-// NO framer-motion | NO external modal lib | Lucide icons only
+// NO framer-motion | NO external modal lib | Lucide icons only | Client-safe (NO Mongoose imports)
 
 import React, { useState, useCallback } from 'react';
 import {
@@ -13,7 +13,16 @@ import {
   AlertCircle,
   MessageSquare,
 } from 'lucide-react';
-import { FEEDBACK_REASONS, FeedbackReason } from '@/models/AleemFeedback';
+
+export const FEEDBACK_REASONS = [
+  'price_mismatch',
+  'not_relevant',
+  'unverified_alert',
+  'language_issue',
+  'other',
+] as const;
+
+export type FeedbackReason = typeof FEEDBACK_REASONS[number];
 
 interface FeedbackButtonsProps {
   messageId: string;
@@ -106,7 +115,6 @@ export default function FeedbackButtons({
       <span className="text-[11px] font-medium text-gray-400 select-none">Was this helpful?</span>
 
       <div className="flex items-center gap-1">
-        {/* Thumbs Up Button */}
         <button
           type="button"
           onClick={handlePositive}
@@ -122,7 +130,6 @@ export default function FeedbackButtons({
           <ThumbsUp className="w-3.5 h-3.5" />
         </button>
 
-        {/* Thumbs Down Button */}
         <button
           type="button"
           onClick={handleNegativeClick}
@@ -139,12 +146,10 @@ export default function FeedbackButtons({
         </button>
       </div>
 
-      {/* Negative Reason Modal Overlay */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden text-left p-5 animate-slideUp">
             
-            {/* Modal Header */}
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <span className="p-1.5 bg-[#ef4444]/10 text-[#ef4444] rounded-lg">
@@ -162,7 +167,6 @@ export default function FeedbackButtons({
             </div>
 
             <form onSubmit={handleModalSubmit}>
-              {/* Invisible Honeypot */}
               <div className="absolute opacity-0 pointer-events-none w-0 h-0 -z-10" aria-hidden="true">
                 <input
                   type="text"
@@ -174,7 +178,6 @@ export default function FeedbackButtons({
 
               <p className="text-xs text-gray-600 mb-3">What was wrong with this response?</p>
 
-              {/* Reason Pills */}
               <div className="space-y-2 mb-4">
                 {FEEDBACK_REASONS.map((r) => (
                   <label
@@ -198,7 +201,6 @@ export default function FeedbackButtons({
                 ))}
               </div>
 
-              {/* Optional Comment Input */}
               <div className="mb-4">
                 <div className="relative">
                   <MessageSquare className="absolute left-3 top-3 w-3.5 h-3.5 text-gray-400" />
@@ -213,7 +215,6 @@ export default function FeedbackButtons({
                 </div>
               </div>
 
-              {/* Submit Action */}
               <div className="flex items-center gap-2">
                 <button
                   type="button"

@@ -23,6 +23,7 @@ import {
 import {
   extractProfile,
   mergeProfile,
+  missingFields,
 } from '@/lib/aleem/extractProfile';
 import {
   buildProfileNudge,

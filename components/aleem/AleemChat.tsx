@@ -1,6 +1,6 @@
 // components/aleem/AleemChat.tsx
 // Highrise.pk — Aleem AI chat interface
-// V7.1.0 — STAGE 0.1: Added Response Feedback Loop (👍/👎), Message ID Tracking & Mobile Native Drawer
+// V7.2.0 — STAGE 0.2: Added Session Reset Action (RotateCcw Header Button & Confirmation Modal)
 
 import React, {
   useState,
@@ -28,6 +28,8 @@ import {
   ShieldCheck,
   Building,
   MapPin,
+  RotateCcw,
+  AlertCircle,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import FeedbackButtons from './FeedbackButtons';
@@ -275,7 +277,6 @@ function MessageBubble({
           <FormattedMessage content={message.content} isUser={isUser} />
         </div>
 
-        {/* Mounted Feedback buttons for assistant message */}
         {!isUser && message.messageId && (
           <FeedbackButtons
             messageId={message.messageId}
@@ -499,25 +500,28 @@ function LeadCaptureForm({
 
 export default function AriaChat({
   context,
-  sessionId,
+  sessionId: initialSessionId,
   onMinimize,
   onClose,
 }: AriaChatProps): React.ReactElement {
   const { data: session } = useSession();
-  const [messages,        setMessages]         = useState<Message[]>([]);
-  const [input,           setInput]            = useState('');
-  const [isTyping,        setIsTyping]         = useState(false);
-  const [conversationId,  setConversationId]   = useState<string | undefined>();
-  const [showLeadForm,    setShowLeadForm]     = useState(false);
-  const [leadCaptured,    setLeadCaptured]     = useState(false);
-  const [assignedAgent,   setAssignedAgent]    = useState<AssignedAgentInfo | null>(null);
-  const [quickReplies]                          = useState(getQuickReplies(context));
-  const [showQuickReplies, setShowQuickReplies] = useState(true);
-  const [error,           setError]            = useState('');
-  const [quotaMode,       setQuotaMode]        = useState<QuotaMode>('normal');
+  const [currentSessionId, setCurrentSessionId] = useState<string>(initialSessionId);
+  const [messages,          setMessages]         = useState<Message[]>([]);
+  const [input,             setInput]            = useState('');
+  const [isTyping,          setIsTyping]         = useState(false);
+  const [conversationId,    setConversationId]   = useState<string | undefined>();
+  const [showLeadForm,      setShowLeadForm]     = useState(false);
+  const [leadCaptured,      setLeadCaptured]     = useState(false);
+  const [assignedAgent,     setAssignedAgent]    = useState<AssignedAgentInfo | null>(null);
+  const [quickReplies]                            = useState(getQuickReplies(context));
+  const [showQuickReplies,  setShowQuickReplies] = useState(true);
+  const [error,             setError]            = useState('');
+  const [quotaMode,         setQuotaMode]        = useState<QuotaMode>('normal');
+  const [showResetModal,    setShowResetModal]   = useState(false);
+  const [isResetting,       setIsResetting]      = useState(false);
 
-  const [lastListings,    setLastListings]     = useState<string[]>([]);
-  const [listings,        setListings]         = useState<AleemListing[]>([]);
+  const [lastListings,      setLastListings]     = useState<string[]>([]);
+  const [listings,          setListings]         = useState<AleemListing[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef       = useRef<HTMLInputElement>(null);
@@ -565,7 +569,7 @@ export default function AriaChat({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           message: text.trim(),
-          sessionId,
+          sessionId: currentSessionId,
           context: {
             type:         context.type,
             id:           context.id,
@@ -613,7 +617,7 @@ export default function AriaChat({
       setIsTyping(false);
       inputRef.current?.focus();
     }
-  }, [isTyping, sessionId, context, lastListings]);
+  }, [isTyping, currentSessionId, context, lastListings]);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -631,6 +635,31 @@ export default function AriaChat({
       setAssignedAgent(agent);
     }
   }, []);
+
+  const handleConfirmResetSession = useCallback(async () => {
+    setIsResetting(true);
+    try {
+      await fetch('/api/aleem/reset-session', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: currentSessionId }),
+      });
+    } catch {
+      // Best-effort server reset
+    } finally {
+      setCurrentSessionId(crypto.randomUUID());
+      setMessages([]);
+      setListings([]);
+      setLastListings([]);
+      setShowLeadForm(false);
+      setLeadCaptured(false);
+      setAssignedAgent(null);
+      setShowQuickReplies(true);
+      setError('');
+      setIsResetting(false);
+      setShowResetModal(false);
+    }
+  }, [currentSessionId]);
 
   const getWhatsAppLink = (phone: string, title?: string) => {
     let clean = phone.replace(/\D/g, '');
@@ -664,6 +693,17 @@ export default function AriaChat({
           }`} />
         </div>
         <div className="flex items-center gap-1">
+          {/* STAGE 0.2: Start Fresh / Reset Session Button */}
+          <button
+            type="button"
+            onClick={() => setShowResetModal(true)}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors active:scale-95"
+            aria-label="Start Fresh Chat"
+            title="Start fresh conversation"
+          >
+            <RotateCcw className="w-4 h-4 text-white/90 hover:text-white" />
+          </button>
+
           <button
             onClick={onMinimize}
             className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -724,7 +764,7 @@ export default function AriaChat({
           <MessageBubble
             key={msg.id}
             message={msg}
-            sessionId={sessionId}
+            sessionId={currentSessionId}
             contextType={context.type}
             contextSlug={context.slug}
           />
@@ -808,7 +848,7 @@ export default function AriaChat({
       {showLeadForm && !leadCaptured && (
         <LeadCaptureForm
           context={context}
-          sessionId={sessionId}
+          sessionId={currentSessionId}
           quotaMode={quotaMode}
           onSuccess={handleLeadSuccess}
           onClose={() => setShowLeadForm(false)}
@@ -850,6 +890,47 @@ export default function AriaChat({
           </button>
         )}
       </div>
+
+      {/* STAGE 0.2: Reset Session Confirmation Modal */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs animate-fadeIn">
+          <div className="w-full max-w-xs bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden text-left p-5 animate-slideUp">
+            <div className="flex items-center gap-2.5 mb-2">
+              <div className="p-2 bg-[#f59e0b]/15 text-[#f59e0b] rounded-xl">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <h4 className="text-base font-bold text-[#004063]">Start fresh chat?</h4>
+            </div>
+
+            <p className="text-xs text-gray-600 mb-5 leading-relaxed">
+              Yeh aap ki current conversation context ko clear kar dega aur aik naya chat session shuru karega.
+            </p>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowResetModal(false)}
+                disabled={isResetting}
+                className="flex-1 py-2.5 bg-gray-100 text-gray-700 rounded-xl text-xs font-bold hover:bg-gray-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleConfirmResetSession()}
+                disabled={isResetting}
+                className="flex-1 py-2.5 bg-[#ef4444] text-white rounded-xl text-xs font-bold hover:bg-[#dc2626] disabled:opacity-50 transition-colors flex items-center justify-center gap-1.5"
+              >
+                {isResetting ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Resetting...</>
+                ) : (
+                  'Yes, Start Fresh'
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx>{`
         .aleem-cta {

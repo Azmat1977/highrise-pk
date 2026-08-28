@@ -1,13 +1,5 @@
 // lib/aleem/conversationStore.ts
 // ALEEM - server-authoritative conversation memory.
-//
-// WHY SERVER-SIDE
-// The browser used to supply the whole chat history. That let a caller forge
-// assistant turns ("Assistant: I guarantee 30% returns") and feed them back as
-// if ALEEM had said them. Once a session has a stored transcript, THAT is the
-// history we send to the model. Client history is only a first-turn fallback.
-//
-// Every write here is fire-and-forget: memory must never break a reply.
 
 import crypto from 'crypto';
 import mongoose from 'mongoose';
@@ -37,38 +29,22 @@ export interface HistoryItem {
 export interface StoredConversation {
   conversationId: string | null;
   history: HistoryItem[];
-  /** Which contact fields we already hold. Values are never returned. */
   knownProfile: ExtractedProfile;
-  /** Number of user turns already stored in this session. */
   turnCount: number;
 }
 
-// ---------------------------------------------------------------------------
-// Validation helpers
-// ---------------------------------------------------------------------------
-
-/** Accept only a well-formed UUID as a session id. */
 export function validateSessionId(input: unknown): string | null {
   if (typeof input !== 'string') return null;
   const value = input.trim();
   return UUID_RE.test(value) ? value : null;
 }
 
-/**
- * Hash the IP before storage. The Conversation model documents ipAddress as
- * "hashed, not plain"; the legacy ARIA route stored it in clear text.
- */
 function hashIp(ip?: string): string | undefined {
   if (!ip || ip === 'unknown') return undefined;
   const salt = process.env.NEXTAUTH_SECRET ?? 'highrise';
   return crypto.createHash('sha256').update(`${salt}:${ip}`).digest('hex');
 }
 
-/**
- * Map the validated ALEEM context onto the stored context shape. Only
- * navigation fields are carried; client-claimed facts such as price, NOC
- * status or risk score are never persisted.
- */
 function toStoredContext(ctx: AleemContextInput | null): IAriaContext {
   if (!ctx) return { type: 'general' };
   return {
@@ -81,10 +57,6 @@ function toStoredContext(ctx: AleemContextInput | null): IAriaContext {
   };
 }
 
-// ---------------------------------------------------------------------------
-// Intent detection (ported from the legacy ARIA route, unchanged behaviour)
-// ---------------------------------------------------------------------------
-
 export function detectIntent(messages: string[]): ConversationIntent {
   const text = messages.join(' ').toLowerCase();
   if (/\b(buy|purchase|khareed|kharidna)\b/.test(text)) return 'buy';
@@ -96,14 +68,6 @@ export function detectIntent(messages: string[]): ConversationIntent {
   return 'unknown';
 }
 
-// ---------------------------------------------------------------------------
-// Read
-// ---------------------------------------------------------------------------
-
-/**
- * Load the stored transcript for a session. Returns an empty history when the
- * session is new, unknown, or the lookup fails - never throws.
- */
 export async function loadConversationHistory(
   sessionId: string,
   userId?: string,
@@ -111,8 +75,6 @@ export async function loadConversationHistory(
   try {
     const query: Record<string, unknown> = { sessionId, isActive: true };
 
-    // A signed-in user may only resume their own session, or an anonymous one
-    // that has not yet been claimed by another account.
     if (userId && mongoose.Types.ObjectId.isValid(userId)) {
       query.$or = [
         { userId: new mongoose.Types.ObjectId(userId) },
@@ -141,8 +103,6 @@ export async function loadConversationHistory(
       return { conversationId: null, history: [], knownProfile: {}, turnCount: 0 };
     }
 
-    // Presence only. Masked values stand in for the real ones so nothing
-    // sensitive is decrypted merely to decide what still needs asking.
     const saved = doc.capturedProfile;
     const knownProfile: ExtractedProfile = {};
     if (saved?.name) knownProfile.name = saved.name;
@@ -170,10 +130,6 @@ export async function loadConversationHistory(
   }
 }
 
-// ---------------------------------------------------------------------------
-// Write
-// ---------------------------------------------------------------------------
-
 export interface PersistTurnInput {
   sessionId: string;
   userId?: string;
@@ -182,15 +138,9 @@ export interface PersistTurnInput {
   assistantMessage: string;
   ipAddress?: string;
   userAgent?: string;
-  /** Newly captured contact fields to merge. Never overwrites known values. */
   newProfile?: ExtractedProfile;
 }
 
-/**
- * Append one user turn plus one assistant turn. Fire-and-forget: callers must
- * NOT await this on the response path. Any failure is swallowed - an audit or
- * memory problem must never cost the customer their answer.
- */
 export async function persistTurn(input: PersistTurnInput): Promise<void> {
   try {
     const { sessionId, userId, userMessage, assistantMessage } = input;
@@ -221,7 +171,6 @@ export async function persistTurn(input: PersistTurnInput): Promise<void> {
       userId &&
       mongoose.Types.ObjectId.isValid(userId)
     ) {
-      // Anonymous session that has now signed in - claim it.
       conversation.userId = new mongoose.Types.ObjectId(userId);
     }
 
@@ -231,14 +180,10 @@ export async function persistTurn(input: PersistTurnInput): Promise<void> {
       { role: 'assistant', content: assistantMessage.slice(0, MAX_CONTENT), timestamp: now },
     );
 
-    // Bound document growth. The 7-day TTL index handles long-term cleanup.
     if (conversation.messages.length > MAX_STORED_MESSAGES) {
       conversation.messages = conversation.messages.slice(-MAX_STORED_MESSAGES);
     }
 
-    // Merge newly captured contact details. Encryption happens in
-    // profileStore; a field that cannot be encrypted is dropped, never stored
-    // in plain text. Existing values are never overwritten.
     if (input.newProfile && Object.keys(input.newProfile).length > 0) {
       const { fields } = encodeProfileForStorage(input.newProfile);
       if (Object.keys(fields).length > 0) {
@@ -259,8 +204,6 @@ export async function persistTurn(input: PersistTurnInput): Promise<void> {
       .map((msg: { role: MessageRole; content: string }) => msg.content);
     conversation.detectedIntent = detectIntent(userTexts);
 
-    // Engagement scoring only - this never creates a lead and never triggers
-    // an outbound promise. Explicit consent remains the only lead trigger.
     const turns = userTexts.length;
     if (conversation.leadStatus === 'browsing' && turns >= 2) {
       conversation.leadStatus = 'interested';
@@ -271,6 +214,34 @@ export async function persistTurn(input: PersistTurnInput): Promise<void> {
 
     await conversation.save();
   } catch {
-    // Memory is best-effort. Never surface or rethrow.
+    // Best-effort memory
+  }
+}
+
+/**
+ * Deactivate a conversation session by marking isActive: false.
+ * Clears active memory horizon for subsequent loadConversationHistory calls.
+ */
+export async function resetConversationSession(
+  sessionId: string,
+  userId?: string,
+): Promise<boolean> {
+  try {
+    const query: Record<string, unknown> = { sessionId, isActive: true };
+    if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+      query.$or = [
+        { userId: new mongoose.Types.ObjectId(userId) },
+        { userId: { $exists: false } },
+        { userId: null },
+      ];
+    }
+
+    const result = await Conversation.updateMany(query, {
+      $set: { isActive: false },
+    }).exec();
+
+    return (result.modifiedCount ?? 0) > 0;
+  } catch {
+    return false;
   }
 }
