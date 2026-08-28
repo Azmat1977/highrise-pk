@@ -520,43 +520,24 @@ export default function AdminDashboard(): React.ReactElement {
             </div>
           </div>
 
-          {/* ── Charts (placeholder until analytics API is live) ── */}
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h2 className="text-base font-bold text-gray-900">Growth Analytics</h2>
-                  <p className="text-xs text-gray-500">
-                    Connect analytics endpoint to display real-time trends
-                  </p>
-                </div>
-              </div>
-              <div className="h-64 flex flex-col items-center justify-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                <TrendingUp className="w-10 h-10 text-gray-300 mb-2" />
-                <p className="text-sm font-medium text-gray-500">Analytics endpoint coming soon</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  /api/admin/analytics/growth (Section 9)
-                </p>
-              </div>
+          {/* ── Analytics Quick Entry Card ── */}
+          <div className="bg-gradient-to-r from-[#004063] to-[#029bba] rounded-2xl p-6 shadow-md text-white flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="space-y-1 text-center md:text-left">
+              <h2 className="text-xl font-bold flex items-center justify-center md:justify-start gap-2">
+                <TrendingUp className="w-5 h-5 text-[#10b981]" />
+                Lead Funnel &amp; AI Intelligence Analytics Dashboard
+              </h2>
+              <p className="text-xs text-white/80">
+                View detailed pipeline attribution, ALEEM AI conversion metrics, SLA response times, and growth charts.
+              </p>
             </div>
-
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-              <div className="flex items-center justify-between mb-5">
-                <div>
-                  <h2 className="text-base font-bold text-gray-900">Market Demand</h2>
-                  <p className="text-xs text-gray-500">
-                    City-level supply &amp; demand metrics
-                  </p>
-                </div>
-              </div>
-              <div className="h-64 flex flex-col items-center justify-center bg-gray-50 rounded-xl border-2 border-dashed border-gray-200">
-                <Activity className="w-10 h-10 text-gray-300 mb-2" />
-                <p className="text-sm font-medium text-gray-500">Market data coming soon</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  /api/admin/analytics/market (Section 9)
-                </p>
-              </div>
-            </div>
+            <Link
+              href="/admin/analytics"
+              className="px-5 py-3 bg-white text-[#004063] font-bold text-sm rounded-xl hover:bg-gray-100 transition-colors shadow flex items-center gap-2 flex-shrink-0"
+            >
+              Open Full Dashboard
+              <ArrowRight className="w-4 h-4 text-[#029bba]" />
+            </Link>
           </div>
         </div>
       </AdminLayout>

@@ -1,721 +1,506 @@
 // pages/admin/analytics/index.tsx
+// Highrise.pk — Enterprise Lead Funnel & ALEEM AI Telemetry Analytics Dashboard
+// Real-time Pipeline, Source Attribution, SLA Tracking & AI Performance
+// NO generic Card imports | Recharts strictly formatted | Primary #029bba & #004063 palette
 
-import { useState, useEffect } from 'react';
-import AdminLayout from "@/components/admin/AdminLayout";
-import AdminGuard from "@/components/AdminGuard";
-import { Card } from "@/components/ui/card";
-import { 
-  Building2, 
-  Users, 
-  FileText, 
-  Mail, 
-  MessageSquare,
-  TrendingUp,
-  TrendingDown,
-  Loader2,
-  AlertCircle,
-  Eye,
-  MousePointerClick,
-  RefreshCw,
-  Building,
-  UserCheck
-} from "lucide-react";
+import React, { useState, useEffect, useCallback } from 'react';
+import Head from 'next/head';
 import {
-  LineChart,
-  Line,
-  AreaChart,
-  Area,
+  TrendingUp,
+  Bot,
+  Users,
+  Clock,
+  ShieldCheck,
+  RefreshCw,
+  AlertTriangle,
+  Loader2,
+  PieChart as PieIcon,
+  BarChart3,
+  Calendar,
+  Zap,
+  DollarSign,
+  ArrowUpRight,
+  ShieldAlert,
+} from 'lucide-react';
+import {
+  ResponsiveContainer,
   BarChart,
   Bar,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend,
-  ResponsiveContainer
+  AreaChart,
+  Area,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
+import AdminLayout from '@/components/admin/AdminLayout';
 
-// Types
-interface AnalyticsData {
-  overview: {
-    properties: {
-      total: number;
-      change: string;
-      approved: number;
-      pending: number;
-      rejected: number;
-      draft: number;
-    };
-    users: {
-      total: number;
-      change: string;
-      active: number;
-      pending: number;
-      suspended: number;
-      banned: number;
-    };
-    blogs: {
-      total: number;
-      change: string;
-      published: number;
-      draft: number;
-      scheduled: number;
-    };
-    emails: {
-      total: number;
-      change: string;
-      sent: number;
-      failed: number;
-      pending: number;
-    };
-    developers: {
-      total: number;
-      verified: number;
-      pending: number;
-    };
-    inquiries: {
-      total: number;
-      new: number;
-      contacted: number;
-    };
-    comments: {
-      total: number;
-      approved: number;
-      pending: number;
-    };
-  };
-  charts: {
-    userGrowth: Array<{ date: string; users: number }>;
-    propertyTrends: Array<{ date: string; properties: number }>;
-    emailTrends: Array<{ date: string; emails: number }>;
-    propertyStatus: Array<{ name: string; value: number; color: string }>;
-    emailStatus: Array<{ name: string; value: number; color: string }>;
-    userStatus: Array<{ name: string; value: number; color: string }>;
-  };
-  topProperties: Array<{
-    _id: string;
-    title: string;
-    views: number;
-    inquiries: number;
-    status: string;
-    city: string;
-    propertyType: string;
-  }>;
-  topBlogs: Array<{
-    _id: string;
-    title: string;
-    views: number;
-    comments: number;
-    slug: string;
-  }>;
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
+
+interface FunnelStage {
+  _id: string;
+  count: number;
 }
 
-// Stat Card Component
-function StatCard({ 
-  title, 
-  value, 
-  change, 
-  icon: Icon, 
-  color,
-  subtitle
-}: { 
-  title: string;
-  value: number | string;
-  change?: string;
-  icon: any;
-  color: string;
-  subtitle?: string;
-}) {
-  const isPositive = change?.startsWith('+');
-  const isNegative = change?.startsWith('-');
-  
-  const colorClasses: Record<string, string> = {
-    blue: 'bg-blue-50 text-blue-600',
-    green: 'bg-green-50 text-green-600',
-    purple: 'bg-purple-50 text-purple-600',
-    orange: 'bg-orange-50 text-orange-600',
-    teal: 'bg-[#029bba]/10 text-[#029bba]',
-    red: 'bg-red-50 text-red-600',
-    yellow: 'bg-yellow-50 text-yellow-600',
-  };
-
-  return (
-    <Card className="p-6 hover:shadow-lg transition-all duration-200 border border-gray-100">
-      <div className="flex items-start justify-between mb-4">
-        <div className={`p-3 rounded-xl ${colorClasses[color] || colorClasses.blue}`}>
-          <Icon className="w-6 h-6" />
-        </div>
-        {change && (
-          <div className={`flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-full ${
-            isPositive ? 'bg-green-50 text-green-600' : 
-            isNegative ? 'bg-red-50 text-red-600' : 
-            'bg-gray-50 text-gray-600'
-          }`}>
-            {isPositive ? <TrendingUp className="w-3 h-3" /> : 
-             isNegative ? <TrendingDown className="w-3 h-3" /> : null}
-            {change}
-          </div>
-        )}
-      </div>
-      <h3 className="text-3xl font-bold text-gray-900 mb-1">
-        {typeof value === 'number' ? value.toLocaleString() : value}
-      </h3>
-      <p className="text-gray-500 text-sm">{title}</p>
-      {subtitle && <p className="text-xs text-gray-400 mt-1">{subtitle}</p>}
-    </Card>
-  );
+interface SourceItem {
+  _id: string;
+  count: number;
 }
 
-// Custom Tooltip for Charts
-function CustomTooltip({ active, payload, label }: any) {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white p-3 rounded-lg shadow-lg border border-gray-100">
-        <p className="text-sm font-medium text-gray-900">{label}</p>
-        {payload.map((entry: any, index: number) => (
-          <p key={index} className="text-sm" style={{ color: entry.color }}>
-            {entry.name}: {entry.value}
-          </p>
-        ))}
-      </div>
-    );
+interface DailyVolumeSeries {
+  _id: string;
+  chats: number;
+  searches: number;
+}
+
+interface TimeSeriesItem {
+  _id: string;
+  leadsCount: number;
+  wonCount: number;
+  wonValue: number;
+}
+
+interface AnalyticsApiResponse {
+  success: boolean;
+  range: TimeRange;
+  meta: {
+    startDate: string;
+    generatedAt: string;
+  };
+  summary: {
+    totalLeads: number;
+    totalWon: number;
+    totalLost: number;
+    winRatePct: number;
+    totalPipelineValue: number;
+    avgLeadScore: number;
+    avgFirstResponseTimeMin: number;
+    unansweredLeads: number;
+  };
+  aleemTelemetry: {
+    totalChats: number;
+    groundedSearches: number;
+    leadsGeneratedFromChat: number;
+    aleemConversionRatePct: number;
+    botAttemptsBlocked: number;
+    quotaExceededEvents: number;
+    providerFailures: number;
+    dailyVolumeSeries: DailyVolumeSeries[];
+  };
+  funnelBreakdown: {
+    byStatus: FunnelStage[];
+    bySource: SourceItem[];
+    byLeadType: SourceItem[];
+    byEntityType: SourceItem[];
+  };
+  timeSeries: TimeSeriesItem[];
+  error?: string;
+}
+
+// ─── Color Map ────────────────────────────────────────────────────────────────
+
+const BRAND_COLORS = {
+  primary: '#029bba',
+  secondary: '#004063',
+  success: '#10b981',
+  error: '#ef4444',
+  warning: '#f59e0b',
+  purple: '#7c3aed',
+  cyan: '#06b6d4',
+  slate: '#64748b',
+};
+
+const PIE_COLORS = ['#029bba', '#004063', '#10b981', '#f59e0b', '#7c3aed', '#06b6d4'];
+
+// Format PKR Currency cleanly (e.g. PKR 1.2 Crore)
+function formatPKRCurrency(amount: number): string {
+  if (amount >= 10000000) {
+    return `PKR ${(amount / 10000000).toFixed(2)} Crore`;
   }
-  return null;
+  if (amount >= 100000) {
+    return `PKR ${(amount / 100000).toFixed(2)} Lakh`;
+  }
+  return `PKR ${amount.toLocaleString()}`;
 }
 
-// Status Badge Component
-function StatusBadge({ status }: { status: string }) {
-  const statusStyles: Record<string, string> = {
-    approved: 'bg-green-100 text-green-800',
-    active: 'bg-green-100 text-green-800',
-    pending: 'bg-yellow-100 text-yellow-800',
-    rejected: 'bg-red-100 text-red-800',
-    draft: 'bg-gray-100 text-gray-800',
-  };
+// ─── Main Component ───────────────────────────────────────────────────────────
 
-  return (
-    <span className={`px-2 py-1 text-xs font-medium rounded-full capitalize ${
-      statusStyles[status] || 'bg-gray-100 text-gray-800'
-    }`}>
-      {status}
-    </span>
-  );
-}
-
-export default function AnalyticsPage() {
-  const [data, setData] = useState<AnalyticsData | null>(null);
+export default function AdminAnalyticsDashboard(): React.ReactElement {
+  const [range, setRange] = useState<TimeRange>('30d');
+  const [data, setData] = useState<AnalyticsApiResponse | null>(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [dateRange, setDateRange] = useState('30days');
   const [refreshing, setRefreshing] = useState(false);
-
-  // Fetch analytics data
-  const fetchAnalytics = async (showRefresh = false) => {
-    try {
-      if (showRefresh) setRefreshing(true);
-      else setLoading(true);
-      
-      const response = await fetch(`/api/admin/analytics?range=${dateRange}`);
-      const result = await response.json();
-      
-      if (result.success) {
-        setData(result.data);
-        setError(null);
-      } else {
-        setError(result.message || 'Failed to fetch analytics');
-      }
-    } catch (err) {
-      setError('Failed to connect to server');
-      console.error('Analytics fetch error:', err);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const [errorMsg, setErrorMsg] = useState('');
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    fetchAnalytics();
-  }, [dateRange]);
+    setMounted(true);
+  }, []);
 
-  // Loading State
-  if (loading) {
-    return (
-      <AdminGuard>
-        <AdminLayout>
-          <div className="p-6 flex items-center justify-center min-h-[60vh]">
-            <div className="text-center">
-              <Loader2 className="w-12 h-12 animate-spin text-[#029bba] mx-auto mb-4" />
-              <p className="text-gray-500">Loading analytics data...</p>
-            </div>
-          </div>
-        </AdminLayout>
-      </AdminGuard>
-    );
-  }
+  const fetchAnalytics = useCallback(async (selectedRange: TimeRange) => {
+    setErrorMsg('');
+    try {
+      const res = await fetch(`/api/admin/analytics/lead-funnel?range=${selectedRange}`, {
+        credentials: 'include',
+      });
+      const result = (await res.json()) as AnalyticsApiResponse;
 
-  // Error State
-  if (error) {
-    return (
-      <AdminGuard>
-        <AdminLayout>
-          <div className="p-6 flex items-center justify-center min-h-[60vh]">
-            <Card className="p-8 text-center max-w-md">
-              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to Load Analytics</h3>
-              <p className="text-gray-500 mb-4">{error}</p>
-              <button
-                onClick={() => fetchAnalytics()}
-                className="px-4 py-2 bg-[#029bba] text-white rounded-xl hover:bg-[#027a94] transition-colors"
-              >
-                Try Again
-              </button>
-            </Card>
-          </div>
-        </AdminLayout>
-      </AdminGuard>
-    );
-  }
+      if (!res.ok || !result.success) {
+        setErrorMsg(result.error ?? 'Failed to load analytics data.');
+        return;
+      }
 
-  if (!data) return null;
+      setData(result);
+    } catch {
+      setErrorMsg('Network error while connecting to analytics service.');
+    }
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    void fetchAnalytics(range).finally(() => setLoading(false));
+  }, [range, fetchAnalytics]);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await fetchAnalytics(range);
+    setRefreshing(false);
+  };
 
   return (
-    <AdminGuard>
+    <>
+      <Head>
+        <title>Lead & AI Analytics | Admin | Highrise.pk</title>
+        <meta name="robots" content="noindex, nofollow" />
+      </Head>
+
       <AdminLayout>
-        <div className="p-6 space-y-6">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="space-y-6 pb-12">
+
+          {/* ── Page Header & Controls ── */}
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900">Analytics Dashboard</h1>
-              <p className="text-gray-500 mt-1">Track your platform performance and insights</p>
+              <div className="flex items-center gap-2">
+                <span className="p-2 bg-[#029bba]/10 text-[#029bba] rounded-xl">
+                  <BarChart3 className="w-5 h-5" />
+                </span>
+                <h1 className="text-2xl font-black text-[#004063]">
+                  Lead Funnel &amp; AI Intelligence Analytics
+                </h1>
+              </div>
+              <p className="text-gray-500 text-sm mt-1">
+                Real-time attribution, pipeline progression, SLA metrics, and ALEEM AI performance.
+              </p>
             </div>
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
+              {/* Range Filters */}
+              <div className="flex items-center bg-gray-100 p-1 rounded-xl">
+                {(['7d', '30d', '90d', '1y', 'all'] as TimeRange[]).map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setRange(r)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                      range === r
+                        ? 'bg-white text-[#004063] shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    {r.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              {/* Refresh Button */}
               <button
-                onClick={() => fetchAnalytics(true)}
+                onClick={() => void handleRefresh()}
                 disabled={refreshing}
-                className="p-2 text-gray-500 hover:text-[#029bba] hover:bg-gray-100 rounded-lg transition-colors"
-                title="Refresh data"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 bg-white text-gray-700 text-xs font-bold hover:border-[#029bba] hover:text-[#029bba] transition-colors disabled:opacity-50"
               >
-                <RefreshCw className={`w-5 h-5 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
               </button>
-              <select
-                value={dateRange}
-                onChange={(e) => setDateRange(e.target.value)}
-                className="px-4 py-2 border border-gray-200 rounded-xl text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/20 outline-none"
-              >
-                <option value="7days">Last 7 days</option>
-                <option value="30days">Last 30 days</option>
-                <option value="90days">Last 90 days</option>
-                <option value="1year">Last year</option>
-              </select>
             </div>
           </div>
 
-          {/* Overview Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
-            <StatCard
-              title="Total Properties"
-              value={data.overview.properties.total}
-              change={data.overview.properties.change}
-              icon={Building2}
-              color="teal"
-              subtitle={`${data.overview.properties.pending} pending approval`}
-            />
-            <StatCard
-              title="Total Users"
-              value={data.overview.users.total}
-              change={data.overview.users.change}
-              icon={Users}
-              color="blue"
-              subtitle={`${data.overview.users.active} active`}
-            />
-            <StatCard
-              title="Blog Posts"
-              value={data.overview.blogs.total}
-              change={data.overview.blogs.change}
-              icon={FileText}
-              color="purple"
-              subtitle={`${data.overview.blogs.published} published`}
-            />
-            <StatCard
-              title="Emails Sent"
-              value={data.overview.emails.sent}
-              change={data.overview.emails.change}
-              icon={Mail}
-              color="green"
-              subtitle={`${data.overview.emails.failed} failed`}
-            />
-            <StatCard
-              title="Developers"
-              value={data.overview.developers.total}
-              icon={Building}
-              color="orange"
-              subtitle={`${data.overview.developers.verified} verified`}
-            />
-          </div>
-
-          {/* Secondary Stats */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-yellow-50">
-                <MousePointerClick className="w-5 h-5 text-yellow-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{data.overview.inquiries.total}</p>
-                <p className="text-sm text-gray-500">Total Inquiries</p>
-              </div>
-            </Card>
-            <Card className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-green-50">
-                <UserCheck className="w-5 h-5 text-green-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{data.overview.inquiries.new}</p>
-                <p className="text-sm text-gray-500">New Inquiries</p>
-              </div>
-            </Card>
-            <Card className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-blue-50">
-                <MessageSquare className="w-5 h-5 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{data.overview.comments.total}</p>
-                <p className="text-sm text-gray-500">Total Comments</p>
-              </div>
-            </Card>
-            <Card className="p-4 flex items-center gap-4">
-              <div className="p-3 rounded-xl bg-orange-50">
-                <AlertCircle className="w-5 h-5 text-orange-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold text-gray-900">{data.overview.comments.pending}</p>
-                <p className="text-sm text-gray-500">Pending Comments</p>
-              </div>
-            </Card>
-          </div>
-
-          {/* Charts Row 1 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* User Growth Chart */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">User Growth</h2>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={data.charts.userGrowth}>
-                    <defs>
-                      <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#029bba" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#029bba" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 12 }} 
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 12 }} 
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Area 
-                      type="monotone" 
-                      dataKey="users" 
-                      stroke="#029bba" 
-                      strokeWidth={2}
-                      fillOpacity={1} 
-                      fill="url(#colorUsers)" 
-                      name="New Users"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* Property Trends Chart */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Property Submissions</h2>
-              <div className="h-72">
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={data.charts.propertyTrends}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis 
-                      dataKey="date" 
-                      tick={{ fontSize: 12 }} 
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                    />
-                    <YAxis 
-                      tick={{ fontSize: 12 }} 
-                      tickLine={false}
-                      axisLine={{ stroke: '#e5e7eb' }}
-                    />
-                    <Tooltip content={<CustomTooltip />} />
-                    <Bar 
-                      dataKey="properties" 
-                      fill="#029bba" 
-                      radius={[4, 4, 0, 0]}
-                      name="Properties"
-                    />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          </div>
-
-          {/* Charts Row 2 - Pie Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {/* Property Status Chart */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Properties by Status</h2>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.charts.propertyStatus}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {data.charts.propertyStatus.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value) => <span className="text-sm text-gray-600">{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* User Status Chart */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Users by Status</h2>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.charts.userStatus}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {data.charts.userStatus.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value) => <span className="text-sm text-gray-600">{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-
-            {/* Email Status Chart */}
-            <Card className="p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Email Statistics</h2>
-              <div className="h-64">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={data.charts.emailStatus}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={90}
-                      paddingAngle={2}
-                      dataKey="value"
-                    >
-                      {data.charts.emailStatus.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={entry.color} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend 
-                      verticalAlign="bottom" 
-                      height={36}
-                      formatter={(value) => <span className="text-sm text-gray-600">{value}</span>}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </Card>
-          </div>
-
-          {/* Email Trends Chart */}
-          <Card className="p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Email Activity</h2>
-            <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.charts.emailTrends}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                  <XAxis 
-                    dataKey="date" 
-                    tick={{ fontSize: 12 }} 
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <YAxis 
-                    tick={{ fontSize: 12 }} 
-                    tickLine={false}
-                    axisLine={{ stroke: '#e5e7eb' }}
-                  />
-                  <Tooltip content={<CustomTooltip />} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="emails" 
-                    stroke="#22c55e" 
-                    strokeWidth={2}
-                    dot={{ fill: '#22c55e', strokeWidth: 2, r: 4 }}
-                    activeDot={{ r: 6, fill: '#22c55e' }}
-                    name="Emails Sent"
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+          {/* ── Error Banner ── */}
+          {errorMsg && (
+            <div className="flex items-center gap-3 p-4 border-l-4 border-[#ef4444] bg-red-50 rounded-r-xl">
+              <ShieldAlert className="w-5 h-5 text-[#ef4444] flex-shrink-0" />
+              <p className="text-sm font-semibold text-red-800">{errorMsg}</p>
             </div>
-          </Card>
+          )}
 
-          {/* Tables Row */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Top Properties Table */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Top Properties</h2>
-                <a 
-                  href="/admin/properties" 
-                  className="text-sm text-[#029bba] hover:underline"
-                >
-                  View all ?
-                </a>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left py-3 px-2 text-xs font-medium text-gray-500 uppercase">Property</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Views</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Inquiries</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {data.topProperties.length > 0 ? (
-                      data.topProperties.map((property) => (
-                        <tr key={property._id} className="hover:bg-gray-50">
-                          <td className="py-3 px-2">
-                            <div>
-                              <p className="text-sm font-medium text-gray-900 truncate max-w-[180px]">
-                                {property.title}
-                              </p>
-                              <p className="text-xs text-gray-500">{property.city}</p>
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 text-center">
-                            <div className="flex items-center justify-center gap-1 text-sm text-gray-600">
-                              <Eye className="w-3 h-3" />
-                              {property.views.toLocaleString()}
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 text-center text-sm text-gray-600">
-                            {property.inquiries}
-                          </td>
-                          <td className="py-3 px-2 text-center">
-                            <StatusBadge status={property.status} />
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={4} className="py-8 text-center text-gray-500">
-                          No properties found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
-              </div>
-            </Card>
+          {/* ── Loading Overlay/State ── */}
+          {loading ? (
+            <div className="min-h-[400px] flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-100 shadow-sm">
+              <Loader2 className="w-10 h-10 text-[#029bba] animate-spin mb-3" />
+              <p className="text-sm font-semibold text-[#004063]">
+                Aggregating real-time pipeline &amp; AI metrics...
+              </p>
+            </div>
+          ) : data ? (
+            <>
+              {/* ── KPI Summary Cards Grid (5 Cards) ── */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                
+                {/* 1. Total Pipeline Leads */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">Total Leads</span>
+                    <Users className="w-4 h-4 text-[#029bba]" />
+                  </div>
+                  <p className="text-3xl font-black text-[#004063]">{data.summary.totalLeads.toLocaleString()}</p>
+                  <p className="text-xs text-[#10b981] font-semibold mt-1 flex items-center gap-1">
+                    <ArrowUpRight className="w-3 h-3" />
+                    {data.summary.winRatePct}% Win Rate
+                  </p>
+                </div>
 
-            {/* Top Blogs Table */}
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-gray-900">Top Blog Posts</h2>
-                <a 
-                  href="/admin/blogs" 
-                  className="text-sm text-[#029bba] hover:underline"
-                >
-                  View all ?
-                </a>
+                {/* 2. Total Pipeline Value */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">Won Revenue</span>
+                    <DollarSign className="w-4 h-4 text-[#10b981]" />
+                  </div>
+                  <p className="text-xl font-black text-[#004063] truncate">
+                    {formatPKRCurrency(data.summary.totalPipelineValue)}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {data.summary.totalWon} closed won leads
+                  </p>
+                </div>
+
+                {/* 3. ALEEM AI Lead Conversion */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">ALEEM Conversion</span>
+                    <Bot className="w-4 h-4 text-[#029bba]" />
+                  </div>
+                  <p className="text-3xl font-black text-[#029bba]">
+                    {data.aleemTelemetry.aleemConversionRatePct}%
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {data.aleemTelemetry.leadsGeneratedFromChat} leads from {data.aleemTelemetry.totalChats} chats
+                  </p>
+                </div>
+
+                {/* 4. SLA First Response Time */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">First Response SLA</span>
+                    <Clock className="w-4 h-4 text-[#f59e0b]" />
+                  </div>
+                  <p className="text-3xl font-black text-[#004063]">
+                    {data.summary.avgFirstResponseTimeMin} <span className="text-xs font-medium text-gray-500">min</span>
+                  </p>
+                  <p className="text-xs text-red-500 font-semibold mt-1">
+                    {data.summary.unansweredLeads} pending response
+                  </p>
+                </div>
+
+                {/* 5. Bot Attacks Shielded */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">Bot Attacks Shielded</span>
+                    <ShieldCheck className="w-4 h-4 text-[#10b981]" />
+                  </div>
+                  <p className="text-3xl font-black text-[#10b981]">
+                    {data.aleemTelemetry.botAttemptsBlocked}
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Honeypot &amp; velocity traps
+                  </p>
+                </div>
+
               </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full">
-                  <thead>
-                    <tr className="border-b border-gray-100">
-                      <th className="text-left py-3 px-2 text-xs font-medium text-gray-500 uppercase">Blog Title</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Views</th>
-                      <th className="text-center py-3 px-2 text-xs font-medium text-gray-500 uppercase">Comments</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-50">
-                    {data.topBlogs.length > 0 ? (
-                      data.topBlogs.map((blog) => (
-                        <tr key={blog._id} className="hover:bg-gray-50">
-                          <td className="py-3 px-2">
-                            <a 
-                              href={`/blog/${blog.slug}`}
-                              target="_blank"
-                              className="text-sm font-medium text-gray-900 hover:text-[#029bba] truncate block max-w-[200px]"
-                            >
-                              {blog.title}
-                            </a>
-                          </td>
-                          <td className="py-3 px-2 text-center">
-                            <div className="flex items-center justify-center gap-1 text-sm text-gray-600">
-                              <Eye className="w-3 h-3" />
-                              {blog.views.toLocaleString()}
-                            </div>
-                          </td>
-                          <td className="py-3 px-2 text-center">
-                            <div className="flex items-center justify-center gap-1 text-sm text-gray-600">
-                              <MessageSquare className="w-3 h-3" />
-                              {blog.comments}
-                            </div>
-                          </td>
-                        </tr>
-                      ))
-                    ) : (
-                      <tr>
-                        <td colSpan={3} className="py-8 text-center text-gray-500">
-                          No blog posts found
-                        </td>
-                      </tr>
-                    )}
-                  </tbody>
-                </table>
+
+              {/* ── Main Charts Grid (2 columns) ── */}
+              <div className="grid lg:grid-cols-2 gap-6">
+
+                {/* Lead Progression Funnel */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-base font-bold text-[#004063] flex items-center gap-2">
+                        <TrendingUp className="w-4 h-4 text-[#029bba]" />
+                        Lead Pipeline Stage Progression
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-0.5">Distribution of active leads across sales stages</p>
+                    </div>
+                  </div>
+
+                  {mounted && data.funnelBreakdown.byStatus.length > 0 ? (
+                    <div className="h-72 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart
+                          data={data.funnelBreakdown.byStatus}
+                          layout="vertical"
+                          margin={{ top: 10, right: 30, left: 40, bottom: 10 }}
+                        >
+                          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                          <XAxis type="number" stroke="#94a3b8" fontSize={11} />
+                          <YAxis
+                            dataKey="_id"
+                            type="category"
+                            stroke="#64748b"
+                            fontSize={11}
+                            tickFormatter={(v) => String(v).replace('_', ' ').toUpperCase()}
+                          />
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#004063', borderRadius: '12px', color: '#fff', border: 'none' }}
+                          />
+                          <Bar dataKey="count" fill={BRAND_COLORS.primary} radius={[0, 8, 8, 0]} />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-xs text-gray-400">
+                      No funnel data for this timeframe.
+                    </div>
+                  )}
+                </div>
+
+                {/* Lead Source Attribution */}
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-base font-bold text-[#004063] flex items-center gap-2">
+                        <PieIcon className="w-4 h-4 text-[#7c3aed]" />
+                        Source Attribution &amp; Channels
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-0.5">Where leads are coming from (Chat vs Page vs Direct)</p>
+                    </div>
+                  </div>
+
+                  {mounted && data.funnelBreakdown.bySource.length > 0 ? (
+                    <div className="h-72 w-full flex items-center justify-center">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie
+                            data={data.funnelBreakdown.bySource}
+                            dataKey="count"
+                            nameKey="_id"
+                            cx="50%"
+                            cy="50%"
+                            outerRadius={90}
+                            innerRadius={50}
+                            paddingAngle={4}
+                            label={({ name, percent }) => {
+  const pct = typeof percent === 'number' ? (percent * 100).toFixed(0) : '0';
+  return `${String(name ?? '').replace(/_/g, ' ')} (${pct}%)`;
+}}
+                          >
+                            {data.funnelBreakdown.bySource.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip
+                            contentStyle={{ backgroundColor: '#004063', borderRadius: '12px', color: '#fff', border: 'none' }}
+                          />
+                        </PieChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : (
+                    <div className="h-64 flex items-center justify-center text-xs text-gray-400">
+                      No attribution data available.
+                    </div>
+                  )}
+                </div>
+
               </div>
-            </Card>
-          </div>
+
+              {/* ── Time Series Trends ── */}
+              <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <div>
+                    <h2 className="text-base font-bold text-[#004063] flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-[#10b981]" />
+                      Lead Acquisition &amp; Conversion Growth Trend
+                    </h2>
+                    <p className="text-xs text-gray-500 mt-0.5">Total incoming leads vs closed won deals over time</p>
+                  </div>
+                </div>
+
+                {mounted && data.timeSeries.length > 0 ? (
+                  <div className="h-72 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                      <AreaChart data={data.timeSeries} margin={{ top: 10, right: 30, left: 0, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={BRAND_COLORS.primary} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={BRAND_COLORS.primary} stopOpacity={0} />
+                          </linearGradient>
+                          <linearGradient id="colorWon" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor={BRAND_COLORS.success} stopOpacity={0.4} />
+                            <stop offset="95%" stopColor={BRAND_COLORS.success} stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
+                        <XAxis dataKey="_id" stroke="#94a3b8" fontSize={11} />
+                        <YAxis stroke="#94a3b8" fontSize={11} />
+                        <Tooltip
+                          contentStyle={{ backgroundColor: '#004063', borderRadius: '12px', color: '#fff', border: 'none' }}
+                        />
+                        <Area type="monotone" dataKey="leadsCount" name="Total Leads" stroke={BRAND_COLORS.primary} fillOpacity={1} fill="url(#colorLeads)" />
+                        <Area type="monotone" dataKey="wonCount" name="Won Deals" stroke={BRAND_COLORS.success} fillOpacity={1} fill="url(#colorWon)" />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+                ) : (
+                  <div className="h-64 flex items-center justify-center text-xs text-gray-400">
+                    No time series data available for this range.
+                  </div>
+                )}
+              </div>
+
+              {/* ── ALEEM Telemetry & Security Health Card ── */}
+              <div className="bg-[#004063] text-white rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-[#029bba]/20 flex items-center justify-center">
+                      <Zap className="w-5 h-5 text-[#029bba]" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-bold">ALEEM AI Engine &amp; Security Health Monitor</h3>
+                      <p className="text-xs text-white/70">System health, grounded search frequency, and bot protection</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-[#10b981]/20 text-[#10b981] border border-[#10b981]/30 rounded-full text-xs font-bold">
+                    System Operational
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
+                  <div className="bg-white/5 p-4 rounded-xl">
+                    <p className="text-xs text-white/60 font-medium">Total AI Chats</p>
+                    <p className="text-2xl font-black mt-1 text-[#029bba]">{data.aleemTelemetry.totalChats}</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl">
+                    <p className="text-xs text-white/60 font-medium">Grounded Search Hits</p>
+                    <p className="text-2xl font-black mt-1 text-[#10b981]">{data.aleemTelemetry.groundedSearches}</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl">
+                    <p className="text-xs text-white/60 font-medium">Bot Traps Triggered</p>
+                    <p className="text-2xl font-black mt-1 text-[#f59e0b]">{data.aleemTelemetry.botAttemptsBlocked}</p>
+                  </div>
+                  <div className="bg-white/5 p-4 rounded-xl">
+                    <p className="text-xs text-white/60 font-medium">Provider Failures</p>
+                    <p className="text-2xl font-black mt-1 text-white">{data.aleemTelemetry.providerFailures}</p>
+                  </div>
+                </div>
+              </div>
+
+            </>
+          ) : null}
+
         </div>
       </AdminLayout>
-    </AdminGuard>
+    </>
   );
 }
