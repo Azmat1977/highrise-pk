@@ -632,7 +632,7 @@ export default function AriaChat({
   };
 
   return (
-    <div className="fixed inset-0 sm:relative sm:inset-auto z-50 sm:z-0 flex flex-col h-full w-full sm:h-[600px] sm:w-[400px] bg-gray-50 sm:rounded-2xl sm:shadow-2xl overflow-hidden border border-gray-100 animate-slideUp sm:animate-none">
+    <div className="fixed inset-0 sm:relative sm:inset-auto z-50 sm:z-0 flex flex-col h-full w-full sm:h-[550px] sm:w-[360px] sm:max-w-[calc(100vw-2rem)] bg-gray-50 sm:rounded-2xl sm:shadow-2xl overflow-hidden border border-gray-100 animate-slideUp sm:animate-none">
 
       {/* Header (LARGER text) */}
       <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-[#029bba] to-[#004063] text-white flex-shrink-0">
