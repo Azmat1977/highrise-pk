@@ -45,6 +45,7 @@ import {
   detectKnowledgeTopics,
   buildKnowledgeDirective,
 } from '@/lib/aleem/knowledgeDirective';
+import { checkHoneypot } from '@/lib/security/botDefense';
 
 /** Shape used by validateHistory() for sanitised conversation turns. */
 interface GeminiMessage {
@@ -425,7 +426,31 @@ export default async function handler(
       history: rawHistory,
       context: rawContext,
       sessionId: rawSessionId,
+      honeypot: rawHoneypot,
     } = req.body;
+
+    // Light bot trap: lead forms send honeypot; scripted clients often fill every field.
+    // Humans never see/fill it. Do not require formOpenedAt on free-text chat turns.
+    if (!checkHoneypot(rawHoneypot ?? '')) {
+      await logSecurityEvent({
+        eventType: 'ai_chat_bot_blocked',
+        severity: 'medium',
+        userId,
+        ipAddress: clientIP,
+        userAgent,
+        metadata: {
+          requestId,
+          code: 'HONEYPOT',
+          action: 'chat_blocked',
+        },
+      });
+
+      return res.status(400).json({
+        success: false,
+        message: 'Unable to process this request. Please try again.',
+        requestId,
+      });
+    }
 
     if (!rawMessage || typeof rawMessage !== 'string') {
       return res.status(400).json({
@@ -875,21 +900,21 @@ if (aiResult) {
       });
     }
 
+    // Never expose internal AI provider/model names to the client (proprietary).
+    void aiProvider;
+    void aiModelName;
+
     return res.status(200).json({
-  success: true,
-  response: aiResponse,
-  conversationId,
-  sessionId,
-  usedFallback,
-  tokensUsed,
-  modelInfo: usedFallback ? null : {
-    name: aiModelName ?? 'unknown',
-    provider: aiProvider === 'groq' ? 'Groq' : 'Google Gemini',
-    tier: 'Free',
-  },
-  cached: false,
-  requestId,
-});
+      success: true,
+      response: aiResponse,
+      conversationId,
+      sessionId,
+      usedFallback,
+      tokensUsed,
+      poweredBy: usedFallback ? null : 'ALEEM',
+      cached: false,
+      requestId,
+    });
 
   } catch {
     await logSecurityEvent({
