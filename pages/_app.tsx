@@ -16,6 +16,7 @@ import { Footer } from '../components/layout/footer';
 import { FloatingWhatsApp } from '../components/common/floating-whatsapp';
 import AleemWidget from '../components/aleem/AleemWidget';
 import CompareBar from '../components/compare/CompareBar';
+import ErrorBoundary from '../components/ErrorBoundary';
 import '../styles/globals.css';
 
 // ─── Typed page props (NextAuth session + optional Aria context) ──────────────
@@ -199,40 +200,31 @@ export default function App({ Component, pageProps }: HighriseAppProps): React.R
         <Header />
 
         <main className="flex-grow">
-          {isDeveloperArea ? (
-            <DeveloperProvider>
+          <ErrorBoundary name="app-page">
+            {isDeveloperArea ? (
+              <DeveloperProvider>
+                <Component {...restPageProps} />
+              </DeveloperProvider>
+            ) : (
               <Component {...restPageProps} />
-            </DeveloperProvider>
-          ) : (
-            <Component {...restPageProps} />
-          )}
+            )}
+          </ErrorBoundary>
         </main>
 
         <Footer />
 
-        {/* ═══════════════════════════════════════════════════════════
-            GLOBAL OVERLAYS & FLOATING WIDGETS
-            All render via React Portal → guaranteed z-index above
-            everything else. Order below is intentional:
-            
-            1. CompareBar (bottom bar, z-9998) — hides on /compare page
-            2. FloatingWhatsApp (bottom-right, z-40) — external contact
-            3. AriaWidget (bottom-right, z-50) — AI assistant
-            
-            CompareBar rendered FIRST so it visually anchors bottom,
-            while WhatsApp + Aria float above it in the corner stack.
-        ═══════════════════════════════════════════════════════════ */}
+        {/* Global overlays — each widget isolated so one crash cannot white-screen the app */}
+        <ErrorBoundary name="compare-bar" variant="widget">
+          <CompareBar />
+        </ErrorBoundary>
 
-        {/* Sticky Compare Bar — appears when 1+ items in compare list.
-            Portal-rendered, hides automatically on /compare page. */}
-        <CompareBar />
+        <ErrorBoundary name="floating-whatsapp" variant="widget">
+          <FloatingWhatsApp />
+        </ErrorBoundary>
 
-        {/* Floating WhatsApp — external direct contact (different purpose than Aria) */}
-        <FloatingWhatsApp />
-
-        {/* ALEEM AI Assistant — sole AI chat assistant */}
-        {/* Context is 'general' by default. Property/society/project pages pass their own context. */}
-        <AleemWidget />
+        <ErrorBoundary name="aleem-widget" variant="widget">
+          <AleemWidget />
+        </ErrorBoundary>
 
       </div>
     </SessionProvider>
