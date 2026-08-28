@@ -43,11 +43,12 @@ interface Message {
 }
 
 interface LeadForm {
-  name:    string;
-  phone:   string;
-  email:   string;
-  intent:  string;
-  message: string;
+  name:     string;
+  phone:    string;
+  email:    string;
+  intent:   string;
+  message:  string;
+  honeypot: string;
 }
 
 interface AssignedAgentInfo {
@@ -330,7 +331,9 @@ function LeadCaptureForm({
   const [form, setForm] = useState<LeadForm>({
     name: '', phone: '', email: '',
     intent: 'buy', message: '',
+    honeypot: '',
   });
+  const [formOpenedAt] = useState<number>(() => Date.now());
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState('');
 
@@ -354,6 +357,8 @@ function LeadCaptureForm({
           message:      form.message.trim() || undefined,
           propertySlug: context.type === 'property' ? context.slug : undefined,
           sessionId,
+          honeypot:     form.honeypot,
+          formOpenedAt,
         }),
       });
 
@@ -376,7 +381,21 @@ function LeadCaptureForm({
   }, [form, sessionId, context, onSuccess]);
 
    return (
-    <form onSubmit={handleSubmit} className="p-4 bg-[#f0f9ff] border-t border-[#029bba]/20">
+    <form onSubmit={handleSubmit} className="p-4 bg-[#f0f9ff] border-t border-[#029bba]/20 relative">
+      {/* Invisible Honeypot field for automated bot detection */}
+      <div className="absolute opacity-0 pointer-events-none w-0 h-0 -z-10 overflow-hidden" aria-hidden="true">
+        <label htmlFor="aleem_website_hp">Do not fill this field</label>
+        <input
+          id="aleem_website_hp"
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+          value={form.honeypot}
+          onChange={(e) => setForm((f) => ({ ...f, honeypot: e.target.value }))}
+        />
+      </div>
+
       <div className="flex items-start justify-between gap-2 mb-3">
         <div>
           <p className="text-sm font-semibold text-[#004063] flex items-center gap-2">
