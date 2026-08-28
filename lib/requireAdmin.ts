@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\requireAdmin.ts
 import type { NextApiRequest, NextApiResponse } from "next";
 import {
   getClientIp,

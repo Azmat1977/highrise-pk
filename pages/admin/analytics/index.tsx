@@ -1,6 +1,6 @@
 // pages/admin/analytics/index.tsx
 // Highrise.pk — Enterprise Lead Funnel & ALEEM AI Telemetry Analytics Dashboard
-// Real-time Pipeline, Source Attribution, SLA Tracking & AI Performance
+// Real-time Pipeline, Source Attribution, SLA Tracking, AI Performance & Satisfaction Feedback
 // NO generic Card imports | Recharts strictly formatted | Primary #029bba & #004063 palette
 
 import React, { useState, useEffect, useCallback } from 'react';
@@ -12,7 +12,6 @@ import {
   Clock,
   ShieldCheck,
   RefreshCw,
-  AlertTriangle,
   Loader2,
   PieChart as PieIcon,
   BarChart3,
@@ -21,6 +20,9 @@ import {
   DollarSign,
   ArrowUpRight,
   ShieldAlert,
+  ThumbsUp,
+  ThumbsDown,
+  MessageSquare,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -37,8 +39,6 @@ import {
   Cell,
 } from 'recharts';
 import AdminLayout from '@/components/admin/AdminLayout';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
 
 type TimeRange = '7d' | '30d' | '90d' | '1y' | 'all';
 
@@ -63,6 +63,11 @@ interface TimeSeriesItem {
   leadsCount: number;
   wonCount: number;
   wonValue: number;
+}
+
+interface FeedbackReasonItem {
+  _id: string;
+  count: number;
 }
 
 interface AnalyticsApiResponse {
@@ -91,6 +96,13 @@ interface AnalyticsApiResponse {
     quotaExceededEvents: number;
     providerFailures: number;
     dailyVolumeSeries: DailyVolumeSeries[];
+    feedback?: {
+      totalFeedback: number;
+      positiveCount: number;
+      negativeCount: number;
+      helpfulPct: number;
+      topReasons: FeedbackReasonItem[];
+    };
   };
   funnelBreakdown: {
     byStatus: FunnelStage[];
@@ -101,8 +113,6 @@ interface AnalyticsApiResponse {
   timeSeries: TimeSeriesItem[];
   error?: string;
 }
-
-// ─── Color Map ────────────────────────────────────────────────────────────────
 
 const BRAND_COLORS = {
   primary: '#029bba',
@@ -117,7 +127,6 @@ const BRAND_COLORS = {
 
 const PIE_COLORS = ['#029bba', '#004063', '#10b981', '#f59e0b', '#7c3aed', '#06b6d4'];
 
-// Format PKR Currency cleanly (e.g. PKR 1.2 Crore)
 function formatPKRCurrency(amount: number): string {
   if (amount >= 10000000) {
     return `PKR ${(amount / 10000000).toFixed(2)} Crore`;
@@ -128,7 +137,13 @@ function formatPKRCurrency(amount: number): string {
   return `PKR ${amount.toLocaleString()}`;
 }
 
-// ─── Main Component ───────────────────────────────────────────────────────────
+const REASON_MAP: Record<string, string> = {
+  price_mismatch: 'Price Mismatch',
+  not_relevant: 'Not Relevant',
+  unverified_alert: 'Unverified / Risky',
+  language_issue: 'Language / Script',
+  other: 'Other Reason',
+};
 
 export default function AdminAnalyticsDashboard(): React.ReactElement {
   const [range, setRange] = useState<TimeRange>('30d');
@@ -182,7 +197,7 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
       <AdminLayout>
         <div className="space-y-6 pb-12">
 
-          {/* ── Page Header & Controls ── */}
+          {/* Header */}
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
             <div>
               <div className="flex items-center gap-2">
@@ -194,12 +209,11 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                 </h1>
               </div>
               <p className="text-gray-500 text-sm mt-1">
-                Real-time attribution, pipeline progression, SLA metrics, and ALEEM AI performance.
+                Real-time attribution, pipeline progression, SLA metrics, and ALEEM AI tuning feedback.
               </p>
             </div>
 
             <div className="flex items-center gap-3 flex-wrap sm:flex-nowrap">
-              {/* Range Filters */}
               <div className="flex items-center bg-gray-100 p-1 rounded-xl">
                 {(['7d', '30d', '90d', '1y', 'all'] as TimeRange[]).map((r) => (
                   <button
@@ -216,7 +230,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                 ))}
               </div>
 
-              {/* Refresh Button */}
               <button
                 onClick={() => void handleRefresh()}
                 disabled={refreshing}
@@ -228,7 +241,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
             </div>
           </div>
 
-          {/* ── Error Banner ── */}
           {errorMsg && (
             <div className="flex items-center gap-3 p-4 border-l-4 border-[#ef4444] bg-red-50 rounded-r-xl">
               <ShieldAlert className="w-5 h-5 text-[#ef4444] flex-shrink-0" />
@@ -236,7 +248,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
             </div>
           )}
 
-          {/* ── Loading Overlay/State ── */}
           {loading ? (
             <div className="min-h-[400px] flex flex-col items-center justify-center bg-white rounded-2xl border border-gray-100 shadow-sm">
               <Loader2 className="w-10 h-10 text-[#029bba] animate-spin mb-3" />
@@ -246,10 +257,9 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
             </div>
           ) : data ? (
             <>
-              {/* ── KPI Summary Cards Grid (5 Cards) ── */}
+              {/* KPI Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
                 
-                {/* 1. Total Pipeline Leads */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">Total Leads</span>
@@ -262,7 +272,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                   </p>
                 </div>
 
-                {/* 2. Total Pipeline Value */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">Won Revenue</span>
@@ -276,7 +285,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                   </p>
                 </div>
 
-                {/* 3. ALEEM AI Lead Conversion */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">ALEEM Conversion</span>
@@ -290,7 +298,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                   </p>
                 </div>
 
-                {/* 4. SLA First Response Time */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">First Response SLA</span>
@@ -304,7 +311,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                   </p>
                 </div>
 
-                {/* 5. Bot Attacks Shielded */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-5 shadow-sm">
                   <div className="flex items-center justify-between mb-2">
                     <span className="text-xs font-bold uppercase text-gray-400 tracking-wider">Bot Attacks Shielded</span>
@@ -320,10 +326,9 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
 
               </div>
 
-              {/* ── Main Charts Grid (2 columns) ── */}
+              {/* Main Charts Grid */}
               <div className="grid lg:grid-cols-2 gap-6">
 
-                {/* Lead Progression Funnel */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col">
                   <div className="flex items-center justify-between mb-4">
                     <div>
@@ -366,7 +371,6 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                   )}
                 </div>
 
-                {/* Lead Source Attribution */}
                 <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm flex flex-col">
                   <div className="flex items-center justify-between mb-4">
                     <div>
@@ -392,9 +396,9 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                             innerRadius={50}
                             paddingAngle={4}
                             label={({ name, percent }) => {
-  const pct = typeof percent === 'number' ? (percent * 100).toFixed(0) : '0';
-  return `${String(name ?? '').replace(/_/g, ' ')} (${pct}%)`;
-}}
+                              const pct = typeof percent === 'number' ? (percent * 100).toFixed(0) : '0';
+                              return `${String(name ?? '').replace(/_/g, ' ')} (${pct}%)`;
+                            }}
                           >
                             {data.funnelBreakdown.bySource.map((entry, index) => (
                               <Cell key={`cell-${index}`} fill={PIE_COLORS[index % PIE_COLORS.length]} />
@@ -415,7 +419,85 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
 
               </div>
 
-              {/* ── Time Series Trends ── */}
+              {/* STAGE 0.1 NEW: ALEEM AI Satisfaction & User Tuning Card */}
+              {data.aleemTelemetry.feedback && (
+                <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h2 className="text-base font-bold text-[#004063] flex items-center gap-2">
+                        <ThumbsUp className="w-4 h-4 text-[#10b981]" />
+                        ALEEM AI Satisfaction &amp; Response Tuning
+                      </h2>
+                      <p className="text-xs text-gray-500 mt-0.5">User ratings and negative feedback breakdown</p>
+                    </div>
+                    <span className="px-3 py-1 bg-[#10b981]/10 text-[#10b981] font-bold text-xs rounded-full">
+                      {data.aleemTelemetry.feedback.helpfulPct}% Helpful Rate
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    {/* Feedback Gauge Metrics */}
+                    <div className="flex flex-col justify-center bg-[#f0f9ff] p-5 rounded-xl border border-[#029bba]/20">
+                      <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Feedback Volume</p>
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-3xl font-black text-[#004063]">
+                          {data.aleemTelemetry.feedback.totalFeedback}
+                        </span>
+                        <span className="text-xs text-gray-500">total ratings</span>
+                      </div>
+                      <div className="mt-3 flex items-center gap-4 text-xs font-semibold">
+                        <span className="flex items-center gap-1 text-[#10b981]">
+                          <ThumbsUp className="w-3.5 h-3.5" />
+                          {data.aleemTelemetry.feedback.positiveCount} helpful
+                        </span>
+                        <span className="flex items-center gap-1 text-[#ef4444]">
+                          <ThumbsDown className="w-3.5 h-3.5" />
+                          {data.aleemTelemetry.feedback.negativeCount} issues
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Top Negative Reasons Breakdown */}
+                    <div className="md:col-span-2 bg-gray-50 p-5 rounded-xl border border-gray-200">
+                      <p className="text-xs font-bold text-[#004063] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <MessageSquare className="w-3.5 h-3.5 text-[#ef4444]" />
+                        Top Reported Negative Reasons
+                      </p>
+
+                      {data.aleemTelemetry.feedback.topReasons.length > 0 ? (
+                        <div className="space-y-2.5">
+                          {data.aleemTelemetry.feedback.topReasons.map((item) => {
+                            const totalNeg = data.aleemTelemetry.feedback?.negativeCount || 1;
+                            const pct = Math.round((item.count / totalNeg) * 100);
+                            const label = REASON_MAP[item._id] || item._id;
+
+                            return (
+                              <div key={item._id} className="space-y-1">
+                                <div className="flex justify-between text-xs font-semibold text-gray-700">
+                                  <span>{label}</span>
+                                  <span>{item.count} reports ({pct}%)</span>
+                                </div>
+                                <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                                  <div
+                                    className="bg-[#ef4444] h-full rounded-full transition-all"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="text-xs text-gray-500 py-4 text-center">
+                          No negative feedback reported in this timeframe. Excellent accuracy! 🎉
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Time Series Trends */}
               <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div>
@@ -459,7 +541,7 @@ export default function AdminAnalyticsDashboard(): React.ReactElement {
                 )}
               </div>
 
-              {/* ── ALEEM Telemetry & Security Health Card ── */}
+              {/* Health Monitor */}
               <div className="bg-[#004063] text-white rounded-2xl p-6 shadow-xl">
                 <div className="flex items-center justify-between mb-4 pb-4 border-b border-white/10">
                   <div className="flex items-center gap-3">

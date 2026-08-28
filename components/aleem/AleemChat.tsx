@@ -1,7 +1,6 @@
 // components/aleem/AleemChat.tsx
 // Highrise.pk — Aleem AI chat interface
-// V7.0.0 — PHASE UI R2: Mobile Native Drawer Sheet, Horizontal Suggestions, Empty State & Scroll Lock
-// NO framer-motion | NO external modal lib | NO axios
+// V7.1.0 — STAGE 0.1: Added Response Feedback Loop (👍/👎), Message ID Tracking & Mobile Native Drawer
 
 import React, {
   useState,
@@ -31,8 +30,7 @@ import {
   MapPin,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
-
-// ─── Types ────────────────────────────────────────────────────────────────────
+import FeedbackButtons from './FeedbackButtons';
 
 interface Message {
   id:        string;
@@ -40,6 +38,7 @@ interface Message {
   content:   string;
   timestamp: Date;
   listings?: AleemListing[];
+  messageId?: string;
 }
 
 interface LeadForm {
@@ -66,7 +65,6 @@ interface AriaChatProps {
   onClose:    () => void;
 }
 
-/** Verified listing card returned by the grounded ALEEM search. */
 interface AleemListing {
   slug:         string;
   title:        string;
@@ -81,9 +79,9 @@ interface AleemListing {
   isFeatured:   boolean;
 }
 
-/** Response contract of POST /api/ai/chat. */
 interface AleemChatResponse {
   success?:      boolean;
+  messageId?:    string;
   response?:     string;
   listings?:     AleemListing[];
   conversationId?: string | null;
@@ -92,8 +90,6 @@ interface AleemChatResponse {
   message?:      string;
   requestId?:    string;
 }
-
-// ─── Quick reply buttons (context-aware) ─────────────────────────────────────
 
 const QUICK_REPLIES_GENERAL = [
   { label: 'Buy Property 🏠', value: 'Mujhe property khareedni hai' },
@@ -129,14 +125,11 @@ const INTENT_OPTIONS = [
   { value: 'verify',  label: '🔍 Verify',  icon: Search       },
 ];
 
-// ─── Message bubble (LARGER TEXT) ─────────────────────────────────────────────
-
 function FormattedMessage({ content, isUser }: { content: string; isUser: boolean }): React.ReactElement {
   if (isUser) {
     return <span className="whitespace-pre-wrap">{content}</span>;
   }
 
-  // Clean raw LaTeX math symbols if any remain
   const cleaned = content
     .replace(/\\\[\s*/g, '')
     .replace(/\s*\\\]/g, '')
@@ -153,7 +146,6 @@ function FormattedMessage({ content, isUser }: { content: string; isUser: boolea
         const trimmed = line.trim();
         if (!trimmed) return <div key={idx} className="h-1" />;
 
-        // Table row (simple pipe detection)
         if (trimmed.startsWith('|') && trimmed.endsWith('|')) {
           const cells = trimmed.split('|').map((c) => c.trim()).filter(Boolean);
           if (cells.every((c) => /^[-:]+$/.test(c))) return null;
@@ -167,7 +159,6 @@ function FormattedMessage({ content, isUser }: { content: string; isUser: boolea
           );
         }
 
-        // Bullet point
         if (trimmed.startsWith('- ') || trimmed.startsWith('* ') || trimmed.startsWith('• ')) {
           const bulletText = trimmed.replace(/^[-*•]\s*/, '');
           return (
@@ -178,7 +169,6 @@ function FormattedMessage({ content, isUser }: { content: string; isUser: boolea
           );
         }
 
-        // Section header / regular text
         return <p key={idx}>{formatBoldText(trimmed)}</p>;
       })}
     </div>
@@ -202,7 +192,6 @@ function ListingCard({ item }: { item: AleemListing }): React.ReactElement {
 
   return (
     <div className="w-[220px] flex-shrink-0 bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-      {/* Image Thumbnail */}
       <div className="relative h-28 bg-gray-100 flex items-center justify-center overflow-hidden">
         {item.imageUrl ? (
           <img
@@ -217,14 +206,12 @@ function ListingCard({ item }: { item: AleemListing }): React.ReactElement {
             <span className="text-[10px]">No image</span>
           </div>
         )}
-        {/* Verified Badge */}
         <div className="absolute top-2 right-2 bg-emerald-600 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full flex items-center gap-1 shadow-sm">
           <CheckCircle className="w-3 h-3" />
           <span>Verified</span>
         </div>
       </div>
 
-      {/* Details */}
       <div className="p-3">
         <h4 className="text-xs font-bold text-gray-900 line-clamp-1 mb-1" title={item.title}>
           {item.title}
@@ -240,7 +227,6 @@ function ListingCard({ item }: { item: AleemListing }): React.ReactElement {
           {areaText && <span className="text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">{areaText}</span>}
         </div>
 
-        {/* View Details Button */}
         {item.slug && (
           <a
             href={`/property/${item.slug}`}
@@ -256,7 +242,17 @@ function ListingCard({ item }: { item: AleemListing }): React.ReactElement {
   );
 }
 
-function MessageBubble({ message }: { message: Message }): React.ReactElement {
+function MessageBubble({
+  message,
+  sessionId,
+  contextType,
+  contextSlug,
+}: {
+  message: Message;
+  sessionId: string;
+  contextType?: string;
+  contextSlug?: string;
+}): React.ReactElement {
   const isUser = message.role === 'user';
   const hasListings = Array.isArray(message.listings) && message.listings.length > 0;
 
@@ -279,6 +275,16 @@ function MessageBubble({ message }: { message: Message }): React.ReactElement {
           <FormattedMessage content={message.content} isUser={isUser} />
         </div>
 
+        {/* Mounted Feedback buttons for assistant message */}
+        {!isUser && message.messageId && (
+          <FeedbackButtons
+            messageId={message.messageId}
+            sessionId={sessionId}
+            contextType={contextType}
+            contextSlug={contextSlug}
+          />
+        )}
+
         {hasListings && (
           <div className="mt-3 flex gap-2 overflow-x-auto pb-2 pt-1 scrollbar-thin scrollbar-thumb-gray-300">
             {message.listings!.map((item, idx) => (
@@ -290,8 +296,6 @@ function MessageBubble({ message }: { message: Message }): React.ReactElement {
     </div>
   );
 }
-
-// ─── Typing indicator ─────────────────────────────────────────────────────────
 
 function TypingIndicator(): React.ReactElement {
   return (
@@ -310,8 +314,6 @@ function TypingIndicator(): React.ReactElement {
   );
 }
 
-// ─── Lead capture form (LARGER INPUTS) ────────────────────────────────────────
-
 interface LeadFormProps {
   context:        IAriaContext;
   sessionId:      string;
@@ -327,7 +329,6 @@ function LeadCaptureForm({
   onSuccess,
   onClose,
 }: LeadFormProps): React.ReactElement {
-
   const [form, setForm] = useState<LeadForm>({
     name: '', phone: '', email: '',
     intent: 'buy', message: '',
@@ -380,9 +381,8 @@ function LeadCaptureForm({
     }
   }, [form, sessionId, context, onSuccess]);
 
-   return (
+  return (
     <form onSubmit={handleSubmit} className="p-4 bg-[#f0f9ff] border-t border-[#029bba]/20 relative">
-      {/* Invisible Honeypot field for automated bot detection */}
       <div className="absolute opacity-0 pointer-events-none w-0 h-0 -z-10 overflow-hidden" aria-hidden="true">
         <label htmlFor="aleem_website_hp">Do not fill this field</label>
         <input
@@ -497,15 +497,12 @@ function LeadCaptureForm({
   );
 }
 
-// ─── Main chat component (NATIVE SM TAKEOVER) ──────────────────────────────────
-
 export default function AriaChat({
   context,
   sessionId,
   onMinimize,
   onClose,
 }: AriaChatProps): React.ReactElement {
-
   const { data: session } = useSession();
   const [messages,        setMessages]         = useState<Message[]>([]);
   const [input,           setInput]            = useState('');
@@ -525,7 +522,6 @@ export default function AriaChat({
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef       = useRef<HTMLInputElement>(null);
 
-  // 1. MOBILE BODY SCROLL LOCK
   useEffect(() => {
     const handleResize = () => {
       if (window.innerWidth < 640) {
@@ -542,7 +538,6 @@ export default function AriaChat({
     };
   }, []);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
@@ -599,6 +594,7 @@ export default function AriaChat({
 
       const assistantMsg: Message = {
         id:        crypto.randomUUID(),
+        messageId: data.messageId,
         role:      'assistant',
         content:   data.response ?? 'Main aap ki baat samajh nahi saka. Dobara try karein.',
         timestamp: new Date(),
@@ -636,7 +632,6 @@ export default function AriaChat({
     }
   }, []);
 
-  // Helper for generating clean international WhatsApp URLs
   const getWhatsAppLink = (phone: string, title?: string) => {
     let clean = phone.replace(/\D/g, '');
     if (clean.startsWith('0')) clean = '92' + clean.slice(1);
@@ -653,7 +648,6 @@ export default function AriaChat({
   return (
     <div className="fixed inset-0 sm:relative sm:inset-auto z-50 sm:z-0 flex flex-col h-full w-full sm:h-[550px] sm:w-[360px] sm:max-w-[calc(100vw-2rem)] bg-gray-50 sm:rounded-2xl sm:shadow-2xl overflow-hidden border border-gray-100 animate-slideUp sm:animate-none">
 
-      {/* Header (LARGER text) */}
       <div className="flex items-center justify-between px-4 py-3.5 bg-gradient-to-r from-[#029bba] to-[#004063] text-white flex-shrink-0">
         <div className="flex items-center gap-2.5">
           <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center">
@@ -670,7 +664,6 @@ export default function AriaChat({
           }`} />
         </div>
         <div className="flex items-center gap-1">
-          {/* Hide minimize button on mobile since overlay occupies full screen */}
           <button
             onClick={onMinimize}
             className="hidden sm:block p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -688,7 +681,6 @@ export default function AriaChat({
         </div>
       </div>
 
-      {/* Context badge */}
       {context.type !== 'general' && context.title && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-[#004063]/5 border-b border-[#029bba]/10 flex-shrink-0">
           <MessageCircle className="w-4 h-4 text-[#029bba] flex-shrink-0" />
@@ -698,12 +690,10 @@ export default function AriaChat({
         </div>
       )}
 
-      {/* Messages area */}
       <div 
         className="flex-1 overflow-y-auto px-4 py-4 min-h-0"
         aria-live="polite"
       >
-        {/* Organic Suggestions Empty State Hub */}
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center min-h-[80%] p-4 text-center">
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center shadow-md mb-4 animate-bounce">
@@ -731,7 +721,13 @@ export default function AriaChat({
         )}
 
         {messages.map((msg) => (
-          <MessageBubble key={msg.id} message={msg} />
+          <MessageBubble
+            key={msg.id}
+            message={msg}
+            sessionId={sessionId}
+            contextType={context.type}
+            contextSlug={context.slug}
+          />
         ))}
         {isTyping && <TypingIndicator />}
         {error && (
@@ -757,7 +753,6 @@ export default function AriaChat({
               </div>
             </div>
 
-            {/* Instant WhatsApp & Call Handoff Buttons */}
             {assignedAgent?.phone ? (
               <div className="space-y-2 mt-2 pt-2 border-t border-gray-100">
                 <p className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
@@ -794,7 +789,6 @@ export default function AriaChat({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Quick replies HORIZONTAL SWIPE (Preserves real estate height) */}
       {showQuickReplies && messages.length > 0 && (
         <div className="px-4 pb-3 flex-shrink-0">
           <div className="flex gap-2 overflow-x-auto pb-1.5 scrollbar-none snap-x touch-pan-x">
@@ -811,7 +805,6 @@ export default function AriaChat({
         </div>
       )}
 
-      {/* Lead capture form */}
       {showLeadForm && !leadCaptured && (
         <LeadCaptureForm
           context={context}
@@ -822,7 +815,6 @@ export default function AriaChat({
         />
       )}
 
-      {/* Input area (LARGER) */}
       <div className="flex-shrink-0 border-t border-gray-200 bg-white px-3 py-3">
         <form onSubmit={handleSubmit} className="flex items-center gap-2">
           <input
@@ -848,7 +840,6 @@ export default function AriaChat({
           </button>
         </form>
 
-        {/* PROMINENT Request Callback button */}
         {!showLeadForm && !leadCaptured && messages.length >= 2 && (
           <button
             onClick={() => setShowLeadForm(true)}
@@ -860,7 +851,6 @@ export default function AriaChat({
         )}
       </div>
 
-      {/* CSS Animations */}
       <style jsx>{`
         .aleem-cta {
           background-image: linear-gradient(

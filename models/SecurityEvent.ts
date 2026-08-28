@@ -3,17 +3,6 @@
 // SECURITY EVENT MODEL - Highrise.pk
 // 🔒 ENTERPRISE-GRADE SECURITY LOGGING - Production Ready
 // ═══════════════════════════════════════════════════════════════
-// ✅ 40+ Event Types (Auth, KYC, Property, Payment, Admin)
-// ✅ Severity Levels (info, warning, critical, emergency)
-// ✅ IP/Email Hashing (GDPR compliant)
-// ✅ Geolocation Tracking (city, country, VPN detection)
-// ✅ Correlation IDs (multi-step journey tracking)
-// ✅ Static Helper Methods (easy logging)
-// ✅ Aggregation Helpers (security analytics)
-// ✅ Retention Policies (compliance-aware)
-// ✅ Auto-alerting (critical events)
-// ✅ Forensic Tools (brute force detection, anomaly detection)
-// ═══════════════════════════════════════════════════════════════
 
 import mongoose, { Schema, model, models, Document, Model } from "mongoose";
 import crypto from "crypto";
@@ -124,6 +113,13 @@ export const SECURITY_EVENT_TYPES = [
   "aleem_project_lead_rate_limit",
   "aleem_project_lead_bot_blocked",
 
+  // ALEEM AI Feedback & Tuning
+  "aleem_feedback_positive",
+  "aleem_feedback_negative",
+  "aleem_feedback_rate_limit",
+  "aleem_feedback_bot_blocked",
+  "aleem_feedback_error",
+
   // Observability / client monitoring
   "client_error",
   "client_boundary_error",
@@ -135,7 +131,6 @@ export const SECURITY_EVENT_TYPES = [
 export type SecurityEventType = typeof SECURITY_EVENT_TYPES[number];
 
 // ✅ Enterprise Standardized Severity Model
-// Backward compatible: legacy values will be normalized in schema setters
 export type SeverityLevel = "low" | "medium" | "high" | "critical";
 
 export interface IGeoLocation {
@@ -155,40 +150,32 @@ export interface IGeoLocation {
 // ═══════════════════════════════════════════════════════════════
 
 export interface ISecurityEvent extends Document {
-  // Core Fields
   userId?: mongoose.Types.ObjectId;
-  email?: string; // Masked version for display
-  emailHash?: string; // SHA-256 hash for searching
+  email?: string;
+  emailHash?: string;
   role?: string;
   type: SecurityEventType;
   severity: SeverityLevel;
 
-  // Network & Device
-  ip?: string; // Masked version (e.g., "192.168.*.***")
-  ipHash?: string; // SHA-256 hash for duplicate detection
-  ipRaw?: string; // ⚠️ select: false - only for admin forensics
+  ip?: string;
+  ipHash?: string;
+  ipRaw?: string;
   userAgent?: string;
   deviceFingerprint?: string;
 
-  // Geolocation
   geoLocation?: IGeoLocation;
 
-  // Correlation & Context
-  correlationId?: string; // UUID to link related events
-  sessionId?: string; // Session identifier
-  requestId?: string; // Request trace ID
+  correlationId?: string;
+  sessionId?: string;
+  requestId?: string;
 
-  // Metadata
   metadata?: Record<string, any>;
 
-  // Alerting
-  alerted?: boolean; // Was an alert sent?
+  alerted?: boolean;
   alertedAt?: Date;
 
-  // Retention Override
-  retainUntil?: Date; // Override TTL for compliance (e.g., KYC = 7 years)
+  retainUntil?: Date;
 
-  // Timestamps
   createdAt: Date;
 }
 
@@ -197,7 +184,6 @@ export interface ISecurityEvent extends Document {
 // ═══════════════════════════════════════════════════════════════
 
 export interface ISecurityEventModel extends Model<ISecurityEvent> {
-  // Logging Helpers
   logAuth(
     userId: mongoose.Types.ObjectId,
     type: SecurityEventType,
@@ -224,13 +210,11 @@ export interface ISecurityEventModel extends Model<ISecurityEvent> {
     type?: SecurityEventType
   ): Promise<ISecurityEvent>;
 
-  // Analytics Helpers
   getFailedLoginsByIP(ip: string, hours?: number): Promise<number>;
   getFailedLoginsByEmail(email: string, hours?: number): Promise<number>;
   getSuspiciousActivity(userId: mongoose.Types.ObjectId, hours?: number): Promise<ISecurityEvent[]>;
   detectBruteForce(identifier: string, type: "ip" | "email", minutes?: number): Promise<boolean>;
 
-  // Admin Queries
   getRecentEvents(
     userId?: mongoose.Types.ObjectId,
     limit?: number,
@@ -246,7 +230,6 @@ export interface ISecurityEventModel extends Model<ISecurityEvent> {
 
   getCriticalEvents(hours?: number): Promise<ISecurityEvent[]>;
 
-  // Compliance
   retainForCompliance(eventId: mongoose.Types.ObjectId, years: number): Promise<void>;
 }
 
@@ -268,11 +251,9 @@ function maskIP(ip: string): string {
   
   const parts = ip.split(".");
   if (parts.length === 4) {
-    // IPv4: 192.168.*.***
     return `${parts[0]}.${parts[1]}.***.***`;
   }
   
-  // IPv6 or other: just show first segment
   const segments = ip.split(":");
   return segments.length > 1 ? `${segments[0]}:****` : "unknown";
 }
@@ -300,6 +281,7 @@ function getSeverityForEventType(type: SecurityEventType): SeverityLevel {
     "ai_chat_error",
     "aleem_lead_error",
     "aleem_project_lead_error",
+    "aleem_feedback_error",
     "client_boundary_error",
     "api_unhandled_error",
   ];
@@ -319,6 +301,8 @@ function getSeverityForEventType(type: SecurityEventType): SeverityLevel {
     "vpn_detected",
     "geo_anomaly",
     "rate_limit_exceeded",
+    "aleem_feedback_rate_limit",
+    "aleem_feedback_bot_blocked",
   ];
 
   if (criticalEvents.includes(type)) return "critical";
@@ -328,7 +312,6 @@ function getSeverityForEventType(type: SecurityEventType): SeverityLevel {
 }
 
 function getRetentionPeriodForEventType(type: SecurityEventType): number | null {
-  // KYC events: 7 years (compliance)
   const kycEvents: SecurityEventType[] = [
     "kyc_submitted",
     "kyc_approved",
@@ -339,7 +322,6 @@ function getRetentionPeriodForEventType(type: SecurityEventType): number | null 
     "agent_profile_created",
   ];
 
-  // Payment events: 10 years (tax law)
   const paymentEvents: SecurityEventType[] = [
     "payment_initiated",
     "payment_completed",
@@ -347,7 +329,6 @@ function getRetentionPeriodForEventType(type: SecurityEventType): number | null 
     "refund_processed",
   ];
 
-  // Critical security events: 2 years
   const criticalEvents: SecurityEventType[] = [
     "session_hijack_detected",
     "brute_force_detected",
@@ -391,7 +372,6 @@ const GeoLocationSchema = new Schema(
 
 const SecurityEventSchema = new Schema<ISecurityEvent>(
   {
-    // Core Fields
     userId: {
       type: Schema.Types.ObjectId,
       ref: "User",
@@ -410,13 +390,8 @@ const SecurityEventSchema = new Schema<ISecurityEvent>(
       type: String,
       required: true,
       index: true,
-
-      // ✅ Backward compatibility: allow payloads using { eventType: "..." }
       alias: "eventType",
-
-      // Normalize to avoid case/space issues
       set: (v: any) => String(v || "").trim().toLowerCase(),
-
       enum: SECURITY_EVENT_TYPES,
     },
     severity: {
@@ -424,44 +399,33 @@ const SecurityEventSchema = new Schema<ISecurityEvent>(
       enum: ["low", "medium", "high", "critical"],
       default: "low",
       index: true,
-
-      // ✅ Backward compatibility normalization
       set: (v: any) => {
         const value = String(v || "").toLowerCase();
-
         if (value === "info") return "low";
         if (value === "warning") return "medium";
         if (value === "error") return "high";
         if (value === "emergency") return "critical";
-
         return value;
       },
     },
 
-    // Network & Device
-    // Backward compatibility: some endpoints send { ipAddress }
-    ip: { type: String, alias: "ipAddress" }, // Masked
+    ip: { type: String, alias: "ipAddress" },
     ipHash: { type: String, index: true },
-    ipRaw: { type: String, select: false }, // ⚠️ Admin only
+    ipRaw: { type: String, select: false },
     userAgent: { type: String },
     deviceFingerprint: { type: String, index: true },
 
-    // Geolocation
     geoLocation: GeoLocationSchema,
 
-    // Correlation & Context
     correlationId: { type: String, index: true },
     sessionId: { type: String, index: true },
     requestId: { type: String },
 
-    // Metadata
     metadata: { type: Schema.Types.Mixed },
 
-    // Alerting
     alerted: { type: Boolean, default: false },
     alertedAt: { type: Date },
 
-    // Retention Override
     retainUntil: { type: Date },
   },
   {
@@ -470,11 +434,6 @@ const SecurityEventSchema = new Schema<ISecurityEvent>(
   }
 );
 
-// ═══════════════════════════════════════════════════════════════
-// INDEXES
-// ═══════════════════════════════════════════════════════════════
-
-// Default TTL: 90 days (overridden by retainUntil for compliance)
 SecurityEventSchema.index(
   { createdAt: 1 },
   {
@@ -483,7 +442,6 @@ SecurityEventSchema.index(
   }
 );
 
-// Compliance override: expire based on retainUntil
 SecurityEventSchema.index(
   { retainUntil: 1 },
   {
@@ -492,7 +450,6 @@ SecurityEventSchema.index(
   }
 );
 
-// Query performance indexes
 SecurityEventSchema.index({ type: 1, createdAt: -1 });
 SecurityEventSchema.index({ userId: 1, createdAt: -1 });
 SecurityEventSchema.index({ email: 1, type: 1, createdAt: -1 });
@@ -502,23 +459,16 @@ SecurityEventSchema.index({ severity: 1, createdAt: -1 });
 SecurityEventSchema.index({ correlationId: 1, createdAt: 1 });
 SecurityEventSchema.index({ alerted: 1, severity: 1 });
 
-// Geolocation queries
 SecurityEventSchema.index({ "geoLocation.countryCode": 1 });
 SecurityEventSchema.index({ "geoLocation.isVPN": 1 });
 SecurityEventSchema.index({ "geoLocation.riskScore": -1 });
 
-// ═══════════════════════════════════════════════════════════════
-// PRE-SAVE MIDDLEWARE
-// ═══════════════════════════════════════════════════════════════
-
 SecurityEventSchema.pre("validate", function (next) {
-  // Extra safety: if something sends eventType without alias mapping
   const doc = this as ISecurityEvent & { eventType?: string };
   if (!this.type && doc.eventType) {
     this.type = doc.eventType as SecurityEventType;
   }
 
-  // Normalize legacy severity values before enum validation
   const rawSeverity = this.severity as string;
   if (typeof rawSeverity === "string") {
     const value = rawSeverity.toLowerCase();
@@ -532,25 +482,21 @@ SecurityEventSchema.pre("validate", function (next) {
 });
 
 SecurityEventSchema.pre("save", function (next) {
-  // Auto-set severity if not provided
   if (!this.severity) {
     this.severity = getSeverityForEventType(this.type);
   }
 
-  // Hash email if provided
   if (this.email && !this.emailHash) {
     this.emailHash = hashValue(this.email.toLowerCase().trim());
-    this.email = maskEmail(this.email); // Mask for display
+    this.email = maskEmail(this.email);
   }
 
-  // Hash and mask IP if provided
   if (this.ip && !this.ipHash) {
     this.ipHash = hashValue(this.ip);
-    this.ipRaw = this.ip; // Store raw for forensics
-    this.ip = maskIP(this.ip); // Mask for display
+    this.ipRaw = this.ip;
+    this.ip = maskIP(this.ip);
   }
 
-  // Auto-set retention period for compliance events
   if (!this.retainUntil) {
     const retentionSeconds = getRetentionPeriodForEventType(this.type);
     if (retentionSeconds) {
@@ -561,14 +507,7 @@ SecurityEventSchema.pre("save", function (next) {
   next();
 });
 
-// ═══════════════════════════════════════════════════════════════
-// STATIC METHODS
-// ═══════════════════════════════════════════════════════════════
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// LOGGING HELPERS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-
+// Static methods
 SecurityEventSchema.statics.logAuth = async function (
   userId: mongoose.Types.ObjectId,
   type: SecurityEventType,
@@ -582,10 +521,7 @@ SecurityEventSchema.statics.logAuth = async function (
     type,
     ip,
     userAgent,
-    metadata: {
-      ...metadata,
-      success,
-    },
+    metadata: { ...metadata, success },
   });
 };
 
@@ -600,10 +536,7 @@ SecurityEventSchema.statics.logKYC = async function (
     userId,
     type,
     ip,
-    metadata: {
-      ...metadata,
-      reviewedBy: adminId?.toString(),
-    },
+    metadata: { ...metadata, reviewedBy: adminId?.toString() },
   });
 };
 
@@ -619,18 +552,9 @@ SecurityEventSchema.statics.logAdmin = async function (
     userId: adminId,
     type,
     ip,
-    // severity auto-detected by pre-save based on type
-    metadata: {
-      action,
-      targetUserId: targetUserId?.toString(),
-      ...metadata,
-    },
+    metadata: { action, targetUserId: targetUserId?.toString(), ...metadata },
   });
 };
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ANALYTICS HELPERS
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SecurityEventSchema.statics.getFailedLoginsByIP = async function (
   ip: string,
@@ -638,12 +562,7 @@ SecurityEventSchema.statics.getFailedLoginsByIP = async function (
 ): Promise<number> {
   const ipHashValue = hashValue(ip);
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-  return this.countDocuments({
-    ipHash: ipHashValue,
-    type: "login_failed",
-    createdAt: { $gte: since },
-  });
+  return this.countDocuments({ ipHash: ipHashValue, type: "login_failed", createdAt: { $gte: since } });
 };
 
 SecurityEventSchema.statics.getFailedLoginsByEmail = async function (
@@ -652,12 +571,7 @@ SecurityEventSchema.statics.getFailedLoginsByEmail = async function (
 ): Promise<number> {
   const emailHashValue = hashValue(email.toLowerCase().trim());
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-  return this.countDocuments({
-    emailHash: emailHashValue,
-    type: "login_failed",
-    createdAt: { $gte: since },
-  });
+  return this.countDocuments({ emailHash: emailHashValue, type: "login_failed", createdAt: { $gte: since } });
 };
 
 SecurityEventSchema.statics.getSuspiciousActivity = async function (
@@ -665,12 +579,7 @@ SecurityEventSchema.statics.getSuspiciousActivity = async function (
   hours: number = 24
 ): Promise<ISecurityEvent[]> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-  return this.find({
-    userId,
-    severity: { $in: ["medium", "high", "critical"] },
-    createdAt: { $gte: since },
-  })
+  return this.find({ userId, severity: { $in: ["medium", "high", "critical"] }, createdAt: { $gte: since } })
     .sort({ createdAt: -1 })
     .limit(50)
     .lean();
@@ -681,9 +590,7 @@ SecurityEventSchema.statics.detectBruteForce = async function (
   type: "ip" | "email",
   minutes: number = 15
 ): Promise<boolean> {
-  const hashedIdentifier = type === "ip" 
-    ? hashValue(identifier) 
-    : hashValue(identifier.toLowerCase().trim());
+  const hashedIdentifier = type === "ip" ? hashValue(identifier) : hashValue(identifier.toLowerCase().trim());
   const hashField = type === "ip" ? "ipHash" : "emailHash";
   const since = new Date(Date.now() - minutes * 60 * 1000);
 
@@ -693,13 +600,8 @@ SecurityEventSchema.statics.detectBruteForce = async function (
     createdAt: { $gte: since },
   });
 
-  // Threshold: 5+ failed attempts in timeframe = brute force
   return count >= 5;
 };
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// ADMIN QUERIES
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SecurityEventSchema.statics.getRecentEvents = async function (
   userId?: mongoose.Types.ObjectId,
@@ -710,10 +612,7 @@ SecurityEventSchema.statics.getRecentEvents = async function (
   if (userId) filter.userId = userId;
   if (severity) filter.severity = severity;
 
-  return this.find(filter)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
+  return this.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
 };
 
 SecurityEventSchema.statics.getEventsByType = async function (
@@ -730,45 +629,26 @@ SecurityEventSchema.statics.getEventsByType = async function (
     if (endDate) filter.createdAt.$lte = endDate;
   }
 
-  return this.find(filter)
-    .sort({ createdAt: -1 })
-    .limit(limit)
-    .lean();
+  return this.find(filter).sort({ createdAt: -1 }).limit(limit).lean();
 };
 
 SecurityEventSchema.statics.getCriticalEvents = async function (
   hours: number = 24
 ): Promise<ISecurityEvent[]> {
   const since = new Date(Date.now() - hours * 60 * 60 * 1000);
-
-  return this.find({
-    severity: { $in: ["high", "critical"] },
-    createdAt: { $gte: since },
-  })
+  return this.find({ severity: { $in: ["high", "critical"] }, createdAt: { $gte: since } })
     .sort({ createdAt: -1 })
     .limit(100)
     .lean();
 };
-
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// COMPLIANCE
-// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
 SecurityEventSchema.statics.retainForCompliance = async function (
   eventId: mongoose.Types.ObjectId,
   years: number
 ): Promise<void> {
   const retainUntil = new Date(Date.now() + years * 365 * 24 * 60 * 60 * 1000);
-
-  await this.updateOne(
-    { _id: eventId },
-    { $set: { retainUntil } }
-  );
+  await this.updateOne({ _id: eventId }, { $set: { retainUntil } });
 };
-
-// ═══════════════════════════════════════════════════════════════
-// MODEL EXPORT
-// ═══════════════════════════════════════════════════════════════
 
 const SecurityEvent =
   (models.SecurityEvent as ISecurityEventModel) ||

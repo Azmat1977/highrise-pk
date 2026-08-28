@@ -14,6 +14,7 @@ import { requireAdmin } from '@/lib/requireAdmin';
 import { rateLimitAdmin, setRateLimitHeaders, getClientIp } from '@/lib/rateLimit';
 import Lead from '@/models/Lead';
 import SecurityEvent from '@/models/SecurityEvent';
+import AleemFeedback from '@/models/AleemFeedback';
 import {
   trackEvent,
   trackError,
@@ -55,23 +56,15 @@ export default async function handler(
   const requestId = createRequestId();
   setSecurityHeaders(res, requestId);
 
-  const clientIP = getClientIp(req);
-  const userAgent =
-    typeof req.headers['user-agent'] === 'string'
-      ? req.headers['user-agent'].slice(0, 200)
-      : 'unknown';
-
   if (req.method !== 'GET') {
     res.setHeader('Allow', 'GET');
     res.status(405).json({ success: false, error: 'Method not allowed', requestId });
     return;
   }
 
-  // 1. AUTHENTICATION GUARD
   const adminToken = await requireAdmin(req, res);
-  if (!adminToken) return; // Response sent by requireAdmin on auth failure
+  if (!adminToken) return;
 
-  // 2. RATE LIMITING
   const rl = await rateLimitAdmin(req);
   setRateLimitHeaders(res, rl);
   if (!rl.ok) {
@@ -83,7 +76,6 @@ export default async function handler(
     return;
   }
 
-  // 3. INPUT VALIDATION
   const rawRange = Array.isArray(req.query.range) ? req.query.range[0] : req.query.range;
   const validRanges: TimeRange[] = ['7d', '30d', '90d', '1y', 'all'];
   const range: TimeRange = validRanges.includes(rawRange as TimeRange)
@@ -100,7 +92,7 @@ export default async function handler(
   try {
     await dbConnect();
 
-    // 4. AGGREGATION 1: LEAD PIPELINE & ATTRIBUTION
+    // 1. LEAD PIPELINE AGGREGATION
     const leadMatchFilter = {
       isArchived: false,
       ...(range !== 'all' ? { createdAt: { $gte: startDate } } : {}),
@@ -195,7 +187,7 @@ export default async function handler(
       unansweredCount: 0,
     };
 
-    // 5. AGGREGATION 2: ALEEM AI TELEMETRY FROM SECURITY EVENTS
+    // 2. AI TELEMETRY FROM SECURITY EVENTS
     const aiEventTypes = [
       'ai_chat_success',
       'ai_chat_grounded_search',
@@ -249,10 +241,36 @@ export default async function handler(
       {},
     );
 
+    // 3. ALEEM AI FEEDBACK & SATISFACTION TELEMETRY
+    const feedbackMatchFilter = {
+      ...(range !== 'all' ? { createdAt: { $gte: startDate } } : {}),
+    };
+
+    const feedbackFacetResult = await AleemFeedback.aggregate([
+      { $match: feedbackMatchFilter },
+      {
+        $facet: {
+          byRating: [
+            { $group: { _id: '$rating', count: { $sum: 1 } } },
+          ],
+          byReason: [
+            { $match: { rating: 'negative', reason: { $ne: null } } },
+            { $group: { _id: '$reason', count: { $sum: 1 } } },
+            { $sort: { count: -1 } },
+          ],
+        },
+      },
+    ]);
+
+    const feedbackData = feedbackFacetResult[0] || {};
+    const positiveCount = (feedbackData.byRating || []).find((r: any) => r._id === 'positive')?.count || 0;
+    const negativeCount = (feedbackData.byRating || []).find((r: any) => r._id === 'negative')?.count || 0;
+    const totalFeedback = positiveCount + negativeCount;
+    const helpfulPct = totalFeedback > 0 ? Number(((positiveCount / totalFeedback) * 100).toFixed(1)) : 100;
+
     // Calculate Conversion & Win Rates
     const totalLeads = totals.totalLeads || 0;
     const totalWon = totals.totalWon || 0;
-    const totalLost = totals.totalLost || 0;
     const winRatePct = totalLeads > 0 ? Number(((totalWon / totalLeads) * 100).toFixed(1)) : 0;
 
     const chatLeads = (leadData.bySource || []).find(
@@ -262,7 +280,6 @@ export default async function handler(
     const aleemConversionRate =
       totalChats > 0 ? Number(((chatLeads / totalChats) * 100).toFixed(1)) : 0;
 
-    // Log admin analytics view
     void trackEvent({
       type: 'admin_action',
       severity: 'low',
@@ -284,7 +301,7 @@ export default async function handler(
       summary: {
         totalLeads,
         totalWon,
-        totalLost,
+        totalLost: totals.totalLost || 0,
         winRatePct,
         totalPipelineValue: totals.totalPipelineValue || 0,
         avgLeadScore: Math.round(totals.avgLeadScore || 0),
@@ -300,6 +317,13 @@ export default async function handler(
         quotaExceededEvents: aiEventsMap.ai_daily_quota_exceeded || 0,
         providerFailures: aiEventsMap.ai_all_providers_failed || 0,
         dailyVolumeSeries: aiData.dailyChatVolume || [],
+        feedback: {
+          totalFeedback,
+          positiveCount,
+          negativeCount,
+          helpfulPct,
+          topReasons: feedbackData.byReason || [],
+        },
       },
       funnelBreakdown: {
         byStatus: leadData.byStatus || [],
