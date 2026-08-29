@@ -806,14 +806,13 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
 
             {/* ══════════════════════════════════════
                 CHOOSE YOUR SPACE — Highrise Signature (V2.0)
-                Replaces old "Units & Pricing" — smart mixed-use display
+                Positioned right after Overview for maximum impact
             ══════════════════════════════════════ */}
             <ChooseYourSpace
               project={project}
               onInquire={(unitTypeName) => {
                 setInquiryType('project_interest');
                 setShowInquiry(true);
-                // Optional: pass unit type name to inquiry modal in future
                 void unitTypeName;
               }}
             />
