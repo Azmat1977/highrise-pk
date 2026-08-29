@@ -250,6 +250,9 @@ export interface IContactVisibility {
 // ============================================
 
 export interface IUnit extends Document {
+  // ── IDENTITY & PLATFORM TRACKING ───────────
+  unitId?: string; // unique format: HR-UNT-[HEX]
+
   // ── REFERENCES (NO propertyId — architecture rule) ──
   projectId: Types.ObjectId;
   developerId: Types.ObjectId;
@@ -682,6 +685,14 @@ function computeAdditionalCharges(
 
 const UnitSchema = new Schema<IUnit>(
   {
+    // ── IDENTITY & PLATFORM TRACKING ───────────
+    unitId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
     // ── REFERENCES ────────────────────────
     projectId: {
       type: Schema.Types.ObjectId,
@@ -1004,6 +1015,17 @@ UnitSchema.pre<IUnit>('validate', function () {
 // ============================================
 
 UnitSchema.pre<IUnit>('save', function () {
+  // 0) Generate Platform Unique ID (HR-UNT-[HEX])
+  if (!this.unitId) {
+    const hex = crypto.randomBytes(3).toString('hex').toUpperCase();
+    this.unitId = `HR-UNT-${hex}`;
+  }
+
+  // 0.1) Status Transition Safeguard — if unit is no longer sold, purge PII
+  if (this.isModified('status') && this.status !== 'sold') {
+    this.soldInfo = undefined;
+  }
+
   // String normalization
   if (this.unitNumber) this.unitNumber = String(this.unitNumber).trim();
   if (this.title) this.title = String(this.title).trim();

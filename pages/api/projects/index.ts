@@ -48,12 +48,16 @@ function setSecurityHeaders(res: NextApiResponse): void {
 // ============================================================================
 
 const PROJECT_CATEGORIES = [
-  'highrise',
-  'society',
+  'high_rise',
+  'housing_society',
   'mixed_use',
   'commercial_plaza',
   'townhouse',
   'gated_community',
+  'farmhouse_community',
+  'industrial_park',
+  'highrise',
+  'society'
 ] as const;
 
 const PROJECT_NATURES = ['residential', 'commercial', 'mixed'] as const;
@@ -262,6 +266,7 @@ type ProjectCreateInput = z.infer<typeof ProjectCreateSchema>;
 
 interface SanitizedProjectCard {
   _id: string;
+  projectId?: string;
   slug: string;
   projectName: string;
   tagline?: string;
@@ -409,6 +414,7 @@ function sanitizeProjectForPublic(p: LeanProjectDoc): SanitizedProjectCard {
 
   return {
     _id: String(p._id),
+    projectId: (p as any).projectId || undefined,
     slug: p.slug,
     projectName: p.projectName,
     tagline: p.tagline,
@@ -1244,6 +1250,7 @@ async function handlePost(
       message: 'Project created successfully. Continue editing in the wizard.',
       project: {
         _id: String(created._id),
+        projectId: created.projectId,
         slug: created.slug,
         projectName: created.projectName,
         city: created.city,

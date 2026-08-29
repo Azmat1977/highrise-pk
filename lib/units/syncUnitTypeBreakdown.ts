@@ -59,7 +59,7 @@
 
 import mongoose, { Types } from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
-import Project from '@/models/Projects';
+import Project, { mapDeveloperBadgeToTier } from '@/models/Projects';
 import Unit from '@/models/Unit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 
@@ -773,7 +773,7 @@ export async function denormalizeProjectToUnits(
     if (project.city) updateFields.city = project.city;
     if (project.area) updateFields.areaName = project.area;
     if (project.developerBadge) {
-      updateFields.developerBadge = project.developerBadge;
+      updateFields.developerBadge = mapDeveloperBadgeToTier(project.developerBadge);
     }
 
     if (project.contactVisibility) {

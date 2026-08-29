@@ -624,6 +624,9 @@ export interface IGeoPoint {
 // ============================================
 
 export interface IProject extends Document {
+  // ── IDENTITY & PLATFORM TRACKING ───────────
+  projectId?: string; // unique format: HR-PRJ-[HEX]
+
   // ── OWNERSHIP ──────────────────────────────
   developerId: mongoose.Types.ObjectId;
 
@@ -710,6 +713,14 @@ export interface IProject extends Document {
   constructionVideoUrl?: string;
   gallery?: IGalleryImage[];
   videos?: IProjectVideo[];
+
+  // ── VERIFICATION PANEL (Fact-Based) ─────────
+  verificationPanel?: {
+    verifiedBy?: string;
+    source?: string;
+    verifiedAt?: Date;
+    legalDisclaimer?: string;
+  };
 
   // ── AMENITIES ──────────────────────────────
   buildingAmenities?: string[];
@@ -906,6 +917,23 @@ function computeDerivedFromUnitTypes(
 
 function deriveTrustedBuilder(badge?: DeveloperBadgeTier): boolean {
   return badge === 'trusted' || badge === 'premium';
+}
+
+/**
+ * Translates Developer Profile's 12-tier badge system into Project's 4-tier classification.
+ */
+export function mapDeveloperBadgeToTier(badge?: string): DeveloperBadgeTier {
+  const b = String(badge || '').toLowerCase().trim();
+  if (['diamond', 'premium_partner', 'platinum', 'gold'].includes(b)) {
+    return 'premium';
+  }
+  if (['established', 'silver', 'trusted_builder', 'highrise_verified'].includes(b)) {
+    return 'trusted';
+  }
+  if (['emerging', 'top_developer', 'on_time_delivery'].includes(b)) {
+    return 'emerging';
+  }
+  return 'new_entrant';
 }
 
 // ============================================
@@ -1348,6 +1376,14 @@ const ProjectDocumentItemSchema = new Schema<IProjectDocumentItem>(
 
 const ProjectSchema = new Schema<IProject>(
   {
+    // ── IDENTITY & PLATFORM TRACKING ───────────
+    projectId: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
     // ── OWNERSHIP ────────────────────────────
     developerId: {
       type: Schema.Types.ObjectId,
@@ -1688,6 +1724,14 @@ const ProjectSchema = new Schema<IProject>(
     // ── SEO ──────────────────────────────────
     metaTitle: { type: String, maxlength: 70 },
     metaDescription: { type: String, maxlength: 160 },
+
+    // ── VERIFICATION PANEL (Fact-Based) ─────────
+    verificationPanel: {
+      verifiedBy: { type: String, trim: true },
+      source: { type: String, trim: true },
+      verifiedAt: { type: Date },
+      legalDisclaimer: { type: String, trim: true },
+    },
     keywords: [{ type: String }],
     canonicalUrl: { type: String },
 
@@ -1762,6 +1806,12 @@ ProjectSchema.index(
 // ============================================
 
 ProjectSchema.pre<IProject>('save', function () {
+  // 0) Generate Platform Unique ID (HR-PRJ-[HEX])
+  if (!this.projectId) {
+    const hex = crypto.randomBytes(3).toString('hex').toUpperCase();
+    this.projectId = `HR-PRJ-${hex}`;
+  }
+
   // 1) Slug hardening
   if (!this.slug && this.projectName) {
     const base = slugify(
@@ -1888,7 +1938,10 @@ ProjectSchema.pre<IProject>('save', function () {
   // 8) Auto-derive isTrustedBuilder
   this.isTrustedBuilder = deriveTrustedBuilder(this.developerBadge);
 
-  // 9) Sync badge into snapshot
+  // 9) Sync badge into snapshot and map tiers
+  if (this.developerProfile?.developerBadge) {
+    this.developerBadge = mapDeveloperBadgeToTier(this.developerProfile.developerBadge);
+  }
   if (this.developerBadge && this.developerProfile) {
     this.developerProfile.developerBadge = this.developerBadge;
   }

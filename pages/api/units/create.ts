@@ -393,6 +393,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         message: 'Unit created successfully',
         data: {
           unitId: saved._id,
+          platformUnitId: saved.unitId,
           unitNumber: saved.unitNumber,
           status: saved.status,
         },

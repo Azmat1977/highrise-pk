@@ -241,6 +241,7 @@ export interface UnitRow {
   floorName?:   string;
   unitType:     string;
   price:        number;
+  area?:        number;
   areaSqft?:    number;
   areaMarla?:   number;
   areaUnit?:    string;
@@ -311,6 +312,14 @@ export interface ProjectDetailData {
   verificationLevel?: string;
   nocStatus?:        string;
   approvalAuthority?: string;
+
+  // Verification Panel (Fact-Based Regulatory Evidence)
+  verificationPanel?: {
+    verifiedBy?:      string;
+    source?:          string;
+    verifiedAt?:      string;
+    legalDisclaimer?: string;
+  };
 
   // Timeline
   launchDate?:             string;
