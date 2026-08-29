@@ -979,6 +979,7 @@ export default async function handler(
     // ═══════════════════════════════════════════════════════════
     const safeUser = {
       id: newUser._id.toString(),
+      highriseId: (newUser as any).highriseId || "",
       displayName: (newUser as any).displayName || displayName,
       name: (newUser as any).name || fullName,
       email: (newUser as any).email,

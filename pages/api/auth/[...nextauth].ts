@@ -477,6 +477,7 @@ function injectSessionClaimsIntoUser(user: any, dbUser: DbUser): void {
   const trustedClaims = buildTrustedSessionClaims(dbUser);
 
   user.id = dbUser._id.toString();
+  user.highriseId = (dbUser as any).highriseId || "";
   user.role = trustedClaims.role;
   user.authorityRole = trustedClaims.authorityRole;
   user.capabilities = trustedClaims.capabilities;
@@ -625,7 +626,7 @@ export const authOptions: AuthOptions = {
             isDeleted: { $ne: true },
           })
             .select(
-  "name displayName email role status statusReason isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone profilePictureUrl capabilities permissions tokenVersion +password +security loginAttempts lockUntil verification"
+  "highriseId name displayName email role status statusReason isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone profilePictureUrl capabilities permissions tokenVersion +password +security loginAttempts lockUntil verification"
 )
             .lean()) as DbUser | null;
 
@@ -839,6 +840,7 @@ export const authOptions: AuthOptions = {
 
           return {
             id: user._id.toString(),
+            highriseId: (user as any).highriseId || "",
             email: user.email,
             name: safeName,
             displayName: safeDisplay,
@@ -998,7 +1000,7 @@ export const authOptions: AuthOptions = {
           [socialIdField]: providerAccountId,
           isDeleted: { $ne: true },
         }).select(
-          "email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification googleId facebookId +security"
+          "highriseId email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification googleId facebookId +security"
         )) as unknown as DbUser | null;
 
         // ─── STEP 2: Find user by EMAIL (may or may not match) ───
@@ -1006,7 +1008,7 @@ export const authOptions: AuthOptions = {
           email,
           isDeleted: { $ne: true },
         }).select(
-          "email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification googleId facebookId +security"
+          "highriseId email name displayName role status isDeleted isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified profilePictureUrl capabilities permissions tokenVersion verification googleId facebookId +security"
         )) as unknown as DbUser | null;
 
         // ═══════════════════════════════════════════════════════════
@@ -1224,6 +1226,7 @@ export const authOptions: AuthOptions = {
         const trustedClaims = buildTrustedSessionClaims(user);
 
         token.id = user.id;
+        token.highriseId = user.highriseId || "";
         token.role = trustedClaims.role;
         token.authorityRole = trustedClaims.authorityRole;
         token.capabilities = trustedClaims.capabilities;
@@ -1313,7 +1316,7 @@ export const authOptions: AuthOptions = {
           await dbConnect();
 
           const dbUser = await User.findById(token.id)
-            .select("tokenVersion status isDeleted name displayName role capabilities permissions isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified")
+            .select("highriseId tokenVersion status isDeleted name displayName role capabilities permissions isVerified kycVerified isVerifiedOwner ownerVerificationStatus isVerifiedAgent agentVerificationStatus onboardingStatus onboardingRole phone isPhoneVerified")
             .lean();
 
           token.lastDbCheckAt = now;
@@ -1457,6 +1460,7 @@ export const authOptions: AuthOptions = {
       if (!session.user) session.user = {} as any;
 
       session.user.id = token.id;
+      session.user.highriseId = token.highriseId || "";
       session.user.role = token.role;
       session.user.authorityRole = token.authorityRole;
       session.user.capabilities = token.capabilities || [];

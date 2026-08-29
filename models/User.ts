@@ -54,6 +54,7 @@ interface IUserSecurity {
 
 export interface IUser extends Document {
   _id: mongoose.Types.ObjectId;
+  highriseId?: string;
   
   // Core Identity
   name: string;
@@ -482,6 +483,7 @@ const UserSchema = new Schema<IUser>(
     name: { type: String, required: true, trim: true, minlength: 2, maxlength: 100 },
     displayName: { type: String, required: true, trim: true, maxlength: 50 },
     slug: { type: String, unique: true, sparse: true, lowercase: true, trim: true, index: true },
+    highriseId: { type: String, unique: true, sparse: true, index: true },
     email: { type: String, required: true, unique: true, lowercase: true, trim: true, validate: { validator: isValidEmail, message: "Invalid email" }, index: true },
     password: { type: String, required: false, select: false, minlength: 12 },
     role: { type: String, enum: ["user", "reader", "writer", "editor", "moderator", "finance", "admin", "superadmin", "developer", "agent", "society"], default: "user", index: true },
@@ -854,6 +856,12 @@ UserSchema.pre("save", async function (next) {
   try {
     const docAny = this as any;
     const override = Boolean(docAny?._kycOverride);
+
+    // Highrise Unique ID Generation (Phase 0)
+    if (!this.highriseId) {
+      const suffix = crypto.randomBytes(3).toString("hex").toUpperCase();
+      this.highriseId = `HR-USR-${suffix}`;
+    }
 
     // Ensure security object exists
     if (!this.security) {
