@@ -19,6 +19,10 @@ export type SocietyAuthority =
   | 'MDA'
   | 'DHA'
   | 'PHATA'
+  | 'SBCA'
+  | 'GDA'
+  | 'Cantonment_Board'
+  | 'TMA'
   | 'Other';
 
 // ─── Enums ────────────────────────────────────────────────────────────────────
@@ -356,7 +360,7 @@ const SocietyProfileSchema = new Schema<ISocietyProfile>(
     authority: {
       type: String,
       required: true,
-      enum: ['LDA', 'CDA', 'RDA', 'KDA', 'FDA', 'MDA', 'DHA', 'PHATA', 'Other'],
+      enum: ['LDA', 'CDA', 'RDA', 'KDA', 'FDA', 'MDA', 'DHA', 'PHATA', 'SBCA', 'GDA', 'Cantonment_Board', 'TMA', 'Other'],
     },
     nocNumber: { type: String, required: true, trim: true, index: true },
     nocIssuanceDate: { type: Date },

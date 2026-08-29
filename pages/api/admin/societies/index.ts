@@ -123,11 +123,12 @@ const AUTHORITIES = [
   'KDA',
   'FDA',
   'MDA',
-  'GDA',
   'DHA',
   'PHATA',
-  'NHA',
-  'NADRA',
+  'SBCA',
+  'GDA',
+  'Cantonment_Board',
+  'TMA',
   'Other',
 ] as const;
 
@@ -150,6 +151,17 @@ const createSocietySchema = z
     alternateNames: z.array(z.string().trim().max(200)).max(10).optional(),
     category: z.enum(CATEGORIES).default('housing_scheme'),
     description: z.string().trim().max(5000).optional(),
+
+    // Blocks
+    blocks: z
+      .array(
+        z.object({
+          name: z.string().trim().min(1, 'Block name required'),
+          possessionStatus: z.enum(['announced', 'under_development', 'ready']).default('announced'),
+          developmentStatus: z.enum(['undeveloped', 'under_development', 'semi_developed', 'fully_developed']).default('undeveloped'),
+        })
+      )
+      .optional(),
 
     // Location
     city: z.string().trim().min(2, 'City is required').max(100),
@@ -571,6 +583,9 @@ async function handleCreate(
 
     developerName: data.developerName,
     developerWebsite: data.developerWebsite,
+
+        // Blocks
+    blocks: data.blocks ?? [],
 
     totalPlots: data.totalPlots,
     totalPhases: data.totalPhases,

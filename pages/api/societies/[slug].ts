@@ -50,6 +50,11 @@ interface SocietyFullDoc {
   areaName: string;
   fullAddress?: string;
   coordinates?: { type: 'Point'; coordinates: [number, number] };
+  blocks?: Array<{
+    name: string;
+    possessionStatus: 'announced' | 'under_development' | 'ready';
+    developmentStatus: 'undeveloped' | 'under_development' | 'semi_developed' | 'fully_developed';
+  }>;
   nocStatus: string;
   nocNumber?: string;
   nocDate?: Date;
@@ -139,6 +144,17 @@ interface SocietyDetail {
   _id: string;
   name: string;
   slug: string;
+  blocks: Array<{
+    name: string;
+    possessionStatus: 'announced' | 'under_development' | 'ready';
+    developmentStatus: 'undeveloped' | 'under_development' | 'semi_developed' | 'fully_developed';
+  }>;
+  verificationPanel: {
+    verifiedBy: string;
+    source: string;
+    verifiedAt: string | null;
+    legalDisclaimer: string;
+  };
   alternateNames: string[];
   category: string;
   description?: string;
@@ -437,6 +453,13 @@ export default async function handler(
       _id: societyId,
       name: society.name,
       slug: society.slug,
+      blocks: society.blocks || [],
+      verificationPanel: {
+        verifiedBy: society.isVerifiedByHighrise ? 'Highrise.pk Advisory Desk' : 'Unverified / Public Source',
+        source: society.approvalAuthority === 'Other' ? 'Public Land Records' : `${society.approvalAuthority} Legal Database`,
+        verifiedAt: toISO(society.lastVerifiedAt) || null,
+        legalDisclaimer: 'NOC details checked against official public directories on the specified verification date. This information is provided for educational and analytical purposes only. Highrise.pk does not legally guarantee land title, NOC validity, or developer commitments.',
+      },
       alternateNames: society.alternateNames || [],
       category: society.category,
       description: society.description,

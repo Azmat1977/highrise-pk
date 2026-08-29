@@ -26,6 +26,10 @@ export type SocietyAuthority =
   | 'MDA'
   | 'DHA'
   | 'PHATA'
+  | 'SBCA'
+  | 'GDA'
+  | 'Cantonment_Board'
+  | 'TMA'
   | 'Other';
 
 export type SocietyCategory =
@@ -83,6 +87,12 @@ export interface IBlockRate {
   lastUpdated: Date;
 }
 
+export interface IBlockStatus {
+  name: string;
+  possessionStatus: 'announced' | 'under_development' | 'ready';
+  developmentStatus: 'undeveloped' | 'under_development' | 'semi_developed' | 'fully_developed';
+}
+
 export interface IInfrastructureDetails {
   electricity: number;   // 0-100
   gas: number;
@@ -113,6 +123,7 @@ export interface IScores {
 // ─── Main interface ───────────────────────────────────────────────────────────
 
 export interface ISociety extends Document {
+  blocks: IBlockStatus[];
   // ── Identity ───────────────────────────────────────────────────────────────
   name: string;
   slug: string;
@@ -237,6 +248,25 @@ const BlockRateSchema = new Schema<IBlockRate>(
   { _id: false }
 );
 
+const BlockStatusSchema = new Schema<IBlockStatus>(
+  {
+    name: { type: String, required: true, trim: true },
+    possessionStatus: {
+      type: String,
+      required: true,
+      enum: ['announced', 'under_development', 'ready'],
+      default: 'announced',
+    },
+    developmentStatus: {
+      type: String,
+      required: true,
+      enum: ['undeveloped', 'under_development', 'semi_developed', 'fully_developed'],
+      default: 'undeveloped',
+    },
+  },
+  { _id: false }
+);
+
 const ScoresSchema = new Schema<IScores>(
   {
     legal: { type: Number, default: 0, min: 0, max: 100 },
@@ -328,7 +358,7 @@ const SocietySchema = new Schema<ISociety>(
     approvalAuthority: {
       type: String,
       required: true,
-      enum: ['LDA', 'CDA', 'RDA', 'KDA', 'FDA', 'MDA', 'DHA', 'PHATA', 'Other'],
+      enum: ['LDA', 'CDA', 'RDA', 'KDA', 'FDA', 'MDA', 'DHA', 'PHATA', 'SBCA', 'GDA', 'Cantonment_Board', 'TMA', 'Other'],
     },
     developmentAuthority: { type: String, trim: true },
     registrationNo: { type: String, trim: true },
@@ -354,6 +384,7 @@ const SocietySchema = new Schema<ISociety>(
     livabilityDetails: { type: LivabilityDetailsSchema, default: () => ({}) },
 
     // ── Pricing ───────────────────────────────────────────────────────────────
+    blocks: { type: [BlockStatusSchema], default: [] },
     blockRates: { type: [BlockRateSchema], default: [] },
     priceChangeYoY: { type: Number },
     rentalYield: { type: Number },
