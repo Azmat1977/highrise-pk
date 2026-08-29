@@ -33,6 +33,7 @@ import HomeLoanCalculator        from '@/components/project-detail/HomeLoanCalcu
 import SimilarProjectsSection    from '@/components/project-detail/SimilarProjectsSection';
 import ProjectHighlights         from '@/components/project-detail/ProjectHighlights';
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
+import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
 import {
   computeTrustIndex,
   buildPropertyPassport,
@@ -658,6 +659,45 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
           <div className="lg:col-span-2 space-y-8">
 
             {/* ══════════════════════════════════════
+                VERIFICATION PANEL (Fact-Based Regulatory Evidence)
+            ══════════════════════════════════════ */}
+            {project.verificationPanel?.verifiedAt && (
+              <section className="bg-white rounded-2xl border border-[#029bba]/20 shadow-sm p-6 overflow-hidden relative">
+                <div className="absolute top-0 left-0 w-1.5 h-full bg-[#029bba]" />
+                <div className="flex items-start gap-4">
+                  <div className="w-11 h-11 rounded-xl bg-[#029bba]/10 flex items-center justify-center shrink-0">
+                    <Shield className="w-5 h-5 text-[#029bba]" />
+                  </div>
+                  <div className="space-y-1.5">
+                    <h3 className="text-base font-bold text-gray-900 flex items-center gap-1.5">
+                      Verified Legal & Regulatory Status
+                      <span className="px-2 py-0.5 bg-green-100 text-green-700 rounded text-[10px] font-bold uppercase">
+                        NOC Verified
+                      </span>
+                    </h3>
+                    <p className="text-xs text-gray-500 leading-relaxed">
+                      This project was audited by our compliance intelligence team on{' '}
+                      <strong className="text-gray-700">{new Date(project.verificationPanel.verifiedAt).toLocaleDateString()}</strong>.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 py-3 border-y border-gray-100 my-2 text-xs">
+                      <div>
+                        <p className="text-gray-400 font-bold uppercase text-[9px]">Authority Source</p>
+                        <p className="font-bold text-gray-800 mt-0.5">{project.verificationPanel.source || 'Verified Authority Record'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-400 font-bold uppercase text-[9px]">Verified By</p>
+                        <p className="font-bold text-[#029bba] mt-0.5">{project.verificationPanel.verifiedBy || 'Highrise Compliance Team'}</p>
+                      </div>
+                    </div>
+                    <p className="text-[10px] text-amber-700 italic bg-amber-50/50 p-2.5 rounded-lg border border-amber-100 leading-relaxed">
+                      Disclaimer: {project.verificationPanel.legalDisclaimer || 'Verification is based on public notices from statutory bodies and developer-provided submittals. Investors are strongly advised to perform independent physical site and title checkups.'}
+                    </p>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ══════════════════════════════════════
                 HIGHRISE TRUST INDEX (Wave 2)
             ══════════════════════════════════════ */}
             <HighriseTrustIndex
@@ -765,312 +805,21 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
             </section>
 
             {/* ══════════════════════════════════════
-                UNIT TYPES BREAKDOWN (⭐ KEY FEATURE)
+                CHOOSE YOUR SPACE — Highrise Signature (V2.0)
+                Replaces old "Units & Pricing" — smart mixed-use display
             ══════════════════════════════════════ */}
-            {(project.unitTypeBreakdown?.length ?? 0) > 0 && (
-              <Section id="units" title="Units & Pricing" icon={<Layers className="w-5 h-5 text-[#029bba]" />}
-                headerExtra={
-                  <span className="text-sm text-gray-500">{project.unitTypeBreakdown!.length} unit types</span>
-                }>
+            <ChooseYourSpace
+              project={project}
+              onInquire={(unitTypeName) => {
+                setInquiryType('project_interest');
+                setShowInquiry(true);
+                // Optional: pass unit type name to inquiry modal in future
+                void unitTypeName;
+              }}
+            />
 
-                {/* Category tabs — show only if both types exist */}
-                {residentialTypes.length > 0 && commercialTypes.length > 0 && (
-                  <div className="flex gap-2 mb-6 pb-4 border-b border-gray-100">
-                    {[
-                      { key: 'all' as const,         label: 'All Types',    count: project.unitTypeBreakdown!.length },
-                      { key: 'residential' as const,  label: 'Residential',  count: residentialTypes.length },
-                      { key: 'commercial' as const,   label: 'Commercial',   count: commercialTypes.length },
-                    ].map(tab => (
-                      <button key={tab.key}
-                        onClick={() => { setActiveOfferingTab(tab.key); setActiveOfferingIdx(0); }}
-                        className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                          activeOfferingTab === tab.key
-                            ? 'bg-[#029bba] text-white shadow-md'
-                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                        }`}>
-                        {tab.label}
-                        <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
-                          activeOfferingTab === tab.key ? 'bg-white/25 text-white' : 'bg-gray-200 text-gray-500'
-                        }`}>{tab.count}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Unit type selector pills */}
-                {filteredOfferings.length > 1 && (
-                  <div className="flex flex-wrap gap-2 mb-6">
-                    {filteredOfferings.map((ut, idx) => (
-                      <button key={idx} onClick={() => setActiveOfferingIdx(idx)}
-                        className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                          activeOfferingIdx === idx
-                            ? 'bg-gray-900 text-white shadow-md'
-                            : 'bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200'
-                        }`}>
-                        {ut.name || ut.type || 'Unit'}
-                        {(ut.availableUnits ?? 0) > 0 && (
-                          <span className="ml-1.5 text-green-500 text-[10px] font-bold">
-                            {ut.availableUnits} avail
-                          </span>
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                )}
-
-                {/* Active unit detail card */}
-                {filteredOfferings[activeOfferingIdx] && (() => {
-                  const ut = filteredOfferings[activeOfferingIdx];
-                  const minP = ut.priceRange?.min ?? ut.minPrice ?? 0;
-                  const maxP = ut.priceRange?.max ?? ut.maxPrice ?? 0;
-                  const minA = ut.areaRange?.min ?? ut.minArea ?? 0;
-                  const maxA = ut.areaRange?.max ?? ut.maxArea ?? 0;
-                  const aUnit = ut.areaRange?.unit ?? ut.areaUnit ?? 'sqft';
-                  const imgUrl = ut.interiorImages?.[0]?.url ?? ut.image ?? ut.imageUrl ?? null;
-
-                  // Convert areas
-                  const minConverted = minA > 0 ? convertArea(minA, aUnit) : null;
-                  const maxConverted = maxA > 0 ? convertArea(maxA, aUnit) : null;
-
-                  return (
-                    <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
-                      <div className="flex flex-col lg:flex-row">
-                        {/* Image */}
-                        <div className="lg:w-2/5 relative bg-gray-50">
-                          <div className="aspect-[4/3] lg:h-full relative">
-                            {imgUrl ? (
-                              <Image src={imgUrl} alt={ut.name || 'Unit'} fill
-                                className="object-contain bg-gray-50"
-                                sizes="(max-width: 1024px) 100vw, 40vw" />
-                            ) : (
-                              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                                <Building2 className="w-16 h-16 text-gray-200" />
-                              </div>
-                            )}
-                            {/* Category badge */}
-                            <div className="absolute top-3 left-3">
-                              <span className="px-3 py-1.5 bg-white/95 backdrop-blur-sm rounded-lg
-                                               text-xs font-bold text-[#029bba] shadow-sm">
-                                {ut.category === 'commercial' ? '🏪 Commercial' : '🏠 Residential'}
-                              </span>
-                            </div>
-                            {/* Availability badge */}
-                            {ut.availableUnits !== undefined && (
-                              <div className="absolute bottom-3 left-3">
-                                <span className={`px-3 py-1.5 rounded-lg text-xs font-bold shadow-sm ${
-                                  ut.availableUnits > 0 ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                                }`}>
-                                  {ut.availableUnits > 0 ? `${ut.availableUnits} Available` : 'Sold Out'}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Details */}
-                        <div className="lg:w-3/5 p-5 lg:p-6">
-                          {/* Header */}
-                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-5 pb-5 border-b border-gray-100">
-                            <div>
-                              <h3 className="text-xl font-bold text-gray-900">{ut.name ?? ut.type ?? 'Unit Type'}</h3>
-                              {ut.description && (
-                                <p className="text-gray-500 text-sm mt-1 line-clamp-2">{ut.description}</p>
-                              )}
-                            </div>
-                            <div className="text-left sm:text-right flex-shrink-0">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">Price</p>
-                              {(minP > 0 || maxP > 0) ? (
-                                <>
-                                  <p className="text-xl font-black text-[#029bba]">
-                                    PKR {formatDetailPrice(minP)}
-                                  </p>
-                                  {maxP > minP && (
-                                    <p className="text-sm text-gray-500">to {formatDetailPrice(maxP)}</p>
-                                  )}
-                                </>
-                              ) : (
-                                <p className="text-lg font-bold text-gray-400">Contact for Price</p>
-                              )}
-                            </div>
-                          </div>
-
-                          {/* Size Range */}
-                          {minConverted && maxConverted && (
-                            <div className="mb-5">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-3">
-                                Size Range
-                              </p>
-                              <div className="grid grid-cols-2 gap-3">
-                                <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center">
-                                  <p className="text-lg font-bold text-blue-700">
-                                    {minConverted.sqft.toLocaleString()} — {maxConverted.sqft.toLocaleString()}
-                                  </p>
-                                  <p className="text-[10px] text-blue-500 font-bold uppercase">Square Feet</p>
-                                </div>
-                                <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center">
-                                  <p className="text-lg font-bold text-green-700">
-                                    {minConverted.marla} — {maxConverted.marla}
-                                  </p>
-                                  <p className="text-[10px] text-green-500 font-bold uppercase">Marla</p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Beds/Baths */}
-                          {((ut.bedrooms ?? 0) > 0 || (ut.bathrooms ?? 0) > 0) && (
-                            <div className="flex gap-3 mb-5">
-                              {(ut.bedrooms ?? 0) > 0 && (
-                                <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-xl px-4 py-2">
-                                  <Home className="w-4 h-4 text-blue-600" />
-                                  <div>
-                                    <p className="text-lg font-bold text-blue-700">{ut.bedrooms}</p>
-                                    <p className="text-[10px] text-blue-500 uppercase font-bold">Bedrooms</p>
-                                  </div>
-                                </div>
-                              )}
-                              {(ut.bathrooms ?? 0) > 0 && (
-                                <div className="flex items-center gap-2 bg-purple-50 border border-purple-100 rounded-xl px-4 py-2">
-                                  <Droplets className="w-4 h-4 text-purple-600" />
-                                  <div>
-                                    <p className="text-lg font-bold text-purple-700">{ut.bathrooms}</p>
-                                    <p className="text-[10px] text-purple-500 uppercase font-bold">Bathrooms</p>
-                                  </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
-
-                          {/* Inventory stats */}
-                          <div className="grid grid-cols-3 gap-3 mb-5">
-                            {[
-                              { label: 'Total',     value: ut.totalUnits ?? '—',     color: 'text-gray-900' },
-                              { label: 'Available', value: ut.availableUnits ?? '—',  color: 'text-green-600' },
-                              { label: 'Sold',      value: ut.soldUnits ?? '—',       color: 'text-orange-600' },
-                            ].map(s => (
-                              <div key={s.label} className="text-center p-3 bg-gray-50 rounded-xl border border-gray-100">
-                                <p className={`text-lg font-bold ${s.color}`}>{s.value}</p>
-                                <p className="text-[10px] text-gray-500 uppercase font-bold">{s.label}</p>
-                              </div>
-                            ))}
-                          </div>
-
-                          {/* Features */}
-                          {(ut.features?.length ?? 0) > 0 && (
-                            <div className="mb-5">
-                              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-2">Features</p>
-                              <div className="flex flex-wrap gap-1.5">
-                                {ut.features!.slice(0, 6).map((f, i) => (
-                                  <span key={i} className="px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg text-xs font-medium">
-                                    {f}
-                                  </span>
-                                ))}
-                                {ut.features!.length > 6 && (
-                                  <span className="px-2.5 py-1 bg-gray-100 text-gray-400 rounded-lg text-xs">
-                                    +{ut.features!.length - 6} more
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Actions */}
-                          <div className="flex flex-wrap gap-2 pt-4 border-t border-gray-100">
-                            {ut.floorPlanPdfUrl && (
-                              <button onClick={() => downloadFile(ut.floorPlanPdfUrl!, `${ut.name || 'floor-plan'}.pdf`)}
-                                className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100
-                                           hover:bg-gray-200 rounded-xl text-sm font-medium text-gray-700 transition-colors">
-                                <Download className="w-4 h-4" />Floor Plan
-                              </button>
-                            )}
-                            <button onClick={() => { setInquiryType('project_interest'); setShowInquiry(true); }}
-                              className="inline-flex items-center gap-2 px-4 py-2 bg-[#029bba] hover:bg-[#027a94]
-                                         text-white rounded-xl text-sm font-medium transition-colors">
-                              <MessageCircle className="w-4 h-4" />Inquire About This Unit
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
-
-                {/* Summary bar */}
-                {(project.unitTypeBreakdown?.length ?? 0) > 1 && (
-                  <div className="mt-6 p-4 bg-gradient-to-r from-gray-50 to-white rounded-xl border border-gray-200">
-                    <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-3">
-                      {activeOfferingTab === 'commercial' ? 'Commercial' : activeOfferingTab === 'residential' ? 'Residential' : 'Project'} Summary
-                    </p>
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div>
-                        <p className="text-gray-500 text-xs">Total Units</p>
-                        <p className="font-bold text-gray-900">
-                          {filteredOfferings.reduce((sum, ut) => sum + (ut.totalUnits ?? 0), 0)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 text-xs">Price Range</p>
-                        <p className="font-bold text-[#029bba] text-sm">
-                          {formatDetailPrice(overallMinPrice || 0)} — {formatDetailPrice(overallMaxPrice || 0)}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 text-xs">Size Range</p>
-                        <p className="font-bold text-gray-900 text-sm">
-                          {minAreaSqft > 0 ? `${minAreaSqft.toLocaleString()} — ${maxAreaSqft.toLocaleString()} sqft` : '—'}
-                        </p>
-                      </div>
-                      <div>
-                        <p className="text-gray-500 text-xs">Sale Mode</p>
-                        <p className="font-bold text-gray-900">{project.saleMode || 'Contact'}</p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Other unit type quick cards */}
-                {filteredOfferings.length > 1 && (
-                  <div className="mt-6 pt-6 border-t border-gray-100">
-                    <p className="text-xs text-gray-400 uppercase font-bold tracking-wider mb-4">
-                      All {activeOfferingTab !== 'all' ? activeOfferingTab : ''} Unit Types
-                    </p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                      {filteredOfferings.map((ut, idx) => {
-                        if (idx === activeOfferingIdx) return null;
-                        const p = ut.priceRange?.min ?? ut.minPrice ?? 0;
-                        const minA2 = ut.areaRange?.min ?? ut.minArea ?? 0;
-                        const maxA2 = ut.areaRange?.max ?? ut.maxArea ?? 0;
-                        return (
-                          <button key={idx} onClick={() => setActiveOfferingIdx(idx)}
-                            className="w-full text-left bg-gray-50 hover:bg-white border border-gray-200
-                                       hover:border-[#029bba]/30 rounded-xl p-4 transition-all group">
-                            <div className="flex items-start justify-between">
-                              <div>
-                                <h4 className="font-bold text-gray-900 group-hover:text-[#029bba] transition-colors text-sm">
-                                  {ut.name ?? ut.type ?? 'Unit'}
-                                </h4>
-                                <p className="text-sm font-semibold text-[#029bba] mt-1">
-                                  {p > 0 ? `PKR ${formatDetailPrice(p)}` : 'Contact'}
-                                </p>
-                                {minA2 > 0 && maxA2 > 0 && (
-                                  <p className="text-xs text-gray-500 mt-0.5">
-                                    {minA2.toLocaleString()} — {maxA2.toLocaleString()} sqft
-                                  </p>
-                                )}
-                                <p className="text-xs text-gray-400 mt-0.5">
-                                  {(ut.availableUnits ?? 0) > 0 ? `${ut.availableUnits} available` : 'Limited stock'}
-                                </p>
-                              </div>
-                              <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] transition-colors mt-1" />
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </Section>
-            )}
+            {/* Legacy "Units & Pricing" section completely removed.
+                Replaced by <ChooseYourSpace /> above (Highrise V2.0). */}
 
             {/* About section extracted to ProjectAbout.tsx (Wave 5B) */}
 
@@ -1162,11 +911,16 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
                         )}
                         {(upd.images?.length ?? 0) > 0 && (
                           <div className="flex flex-wrap gap-2">
-                            {upd.images!.map((img, imgIdx) => (
-                              <div key={imgIdx} className="relative w-28 h-20 rounded-lg overflow-hidden border border-gray-200">
-                                <Image src={img} alt={`Update photo ${imgIdx + 1}`} fill className="object-cover" sizes="112px" />
-                              </div>
-                            ))}
+                            {upd.images!.map((img, imgIdx) => {
+                              // Handle both string URLs (legacy) and object format {url, publicId, caption}
+                              const imgUrl = typeof img === 'string' ? img : (img as { url?: string })?.url;
+                              if (!imgUrl) return null;
+                              return (
+                                <div key={imgIdx} className="relative w-28 h-20 rounded-lg overflow-hidden border border-gray-200">
+                                  <Image src={imgUrl} alt={`Update photo ${imgIdx + 1}`} fill className="object-cover" sizes="112px" />
+                                </div>
+                              );
+                            })}
                           </div>
                         )}
                         {((upd.progress ?? upd.progressPercent ?? 0) > 0) && (
@@ -1439,7 +1193,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
                           <td className="px-6 py-4 text-gray-600 text-sm capitalize">{unit.unitType?.replace(/_/g, ' ')}</td>
                           <td className="px-6 py-4 text-gray-600 text-sm">{unit.floorName || `Floor ${unit.floorNumber}`}</td>
                           <td className="px-6 py-4 text-gray-600 text-sm">
-                            {unit.areaSqft ? `${unit.areaSqft} sqft` : unit.areaMarla ? `${unit.areaMarla} Marla` : '—'}
+                            {unit.area ? `${unit.area} ${unit.areaUnit || 'Sq.Ft'}` : '—'}
                           </td>
                           <td className="px-6 py-4 font-semibold text-[#029bba] text-sm">{formatDetailPrice(unit.price)}</td>
                           <td className="px-6 py-4 text-right">
@@ -1688,30 +1442,6 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
       {/* ══════════════════════════════════════
           FAQ SECTION
       ══════════════════════════════════════ */}
-
-      {/* ══════════════════════════════════════
-          SIMILAR PROJECTS (4 Categories)
-      ══════════════════════════════════════ */}
-      <SimilarProjectsSection
-        currentProjectId={project._id}
-        currentCity={project.city}
-        currentCategory={project.projectCategory}
-        currentMinPrice={overallMinPrice}
-        currentMaxPrice={overallMaxPrice}
-      />
-
-      {/* ══════════════════════════════════════
-          HOME LOAN CALCULATOR
-      ══════════════════════════════════════ */}
-      <HomeLoanCalculator
-        propertyPrice={overallMinPrice || project.minPrice || 0}
-        projectName={project.projectName}
-        projectSlug={project.slug}
-      />
-
-      {/* ══════════════════════════════════════
-          FAQ SECTION
-      ══════════════════════════════════════ */}
       <FAQSection
         projectName={project.projectName}
         city={project.city}
@@ -1834,7 +1564,7 @@ export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
     // Fetch units
     const projectId = rawDoc._id as import('mongoose').Types.ObjectId;
     const rawUnits = await Unit.find({
-      project: projectId,
+      projectId: projectId,
       status: { $ne: 'cancelled' },
     })
       .select('unitNumber floorNumber floorName unitType price areaSqft areaMarla status bedrooms bathrooms listingType facing')
