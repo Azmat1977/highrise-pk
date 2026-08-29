@@ -1,5 +1,6 @@
-// components/aria/AriaWidget.tsx
-// Highrise.pk — Aria AI floating chat widget
+// components/aleem/AleemWidget.tsx
+// Highrise.pk — ALEEM AI floating chat widget
+// V7.3.0 — STAGE 0.3: Added Proactive Engagement Nudge (dwell + scroll trigger)
 // Floating bottom-right bubble with expand/minimize/close
 // Context-aware: knows which page user is on
 // NO framer-motion | NO external libs | NO axios
@@ -7,6 +8,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import type { IAriaContext } from '@/models/Conversation';
 import AleemChat from './AleemChat';
+import AleemNudge from './AleemNudge';
+import useProactiveNudge from '@/hooks/useProactiveNudge';
 import { MessageCircle, X, Bot, ChevronDown } from 'lucide-react';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -58,7 +61,28 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
     setMounted(true);
   }, []);
 
-  // No timed popup. The hint appears on hover or keyboard focus only.
+  // Build full context (merge prop context with defaults)
+  const fullContext: IAriaContext = {
+    type: 'general',
+    ...context,
+  };
+
+  // Proactive nudge: only eligible when we're on a high-intent page
+  // AND the widget hasn't been opened yet
+  const isHighIntentPage =
+    fullContext.type === 'property' ||
+    fullContext.type === 'project' ||
+    fullContext.type === 'society';
+
+  const nudgeEligible = mounted && Boolean(sessionId) && isHighIntentPage && widgetState === 'bubble';
+
+  const { shouldShow: showNudge, dismiss: dismissNudge, markShown } = useProactiveNudge({
+    eligible: nudgeEligible,
+  });
+
+  useEffect(() => {
+    if (showNudge) markShown();
+  }, [showNudge, markShown]);
 
   const handleOpen = useCallback(() => {
     setWidgetState('open');
@@ -73,17 +97,29 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
     setWidgetState('bubble');
   }, []);
 
-  // Build full context (merge prop context with defaults)
-  const fullContext: IAriaContext = {
-    type: 'general',
-    ...context,
-  };
+  const handleNudgeOpen = useCallback(() => {
+    dismissNudge();
+    setWidgetState('open');
+    setIsHovered(false);
+  }, [dismissNudge]);
+
+  const handleNudgeDismiss = useCallback(() => {
+    dismissNudge();
+  }, [dismissNudge]);
 
   // Don't render until hydrated
   if (!mounted || !sessionId) return null;
 
   // ── Hidden state ──────────────────────────────────────────────────────────
   if (widgetState === 'hidden') return null;
+
+  const canShowNudge =
+    showNudge &&
+    widgetState === 'bubble' &&
+    isHighIntentPage &&
+    (fullContext.type === 'property' ||
+      fullContext.type === 'project' ||
+      fullContext.type === 'society');
 
   return (
     <>
@@ -121,12 +157,23 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
       {/* ── Floating bubble (default state) ── */}
       {widgetState === 'bubble' && (
         <div
-          className="fixed bottom-6 right-6 z-[200] flex flex-col items-end gap-2"
+          className="fixed bottom-6 right-6 z-[200] flex flex-col items-end gap-3"
           onMouseEnter={() => setIsHovered(true)}
           onMouseLeave={() => setIsHovered(false)}
         >
+          {/* Proactive Nudge (Stage 0.3) */}
+          {canShowNudge && (fullContext.type === 'property' || fullContext.type === 'project' || fullContext.type === 'society') && (
+            <AleemNudge
+              contextType={fullContext.type}
+              contextTitle={fullContext.title}
+              sessionId={sessionId}
+              onOpen={handleNudgeOpen}
+              onDismiss={handleNudgeDismiss}
+            />
+          )}
+
           {/* Hint on hover / keyboard focus only */}
-          {isHovered && (
+          {isHovered && !canShowNudge && (
             <div className="flex items-start gap-2 max-w-[240px]">
               <div className="bg-white border border-gray-200 rounded-2xl rounded-br-sm px-4 py-2.5 shadow-lg text-sm text-[#004063] leading-snug font-semibold whitespace-nowrap">
                 {getHoverHint(fullContext)}
@@ -160,19 +207,4 @@ export default function AriaWidget({ context }: AriaWidgetProps): React.ReactEle
       )}
     </>
   );
-}
-
-// ─── Context hint generator ───────────────────────────────────────────────────
-
-function getContextHint(context: IAriaContext): string {
-  if (context.type === 'property' && context.title) {
-    return `💬 Iss property ke baray mein pochein — "${context.title.slice(0, 30)}${context.title.length > 30 ? '…' : ''}"`;
-  }
-  if (context.type === 'society' && context.title) {
-    return `🏘️ ${context.title} — NOC, prices, risks — sab batao`;
-  }
-  if (context.type === 'project' && context.title) {
-    return `🏗️ ${context.title} ke baray mein koi sawal?`;
-  }
-  return '👋 Assalam-u-Alaikum! Property mein madad chahiye?';
 }

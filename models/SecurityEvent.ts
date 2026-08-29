@@ -121,6 +121,11 @@ export const SECURITY_EVENT_TYPES = [
   "aleem_feedback_bot_blocked",
   "aleem_feedback_error",
 
+  // ALEEM Proactive Engagement (Stage 0.3)
+  "aleem_nudge_triggered",
+  "aleem_nudge_clicked",
+  "aleem_nudge_dismissed",
+
   // Observability / client monitoring
   "client_error",
   "client_boundary_error",
