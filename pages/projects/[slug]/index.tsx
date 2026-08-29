@@ -24,21 +24,14 @@ import {
 } from 'lucide-react';
 import ProjectDetailHero   from '@/components/project-detail/ProjectDetailHero';
 import QuickActionsBar     from '@/components/project-detail/QuickActionsBar';
-import HighriseTrustIndex      from '@/components/project-detail/HighriseTrustIndex';
-import PropertyPassport        from '@/components/project-detail/PropertyPassport';
 import DeveloperTrustCard      from '@/components/project-detail/DeveloperTrustCard';
-import AIRiskSummarySection    from '@/components/project-detail/AIRiskSummarySection';
 import FAQSection                from '@/components/project-detail/FAQSection';
 import HomeLoanCalculator        from '@/components/project-detail/HomeLoanCalculator';
 import SimilarProjectsSection    from '@/components/project-detail/SimilarProjectsSection';
 import ProjectHighlights         from '@/components/project-detail/ProjectHighlights';
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
-import {
-  computeTrustIndex,
-  buildPropertyPassport,
-  generateAIRiskSummary,
-} from '@/lib/trustIndexCalculator';
+// Trust calculator imports removed — Trust Index, Passport, and AI Risk sections removed per client request
 import type {
   ProjectDetailData,
   InquiryType,
@@ -275,11 +268,8 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
   const areaDisplay = project.areaName || project.area || '';
   const developerName = project.developerProfile?.companyName || project.developerProfile?.name || '';
   const allImages = Array.isArray(project.images) ? project.images : [];
-    // ── Trust Intelligence (computed once, pure functions) ──
+    // ── Cast for component props ──
   const projectAsDetail = project as unknown as ProjectDetailData;
-  const trustIndex = computeTrustIndex(projectAsDetail);
-  const passport = buildPropertyPassport(projectAsDetail);
-  const aiRiskSummary = generateAIRiskSummary(projectAsDetail, trustIndex);
   const primaryImage = project.featureImageUrl || allImages.find(i => i.isPrimary)?.url || allImages[0]?.url || '';
   const totalPhotos = allImages.length;
   const primaryVideoUrl = project.droneVideoUrl || project.videos?.[0]?.url || '';
@@ -696,30 +686,6 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
                 </div>
               </section>
             )}
-
-            {/* ══════════════════════════════════════
-                HIGHRISE TRUST INDEX (Wave 2)
-            ══════════════════════════════════════ */}
-            <HighriseTrustIndex
-              trustIndex={trustIndex}
-              aiRiskSummary={aiRiskSummary}
-              projectName={project.projectName}
-            />
-
-            {/* ══════════════════════════════════════
-                PROPERTY PASSPORT (Wave 2)
-            ══════════════════════════════════════ */}
-            <PropertyPassport
-              passport={passport}
-            />
-
-            {/* ══════════════════════════════════════
-                AI RISK SUMMARY (Wave 3)
-            ══════════════════════════════════════ */}
-            <AIRiskSummarySection
-              aiRiskSummary={aiRiskSummary}
-              projectName={project.projectName}
-            />
 
             {/* ══════════════════════════════════════
                 DEVELOPER TRUST CARD (Wave 3)
@@ -1319,84 +1285,6 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
                 </div>
               </div>
 
-              {/* Trust Index Sidebar — Wave 2 will be full component */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <Shield className="w-4 h-4 text-[#029bba]" />
-                    <h3 className="font-bold text-gray-900 text-sm">Trust Index</h3>
-                  </div>
-                  <span className={`text-xs font-black px-2 py-0.5 rounded-full
-                    ${trustIndex.gradeBg} ${trustIndex.gradeColor}`}>
-                    {trustIndex.grade}
-                  </span>
-                </div>
-
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="text-xs text-gray-500">Overall</span>
-                    <span className="text-lg font-black text-gray-900">
-                      {trustIndex.overall}
-                      <span className="text-xs text-gray-400 font-normal">/100</span>
-                    </span>
-                  </div>
-                  <div className="h-2.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-gradient-to-r from-[#029bba] to-[#017a94]"
-                      style={{ width: `${trustIndex.overall}%` }}
-                    />
-                  </div>
-                  <p className="text-[10px] text-gray-400 mt-1">
-                    {trustIndex.vsAverage >= 0
-                      ? `↑ ${trustIndex.vsAverage} pts above average`
-                      : `↓ ${Math.abs(trustIndex.vsAverage)} pts below average`}
-                  </p>
-                </div>
-
-                <div className="space-y-2 mb-4">
-                  {trustIndex.subScores.slice(0, 4).map(ss => (
-                    <div key={ss.key}>
-                      <div className="flex items-center justify-between mb-0.5">
-                        <span className="text-[10px] text-gray-500">{ss.label}</span>
-                        <span className={`text-[10px] font-bold ${ss.color}`}>
-                          {ss.score}/{ss.maxScore}
-                        </span>
-                      </div>
-                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            ss.percentage >= 80 ? 'bg-emerald-500' :
-                            ss.percentage >= 60 ? 'bg-[#029bba]' :
-                            ss.percentage >= 40 ? 'bg-amber-500' : 'bg-red-400'
-                          }`}
-                          style={{ width: `${ss.percentage}%` }}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <div className={`flex items-center justify-between p-2 rounded-xl
-                  ${aiRiskSummary.riskBg} border ${aiRiskSummary.riskBorder} mb-3`}>
-                  <span className="text-xs text-gray-600">Risk</span>
-                  <span className={`text-xs font-bold ${aiRiskSummary.riskColor}`}>
-                    {aiRiskSummary.riskLabel}
-                  </span>
-                </div>
-
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-[9px] text-gray-400 uppercase tracking-wider font-bold mb-1">
-                    Property Passport
-                  </p>
-                  <p className="text-[10px] font-mono font-bold text-[#004063]">
-                    {passport.passportId}
-                  </p>
-                  <p className={`text-[9px] font-semibold mt-0.5 ${passport.statusColor}`}>
-                    {passport.statusLabel}
-                  </p>
-                </div>
-               </div>
-
               {/* Safety note */}
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                 <div className="flex gap-3">
@@ -1452,9 +1340,6 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
         developerName={developerName}
         approvalAuthority={project.approvalAuthority}
         nocStatus={project.nocStatus}
-        trustScore={trustIndex.overall}
-        trustGrade={trustIndex.grade}
-        passportId={passport.passportId}
       />
 
       {/* ══════════════════════════════════════

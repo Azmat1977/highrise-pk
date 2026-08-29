@@ -1,7 +1,7 @@
 // components/project-detail/ChooseYourSpace.tsx
 // ═══════════════════════════════════════════════════════════════
-// CHOOSE YOUR SPACE — Highrise.pk Signature Section V3.0
-// Elegant ROW-based design with brand gradient
+// CHOOSE YOUR SPACE — Highrise.pk Signature Section V3.1
+// Elegant ROW-based design with brand gradient — FIXED LAYOUT
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo } from 'react';
@@ -137,7 +137,7 @@ function VerificationBadge({ project }: { project: ProjectDetailData }): React.R
   return (
     <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/15 backdrop-blur-md rounded-full border border-white/30 shadow-lg">
       <BadgeCheck className="w-4 h-4 text-white" strokeWidth={2.5} />
-      <span className="text-[11px] font-black text-white uppercase tracking-wider">
+      <span className="text-[11px] font-black text-white uppercase tracking-wider whitespace-nowrap">
         Highrise Verified
       </span>
     </div>
@@ -159,7 +159,8 @@ function ProjectIdChip({ project }: { project: ProjectDetailData }): React.React
 }
 
 /**
- * Unit Type ROW — Elegant horizontal card with brand accent
+ * Unit Type ROW — Beautifully aligned with proper spacing
+ * Grid-based layout for consistent column widths
  */
 function UnitTypeRow({
   ut,
@@ -175,7 +176,6 @@ function UnitTypeRow({
   const unitName = ut.name ?? ut.type ?? 'Unit Type';
 
   const available = ut.availableUnits ?? 0;
-  const sold = ut.soldUnits ?? 0;
   const total = ut.totalUnits ?? 0;
 
   const extendedUt = ut as unknown as {
@@ -187,35 +187,32 @@ function UnitTypeRow({
   return (
     <div className="group relative bg-white rounded-2xl border border-gray-200 hover:border-[#029bba]/40 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
       {/* Left accent bar with brand gradient */}
-      <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-[#029bba] to-[#004063]" />
+      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#029bba] to-[#004063]" />
 
       <div className="p-5 pl-6">
         {/* ══════════════════════════════════════════
-            ROW LAYOUT: Icon | Info | Price | Size | Beds/Baths | CTA
+            DESKTOP: 12-column grid | MOBILE: stacked
         ══════════════════════════════════════════ */}
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-center">
 
-          {/* ── Column 1: Category Icon + Name ── */}
-          <div className="flex items-center gap-3 lg:w-56 shrink-0">
+          {/* ── Column 1: Category Icon + Name (3 cols) ── */}
+          <div className="flex items-center gap-3 lg:col-span-3 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center shrink-0 shadow-md shadow-[#029bba]/20">
               <CategoryIcon className="w-6 h-6 text-white" />
             </div>
-            <div className="min-w-0">
-              <h3 className="text-base font-bold text-gray-900 truncate leading-tight">
+            <div className="min-w-0 flex-1">
+              <h3 className="text-base font-bold text-gray-900 leading-tight" title={unitName}>
                 {unitName}
               </h3>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mt-0.5">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mt-1">
                 {category === 'hotel' ? 'Hotel Suite' : category}
               </p>
             </div>
           </div>
 
-          {/* ── Divider ── */}
-          <div className="hidden lg:block w-px h-14 bg-gray-200" />
-
-          {/* ── Column 2: Price Range ── */}
-          <div className="lg:flex-1 min-w-0">
-            <div className="flex items-center justify-between lg:justify-start gap-2 mb-1">
+          {/* ── Column 2: Price Range (3 cols) ── */}
+          <div className="lg:col-span-3 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
+            <div className="flex items-center gap-2 mb-1.5">
               <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
                 Price Range
               </p>
@@ -231,13 +228,13 @@ function UnitTypeRow({
             </div>
             {minPrice > 0 || maxPrice > 0 ? (
               <div className="flex items-baseline gap-1.5 flex-wrap">
-                <span className="text-lg font-black bg-gradient-to-r from-[#029bba] to-[#004063] bg-clip-text text-transparent">
+                <span className="text-lg font-black bg-gradient-to-r from-[#029bba] to-[#004063] bg-clip-text text-transparent whitespace-nowrap">
                   {formatDetailPrice(minPrice)}
                 </span>
                 {maxPrice > minPrice && (
                   <>
-                    <span className="text-gray-400 text-xs">to</span>
-                    <span className="text-base font-bold text-gray-700">
+                    <span className="text-gray-400 text-xs">—</span>
+                    <span className="text-sm font-bold text-gray-700 whitespace-nowrap">
                       {formatDetailPrice(maxPrice)}
                     </span>
                   </>
@@ -248,112 +245,127 @@ function UnitTypeRow({
             )}
           </div>
 
-          {/* ── Divider ── */}
-          <div className="hidden lg:block w-px h-14 bg-gray-200" />
-
-          {/* ── Column 3: Size ── */}
-          {sizePrimary !== '—' && (
-            <>
-              <div className="lg:w-48 shrink-0">
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">
-                  Size Range
-                </p>
-                <div className="flex items-center gap-1.5">
-                  <Ruler className="w-3.5 h-3.5 text-[#029bba] shrink-0" />
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-gray-900 leading-tight">
-                      {sizePrimary}
+          {/* ── Column 3: Size Range (2 cols) ── */}
+          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
+            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1.5">
+              Size Range
+            </p>
+            {sizePrimary !== '—' ? (
+              <div className="flex items-start gap-1.5">
+                <Ruler className="w-3.5 h-3.5 text-[#029bba] shrink-0 mt-0.5" />
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-gray-900 leading-tight whitespace-nowrap">
+                    {sizePrimary}
+                  </p>
+                  {sizeSecondary && (
+                    <p className="text-[10px] text-gray-500 mt-0.5 whitespace-nowrap">
+                      {sizeSecondary}
                     </p>
-                    {sizeSecondary && (
-                      <p className="text-[10px] text-gray-500 mt-0.5">{sizeSecondary}</p>
-                    )}
+                  )}
+                </div>
+              </div>
+            ) : (
+              <span className="text-sm text-gray-400">—</span>
+            )}
+          </div>
+
+          {/* ── Column 4: Layout (Beds/Baths) (2 cols) ── */}
+          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
+            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1.5">
+              Layout
+            </p>
+            {((ut.bedrooms ?? 0) > 0 || (ut.bathrooms ?? 0) > 0) ? (
+              <div className="flex flex-wrap gap-1.5">
+                {(ut.bedrooms ?? 0) > 0 && (
+                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20">
+                    <Bed className="w-3 h-3 text-[#029bba]" />
+                    <span className="text-xs font-black text-[#004063]">
+                      {ut.bedrooms} {(ut.bedrooms ?? 0) === 1 ? 'Bed' : 'Beds'}
+                    </span>
                   </div>
-                </div>
+                )}
+                {(ut.bathrooms ?? 0) > 0 && (
+                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20">
+                    <Bath className="w-3 h-3 text-[#029bba]" />
+                    <span className="text-xs font-black text-[#004063]">
+                      {ut.bathrooms} {(ut.bathrooms ?? 0) === 1 ? 'Bath' : 'Baths'}
+                    </span>
+                  </div>
+                )}
               </div>
+            ) : (
+              <span className="text-sm text-gray-400">—</span>
+            )}
+          </div>
 
-              <div className="hidden lg:block w-px h-14 bg-gray-200" />
-            </>
-          )}
+          {/* ── Column 5: Availability Status (2 cols) ── */}
+          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
+            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1.5">
+              Availability
+            </p>
+            <div className="space-y-1.5">
+              {available > 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full text-[10px] font-black text-green-700 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  {available} Available
+                </span>
+              ) : total > 0 ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-full text-[10px] font-black text-red-700 whitespace-nowrap">
+                  Sold Out
+                </span>
+              ) : (
+                <span className="text-xs text-gray-400">—</span>
+              )}
 
-          {/* ── Column 4: Beds/Baths ── */}
-          {((ut.bedrooms ?? 0) > 0 || (ut.bathrooms ?? 0) > 0) && (
-            <>
-              <div className="lg:w-28 shrink-0">
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">
-                  Layout
-                </p>
-                <div className="flex gap-2">
-                  {(ut.bedrooms ?? 0) > 0 && (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20">
-                      <Bed className="w-3 h-3 text-[#029bba]" />
-                      <span className="text-xs font-black text-[#004063]">
-                        {ut.bedrooms}
-                      </span>
-                    </div>
-                  )}
-                  {(ut.bathrooms ?? 0) > 0 && (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20">
-                      <Bath className="w-3 h-3 text-[#029bba]" />
-                      <span className="text-xs font-black text-[#004063]">
-                        {ut.bathrooms}
-                      </span>
-                    </div>
-                  )}
-                </div>
+              {/* Investment signals — compact chips */}
+              <div className="flex flex-wrap gap-1">
+                {extendedUt.avgRentalYield && extendedUt.avgRentalYield > 0 && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#029bba]/10 border border-[#029bba]/20 rounded text-[9px] font-black text-[#029bba]"
+                    title={`Rental Yield: ${extendedUt.avgRentalYield.toFixed(1)}%`}
+                  >
+                    <TrendingUp className="w-2 h-2" />
+                    {extendedUt.avgRentalYield.toFixed(1)}%
+                  </span>
+                )}
+                {extendedUt.isFastSelling && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-[9px] font-black text-amber-700"
+                    title="Selling Fast"
+                  >
+                    <Zap className="w-2 h-2" />
+                    Fast
+                  </span>
+                )}
+                {extendedUt.hotDealsCount && extendedUt.hotDealsCount > 0 && (
+                  <span
+                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-50 border border-red-200 rounded text-[9px] font-black text-red-700"
+                    title={`${extendedUt.hotDealsCount} Hot Deals`}
+                  >
+                    <Flame className="w-2 h-2" />
+                    Deal
+                  </span>
+                )}
               </div>
-
-              <div className="hidden lg:block w-px h-14 bg-gray-200" />
-            </>
-          )}
-
-          {/* ── Column 5: Availability + Signals ── */}
-          <div className="lg:w-40 shrink-0 space-y-1.5">
-            {/* Inventory status */}
-            {available > 0 ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full text-[10px] font-black text-green-700">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                {available} Available
-              </span>
-            ) : total > 0 ? (
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-full text-[10px] font-black text-red-700">
-                Sold Out
-              </span>
-            ) : null}
-
-            {/* Investment signals */}
-            <div className="flex flex-wrap gap-1">
-              {extendedUt.avgRentalYield && extendedUt.avgRentalYield > 0 && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#029bba]/10 border border-[#029bba]/20 rounded text-[9px] font-black text-[#029bba]">
-                  <TrendingUp className="w-2 h-2" />
-                  {extendedUt.avgRentalYield.toFixed(1)}%
-                </span>
-              )}
-              {extendedUt.isFastSelling && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-[9px] font-black text-amber-700">
-                  <Zap className="w-2 h-2" />
-                  Hot
-                </span>
-              )}
-              {extendedUt.hotDealsCount && extendedUt.hotDealsCount > 0 && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-50 border border-red-200 rounded text-[9px] font-black text-red-700">
-                  <Flame className="w-2 h-2" />
-                  Deal
-                </span>
-              )}
             </div>
           </div>
 
-          {/* ── Column 6: CTA Button ── */}
-          <div className="lg:w-auto shrink-0">
-            <button
-              onClick={() => onInquire(unitName)}
-              className="w-full lg:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#02a8c9] hover:to-[#00507a] text-white font-bold text-sm rounded-xl shadow-md shadow-[#029bba]/20 hover:shadow-lg hover:shadow-[#029bba]/30 transition-all duration-200 group/btn whitespace-nowrap"
-            >
-              <span>Inquire</span>
-              <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-            </button>
-          </div>
+        </div>
 
+        {/* ══════════════════════════════════════════
+            BOTTOM CTA BAR — Full width, subtle separator
+        ══════════════════════════════════════════ */}
+        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
+          <p className="text-[11px] text-gray-500 hidden sm:block">
+            Get detailed information, floor plans, and payment options
+          </p>
+          <button
+            onClick={() => onInquire(unitName)}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#02a8c9] hover:to-[#00507a] text-white font-bold text-sm rounded-xl shadow-md shadow-[#029bba]/20 hover:shadow-lg hover:shadow-[#029bba]/30 transition-all duration-200 group/btn whitespace-nowrap ml-auto"
+          >
+            <span>Inquire About {unitName}</span>
+            <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
+          </button>
         </div>
       </div>
     </div>
@@ -497,8 +509,8 @@ export default function ChooseYourSpace({
             {stats.availableUnits > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 backdrop-blur-md rounded-full border border-green-300/30">
                 <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" />
-                <span className="text-[11px] font-black text-white">
-                  {stats.availableUnits} unit{stats.availableUnits > 1 ? 's' : ''} available now
+                <span className="text-[11px] font-black text-white whitespace-nowrap">
+                  {stats.availableUnits} unit{stats.availableUnits > 1 ? 's' : ''} available
                 </span>
               </div>
             )}
