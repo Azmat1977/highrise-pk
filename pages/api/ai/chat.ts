@@ -1,4 +1,5 @@
 // pages/api/ai/chat.ts
+// Highrise.pk — ALEEM Chat Router with Language Preference Injection
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import crypto from 'crypto';
@@ -35,6 +36,7 @@ import {
   buildMatchesReply,
   buildNoMatchesReply,
   buildLanguageDirective,
+  ReplyLang,
 } from '@/lib/aleem/searchReplies';
 import {
   detectSafetyTopics,
@@ -219,6 +221,7 @@ export default async function handler(
       context: rawContext,
       sessionId: rawSessionId,
       honeypot: rawHoneypot,
+      localePreference,
     } = req.body;
 
     if (!checkHoneypot(rawHoneypot ?? '')) {
@@ -293,6 +296,12 @@ export default async function handler(
     const newProfile = newlyAdded.length > 0 ? foundProfile : undefined;
     const pageContext = parseAleemContext(rawContext);
 
+    // Dynamic language detection (RTL Nastaliq support)
+    const clientPref: ReplyLang | null =
+      localePreference === 'ur' ? 'urdu' : localePreference === 'en' ? 'english' : null;
+
+    const detectedLang = clientPref || detectReplyLang(message, history.map((h) => h.content));
+
     // GROUNDED PROPERTY SEARCH
     const searchSlots = await extractSearchSlots(message, history);
 
@@ -316,7 +325,7 @@ export default async function handler(
           });
 
           const matchesReply = buildMatchesReply(
-            detectReplyLang(message, history.map((h) => h.content)),
+            detectedLang,
             matchCount,
             searchResult.matches,
             searchSlots.listingType === 'rent',
@@ -361,7 +370,7 @@ export default async function handler(
         });
 
         const noMatchReply = buildNoMatchesReply(
-          detectReplyLang(message, history.map((h) => h.content)),
+          detectedLang,
           searchSlots.listingType === 'rent',
           searchSlots.location,
           searchSlots.unavailableLocation,
@@ -433,14 +442,14 @@ export default async function handler(
           success: true,
           messageId: makeMessageId(),
           response: leadResult.success
-            ? (detectReplyLang(message) === 'english'
+            ? (detectedLang === 'english'
               ? 'Done - our team will get in touch about those listings.'
               : 'Theek hai, hamari team un listings ke baare mein aap se raabta karegi.')
             : (leadResult.code === 'PHONE_NOT_VERIFIED'
-              ? (detectReplyLang(message) === 'english'
+              ? (detectedLang === 'english'
                 ? 'Please verify your phone number first, then I can arrange the callback.'
                 : 'Pehle apna phone number verify kar lein, phir main callback arrange kar dunga.')
-              : (detectReplyLang(message) === 'english'
+              : (detectedLang === 'english'
                 ? 'Those listings are no longer available. Shall we search again?'
                 : 'Woh listings ab available nahi hain. Dobara search karein?')),
           lead: leadResult.success ? { id: leadResult.leadId, listingCount: leadResult.listingCount } : null,
@@ -531,9 +540,7 @@ export default async function handler(
     }));
 
     const profileNudge = buildProfileNudge(missingFields(fullProfile), turnCount);
-    const languageDirective = buildLanguageDirective(
-      detectReplyLang(message, history.map((h) => h.content)),
-    );
+    const languageDirective = buildLanguageDirective(detectedLang);
     const knowledgeDirective = buildKnowledgeDirective(detectKnowledgeTopics(message));
     const safetyDirective = buildSafetyDirective(detectSafetyTopics(message));
 

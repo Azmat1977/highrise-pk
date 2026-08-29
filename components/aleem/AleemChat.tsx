@@ -1,6 +1,6 @@
 // components/aleem/AleemChat.tsx
 // Highrise.pk — Aleem AI chat interface
-// V7.2.0 — STAGE 0.2: Added Session Reset Action (RotateCcw Header Button & Confirmation Modal)
+// V7.4.0 — STAGE 0.4: Added Urdu script auto-detection, dynamic directionality (RTL/LTR), Nastaliq font stacks, and Language toggles in header
 
 import React, {
   useState,
@@ -30,6 +30,7 @@ import {
   MapPin,
   RotateCcw,
   AlertCircle,
+  Languages,
 } from 'lucide-react';
 import { useSession } from 'next-auth/react';
 import FeedbackButtons from './FeedbackButtons';
@@ -59,6 +60,7 @@ interface AssignedAgentInfo {
 }
 
 type QuotaMode = 'normal' | 'priority' | 'lead_only';
+type LocaleMode = 'auto' | 'en' | 'ur';
 
 interface AriaChatProps {
   context:    IAriaContext;
@@ -127,6 +129,11 @@ const INTENT_OPTIONS = [
   { value: 'verify',  label: '🔍 Verify',  icon: Search       },
 ];
 
+// Helper to check if string contains Urdu / Arabic characters
+function hasUrduScript(text: string): boolean {
+  return /[\u0600-\u06FF]/.test(text);
+}
+
 function FormattedMessage({ content, isUser }: { content: string; isUser: boolean }): React.ReactElement {
   if (isUser) {
     return <span className="whitespace-pre-wrap">{content}</span>;
@@ -141,9 +148,10 @@ function FormattedMessage({ content, isUser }: { content: string; isUser: boolea
     .replace(/\\text\{([^}]+)\}/g, '$1');
 
   const lines = cleaned.split('\n');
+  const isUrdu = hasUrduScript(cleaned);
 
   return (
-    <div className="space-y-2 text-[15px] leading-relaxed">
+    <div className={`space-y-2 text-[15px] leading-relaxed ${isUrdu ? 'font-nastaliq tracking-normal text-right' : ''}`}>
       {lines.map((line, idx) => {
         const trimmed = line.trim();
         if (!trimmed) return <div key={idx} className="h-1" />;
@@ -257,6 +265,7 @@ function MessageBubble({
 }): React.ReactElement {
   const isUser = message.role === 'user';
   const hasListings = Array.isArray(message.listings) && message.listings.length > 0;
+  const isUrdu = hasUrduScript(message.content);
 
   return (
     <div className={`flex items-end gap-2 mb-3 ${isUser ? 'flex-row-reverse' : 'flex-row'}`}>
@@ -266,8 +275,9 @@ function MessageBubble({
         </div>
       )}
 
-      <div className="flex flex-col max-w-[85%]">
+      <div className={`flex flex-col max-w-[85%] ${isUrdu ? 'w-full' : ''}`}>
         <div
+          dir={isUrdu ? 'rtl' : 'ltr'}
           className={`px-4 py-3 rounded-2xl text-[15px] leading-relaxed overflow-hidden ${
             isUser
               ? 'bg-[#029bba] text-white rounded-br-sm'
@@ -519,12 +529,22 @@ export default function AriaChat({
   const [quotaMode,         setQuotaMode]        = useState<QuotaMode>('normal');
   const [showResetModal,    setShowResetModal]   = useState(false);
   const [isResetting,       setIsResetting]      = useState(false);
+  
+  // STAGE 0.4: Language Settings
+  const [localeMode,        setLocaleMode]       = useState<LocaleMode>('auto');
 
   const [lastListings,      setLastListings]     = useState<string[]>([]);
   const [listings,          setListings]         = useState<AleemListing[]>([]);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef       = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const storedLocale = sessionStorage.getItem('aleem_locale_preference') as LocaleMode;
+    if (storedLocale && ['auto', 'en', 'ur'].includes(storedLocale)) {
+      setLocaleMode(storedLocale);
+    }
+  }, []);
 
   useEffect(() => {
     const handleResize = () => {
@@ -545,6 +565,14 @@ export default function AriaChat({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+
+  const toggleLocale = useCallback(() => {
+    setLocaleMode((prev) => {
+      const next: LocaleMode = prev === 'auto' ? 'ur' : prev === 'ur' ? 'en' : 'auto';
+      sessionStorage.setItem('aleem_locale_preference', next);
+      return next;
+    });
+  }, []);
 
   const sendMessage = useCallback(async (text: string) => {
     if (!text.trim() || isTyping) return;
@@ -579,6 +607,7 @@ export default function AriaChat({
             canonicalUrl: context.canonicalUrl,
           },
           lastListings,
+          localePreference: localeMode !== 'auto' ? localeMode : undefined,
         }),
       });
 
@@ -617,7 +646,7 @@ export default function AriaChat({
       setIsTyping(false);
       inputRef.current?.focus();
     }
-  }, [isTyping, currentSessionId, context, lastListings]);
+  }, [isTyping, currentSessionId, context, lastListings, localeMode]);
 
   const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -674,6 +703,14 @@ export default function AriaChat({
     return `https://wa.me/${clean}?text=${msg}`;
   };
 
+  const getPlaceholderText = () => {
+    if (localeMode === 'ur') return 'اپنا سوال لکھیں...';
+    if (localeMode === 'en') return 'Ask your question...';
+    return 'Apna sawal likhein...';
+  };
+
+  const isUrduPreferred = localeMode === 'ur';
+
   return (
     <div className="fixed inset-0 sm:relative sm:inset-auto z-50 sm:z-0 flex flex-col h-full w-full sm:h-[550px] sm:w-[360px] sm:max-w-[calc(100vw-2rem)] bg-gray-50 sm:rounded-2xl sm:shadow-2xl overflow-hidden border border-gray-100 animate-slideUp sm:animate-none">
 
@@ -693,6 +730,18 @@ export default function AriaChat({
           }`} />
         </div>
         <div className="flex items-center gap-1">
+          {/* STAGE 0.4: Language Selector */}
+          <button
+            type="button"
+            onClick={toggleLocale}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors active:scale-95 flex items-center gap-1 font-bold text-xs"
+            aria-label="Toggle language preference"
+            title={`Current locale preference: ${localeMode.toUpperCase()}`}
+          >
+            <Languages className="w-4 h-4 text-white/95" />
+            <span className="text-[10px] text-white uppercase">{localeMode}</span>
+          </button>
+
           {/* STAGE 0.2: Start Fresh / Reset Session Button */}
           <button
             type="button"
@@ -739,9 +788,13 @@ export default function AriaChat({
             <div className="w-14 h-14 rounded-full bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center shadow-md mb-4 animate-bounce">
               <Bot className="w-7 h-7 text-white" />
             </div>
-            <h3 className="text-lg font-black text-[#004063] mb-1">Assalam-u-Alaikum!</h3>
-            <p className="text-sm text-gray-600 max-w-xs mb-6">
-              Main Aleem hoon, Highrise.pk se. Main aap ka AI property specialist aur construction advisor hoon. Main unverified listings or fake rates se pak accurate analysis deta hoon.
+            <h3 className={`text-lg font-black text-[#004063] mb-1 ${isUrduPreferred ? 'font-nastaliq text-right w-full' : ''}`}>
+              {isUrduPreferred ? 'السلام علیکم!' : 'Assalam-u-Alaikum!'}
+            </h3>
+            <p className={`text-sm text-gray-600 max-w-xs mb-6 ${isUrduPreferred ? 'font-nastaliq text-right leading-loose w-full' : 'leading-relaxed'}`}>
+              {isUrduPreferred 
+                ? 'میں علیم ہوں، ہائی رائز پی کے سے۔ میں آپ کا اے آئی پراپرٹی اسپیشلسٹ اور کنسٹرکشن ایڈوائزر ہوں۔ میں غیر تصدیق شدہ لسٹنگز یا جعلی ریٹس کے بغیر درست تجزیہ پیش کرتا ہوں۔'
+                : 'Main Aleem hoon, Highrise.pk se. Main aap ka AI property specialist aur construction advisor hoon. Main unverified listings or fake rates se pak accurate analysis deta hoon.'}
             </p>
             <div className="w-full max-w-sm space-y-2.5 text-left">
               <p className="text-[11px] font-bold text-gray-400 uppercase tracking-wider pl-1">Mujhse Poochhein:</p>
@@ -862,8 +915,10 @@ export default function AriaChat({
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            placeholder="Apna sawal likhein..."
-            className="flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#029bba]/10 focus:border-[#029bba] focus:bg-white transition-all placeholder:text-gray-400"
+            placeholder={getPlaceholderText()}
+            className={`flex-1 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-base focus:outline-none focus:ring-2 focus:ring-[#029bba]/10 focus:border-[#029bba] focus:bg-white transition-all placeholder:text-gray-400 ${
+              hasUrduScript(input) ? 'font-nastaliq text-right' : ''
+            }`}
             maxLength={1000}
             disabled={isTyping}
           />
