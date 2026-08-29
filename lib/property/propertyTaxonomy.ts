@@ -1,3 +1,4 @@
+//C:\dev\highrise-pk\lib\property\propertyTaxonomy.ts
 export type CanonicalPropertyType =
   | 'apartment'
   | 'house'
@@ -43,13 +44,13 @@ export const PROPERTY_SUBTYPES: Readonly<Partial<Record<CanonicalPropertyType, r
   apartment: ['studio', '1_bed', '2_bed', '3_bed', '4_bed_plus', 'flat', 'duplex', 'service_apt'],
   penthouse: ['penthouse', 'duplex_penthouse', 'sky_villa'],
   room: ['single_room', 'double_room', 'pg_room', 'hostel_bed', 'shared_room'],
-  plot: ['residential_plot', 'commercial_plot', 'industrial_plot', 'boulevard_plot', 'corner_plot', 'park_facing_plot', 'affidavit_plot'],
-  shop: ['retail_shop', 'showroom', 'food_stall', 'kiosk', 'clinic_unit'],
+  plot: ['residential_plot', 'commercial_plot', 'industrial_plot', 'boulevard_plot', 'corner_plot', 'park_facing_plot', 'affidavit_plot', 'mosque_plot', 'school_plot', 'university_plot', 'hospital_plot', 'government_plot', 'graveyard_plot', 'park_plot', 'fuel_station_plot', 'telecom_plot'],
+  shop: ['retail_shop', 'showroom', 'food_stall', 'kiosk', 'clinic_unit', 'atm_space', 'billboard_space', 'kiosk_counter'],
   office: ['single_office', 'office_suite', 'full_floor', 'coworking', 'corporate', 'virtual_office'],
-  warehouse: ['warehouse', 'factory', 'industrial_unit', 'cold_storage', 'workshop'],
+  warehouse: ['warehouse', 'factory', 'industrial_unit', 'cold_storage', 'workshop', 'factory_shed', 'warehouse_shed', 'workshop_garage', 'self_storage'],
   building: ['residential_building', 'commercial_building', 'mixed_use', 'plaza', 'hotel_building'],
   farmhouse: ['farmhouse', 'farm_villa', 'country_house', 'guest_house'],
-  other: ['agricultural_land', 'orchard', 'fishpond', 'poultry_farm', 'other'],
+  other: ['agricultural_land', 'orchard', 'fishpond', 'poultry_farm', 'dairy_farm', 'livestock_grazing', 'solar_rooftop', 'mobile_tower_space', 'temporary_land', 'other'],
   commercial: ['commercial_unit', 'plaza_unit', 'mixed_use_unit'],
 };
 

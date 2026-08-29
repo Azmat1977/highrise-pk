@@ -625,6 +625,7 @@ export interface IRentalDetails {
 // ═══════════════════════════════════════════════════════════════
 
 export interface IProperty extends Document {
+  propertyId?: string;
   // Ownership
   owner:        mongoose.Types.ObjectId;
   agentId?:     mongoose.Types.ObjectId;      // Direct ref → AgentProfile
@@ -1499,6 +1500,7 @@ const PropertyAuditEntrySchema = new Schema(
 
 const PropertySchema = new Schema<IProperty>(
   {
+    propertyId: { type: String, unique: true, sparse: true, index: true },
     // ── Ownership ──────────────────────────────────────────────
     owner: {
       type:     Schema.Types.ObjectId,
@@ -1670,7 +1672,7 @@ const PropertySchema = new Schema<IProperty>(
     // ── Plot ───────────────────────────────────────────────────
     plotCategory: {
       type: String,
-      enum: ['residential','commercial','industrial','agricultural',''],
+      enum: ['residential','commercial','industrial','agricultural','mosque','school','university','hospital','government','community_center','graveyard','park','fuel_station','hotel','bank','shopping_mall','telecom',''],
     },
     isCornerPlot:     { type: Boolean, default: false },
     cornerCharges:    { type: Number, min: 0 },
@@ -2505,6 +2507,15 @@ PropertySchema.pre<IProperty>('save', async function (next: (err?: CallbackError
       } catch {
         previousVerificationStatus = null;
       }
+    }
+
+    // ── Unique Property ID Auto-Generation ─────────────────────
+    if (!this.propertyId) {
+      const isRent = this.listingType === 'rent';
+      const isPlot = this.propertyType === 'plot' || this.residentialType === 'plot';
+      const prefix = isRent ? 'HR-RNT' : isPlot ? 'HR-PLT' : 'HR-PRP';
+      const suffix = crypto.randomBytes(3).toString('hex').toUpperCase();
+      this.propertyId = `${prefix}-${suffix}`;
     }
 
     // ── Slug auto-generate ────────────────────────────────────

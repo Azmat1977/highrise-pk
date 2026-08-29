@@ -416,6 +416,7 @@ function cursorConditionTrust(
 
 const PUBLIC_PROJECTION = [
   '_id',
+  'propertyId',
   'slug',
   'title',
   'urduTitle',
@@ -1112,6 +1113,23 @@ async function handlePost(
     res.status(400).json({
       success: false,
       message: 'You must accept the terms and conditions.',
+      requestId,
+    });
+    return;
+  }
+
+  // ── Duplicate Gating Block (5-Layer Unique Listing Engine) ───
+  const duplicateHash = PropertyHelpers.generateDuplicateHash(city, society, area, price);
+  const existingDuplicate = await Property.findOne({
+    'fraudDetection.duplicateHash': duplicateHash,
+    isDeleted: false,
+  }).select('_id').lean();
+
+  if (existingDuplicate) {
+    res.status(400).json({
+      success: false,
+      message: 'This property has already been listed. Duplicate listings are not permitted on Highrise.pk.',
+      code: 'DUPLICATE_LISTING_BLOCKED',
       requestId,
     });
     return;
@@ -2156,6 +2174,7 @@ async function handlePost(
     requestId,
     property: {
       _id:                property._id.toString(),
+      propertyId:         property.propertyId,
       slug:               property.slug,
       title:              property.title,
       listingType:        property.listingType,
