@@ -584,8 +584,11 @@ async function handleCreate(
     developerName: data.developerName,
     developerWebsite: data.developerWebsite,
 
-        // Blocks
+    // Blocks
+
     blocks: data.blocks ?? [],
+
+    // Stats
 
     totalPlots: data.totalPlots,
     totalPhases: data.totalPhases,
