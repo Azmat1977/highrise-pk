@@ -1,7 +1,7 @@
 // components/project-detail/ChooseYourSpace.tsx
 // ═══════════════════════════════════════════════════════════════
-// CHOOSE YOUR SPACE — Highrise.pk Signature Section V3.1
-// Elegant ROW-based design with brand gradient — FIXED LAYOUT
+// CHOOSE YOUR SPACE — Highrise.pk Signature Section V3.2
+// Clean row design — no column labels, unified pricing, perfect alignment
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo } from 'react';
@@ -20,6 +20,7 @@ import {
   BadgeCheck,
   ArrowRight,
   Sparkles,
+  DollarSign,
 } from 'lucide-react';
 import type {
   ProjectDetailData,
@@ -43,8 +44,6 @@ interface CategoryInfo {
   key: CategoryFilter;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  activeGradient: string;
-  activeText: string;
 }
 
 // ============================================
@@ -159,8 +158,8 @@ function ProjectIdChip({ project }: { project: ProjectDetailData }): React.React
 }
 
 /**
- * Unit Type ROW — Beautifully aligned with proper spacing
- * Grid-based layout for consistent column widths
+ * Unit Type ROW — Clean, aligned, no column labels
+ * Uses 12-col grid with balanced weights
  */
 function UnitTypeRow({
   ut,
@@ -191,17 +190,17 @@ function UnitTypeRow({
 
       <div className="p-5 pl-6">
         {/* ══════════════════════════════════════════
-            DESKTOP: 12-column grid | MOBILE: stacked
+            MAIN ROW — 12-col grid, no headers
         ══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-5 items-center">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-4 items-center">
 
-          {/* ── Column 1: Category Icon + Name (3 cols) ── */}
+          {/* ── Column 1: Icon + Name (3 cols) ── */}
           <div className="flex items-center gap-3 lg:col-span-3 min-w-0">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center shrink-0 shadow-md shadow-[#029bba]/20">
               <CategoryIcon className="w-6 h-6 text-white" />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-base font-bold text-gray-900 leading-tight" title={unitName}>
+              <h3 className="text-base font-bold text-gray-900 leading-tight truncate" title={unitName}>
                 {unitName}
               </h3>
               <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mt-1">
@@ -210,55 +209,52 @@ function UnitTypeRow({
             </div>
           </div>
 
-          {/* ── Column 2: Price Range (3 cols) ── */}
-          <div className="lg:col-span-3 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
-            <div className="flex items-center gap-2 mb-1.5">
-              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
-                Price Range
-              </p>
-              {(minPrice > 0 || maxPrice > 0) && (
-                <PriceWithConverter
-                  minPKR={minPrice}
-                  maxPKR={maxPrice > minPrice ? maxPrice : undefined}
-                  displayText=""
-                  size="sm"
-                  align="right"
-                />
-              )}
-            </div>
-            {minPrice > 0 || maxPrice > 0 ? (
-              <div className="flex items-baseline gap-1.5 flex-wrap">
-                <span className="text-lg font-black bg-gradient-to-r from-[#029bba] to-[#004063] bg-clip-text text-transparent whitespace-nowrap">
-                  {formatDetailPrice(minPrice)}
-                </span>
-                {maxPrice > minPrice && (
-                  <>
-                    <span className="text-gray-400 text-xs">—</span>
-                    <span className="text-sm font-bold text-gray-700 whitespace-nowrap">
-                      {formatDetailPrice(maxPrice)}
+          {/* ── Column 2: Price (Unified Style) (3 cols) ── */}
+          <div className="lg:col-span-3 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
+            {(minPrice > 0 || maxPrice > 0) ? (
+              <>
+                <div className="flex items-center gap-2">
+                  {/* Both prices — SAME size, SAME gray color */}
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className="text-base font-bold text-gray-800 whitespace-nowrap">
+                      PKR {formatDetailPrice(minPrice)}
                     </span>
-                  </>
-                )}
-              </div>
+                    {maxPrice > minPrice && (
+                      <>
+                        <span className="text-gray-400 text-sm">—</span>
+                        <span className="text-base font-bold text-gray-800 whitespace-nowrap">
+                          {formatDetailPrice(maxPrice)}
+                        </span>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Currency Converter Icon */}
+                  <PriceWithConverter
+                    minPKR={minPrice}
+                    maxPKR={maxPrice > minPrice ? maxPrice : undefined}
+                    displayText=""
+                    size="sm"
+                    align="right"
+                  />
+                </div>
+              </>
             ) : (
-              <span className="text-sm font-bold text-gray-500">Contact for Price</span>
+              <span className="text-sm font-bold text-gray-400">Contact for Price</span>
             )}
           </div>
 
-          {/* ── Column 3: Size Range (2 cols) ── */}
-          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
-            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1.5">
-              Size Range
-            </p>
+          {/* ── Column 3: Size (3 cols — WIDER to prevent overflow) ── */}
+          <div className="lg:col-span-3 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
             {sizePrimary !== '—' ? (
               <div className="flex items-start gap-1.5">
-                <Ruler className="w-3.5 h-3.5 text-[#029bba] shrink-0 mt-0.5" />
+                <Ruler className="w-3.5 h-3.5 text-[#029bba] shrink-0 mt-1" />
                 <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-900 leading-tight whitespace-nowrap">
+                  <p className="text-sm font-bold text-gray-800 leading-tight whitespace-nowrap">
                     {sizePrimary}
                   </p>
                   {sizeSecondary && (
-                    <p className="text-[10px] text-gray-500 mt-0.5 whitespace-nowrap">
+                    <p className="text-[11px] text-gray-500 mt-0.5 whitespace-nowrap">
                       {sizeSecondary}
                     </p>
                   )}
@@ -270,14 +266,11 @@ function UnitTypeRow({
           </div>
 
           {/* ── Column 4: Layout (Beds/Baths) (2 cols) ── */}
-          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
-            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1.5">
-              Layout
-            </p>
+          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
             {((ut.bedrooms ?? 0) > 0 || (ut.bathrooms ?? 0) > 0) ? (
               <div className="flex flex-wrap gap-1.5">
                 {(ut.bedrooms ?? 0) > 0 && (
-                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20">
+                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20 whitespace-nowrap">
                     <Bed className="w-3 h-3 text-[#029bba]" />
                     <span className="text-xs font-black text-[#004063]">
                       {ut.bedrooms} {(ut.bedrooms ?? 0) === 1 ? 'Bed' : 'Beds'}
@@ -285,7 +278,7 @@ function UnitTypeRow({
                   </div>
                 )}
                 {(ut.bathrooms ?? 0) > 0 && (
-                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20">
+                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20 whitespace-nowrap">
                     <Bath className="w-3 h-3 text-[#029bba]" />
                     <span className="text-xs font-black text-[#004063]">
                       {ut.bathrooms} {(ut.bathrooms ?? 0) === 1 ? 'Bath' : 'Baths'}
@@ -298,26 +291,23 @@ function UnitTypeRow({
             )}
           </div>
 
-          {/* ── Column 5: Availability Status (2 cols) ── */}
-          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-5">
-            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1.5">
-              Availability
-            </p>
+          {/* ── Column 5: Availability + Signals (1 col) ── */}
+          <div className="lg:col-span-1 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
             <div className="space-y-1.5">
               {available > 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full text-[10px] font-black text-green-700 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-                  {available} Available
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full text-[10px] font-black text-green-700 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
+                  {available}
                 </span>
               ) : total > 0 ? (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-red-50 border border-red-200 rounded-full text-[10px] font-black text-red-700 whitespace-nowrap">
+                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 border border-red-200 rounded-full text-[10px] font-black text-red-700 whitespace-nowrap">
                   Sold Out
                 </span>
               ) : (
                 <span className="text-xs text-gray-400">—</span>
               )}
 
-              {/* Investment signals — compact chips */}
+              {/* Compact investment signals */}
               <div className="flex flex-wrap gap-1">
                 {extendedUt.avgRentalYield && extendedUt.avgRentalYield > 0 && (
                   <span
@@ -334,7 +324,6 @@ function UnitTypeRow({
                     title="Selling Fast"
                   >
                     <Zap className="w-2 h-2" />
-                    Fast
                   </span>
                 )}
                 {extendedUt.hotDealsCount && extendedUt.hotDealsCount > 0 && (
@@ -343,7 +332,6 @@ function UnitTypeRow({
                     title={`${extendedUt.hotDealsCount} Hot Deals`}
                   >
                     <Flame className="w-2 h-2" />
-                    Deal
                   </span>
                 )}
               </div>
@@ -353,15 +341,12 @@ function UnitTypeRow({
         </div>
 
         {/* ══════════════════════════════════════════
-            BOTTOM CTA BAR — Full width, subtle separator
+            BOTTOM CTA BAR
         ══════════════════════════════════════════ */}
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
-          <p className="text-[11px] text-gray-500 hidden sm:block">
-            Get detailed information, floor plans, and payment options
-          </p>
+        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
           <button
             onClick={() => onInquire(unitName)}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#02a8c9] hover:to-[#00507a] text-white font-bold text-sm rounded-xl shadow-md shadow-[#029bba]/20 hover:shadow-lg hover:shadow-[#029bba]/30 transition-all duration-200 group/btn whitespace-nowrap ml-auto"
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#02a8c9] hover:to-[#00507a] text-white font-bold text-sm rounded-xl shadow-md shadow-[#029bba]/20 hover:shadow-lg hover:shadow-[#029bba]/30 transition-all duration-200 group/btn whitespace-nowrap w-full sm:w-auto"
           >
             <span>Inquire About {unitName}</span>
             <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
@@ -423,34 +408,10 @@ export default function ChooseYourSpace({
   }, [allOfferings]);
 
   const categoryTabs: CategoryInfo[] = [
-    {
-      key: 'all',
-      label: 'All Types',
-      icon: Building2,
-      activeGradient: 'bg-gradient-to-r from-[#029bba] to-[#004063]',
-      activeText: 'text-white',
-    },
-    {
-      key: 'residential',
-      label: 'Residential',
-      icon: Home,
-      activeGradient: 'bg-gradient-to-r from-[#029bba] to-[#004063]',
-      activeText: 'text-white',
-    },
-    {
-      key: 'commercial',
-      label: 'Commercial',
-      icon: Store,
-      activeGradient: 'bg-gradient-to-r from-[#029bba] to-[#004063]',
-      activeText: 'text-white',
-    },
-    {
-      key: 'hotel',
-      label: 'Hotel Suites',
-      icon: Hotel,
-      activeGradient: 'bg-gradient-to-r from-[#029bba] to-[#004063]',
-      activeText: 'text-white',
-    },
+    { key: 'all', label: 'All Types', icon: Building2 },
+    { key: 'residential', label: 'Residential', icon: Home },
+    { key: 'commercial', label: 'Commercial', icon: Store },
+    { key: 'hotel', label: 'Hotel Suites', icon: Hotel },
   ];
 
   const visibleTabs = categoryTabs.filter((tab) => {
@@ -472,12 +433,10 @@ export default function ChooseYourSpace({
           HEADER — Beautiful Brand Gradient
       ══════════════════════════════════════ */}
       <div className="relative px-6 py-6 bg-gradient-to-br from-[#029bba] via-[#017a94] to-[#004063] overflow-hidden">
-        {/* Decorative background elements */}
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
         <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
 
         <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          {/* Left: Title Section */}
           <div className="flex items-start gap-3">
             <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-lg">
               <Sparkles className="w-6 h-6 text-white" />
@@ -503,7 +462,6 @@ export default function ChooseYourSpace({
             </div>
           </div>
 
-          {/* Right: Verification Badge + Availability */}
           <div className="flex flex-col items-start sm:items-end gap-2">
             <VerificationBadge project={project} />
             {stats.availableUnits > 0 && (
@@ -542,7 +500,7 @@ export default function ChooseYourSpace({
                   onClick={() => setActiveCategory(tab.key)}
                   className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all duration-200 whitespace-nowrap ${
                     isActive
-                      ? `${tab.activeGradient} ${tab.activeText} shadow-md shadow-[#029bba]/20`
+                      ? 'bg-gradient-to-r from-[#029bba] to-[#004063] text-white shadow-md shadow-[#029bba]/20'
                       : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
                   }`}
                 >
@@ -632,8 +590,8 @@ export default function ChooseYourSpace({
                     align="right"
                   />
                 </div>
-                <p className="text-sm font-black bg-gradient-to-r from-[#029bba] to-[#004063] bg-clip-text text-transparent">
-                  {formatDetailPrice(stats.minPrice)}
+                <p className="text-sm font-bold text-gray-800">
+                  PKR {formatDetailPrice(stats.minPrice)}
                 </p>
               </div>
             )}

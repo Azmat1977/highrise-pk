@@ -640,13 +640,13 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
       <ProjectHighlights project={project} />
 
       {/* ══════════════════════════════════════
-          MAIN CONTENT — TWO COLUMN LAYOUT
+          MAIN CONTENT — TWO COLUMN LAYOUT (3:1 ratio for wider content)
       ══════════════════════════════════════ */}
       <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
 
-          {/* ── LEFT COLUMN (Content) ── */}
-          <div className="lg:col-span-2 space-y-8">
+          {/* ── LEFT COLUMN (Content) — 75% width ── */}
+          <div className="lg:col-span-3 space-y-8">
 
             {/* ══════════════════════════════════════
                 VERIFICATION PANEL (Fact-Based Regulatory Evidence)
@@ -1197,47 +1197,61 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
 
           </div>{/* end left column */}
 
-          {/* ── RIGHT SIDEBAR (Sticky) ── */}
+          {/* ── RIGHT SIDEBAR (Sticky) — 25% width, compact ── */}
           <div className="lg:col-span-1">
-            <div className="sticky top-20 space-y-6">
+            <div className="sticky top-20 space-y-4">
 
-              {/* Contact Form — ONE ONLY */}
+              {/* Contact Form — COMPACT VERSION */}
               <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                <div className="bg-gradient-to-r from-[#029bba] to-[#017a94] px-5 py-4">
-                  <h3 className="text-white font-bold">
-                    Interested in {project.projectName}?
+                {/* Compact gradient header */}
+                <div className="bg-gradient-to-r from-[#029bba] to-[#004063] px-4 py-3">
+                  <h3 className="text-white font-bold text-sm leading-tight">
+                    Get in Touch
                   </h3>
-                  <p className="text-white/70 text-sm mt-0.5">
-                    Get instant information from our team
+                  <p className="text-white/70 text-[11px] mt-0.5">
+                    Response in 15 min
                   </p>
                 </div>
-                <div className="p-5 space-y-4">
-                  <button onClick={() => { setInquiryType('project_interest'); setShowInquiry(true); }}
-                    className="w-full bg-gradient-to-r from-[#029bba] to-[#017a94] hover:from-[#02a8c9] hover:to-[#018a9a]
-                               text-white font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-[#029bba]/20
-                               flex items-center justify-center gap-2">
-                    <MessageCircle className="w-5 h-5" />Send Inquiry
+
+                {/* Compact button stack */}
+                <div className="p-3 space-y-2">
+                  <button
+                    onClick={() => { setInquiryType('project_interest'); setShowInquiry(true); }}
+                    className="w-full bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#02a8c9] hover:to-[#00507a]
+                               text-white font-bold py-2.5 rounded-lg transition-all shadow-sm
+                               flex items-center justify-center gap-1.5 text-sm">
+                    <MessageCircle className="w-4 h-4" />
+                    Send Inquiry
                   </button>
 
-                  <button onClick={() => { setInquiryType('call_back'); setShowInquiry(true); }}
-                    className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-800
-                               font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-                    <Phone className="w-4 h-4" />Request Callback
+                  <button
+                    onClick={() => { setInquiryType('call_back'); setShowInquiry(true); }}
+                    className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700
+                               font-semibold py-2 rounded-lg transition-colors
+                               flex items-center justify-center gap-1.5 text-xs">
+                    <Phone className="w-3.5 h-3.5" />
+                    Callback
                   </button>
 
-                  <button onClick={() => { setInquiryType('site_visit'); setShowInquiry(true); }}
+                  <button
+                    onClick={() => { setInquiryType('site_visit'); setShowInquiry(true); }}
                     className="w-full bg-green-50 border border-green-200 hover:bg-green-100 text-green-700
-                               font-semibold py-3 rounded-xl transition-colors flex items-center justify-center gap-2">
-                    <Calendar className="w-4 h-4" />Book Site Visit
+                               font-semibold py-2 rounded-lg transition-colors
+                               flex items-center justify-center gap-1.5 text-xs">
+                    <Calendar className="w-3.5 h-3.5" />
+                    Site Visit
                   </button>
 
-                  <div className="text-center space-y-1 pt-2">
-                    <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
-                      <Clock className="w-3 h-3" />Typical response: 15 minutes
-                    </p>
-                    <p className="text-xs text-gray-400 flex items-center justify-center gap-1">
-                      <Lock className="w-3 h-3" />Your data is 100% secure
-                    </p>
+                  {/* Compact trust badges */}
+                  <div className="flex items-center justify-center gap-3 pt-2 border-t border-gray-100 mt-2">
+                    <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
+                      <Lock className="w-2.5 h-2.5" />
+                      Secure
+                    </span>
+                    <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
+                      <Clock className="w-2.5 h-2.5" />
+                      15 min
+                    </span>
                   </div>
                 </div>
               </div>
