@@ -656,20 +656,18 @@ export default function ProjectDetailHero({
                     ? 'New Developer'
                     : String(delivered);
 
+                  // Tier-aligned, palette-compliant (matches DeveloperTrustCard):
+                  // 10+ delivered → premium (navy) · 1-9 → trusted (teal) · 0 → neutral
                   const badgeColor = delivered >= 10
-                    ? 'bg-purple-50 border-purple-200 text-purple-800'
-                    : delivered >= 5
-                    ? 'bg-blue-50 border-blue-200 text-blue-800'
+                    ? 'bg-[#004063]/5 border-[#004063]/20 text-[#004063]'
                     : delivered >= 1
-                    ? 'bg-teal-50 border-teal-200 text-teal-800'
-                    : 'bg-gray-50 border-gray-200 text-gray-700';
+                    ? 'bg-[#029bba]/10 border-[#029bba]/20 text-[#029bba]'
+                    : 'bg-gray-50 border-gray-200 text-gray-600';
 
                   const iconColor = delivered >= 10
-                    ? 'text-purple-600'
-                    : delivered >= 5
-                    ? 'text-blue-600'
+                    ? 'text-[#004063]'
                     : delivered >= 1
-                    ? 'text-teal-600'
+                    ? 'text-[#029bba]'
                     : 'text-gray-500';
 
                   return (

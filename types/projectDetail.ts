@@ -827,25 +827,7 @@ export function computeDeveloperAccountability(
   completedProjectsArray?: RelatedProject[] | null,
   currentProjectIsOngoing?: boolean,
 ): DeveloperAccountability {
-  const badge = (profile?.developerBadge ?? 'new_entrant') as DeveloperBadge;
-
-  const trustTierMap: Record<
-    string,
-    { tier: DeveloperAccountability['trustTier']; label: string; emoji: string }
-  > = {
-    premium:     { tier: 'premium',     label: 'Premium Developer',   emoji: '💎' },
-    trusted:     { tier: 'trusted',     label: 'Trusted Builder',      emoji: '🏆' },
-    emerging:    { tier: 'emerging',    label: 'Emerging Developer',   emoji: '⭐' },
-    new_entrant: { tier: 'new_entrant', label: 'New Entrant',          emoji: '🆕' },
-  };
-
-  const tierInfo = trustTierMap[badge] ?? trustTierMap['new_entrant']!;
-
-  const established   = profile?.establishedYear ?? null;
-  const currentYear   = new Date().getFullYear();
-  const yearsInOp     = established ? currentYear - established : 0;
-
-  // ── Smart count computation ──
+  // ── Smart count computation (BEFORE tier — tiers depend on it) ──
   // Priority: profile fields → array counts → 0 fallback
 
   const arrayCompletedCount = (completedProjectsArray ?? []).length;
@@ -865,6 +847,58 @@ export function computeDeveloperAccountability(
     totalProjects - completedProjects,
   );
 
+  // ── Tier derivation — evidence-based (V2) ──
+  // Bug fixed: tier previously defaulted to 'new_entrant' whenever
+  // developerProfile.developerBadge was missing — mislabeling developers
+  // with real delivery records as "New Developer".
+  //
+  // Evidence ladder (delivery = strongest PK market trust signal):
+  //   ≥10 delivered   → premium
+  //   ≥1 delivered    → trusted    (1 handover = provable execution)
+  //   0 + SECP        → emerging   (verified entity, no delivery yet)
+  //   0 + unverified  → new_entrant
+  //
+  // Explicit developerBadge (12-tier admin system) may only UPGRADE above
+  // the evidence floor — never downgrade below it. A developer with
+  // delivered projects must never display as "New Developer".
+  const isSECPVerified = profile?.verificationLevel === 'secp' || false;
+
+  const evidenceTier: DeveloperBadge =
+    completedProjects >= 10  ? 'premium'
+    : completedProjects >= 1 ? 'trusted'
+    : isSECPVerified         ? 'emerging'
+    : 'new_entrant';
+
+  const tierRank: Record<string, number> = {
+    new_entrant: 0,
+    emerging:    1,
+    trusted:     2,
+    premium:     3,
+  };
+
+  const explicitBadge: string | undefined = profile?.developerBadge;
+  const explicitRank = explicitBadge !== undefined ? tierRank[explicitBadge] : undefined;
+  const badge: DeveloperBadge =
+    explicitRank !== undefined && explicitRank > tierRank[evidenceTier]
+      ? (explicitBadge as DeveloperBadge)
+      : evidenceTier;
+
+  const trustTierMap: Record<
+    string,
+    { tier: DeveloperAccountability['trustTier']; label: string; emoji: string }
+  > = {
+    premium:     { tier: 'premium',     label: 'Premium Developer',   emoji: '💎' },
+    trusted:     { tier: 'trusted',     label: 'Trusted Builder',      emoji: '🏆' },
+    emerging:    { tier: 'emerging',    label: 'Emerging Developer',   emoji: '⭐' },
+    new_entrant: { tier: 'new_entrant', label: 'New Entrant',          emoji: '🆕' },
+  };
+
+  const tierInfo = trustTierMap[badge] ?? trustTierMap['new_entrant']!;
+
+  const established   = profile?.establishedYear ?? null;
+  const currentYear   = new Date().getFullYear();
+  const yearsInOp     = established ? currentYear - established : 0;
+
   return {
     totalProjects,
     completedProjects,
@@ -875,7 +909,7 @@ export function computeDeveloperAccountability(
     customerRating:      null,
     repeatBuyerPercent:  null,
     hasLitigation:       false,
-    isSECPVerified:      profile?.verificationLevel === 'secp' || false,
+    isSECPVerified,
     isLDAApproved:       false,
     establishedYear:     established,
     yearsInOperation:    yearsInOp,

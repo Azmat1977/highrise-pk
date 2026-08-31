@@ -77,7 +77,7 @@ const TRUST_TIER_CONFIG = {
   trusted: {
     label:  'Trusted Builder',
     badge:  'border-[#029bba] bg-[#029bba]/5 text-[#029bba]',
-    desc:   'Verified track record across multiple completed projects.',
+    desc:   'Has delivered completed projects — proven execution on record.',
   },
   emerging: {
     label:  'Emerging Developer',
