@@ -62,7 +62,6 @@ const SHORT_DESC_MAX_CHARS = 400;
  */
 function sanitizeHtml(input: string): string {
   if (!input) return '';
-  if (typeof window === 'undefined') return input;
 
   return DOMPurify.sanitize(input, {
     ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'h3', 'h4', 'a', 'blockquote'],
@@ -119,8 +118,9 @@ export default function ProjectAbout({ project }: ProjectAboutProps) {
     ? safeHtml
     : sanitizeHtml(getPreview(safeHtml, SHORT_DESC_MAX_CHARS));
 
-  // Hide section if no description AND no tagline AND no shortDescription
-  if (!safeHtml && !project.tagline && !project.shortDescription) return null;
+  // Hide section if no description AND no shortDescription
+  // (tagline is owned by hero identity block)
+  if (!safeHtml && !project.shortDescription) return null;
 
   return (
     <section
@@ -140,7 +140,7 @@ export default function ProjectAbout({ project }: ProjectAboutProps) {
               <h2 className="text-xl font-bold text-gray-900">
                 About {project.projectName}
               </h2>
-              {project.shortDescription && (
+              {project.shortDescription && safeHtml && (
                 <p className="text-sm text-gray-500 mt-0.5 line-clamp-1">
                   {project.shortDescription}
                 </p>
@@ -152,12 +152,7 @@ export default function ProjectAbout({ project }: ProjectAboutProps) {
         {/* ── Body ── */}
         <div className="p-6">
 
-          {/* Tagline */}
-          {project.tagline && (
-            <p className="text-lg font-semibold text-[#029bba] mb-4 italic">
-              &ldquo;{project.tagline}&rdquo;
-            </p>
-          )}
+          {/* Tagline owned by hero identity block (repetition fix) */}
 
           {/* Description */}
           {safeHtml && (
@@ -195,8 +190,8 @@ export default function ProjectAbout({ project }: ProjectAboutProps) {
             </>
           )}
 
-          {/* Fallback if only tagline exists */}
-          {!safeHtml && !project.tagline && project.shortDescription && (
+          {/* Fallback: shortDescription becomes the body when no full description */}
+          {!safeHtml && project.shortDescription && (
             <p className="text-gray-700 leading-relaxed">
               {project.shortDescription}
             </p>

@@ -243,6 +243,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
                 <h2 style="font-size:16px;margin:0 0 10px;">Project Details</h2>
                 <table style="width:100%;font-size:14px;color:#374151;margin-bottom:20px;">
                   <tr><td style="padding:4px 0;width:120px;color:#6b7280;">Title:</td><td style="padding:4px 0;font-weight:bold;">${safeTitle}</td></tr>
+                  ${safeProjectCode ? `<tr><td style="padding:4px 0;color:#6b7280;">Reference:</td><td style="padding:4px 0;font-family:monospace;font-weight:bold;">${safeProjectCode}</td></tr>` : ''}
                   ${safeCity ? `<tr><td style="padding:4px 0;color:#6b7280;">City:</td><td style="padding:4px 0;">${safeCity}</td></tr>` : ''}
                   ${safeArea ? `<tr><td style="padding:4px 0;color:#6b7280;">Area:</td><td style="padding:4px 0;">${safeArea}</td></tr>` : ''}
                 </table>

@@ -564,20 +564,20 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
         {/* 1. RealEstateListing */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(realEstateListingLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(realEstateListingLd).replace(/</g, '\\u003c') }}
         />
 
         {/* 2. BreadcrumbList */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }}
         />
 
         {/* 3. Organization (Developer) */}
         {organizationLd && (
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd) }}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationLd).replace(/</g, '\\u003c') }}
           />
         )}
       </Head>
