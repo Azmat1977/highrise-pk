@@ -332,6 +332,13 @@ export interface ProjectDetailData {
   unitsSold?:      number;
   unitsAvailable?: number;
 
+  // Scale (Projects model — societyDetails + legacy totalArea)
+  totalArea?:     string;
+  societyDetails?: {
+    totalLandArea?: number;
+    landAreaUnit?:  string;
+  };
+
   // Pricing
   minPrice?: number;
   maxPrice?: number;
@@ -524,14 +531,15 @@ export interface SectionTab {
 }
 
 export const DETAIL_SECTION_TABS: readonly SectionTab[] = [
-  { id: 'overview',   label: 'Overview'      },
+  // Order matches physical page order — scroll-spy + tab highlighting flow
+  { id: 'overview',   label: 'Overview'       },
+  { id: 'about',      label: 'About'          },
+  { id: 'developer',  label: 'Developer'      },
   { id: 'units',      label: 'Units & Pricing'},
-  { id: 'about',      label: 'About'         },
-  { id: 'features',   label: 'Features'      },
-  { id: 'location',   label: 'Location'      },
-  { id: 'developer',  label: 'Developer'     },
-  { id: 'payment',    label: 'Payment Plan'  },
-  { id: 'legal',      label: 'Documents'     },
+  { id: 'features',   label: 'Features'       },
+  { id: 'location',   label: 'Location'       },
+  { id: 'payment',    label: 'Payment Plan'   },
+  { id: 'legal',      label: 'Documents'      },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
