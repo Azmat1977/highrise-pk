@@ -10,7 +10,6 @@ import Image from 'next/image';
 import { useRouter } from 'next/router';
 import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
-import Unit from '@/models/Unit';
 import UniversalInquiryModal from '@/components/UniversalInquiryModal';
 import {
   Building2, MapPin, CheckCircle, Shield, BarChart3,
@@ -28,14 +27,13 @@ import DeveloperTrustCard      from '@/components/project-detail/DeveloperTrustC
 import FAQSection                from '@/components/project-detail/FAQSection';
 import HomeLoanCalculator        from '@/components/project-detail/HomeLoanCalculator';
 import SimilarProjectsSection    from '@/components/project-detail/SimilarProjectsSection';
-import ProjectHighlights         from '@/components/project-detail/ProjectHighlights';
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
+import ProjectOverview           from '@/components/project-detail/ProjectOverview';
 import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
 // Trust calculator imports removed — Trust Index, Passport, and AI Risk sections removed per client request
 import type {
   ProjectDetailData,
   InquiryType,
-  UnitRow,
   UnitTypeOffering,
   FloorPlan,
   InstallmentPlan,
@@ -50,7 +48,6 @@ import {
   getDeveloperDisplayName,
   getPrimaryImageUrl,
   DETAIL_SECTION_TABS,
-  UNIT_STATUS_STYLES,
 } from '@/types/projectDetail';
 import DOMPurify from 'isomorphic-dompurify';
 
@@ -63,8 +60,7 @@ import DOMPurify from 'isomorphic-dompurify';
 type ProjectData = ProjectDetailData;
 
 interface PageProps {
-  project:      ProjectData;
-  initialUnits: UnitRow[];
+  project: ProjectData;
 }
 
 // ============================================
@@ -109,14 +105,6 @@ function sanitizeHtml(input: string): string {
 function stripTags(input: string): string {
   if (!input) return '';
   return input.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function getYouTubeEmbed(url: string): string {
-  if (!url) return '';
-  const m = url.match(/^.*(youtu\.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/);
-  return m && m[2].length === 11
-    ? `https://www.youtube.com/embed/${m[2]}`
-    : url;
 }
 
 function convertArea(value: number, fromUnit: string) {
@@ -190,43 +178,6 @@ function Section({ id, title, icon, children, headerExtra, className = '' }: {
 
 // GalleryModal removed — ProjectGallery component handles lightbox (Wave 4 cleanup)
 
-// Video Modal
-function VideoModal({ isOpen, onClose, videoUrl, title }: {
-  isOpen: boolean;
-  onClose: () => void;
-  videoUrl: string;
-  title?: string;
-}) {
-  useEffect(() => {
-    if (!isOpen) return;
-    document.body.style.overflow = 'hidden';
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
-    window.addEventListener('keydown', handler);
-    return () => {
-      document.body.style.overflow = '';
-      window.removeEventListener('keydown', handler);
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 bg-black/90 z-[100] flex items-center justify-center p-4">
-      <div className="relative w-full max-w-4xl">
-        <button onClick={onClose} aria-label="Close video"
-          className="absolute -top-12 right-0 p-2 text-white hover:text-gray-300">
-          <X className="w-8 h-8" />
-        </button>
-        <div className="aspect-video bg-black rounded-xl overflow-hidden">
-          <iframe src={getYouTubeEmbed(videoUrl)} className="w-full h-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen title={title || 'Video'} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ShareMenu removed — Sprint 1 ShareMenu (components/projects/ShareMenu.tsx) handles it via ProjectDetailHero (Wave 4 cleanup)
 
 // Banner removed — was only used by dead bookmark/share handlers (Wave 4 cleanup)
@@ -240,12 +191,10 @@ function VideoModal({ isOpen, onClose, videoUrl, title }: {
 // MAIN PAGE COMPONENT
 // ============================================
 
-export default function ProjectDetailPage({ project, initialUnits }: PageProps) {
+export default function ProjectDetailPage({ project }: PageProps) {
   const router = useRouter();
 
-  // Units
-  const [units, setUnits]               = useState<UnitRow[]>(initialUnits);
-  const [unitsLoading, setUnitsLoading] = useState(false);
+  // Units table + client refetch removed — Choose Your Space owns inventory
 
   // UI state
   const [activeSection,     setActiveSection]     = useState('overview');
@@ -254,9 +203,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
   const [activeOfferingIdx, setActiveOfferingIdx] = useState(0);
   const [activeFloorPlanIdx, setActiveFloorPlanIdx] = useState(0);
 
-  // Video modal (still used for developer videos)
-  const [videoOpen, setVideoOpen]           = useState(false);
-  const [activeVideoUrl, setActiveVideoUrl] = useState('');
+  // VideoModal removed — ProjectMediaExplorer owns media viewing
 
   // Inquiry modal (contact gating)
   const [showInquiry, setShowInquiry] = useState(false);
@@ -272,11 +219,16 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
   const projectAsDetail = project as unknown as ProjectDetailData;
   const primaryImage = project.featureImageUrl || allImages.find(i => i.isPrimary)?.url || allImages[0]?.url || '';
   const totalPhotos = allImages.length;
-  const primaryVideoUrl = project.droneVideoUrl || project.videos?.[0]?.url || '';
   const safeDesc = sanitizeHtml(project.description || '');
   const plainDesc = stripTags(safeDesc);
   const shouldTruncate = plainDesc.length > 800;
-  const availableUnits = units.filter(u => u.status === 'available');
+  // Availability from unit type breakdown (units table removed)
+  const breakdownAvailable = (project.unitTypeBreakdown ?? []).reduce(
+    (s, ut) => s + (ut.availableUnits ?? 0), 0
+  );
+  const breakdownTotal = (project.unitTypeBreakdown ?? []).reduce(
+    (s, ut) => s + (ut.totalUnits ?? 0), 0
+  );
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk';
   const canonicalUrl = `${siteUrl}/projects/${project.slug}`;
 
@@ -320,51 +272,37 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
 
   // Bookmark logic removed — useFavorites (Sprint 2) handles this in ProjectDetailHero (Wave 4 cleanup)
 
-  // Refresh units client-side
-  useEffect(() => {
-    let cancelled = false;
-    const refresh = async () => {
-      setUnitsLoading(true);
-      try {
-        const res = await fetch(`/api/projects/${project._id}/units?limit=100`, {
-          credentials: 'include',
-        });
-        const data = await res.json() as { success: boolean; units?: UnitRow[] };
-        if (!cancelled && data.success && data.units) setUnits(data.units);
-      } catch { /* keep initial units */ }
-      finally { if (!cancelled) setUnitsLoading(false); }
-    };
-    void refresh();
-    return () => { cancelled = true; };
-  }, [project._id]);
-
-  // Scroll spy
+  // Scroll spy — scroll-position based. IO threshold approach never
+  // activated sections taller than ~2x viewport (tab stuck on Overview).
+  // This is deterministic for any section height: active = last section
+  // whose top has passed the nav line.
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const observer = new IntersectionObserver(
-      entries => {
-        entries.forEach(entry => {
-          if (entry.isIntersecting && entry.target.id) setActiveSection(entry.target.id);
-        });
-      },
-      { rootMargin: '-130px 0px -50% 0px', threshold: 0.2 }
-    );
-    DETAIL_SECTION_TABS.forEach(s => {
-      const el = document.getElementById(s.id);
-      if (el) observer.observe(el);
-    });
-    return () => observer.disconnect();
+    let ticking = false;
+    const update = () => {
+      let current: string | null = null;
+      DETAIL_SECTION_TABS.forEach(s => {
+        const el = document.getElementById(s.id);
+        if (el && el.getBoundingClientRect().top <= 180) current = s.id;
+      });
+      setActiveSection(current ?? DETAIL_SECTION_TABS[0]?.id ?? 'overview');
+      ticking = false;
+    };
+    const onScroll = () => {
+      if (!ticking) {
+        window.requestAnimationFrame(update);
+        ticking = true;
+      }
+    };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+    return () => window.removeEventListener('scroll', onScroll);
   }, []);
 
   // Handlers ──
   // Bookmark + share handlers removed (Wave 4 cleanup):
   //   → useFavorites hook (Sprint 2) handles save/unsave in ProjectDetailHero
   //   → Sprint 1 ShareMenu handles all sharing in ProjectDetailHero + QuickActionsBar
-
-  function openVideo(url: string) {
-    setActiveVideoUrl(url);
-    setVideoOpen(true);
-  }
 
   async function downloadFile(url: string, filename: string) {
     if (typeof window === 'undefined' || !url) return;
@@ -429,10 +367,10 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
       ...(overallMaxPrice && overallMaxPrice > overallMinPrice
         ? { lowPrice: overallMinPrice, highPrice: overallMaxPrice }
         : { price: overallMinPrice }),
-      availability: availableUnits.length > 0
+      availability: breakdownAvailable > 0
         ? 'https://schema.org/InStock'
         : 'https://schema.org/OutOfStock',
-      ...(units.length > 0 ? { offerCount: units.length } : {}),
+      ...(breakdownTotal > 0 ? { offerCount: breakdownTotal } : {}),
     } : undefined,
     ...(project.averageRating && project.totalReviews ? {
       aggregateRating: {
@@ -590,11 +528,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
           actions, price stats, trust badges
       ══════════════════════════════════════ */}
       <ProjectDetailHero
-        project={projectAsDetail}
-        overallMinPrice={overallMinPrice}
-        overallMaxPrice={overallMaxPrice}
-        minAreaSqft={minAreaSqft}
-        maxAreaSqft={maxAreaSqft}
+        project={project}
         canonicalUrl={canonicalUrl}
       />
 
@@ -610,7 +544,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
       {/* ══════════════════════════════════════
           STICKY TAB NAVIGATION
       ══════════════════════════════════════ */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-none">
           <div className="flex gap-1 py-1">
             {DETAIL_SECTION_TABS.map(s => (
@@ -636,8 +570,8 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
           Order: Description first → Then quick-scan highlights
           Rationale: Buyer reads context → then scans key features
       ══════════════════════════════════════ */}
+      <ProjectOverview   project={project} />
       <ProjectAbout      project={project} />
-      <ProjectHighlights project={project} />
 
       {/* ══════════════════════════════════════
           MAIN CONTENT — TWO COLUMN LAYOUT (3:1 ratio for wider content)
@@ -652,7 +586,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
                 VERIFICATION PANEL (Fact-Based Regulatory Evidence)
             ══════════════════════════════════════ */}
             {project.verificationPanel?.verifiedAt && (
-              <section className="bg-white rounded-2xl border border-[#029bba]/20 shadow-sm p-6 overflow-hidden relative">
+              <section id="verification" className="bg-white rounded-2xl border border-[#029bba]/20 shadow-sm p-6 overflow-hidden relative">
                 <div className="absolute top-0 left-0 w-1.5 h-full bg-[#029bba]" />
                 <div className="flex items-start gap-4">
                   <div className="w-11 h-11 rounded-xl bg-[#029bba]/10 flex items-center justify-center shrink-0">
@@ -699,76 +633,6 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
               completedProjects={project.completedProjects}
               relatedProjects={project.relatedProjects}
             />
-
-            {/* OVERVIEW CARDS */}
-            <section id="overview">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Category */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
-                  <div className="w-11 h-11 rounded-xl bg-[#029bba]/10 flex items-center justify-center mb-3">
-                    <Building2 className="w-5 h-5 text-[#029bba]" />
-                  </div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Category</p>
-                  <p className="font-bold text-gray-900 text-sm">
-                    {project.projectCategory === 'highrise' ? 'High-Rise' : project.projectCategory === 'society' ? 'Society' : project.projectCategory.replace(/_/g, ' ')}
-                  </p>
-                  <span className="mt-2 inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-[10px] font-semibold rounded-full capitalize">
-                    {project.projectNature}
-                  </span>
-                </div>
-
-                {/* Developer */}
-                <Link href={`/developers/${project.developer || project.developerId || ''}`}
-                  className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md hover:border-[#029bba]/30 transition-all group">
-                  <div className="w-11 h-11 rounded-xl bg-gray-100 flex items-center justify-center mb-3 overflow-hidden relative">
-                    {project.developerProfile?.logoUrl ? (
-                      <Image src={project.developerProfile.logoUrl} alt={project.developerProfile?.companyName ?? ''}
-                        fill className="object-contain p-1" sizes="44px" />
-                    ) : (
-                      <Building2 className="w-5 h-5 text-gray-400" />
-                    )}
-                  </div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Developer</p>
-                  <p className="font-bold text-[#029bba] text-sm group-hover:underline">
-                    {project.developerProfile?.companyName || 'View Developer'}
-                  </p>
-                </Link>
-
-                {/* Available */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
-                  <div className="w-11 h-11 rounded-xl bg-green-50 flex items-center justify-center mb-3">
-                    <CheckCircle className="w-5 h-5 text-green-600" />
-                  </div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Available</p>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-black text-green-600">{availableUnits.length}</span>
-                    <span className="text-gray-400 text-sm">/ {units.length}</span>
-                  </div>
-                  <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                    <div className="h-full bg-green-500 rounded-full"
-                      style={{ width: `${units.length ? Math.round((availableUnits.length / units.length) * 100) : 0}%` }} />
-                  </div>
-                </div>
-
-                {/* Status */}
-                <div className="bg-white rounded-2xl border border-gray-200 p-5 hover:shadow-md transition-all">
-                  <div className="w-11 h-11 rounded-xl bg-purple-50 flex items-center justify-center mb-3">
-                    <BarChart3 className="w-5 h-5 text-purple-600" />
-                  </div>
-                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Status</p>
-                  <p className="font-bold text-gray-900 text-sm capitalize">{project.projectStatus || project.status}</p>
-                  {project.developmentProgress !== undefined && (
-                    <>
-                      <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-purple-500 rounded-full"
-                          style={{ width: `${project.developmentProgress}%` }} />
-                      </div>
-                      <p className="text-[10px] text-purple-600 font-bold mt-1">{project.developmentProgress}% Complete</p>
-                    </>
-                  )}
-                </div>
-              </div>
-            </section>
 
             {/* ══════════════════════════════════════
                 CHOOSE YOUR SPACE — Highrise Signature (V2.0)
@@ -1118,75 +982,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
               </Section>
             )}
 
-            {/* ══════════════════════════════════════
-                UNIT INVENTORY TABLE
-            ══════════════════════════════════════ */}
-            {units.length > 0 && (
-              <Section title="Available Units" icon={<Building2 className="w-5 h-5 text-[#029bba]" />}
-                headerExtra={
-                  <div className="flex items-center gap-2">
-                    {unitsLoading && (
-                      <div className="w-3 h-3 border-2 border-[#029bba] border-t-transparent rounded-full animate-spin" />
-                    )}
-                    <span className="text-sm text-gray-500">
-                      {availableUnits.length} available of {units.length}
-                    </span>
-                  </div>
-                }>
-                <div className="overflow-x-auto -mx-6">
-                  <table className="w-full min-w-[650px]">
-                    <thead>
-                      <tr className="bg-gray-50 text-left">
-                        {['Unit', 'Type', 'Floor', 'Size', 'Price', 'Status'].map(h => (
-                          <th key={h} className={`px-6 py-3 text-[10px] font-bold text-gray-500 uppercase tracking-wider ${h === 'Status' ? 'text-right' : ''}`}>
-                            {h}
-                          </th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {units.slice(0, 20).map(unit => (
-                        <tr key={unit._id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-6 py-4 font-semibold text-gray-900 text-sm">{unit.unitNumber}</td>
-                          <td className="px-6 py-4 text-gray-600 text-sm capitalize">{unit.unitType?.replace(/_/g, ' ')}</td>
-                          <td className="px-6 py-4 text-gray-600 text-sm">{unit.floorName || `Floor ${unit.floorNumber}`}</td>
-                          <td className="px-6 py-4 text-gray-600 text-sm">
-                            {unit.area ? `${unit.area} ${unit.areaUnit || 'Sq.Ft'}` : '—'}
-                          </td>
-                          <td className="px-6 py-4 font-semibold text-[#029bba] text-sm">{formatDetailPrice(unit.price)}</td>
-                          <td className="px-6 py-4 text-right">
-                            {unit.status === 'available' ? (
-                              <button onClick={() => { setInquiryType('project_interest'); setShowInquiry(true); }}
-                                className="px-4 py-1.5 bg-[#029bba] hover:bg-[#027a94] text-white text-xs
-                                           font-semibold rounded-lg transition-colors">
-                                Book Now
-                              </button>
-                            ) : (
-                              <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium border ${UNIT_STATUS_STYLES[unit.status as keyof typeof UNIT_STATUS_STYLES] || ''}`}>
-                                {unit.status.charAt(0).toUpperCase() + unit.status.slice(1)}
-                              </span>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {units.length > 20 && (
-                  <div className="text-center pt-4 border-t border-gray-100 mt-4">
-                    <p className="text-sm text-gray-500">
-                      Showing 20 of {units.length} units.{' '}
-                      <button onClick={() => { setInquiryType('project_interest'); setShowInquiry(true); }}
-                        className="text-[#029bba] font-semibold hover:underline">
-                        Contact for full inventory
-                      </button>
-                    </p>
-                  </div>
-                )}
-              </Section>
-            )}
-
-            {/* DeveloperTrustCard moved higher — see after AI Risk Summary */}
+          {/* DeveloperTrustCard moved higher — see after AI Risk Summary */}
 
           </div>{/* end left column */}
 
@@ -1249,50 +1045,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
                 </div>
               </div>
 
-              {/* Quick Info */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-5">
-                <h3 className="font-bold text-gray-900 mb-4 text-sm">Quick Info</h3>
-                <div className="space-y-3 text-sm">
-                  {project.launchDate && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Launch</span>
-                      <span className="font-medium text-gray-900">{formatDate(project.launchDate)}</span>
-                    </div>
-                  )}
-                  {project.expectedCompletionDate && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Completion</span>
-                      <span className="font-medium text-gray-900">{formatDate(project.expectedCompletionDate)}</span>
-                    </div>
-                  )}
-                  {project.possessionStartDate && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Possession</span>
-                      <span className="font-medium text-gray-900">{formatDate(project.possessionStartDate)}</span>
-                    </div>
-                  )}
-                  {project.approvalAuthority && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Approved By</span>
-                      <span className="font-medium text-gray-900">{project.approvalAuthority}</span>
-                    </div>
-                  )}
-                  {project.saleMode && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Sale Mode</span>
-                      <span className="font-medium text-gray-900">{project.saleMode}</span>
-                    </div>
-                  )}
-                  {project.floorDetails?.totalFloors && (
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">Total Floors</span>
-                      <span className="font-medium text-gray-900">{project.floorDetails.totalFloors}</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Safety note */}
+            {/* Safety note */}
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
                 <div className="flex gap-3">
                   <Shield className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1372,12 +1125,6 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
           → VideoModal kept for developer video previews
           → UniversalInquiryModal for contact gating
       ══════════════════════════════════════ */}
-      <VideoModal
-        isOpen={videoOpen}
-        onClose={() => setVideoOpen(false)}
-        videoUrl={activeVideoUrl}
-      />
-
       <UniversalInquiryModal
         isOpen={showInquiry}
         onClose={() => setShowInquiry(false)}
@@ -1453,22 +1200,8 @@ export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
 
     const project = JSON.parse(JSON.stringify(rawDoc)) as ProjectData;
 
-    // Fetch units
-    const projectId = rawDoc._id as import('mongoose').Types.ObjectId;
-    const rawUnits = await Unit.find({
-      projectId: projectId,
-      status: { $ne: 'cancelled' },
-    })
-      .select('unitNumber floorNumber floorName unitType price areaSqft areaMarla status bedrooms bathrooms listingType facing')
-      .sort({ floorNumber: 1, unitNumber: 1 })
-      .limit(50)
-      .maxTimeMS(3000)
-      .lean();
-
-    const initialUnits = JSON.parse(JSON.stringify(rawUnits)) as UnitRow[];
-
     return {
-      props: { project, initialUnits },
+      props: { project },
       revalidate: 30,
     };
   } catch {
