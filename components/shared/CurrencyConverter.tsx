@@ -6,6 +6,7 @@
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Coins,
   X,
@@ -55,6 +56,7 @@ function CurrencyTooltip({
   onOpenModal,
   onMouseEnter,
   onMouseLeave,
+  style,
 }: {
   minPKR: number;
   maxPKR?: number;
@@ -62,6 +64,7 @@ function CurrencyTooltip({
   onOpenModal: () => void;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
+  style?: React.CSSProperties;
 }): React.ReactElement {  const topCurrencies = getSortedCurrencies(5);
   const effectiveMax = maxPKR ?? minPKR;
 
@@ -69,7 +72,8 @@ function CurrencyTooltip({
     <div
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
-      className={`absolute z-50 top-full ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-72 bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800`}
+      style={style}
+      className="fixed z-[120] w-72 bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800"
     >      {/* Header */}
       <div className="px-4 py-3 bg-gradient-to-r from-[#029bba] to-[#017a94] flex items-center gap-2">
         <Globe className="w-4 h-4 text-white" />
@@ -300,6 +304,8 @@ export default function PriceWithConverter({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActiveElementRef = useRef<HTMLElement | null>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const [tooltipPos, setTooltipPos] = useState<React.CSSProperties | null>(null);
 
   // Clear pending hover timeout on unmount
   useEffect(() => () => {
@@ -309,8 +315,17 @@ export default function PriceWithConverter({
   const buttonSize = size === 'sm' ? 'w-7 h-7' : size === 'lg' ? 'w-8 h-8' : 'w-7 h-7';
   const handleMouseEnter = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    // Portal positioning — fixed coords from trigger rect (escapes
+    // overflow-hidden ancestors that clipped the old absolute tooltip)
+    const rect = buttonRef.current?.getBoundingClientRect();
+    if (rect) {
+      const width = 288; // w-72
+      let left = align === 'left' ? rect.left : rect.right - width;
+      left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
+      setTooltipPos({ top: rect.bottom + 10, left });
+    }
     setIsHovering(true);
-  }, []);
+  }, [align]);
 
   const handleMouseLeave = useCallback(() => {
     timeoutRef.current = setTimeout(() => {
@@ -347,6 +362,7 @@ export default function PriceWithConverter({
           onMouseLeave={handleMouseLeave}
         >
           <button
+            ref={buttonRef}
             type="button"
             onClick={openModal}
             onFocus={handleMouseEnter}
@@ -360,8 +376,8 @@ export default function PriceWithConverter({
           >
             <Coins className={iconSize} strokeWidth={2} />
           </button>
-          {/* Hover Tooltip */}
-          {isHovering && (
+          {/* Hover Tooltip — portal to body (topmost, never clipped) */}
+          {isHovering && tooltipPos && typeof document !== 'undefined' && createPortal(
             <CurrencyTooltip
               minPKR={minPKR}
               maxPKR={maxPKR}
@@ -369,7 +385,9 @@ export default function PriceWithConverter({
               onOpenModal={openModal}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
-            />
+              style={tooltipPos}
+            />,
+            document.body,
           )}
         </span>
       </span>

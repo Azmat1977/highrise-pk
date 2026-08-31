@@ -11,7 +11,6 @@ import {
   Store,
   Building2,
   Hotel,
-  BadgeCheck,
   Sparkles,
   Shield,
   ChevronDown,
@@ -147,18 +146,7 @@ function MicroLabel({ children }: { children: React.ReactNode }): React.ReactEle
   );
 }
 
-function VerificationBadge({ project }: { project: ProjectDetailData }): React.ReactElement | null {
-  if (!project.isVerified) return null;
-
-  return (
-    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white/15 backdrop-blur-md rounded-full border border-white/30 shadow-lg">
-      <BadgeCheck className="w-4 h-4 text-white" strokeWidth={2.5} />
-      <span className="text-[11px] font-black text-white uppercase tracking-wider whitespace-nowrap">
-        Highrise Verified
-      </span>
-    </div>
-  );
-}
+// VerificationBadge removed — hero verification tick is the single owner
 
 function ProjectIdChip({ project }: { project: ProjectDetailData }): React.ReactElement | null {
   if (!project.projectId) return null;
@@ -216,15 +204,14 @@ function UnitTypeRow({
           <h3 className="text-base font-bold text-gray-900 leading-tight truncate" title={unitName}>
             {unitName}
           </h3>
-          {(metaParts.length > 0 || available > 0 || soldOut) && (
+          {(metaParts.length > 0 || total > 0) && (
             <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5 text-xs text-gray-500">
               {metaParts.length > 0 && (
                 <span className="truncate">{metaParts.join(' · ')}</span>
               )}
-              {available > 0 && (
-                <span className="inline-flex items-center gap-1 font-bold text-green-600 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
-                  {available} Available
+              {total > 0 && !soldOut && (
+                <span className="font-bold text-gray-700 whitespace-nowrap">
+                  {total} {total === 1 ? 'Unit' : 'Units'}
                 </span>
               )}
               {soldOut && (
@@ -311,11 +298,32 @@ export default function ChooseYourSpace({
     });
 
     const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
+    const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+    const totalUnits = allOfferings.reduce(
+      (sum, ut) => sum + (ut.totalUnits ?? 0), 0
+    );
     const availableUnits = allOfferings.reduce(
       (sum, ut) => sum + (ut.availableUnits ?? 0), 0
     );
 
-    return { minPrice, availableUnits };
+    return { minPrice, maxPrice, totalUnits, availableUnits };
+  }, [allOfferings]);
+
+  // Category-aware aggregate label — synchronized with actual unit data:
+  // all residential apartments → "Apartments" · plots → "Plots" ·
+  // all commercial → "Shops & Offices" · hotel → "Hotel Suites" · mixed → "Units"
+  const unitsLabel = useMemo(() => {
+    if (allOfferings.length === 0) return 'Units';
+    const cats = new Set(allOfferings.map(ut => getUnitCategory(ut)));
+    if (cats.size !== 1) return 'Units';
+    const only = [...cats][0] ?? 'residential';
+    if (only === 'hotel') return 'Hotel Suites';
+    if (only === 'commercial') return 'Shops & Offices';
+    const names = allOfferings.map(ut => (ut.name ?? ut.type ?? '').toLowerCase());
+    if (names.some(n => n.includes('plot') || n.includes('marla') || n.includes('kanal'))) {
+      return 'Plots';
+    }
+    return 'Apartments';
   }, [allOfferings]);
 
   const categoryTabs: CategoryInfo[] = [
@@ -351,17 +359,16 @@ export default function ChooseYourSpace({
               <h2 className="text-2xl font-black text-white leading-tight">
                 Choose Your Space
               </h2>
-              <p className="text-sm text-white/80 mt-1">
-                {allOfferings.length} unit {allOfferings.length === 1 ? 'type' : 'types'} available
-                {stats.minPrice > 0 && (
-                  <>
-                    {' '}·{' '}
-                    <span className="font-bold text-white">
-                      From PKR {formatDetailPrice(stats.minPrice)}
-                    </span>
-                  </>
-                )}
-              </p>
+              {stats.minPrice > 0 && (
+                <p className="text-sm text-white/80 mt-1">
+                  <span className="font-bold text-white">
+                    PKR {formatDetailPrice(stats.minPrice)}
+                    {stats.maxPrice > stats.minPrice && (
+                      <span> — {formatDetailPrice(stats.maxPrice)}</span>
+                    )}
+                  </span>
+                </p>
+              )}
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <ProjectIdChip project={project} />
               </div>
@@ -369,12 +376,10 @@ export default function ChooseYourSpace({
           </div>
 
           <div className="flex flex-col items-start sm:items-end gap-2">
-            <VerificationBadge project={project} />
-            {stats.availableUnits > 0 && (
-              <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/20 backdrop-blur-md rounded-full border border-green-300/30">
-                <span className="w-1.5 h-1.5 rounded-full bg-green-300 animate-pulse" />
+            {stats.totalUnits > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/20">
                 <span className="text-[11px] font-black text-white whitespace-nowrap">
-                  {stats.availableUnits} unit{stats.availableUnits > 1 ? 's' : ''} available
+                  Total {unitsLabel} {stats.totalUnits}
                 </span>
               </div>
             )}
