@@ -125,24 +125,43 @@ function Stat({
 
 function CompletedProjectCard({ project }: { project: RelatedProject }) {
   return (
-    <div className="rounded-xl border border-gray-200 p-4
-                    hover:border-[#029bba]/30 transition-colors">
-      <div className="flex items-baseline justify-between gap-2 mb-1.5">
-        <h4 className="font-bold text-gray-900 text-sm leading-tight truncate">
-          {project.name}
-        </h4>
-        <span className="text-xs font-bold text-gray-400 flex-shrink-0 tabular-nums">
-          {project.year}
-        </span>
-      </div>
-      <div className="flex items-center gap-1.5 text-xs text-gray-500">
-        <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-        <span className="truncate">
-          {project.location}
-          {project.type && (
-            <span className="text-gray-400"> · {project.type}</span>
-          )}
-        </span>
+    <div className="rounded-xl border border-gray-200 overflow-hidden
+                    hover:border-[#029bba]/30 transition-colors group">
+      {project.image ? (
+        <div className="relative w-full aspect-[16/10] bg-gray-100">
+          <Image
+            src={project.image}
+            alt={project.name}
+            fill
+            className="object-cover group-hover:scale-[1.03]
+                       transition-transform duration-300"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+        </div>
+      ) : (
+        <div className="w-full aspect-[16/10] bg-gray-50
+                        flex items-center justify-center">
+          <Building2 className="w-6 h-6 text-gray-300" />
+        </div>
+      )}
+      <div className="p-3">
+        <div className="flex items-baseline justify-between gap-2 mb-1">
+          <h4 className="font-bold text-gray-900 text-sm leading-tight truncate">
+            {project.name}
+          </h4>
+          <span className="text-xs font-bold text-gray-400 flex-shrink-0 tabular-nums">
+            {project.year}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
+          <span className="truncate">
+            {project.location}
+            {project.type && (
+              <span className="text-gray-400"> · {project.type}</span>
+            )}
+          </span>
+        </div>
       </div>
     </div>
   );
@@ -273,7 +292,9 @@ export default function DeveloperTrustCard({
                         tracking-wider mb-3">
             Track Record
           </p>
-          <div className="grid grid-cols-3 divide-x divide-gray-100">
+          <div className={`grid ${
+            accountability.establishedYear ? 'grid-cols-3' : 'grid-cols-2'
+          } divide-x divide-gray-100`}>
             <div className="pr-4">
               <Stat
                 value={accountability.completedProjects > 0
@@ -282,7 +303,7 @@ export default function DeveloperTrustCard({
                 label="Completed"
               />
             </div>
-            <div className="px-4">
+            <div className={accountability.establishedYear ? 'px-4' : 'pl-4'}>
               <Stat
                 value={accountability.ongoingProjects > 0
                   ? accountability.ongoingProjects
@@ -290,17 +311,15 @@ export default function DeveloperTrustCard({
                 label="Ongoing"
               />
             </div>
-            <div className="pl-4">
-              <Stat
-                value={accountability.yearsInOperation > 0
-                  ? `${accountability.yearsInOperation} yrs`
-                  : '—'}
-                label="Active"
-                sub={accountability.establishedYear
-                  ? `since ${accountability.establishedYear}`
-                  : undefined}
-              />
-            </div>
+            {accountability.establishedYear && (
+              <div className="pl-4">
+                <Stat
+                  value={`${accountability.yearsInOperation} yrs`}
+                  label="Years Active"
+                  sub={`since ${accountability.establishedYear}`}
+                />
+              </div>
+            )}
           </div>
           {/* Tier meaning — one quiet line */}
           <p className="text-xs text-gray-500 mt-3 leading-relaxed">
