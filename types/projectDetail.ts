@@ -377,6 +377,7 @@ export interface ProjectDetailData {
   totalReviews?:   number;
 
   // Meta
+  projectId?: string;   // HR-PRJ-XXXXX public reference (ProjectIdChip + inquiry context)
   createdAt?: string;
   updatedAt?: string;
 }

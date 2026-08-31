@@ -1,7 +1,8 @@
 // components/project-detail/ChooseYourSpace.tsx
 // ═══════════════════════════════════════════════════════════════
-// CHOOSE YOUR SPACE — Highrise.pk Signature Section V3.2
-// Clean row design — no column labels, unified pricing, perfect alignment
+// CHOOSE YOUR SPACE — Highrise.pk Signature Section V3.3
+// Row-based layout · shared size-unit conversion · unified pricing
+// Per-row CTAs removed — inquiry handled by sidebar + sticky bar.
 // ═══════════════════════════════════════════════════════════════
 
 import React, { useState, useMemo } from 'react';
@@ -10,17 +11,10 @@ import {
   Store,
   Building2,
   Hotel,
-  Bed,
-  Bath,
-  Ruler,
-  TrendingUp,
-  Flame,
-  Zap,
-  Shield,
   BadgeCheck,
-  ArrowRight,
   Sparkles,
-  DollarSign,
+  Shield,
+  ChevronDown,
 } from 'lucide-react';
 import type {
   ProjectDetailData,
@@ -35,7 +29,6 @@ import PriceWithConverter from '@/components/shared/CurrencyConverter';
 
 interface ChooseYourSpaceProps {
   project: ProjectDetailData;
-  onInquire: (unitTypeName?: string) => void;
 }
 
 type CategoryFilter = 'all' | 'residential' | 'commercial' | 'hotel';
@@ -46,8 +39,71 @@ interface CategoryInfo {
   icon: React.ComponentType<{ className?: string }>;
 }
 
+type SizeUnit = 'sqft' | 'marla' | 'kanal' | 'sqyd' | 'sqm' | 'acre';
+
 // ============================================
-// HELPERS
+// SIZE CONVERSION — Pakistani market units
+// Flow: source unit (any) → sqft → shared target unit
+// ============================================
+
+const SIZE_UNITS: { value: SizeUnit; label: string; sqftFactor: number }[] = [
+  { value: 'sqft',  label: 'Sq Ft', sqftFactor: 1 },
+  { value: 'marla', label: 'Marla', sqftFactor: 272.25 },
+  { value: 'kanal', label: 'Kanal', sqftFactor: 5445 },
+  { value: 'sqyd',  label: 'Sq Yd', sqftFactor: 9 },
+  { value: 'sqm',   label: 'Sq M',  sqftFactor: 10.7639 },
+  { value: 'acre',  label: 'Acre',  sqftFactor: 43560 },
+];
+
+const SOURCE_TO_SQFT: Record<string, number> = {
+  sqft: 1, 'sq.ft': 1, 'sq ft': 1, 'sq. ft': 1,
+  sqyd: 9, 'sq.yd': 9, 'sq yd': 9, 'sq. yd': 9,
+  sqyard: 9, 'sq.yard': 9, 'sq yard': 9, 'sq. yard': 9, gaz: 9,
+  sqm: 10.7639, 'sq.m': 10.7639, 'sq m': 10.7639, 'sq. m': 10.7639,
+  marla: 272.25,
+  kanal: 5445,
+  acre: 43560,
+};
+
+function toSqft(value: number, unit: string): number {
+  const factor = SOURCE_TO_SQFT[(unit ?? '').trim().toLowerCase()] ?? 1;
+  return value * factor;
+}
+
+function formatConvertedArea(sqft: number, target: SizeUnit): string {
+  const factor = SIZE_UNITS.find(u => u.value === target)?.sqftFactor ?? 1;
+  const value = sqft / factor;
+  if (value >= 100) return Math.round(value).toLocaleString('en-US');
+  return value.toFixed(2).replace(/\.?0+$/, '');
+}
+
+function getUnitSqftRange(ut: UnitTypeOffering): { minSqft: number; maxSqft: number } {
+  const rawMin = ut.areaRange?.min ?? ut.minArea ?? 0;
+  const rawMax = ut.areaRange?.max ?? ut.maxArea ?? 0;
+  const unit = ut.areaRange?.unit ?? ut.areaUnit ?? 'sqft';
+  const min = rawMin > 0 ? toSqft(rawMin, unit) : 0;
+  const max = rawMax > 0 ? toSqft(rawMax, unit) : 0;
+  // Defensive: ensure ascending order on malformed data
+  if (min > 0 && max > 0 && min > max) {
+    return { minSqft: max, maxSqft: min };
+  }
+  return { minSqft: min, maxSqft: max };
+}
+
+function getAreaDisplay(minSqft: number, maxSqft: number, target: SizeUnit): string {
+  const label = SIZE_UNITS.find(u => u.value === target)?.label ?? 'Sq Ft';
+  if (minSqft <= 0 && maxSqft <= 0) return '—';
+  if (minSqft <= 0 || maxSqft <= 0) {
+    return `${formatConvertedArea(Math.max(minSqft, maxSqft), target)} ${label}`;
+  }
+  if (minSqft === maxSqft) {
+    return `${formatConvertedArea(minSqft, target)} ${label}`;
+  }
+  return `${formatConvertedArea(minSqft, target)} — ${formatConvertedArea(maxSqft, target)} ${label}`;
+}
+
+// ============================================
+// CATEGORY + PRICE HELPERS
 // ============================================
 
 function getUnitCategory(ut: UnitTypeOffering): 'residential' | 'commercial' | 'hotel' {
@@ -73,53 +129,6 @@ function getCategoryIcon(category: 'residential' | 'commercial' | 'hotel') {
   return Home;
 }
 
-function marlaToSqft(marla: number): number {
-  return Math.round(marla * 272.25);
-}
-
-function sqftToMarla(sqft: number): number {
-  return Math.round((sqft / 272.25) * 100) / 100;
-}
-
-function getDualSizeDisplay(ut: UnitTypeOffering): {
-  primary: string;
-  secondary: string;
-} {
-  const minArea = ut.areaRange?.min ?? ut.minArea ?? 0;
-  const maxArea = ut.areaRange?.max ?? ut.maxArea ?? 0;
-  const areaUnit = (ut.areaRange?.unit ?? ut.areaUnit ?? 'sqft').toLowerCase();
-
-  if (minArea === 0 || maxArea === 0) {
-    return { primary: '—', secondary: '' };
-  }
-
-  const isMarla = areaUnit.includes('marla');
-  const isSqft = areaUnit.includes('sq') || areaUnit === 'sqft';
-
-  if (isMarla) {
-    const minSqft = marlaToSqft(minArea);
-    const maxSqft = marlaToSqft(maxArea);
-    return {
-      primary: `${minArea} - ${maxArea} Marla`,
-      secondary: `${minSqft.toLocaleString()} - ${maxSqft.toLocaleString()} sqft`,
-    };
-  }
-
-  if (isSqft) {
-    const minMarla = sqftToMarla(minArea);
-    const maxMarla = sqftToMarla(maxArea);
-    return {
-      primary: `${minArea.toLocaleString()} - ${maxArea.toLocaleString()} sqft`,
-      secondary: `${minMarla} - ${maxMarla} Marla`,
-    };
-  }
-
-  return {
-    primary: `${minArea} - ${maxArea} ${areaUnit}`,
-    secondary: '',
-  };
-}
-
 function getPriceRange(ut: UnitTypeOffering): { min: number; max: number } {
   const min = ut.priceRange?.min ?? ut.minPrice ?? 0;
   const max = ut.priceRange?.max ?? ut.maxPrice ?? 0;
@@ -129,6 +138,14 @@ function getPriceRange(ut: UnitTypeOffering): { min: number; max: number } {
 // ============================================
 // SUB-COMPONENTS
 // ============================================
+
+function MicroLabel({ children }: { children: React.ReactNode }): React.ReactElement {
+  return (
+    <p className="text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-0.5">
+      {children}
+    </p>
+  );
+}
 
 function VerificationBadge({ project }: { project: ProjectDetailData }): React.ReactElement | null {
   if (!project.isVerified) return null;
@@ -144,214 +161,109 @@ function VerificationBadge({ project }: { project: ProjectDetailData }): React.R
 }
 
 function ProjectIdChip({ project }: { project: ProjectDetailData }): React.ReactElement | null {
-  const projectId = (project as unknown as { projectId?: string }).projectId;
-  if (!projectId) return null;
+  if (!project.projectId) return null;
 
   return (
     <div className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-white/10 backdrop-blur-md rounded-lg border border-white/20">
       <Shield className="w-3 h-3 text-white/80" />
       <span className="text-[10px] font-mono font-bold text-white/90 tracking-wider">
-        {projectId}
+        {project.projectId}
       </span>
     </div>
   );
 }
 
 /**
- * Unit Type ROW — Clean, aligned, no column labels
- * Uses 12-col grid with balanced weights
+ * Unit Type ROW — aligned triple: Category | Area | Price
+ * No per-row CTA (inquiry via sidebar + sticky bar).
+ * Shared sizeUnit keeps every row in the same unit.
  */
 function UnitTypeRow({
   ut,
-  onInquire,
+  sizeUnit,
 }: {
   ut: UnitTypeOffering;
-  onInquire: (name?: string) => void;
+  sizeUnit: SizeUnit;
 }): React.ReactElement {
   const category = getUnitCategory(ut);
   const CategoryIcon = getCategoryIcon(category);
   const { min: minPrice, max: maxPrice } = getPriceRange(ut);
-  const { primary: sizePrimary, secondary: sizeSecondary } = getDualSizeDisplay(ut);
-  const unitName = ut.name ?? ut.type ?? 'Unit Type';
+  const { minSqft, maxSqft } = getUnitSqftRange(ut);
+  const areaDisplay = getAreaDisplay(minSqft, maxSqft, sizeUnit);
 
+  const unitName = ut.name ?? ut.type ?? 'Unit Type';
   const available = ut.availableUnits ?? 0;
   const total = ut.totalUnits ?? 0;
+  const soldOut = total > 0 && available === 0;
 
-  const extendedUt = ut as unknown as {
-    avgRentalYield?: number;
-    isFastSelling?: boolean;
-    hotDealsCount?: number;
-  };
+  // Meta line: 3 Bed · 2 Bath · 12 Available
+  const metaParts: string[] = [];
+  if ((ut.bedrooms ?? 0) > 0) metaParts.push(`${ut.bedrooms} Bed`);
+  if ((ut.bathrooms ?? 0) > 0) metaParts.push(`${ut.bathrooms} Bath`);
+
+  const hasPrice = minPrice > 0 || maxPrice > 0;
+  const displayMin = minPrice > 0 ? minPrice : maxPrice;
 
   return (
-    <div className="group relative bg-white rounded-2xl border border-gray-200 hover:border-[#029bba]/40 shadow-sm hover:shadow-xl transition-all duration-300 overflow-hidden">
-      {/* Left accent bar with brand gradient */}
-      <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-[#029bba] to-[#004063]" />
+    <div className="grid grid-cols-1 lg:grid-cols-12 gap-2 lg:gap-4 items-center py-4">
 
-      <div className="p-5 pl-6">
-        {/* ══════════════════════════════════════════
-            MAIN ROW — 12-col grid, no headers
-        ══════════════════════════════════════════ */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:gap-4 items-center">
-
-          {/* ── Column 1: Icon + Name (3 cols) ── */}
-          <div className="flex items-center gap-3 lg:col-span-3 min-w-0">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center shrink-0 shadow-md shadow-[#029bba]/20">
-              <CategoryIcon className="w-6 h-6 text-white" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-base font-bold text-gray-900 leading-tight truncate" title={unitName}>
-                {unitName}
-              </h3>
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-500 mt-1">
-                {category === 'hotel' ? 'Hotel Suite' : category}
-              </p>
-            </div>
-          </div>
-
-          {/* ── Column 2: Price (Unified Style) (3 cols) ── */}
-          <div className="lg:col-span-3 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
-            {(minPrice > 0 || maxPrice > 0) ? (
-              <>
-                <div className="flex items-center gap-2">
-                  {/* Both prices — SAME size, SAME gray color */}
-                  <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className="text-base font-bold text-gray-800 whitespace-nowrap">
-                      PKR {formatDetailPrice(minPrice)}
-                    </span>
-                    {maxPrice > minPrice && (
-                      <>
-                        <span className="text-gray-400 text-sm">—</span>
-                        <span className="text-base font-bold text-gray-800 whitespace-nowrap">
-                          {formatDetailPrice(maxPrice)}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Currency Converter Icon */}
-                  <PriceWithConverter
-                    minPKR={minPrice}
-                    maxPKR={maxPrice > minPrice ? maxPrice : undefined}
-                    displayText=""
-                    size="sm"
-                    align="right"
-                  />
-                </div>
-              </>
-            ) : (
-              <span className="text-sm font-bold text-gray-400">Contact for Price</span>
-            )}
-          </div>
-
-          {/* ── Column 3: Size (3 cols — WIDER to prevent overflow) ── */}
-          <div className="lg:col-span-3 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
-            {sizePrimary !== '—' ? (
-              <div className="flex items-start gap-1.5">
-                <Ruler className="w-3.5 h-3.5 text-[#029bba] shrink-0 mt-1" />
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-gray-800 leading-tight whitespace-nowrap">
-                    {sizePrimary}
-                  </p>
-                  {sizeSecondary && (
-                    <p className="text-[11px] text-gray-500 mt-0.5 whitespace-nowrap">
-                      {sizeSecondary}
-                    </p>
-                  )}
-                </div>
-              </div>
-            ) : (
-              <span className="text-sm text-gray-400">—</span>
-            )}
-          </div>
-
-          {/* ── Column 4: Layout (Beds/Baths) (2 cols) ── */}
-          <div className="lg:col-span-2 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
-            {((ut.bedrooms ?? 0) > 0 || (ut.bathrooms ?? 0) > 0) ? (
-              <div className="flex flex-wrap gap-1.5">
-                {(ut.bedrooms ?? 0) > 0 && (
-                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20 whitespace-nowrap">
-                    <Bed className="w-3 h-3 text-[#029bba]" />
-                    <span className="text-xs font-black text-[#004063]">
-                      {ut.bedrooms} {(ut.bedrooms ?? 0) === 1 ? 'Bed' : 'Beds'}
-                    </span>
-                  </div>
-                )}
-                {(ut.bathrooms ?? 0) > 0 && (
-                  <div className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-br from-[#029bba]/10 to-[#004063]/5 rounded-lg border border-[#029bba]/20 whitespace-nowrap">
-                    <Bath className="w-3 h-3 text-[#029bba]" />
-                    <span className="text-xs font-black text-[#004063]">
-                      {ut.bathrooms} {(ut.bathrooms ?? 0) === 1 ? 'Bath' : 'Baths'}
-                    </span>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <span className="text-sm text-gray-400">—</span>
-            )}
-          </div>
-
-          {/* ── Column 5: Availability + Signals (1 col) ── */}
-          <div className="lg:col-span-1 min-w-0 lg:border-l lg:border-gray-200 lg:pl-4">
-            <div className="space-y-1.5">
-              {available > 0 ? (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-200 rounded-full text-[10px] font-black text-green-700 whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse shrink-0" />
-                  {available}
-                </span>
-              ) : total > 0 ? (
-                <span className="inline-flex items-center gap-1 px-2 py-1 bg-red-50 border border-red-200 rounded-full text-[10px] font-black text-red-700 whitespace-nowrap">
-                  Sold Out
-                </span>
-              ) : (
-                <span className="text-xs text-gray-400">—</span>
+      {/* Col 1: Icon + Name + Meta (5 cols) */}
+      <div className="lg:col-span-5 flex items-center gap-3 min-w-0">
+        <div className="w-10 h-10 rounded-xl bg-[#029bba]/10 flex items-center justify-center shrink-0">
+          <CategoryIcon className="w-5 h-5 text-[#029bba]" />
+        </div>
+        <div className="min-w-0">
+          <h3 className="text-base font-bold text-gray-900 leading-tight truncate" title={unitName}>
+            {unitName}
+          </h3>
+          {(metaParts.length > 0 || available > 0 || soldOut) && (
+            <div className="flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5 text-xs text-gray-500">
+              {metaParts.length > 0 && (
+                <span className="truncate">{metaParts.join(' · ')}</span>
               )}
-
-              {/* Compact investment signals */}
-              <div className="flex flex-wrap gap-1">
-                {extendedUt.avgRentalYield && extendedUt.avgRentalYield > 0 && (
-                  <span
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-[#029bba]/10 border border-[#029bba]/20 rounded text-[9px] font-black text-[#029bba]"
-                    title={`Rental Yield: ${extendedUt.avgRentalYield.toFixed(1)}%`}
-                  >
-                    <TrendingUp className="w-2 h-2" />
-                    {extendedUt.avgRentalYield.toFixed(1)}%
-                  </span>
-                )}
-                {extendedUt.isFastSelling && (
-                  <span
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-50 border border-amber-200 rounded text-[9px] font-black text-amber-700"
-                    title="Selling Fast"
-                  >
-                    <Zap className="w-2 h-2" />
-                  </span>
-                )}
-                {extendedUt.hotDealsCount && extendedUt.hotDealsCount > 0 && (
-                  <span
-                    className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-50 border border-red-200 rounded text-[9px] font-black text-red-700"
-                    title={`${extendedUt.hotDealsCount} Hot Deals`}
-                  >
-                    <Flame className="w-2 h-2" />
-                  </span>
-                )}
-              </div>
+              {available > 0 && (
+                <span className="inline-flex items-center gap-1 font-bold text-green-600 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-green-500 shrink-0" />
+                  {available} Available
+                </span>
+              )}
+              {soldOut && (
+                <span className="font-bold text-red-600 whitespace-nowrap">Sold Out</span>
+              )}
             </div>
+          )}
+        </div>
+      </div>
+
+      {/* Col 2: Area (3 cols) */}
+      <div className="lg:col-span-3 lg:border-l lg:border-gray-100 lg:pl-4 min-w-0">
+        <MicroLabel>Area</MicroLabel>
+        <p className="text-sm font-bold text-gray-800 tabular-nums">
+          {areaDisplay}
+        </p>
+      </div>
+
+      {/* Col 3: Price + Currency Converter (4 cols) */}
+      <div className="lg:col-span-4 lg:border-l lg:border-gray-100 lg:pl-4 min-w-0">
+        <MicroLabel>Price</MicroLabel>
+        {hasPrice && displayMin > 0 ? (
+          <div className="flex items-center gap-1.5">
+            <p className="text-sm font-bold text-gray-800 tabular-nums whitespace-nowrap">
+              PKR {formatDetailPrice(displayMin)}
+              {maxPrice > displayMin && (
+                <span> — {formatDetailPrice(maxPrice)}</span>
+              )}
+            </p>
+            <PriceWithConverter
+              minPKR={displayMin}
+              maxPKR={maxPrice > displayMin ? maxPrice : undefined}
+              size="sm"
+              align="right"
+            />
           </div>
-
-        </div>
-
-        {/* ══════════════════════════════════════════
-            BOTTOM CTA BAR
-        ══════════════════════════════════════════ */}
-        <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-end gap-3">
-          <button
-            onClick={() => onInquire(unitName)}
-            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#02a8c9] hover:to-[#00507a] text-white font-bold text-sm rounded-xl shadow-md shadow-[#029bba]/20 hover:shadow-lg hover:shadow-[#029bba]/30 transition-all duration-200 group/btn whitespace-nowrap w-full sm:w-auto"
-          >
-            <span>Inquire About {unitName}</span>
-            <ArrowRight className="w-4 h-4 group-hover/btn:translate-x-1 transition-transform" />
-          </button>
-        </div>
+        ) : (
+          <p className="text-sm font-bold text-gray-400">Contact for Price</p>
+        )}
       </div>
     </div>
   );
@@ -363,9 +275,9 @@ function UnitTypeRow({
 
 export default function ChooseYourSpace({
   project,
-  onInquire,
 }: ChooseYourSpaceProps): React.ReactElement | null {
   const [activeCategory, setActiveCategory] = useState<CategoryFilter>('all');
+  const [sizeUnit, setSizeUnit] = useState<SizeUnit>('sqft');
 
   const allOfferings = project.unitTypeBreakdown ?? [];
 
@@ -399,12 +311,11 @@ export default function ChooseYourSpace({
     });
 
     const minPrice = allPrices.length > 0 ? Math.min(...allPrices) : 0;
-    const maxPrice = allPrices.length > 0 ? Math.max(...allPrices) : 0;
+    const availableUnits = allOfferings.reduce(
+      (sum, ut) => sum + (ut.availableUnits ?? 0), 0
+    );
 
-    const totalUnits = allOfferings.reduce((sum, ut) => sum + (ut.totalUnits ?? 0), 0);
-    const availableUnits = allOfferings.reduce((sum, ut) => sum + (ut.availableUnits ?? 0), 0);
-
-    return { minPrice, maxPrice, totalUnits, availableUnits };
+    return { minPrice, availableUnits };
   }, [allOfferings]);
 
   const categoryTabs: CategoryInfo[] = [
@@ -429,14 +340,9 @@ export default function ChooseYourSpace({
       id="units"
       className="bg-white rounded-2xl border border-gray-200 shadow-lg overflow-hidden"
     >
-      {/* ══════════════════════════════════════
-          HEADER — Beautiful Brand Gradient
-      ══════════════════════════════════════ */}
-      <div className="relative px-6 py-6 bg-gradient-to-br from-[#029bba] via-[#017a94] to-[#004063] overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="absolute bottom-0 left-0 w-48 h-48 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
-
-        <div className="relative flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+      {/* HEADER — brand gradient (signature) */}
+      <div className="px-6 py-6 bg-gradient-to-br from-[#029bba] via-[#017a94] to-[#004063]">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           <div className="flex items-start gap-3">
             <div className="w-12 h-12 rounded-xl bg-white/15 backdrop-blur-md flex items-center justify-center shrink-0 border border-white/30 shadow-lg">
               <Sparkles className="w-6 h-6 text-white" />
@@ -476,9 +382,7 @@ export default function ChooseYourSpace({
         </div>
       </div>
 
-      {/* ══════════════════════════════════════
-          CATEGORY TABS
-      ══════════════════════════════════════ */}
+      {/* CATEGORY TABS */}
       {visibleTabs.length > 1 && (
         <div className="px-6 py-4 border-b border-gray-100 overflow-x-auto scrollbar-none bg-gradient-to-b from-gray-50 to-white">
           <div className="flex gap-2">
@@ -522,10 +426,39 @@ export default function ChooseYourSpace({
         </div>
       )}
 
-      {/* ══════════════════════════════════════
-          UNIT TYPE ROWS
-      ══════════════════════════════════════ */}
-      <div className="p-4 sm:p-6 space-y-3 bg-gradient-to-b from-gray-50/50 to-white">
+      {/* SIZE UNIT SELECTOR — shared across all rows */}
+      <div className="px-4 sm:px-6 py-3 border-b border-gray-100 bg-gray-50/50 flex items-center justify-between gap-3">
+        <p className="text-xs text-gray-500">
+          {filteredOfferings.length} {filteredOfferings.length === 1 ? 'type' : 'types'}
+        </p>
+        <div className="flex items-center gap-2">
+          <label
+            htmlFor="size-unit-select"
+            className="text-[10px] font-bold uppercase tracking-wider text-gray-400 whitespace-nowrap"
+          >
+            Sizes in
+          </label>
+          <div className="relative">
+            <select
+              id="size-unit-select"
+              value={sizeUnit}
+              onChange={(e) => setSizeUnit(e.target.value as SizeUnit)}
+              aria-label="Select size unit"
+              className="appearance-none pl-3 pr-8 py-1.5 text-sm font-bold text-gray-800 bg-white border border-gray-200 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba]"
+            >
+              {SIZE_UNITS.map((u) => (
+                <option key={u.value} value={u.value}>
+                  {u.label}
+                </option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
+          </div>
+        </div>
+      </div>
+
+      {/* ROWS — divide-y list, no card chrome */}
+      <div className="bg-white px-4 sm:px-6 divide-y divide-gray-100">
         {filteredOfferings.length === 0 ? (
           <div className="text-center py-12">
             <Building2 className="w-12 h-12 text-gray-200 mx-auto mb-3" />
@@ -534,70 +467,13 @@ export default function ChooseYourSpace({
         ) : (
           filteredOfferings.map((ut, idx) => (
             <UnitTypeRow
-              key={`${ut.type}-${idx}`}
+              key={`${ut.name ?? ut.type ?? 'unit'}-${idx}`}
               ut={ut}
-              onInquire={onInquire}
+              sizeUnit={sizeUnit}
             />
           ))
         )}
       </div>
-
-      {/* ══════════════════════════════════════
-          BOTTOM SUMMARY BAR
-      ══════════════════════════════════════ */}
-      {allOfferings.length > 1 && (
-        <div className="px-6 py-4 border-t border-gray-100 bg-gradient-to-r from-[#029bba]/5 via-white to-[#004063]/5">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div>
-              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">
-                Unit Types
-              </p>
-              <p className="text-lg font-black bg-gradient-to-r from-[#029bba] to-[#004063] bg-clip-text text-transparent">
-                {allOfferings.length}
-              </p>
-            </div>
-            {stats.totalUnits > 0 && (
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">
-                  Total Units
-                </p>
-                <p className="text-lg font-black text-gray-900">
-                  {stats.totalUnits}
-                </p>
-              </div>
-            )}
-            {stats.availableUnits > 0 && (
-              <div>
-                <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">
-                  Available
-                </p>
-                <p className="text-lg font-black text-green-600">
-                  {stats.availableUnits}
-                </p>
-              </div>
-            )}
-            {stats.minPrice > 0 && (
-              <div>
-                <div className="flex items-center justify-between mb-0.5">
-                  <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
-                    From
-                  </p>
-                  <PriceWithConverter
-                    minPKR={stats.minPrice}
-                    maxPKR={stats.maxPrice > stats.minPrice ? stats.maxPrice : undefined}
-                    displayText=""
-                    size="sm"
-                    align="right"
-                  />
-                </div>
-                <p className="text-sm font-bold text-gray-800">
-                  PKR {formatDetailPrice(stats.minPrice)}
-                </p>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </section>
   );
 }

@@ -774,14 +774,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
                 CHOOSE YOUR SPACE — Highrise Signature (V2.0)
                 Positioned right after Overview for maximum impact
             ══════════════════════════════════════ */}
-            <ChooseYourSpace
-              project={project}
-              onInquire={(unitTypeName) => {
-                setInquiryType('project_interest');
-                setShowInquiry(true);
-                void unitTypeName;
-              }}
-            />
+            <ChooseYourSpace project={project} />
 
             {/* Legacy "Units & Pricing" section completely removed.
                 Replaced by <ChooseYourSpace /> above (Highrise V2.0). */}
