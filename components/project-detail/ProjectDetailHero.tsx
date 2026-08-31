@@ -53,7 +53,6 @@ import {
   CheckCircle2,
   Flame,
   BadgeCheck,
-  Star,
   Heart,
   GitCompare,
   Share2,
@@ -85,17 +84,16 @@ import UniversalInquiryModal from '@/components/UniversalInquiryModal';
 import { downloadFile }      from '@/lib/cloudinaryClient';
 
 import type { ProjectDetailData, InquiryType } from '@/types/projectDetail';
-import type { ProjectListing }                 from '@/types/projects';
 
 import {
   formatDetailPrice,
-  formatDetailDate,
   formatDetailDateShort,
   convertToSqftAndMarla,
   getPrimaryImageUrl,
   getProjectAreaDisplay,
   getDeveloperDisplayName,
   calculateAndFormatDuration,
+  toProjectListing,
 } from '@/types/projectDetail';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -111,68 +109,7 @@ interface ProjectDetailHeroProps {
   canonicalUrl:    string;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER — Map ProjectDetailData → ProjectListing for ShareMenu
-// SECURITY: Only public fields. No contact data.
-// ─────────────────────────────────────────────────────────────────────────────
-
-function toListingShape(
-  project:      ProjectDetailData,
-  primaryImage: string,
-  area:         string,
-): ProjectListing {
-  return {
-    _id:             project._id,
-    slug:            project.slug,
-    projectName:     project.projectName,
-    tagline:         project.tagline ?? null,
-    city:            project.city,
-    area,
-    locality:        null,
-    propertyType:    [],
-    projectCategory: project.projectCategory,
-    projectNature:   project.projectNature,
-    projectStatus:   'under_construction',
-    minPrice:        project.minPrice ?? null,
-    maxPrice:        project.maxPrice ?? null,
-    priceOnRequest:  !project.minPrice,
-    minAreaMarla:    null,
-    maxAreaMarla:    null,
-    minBedrooms:     null,
-    maxBedrooms:     null,
-    possessionDate:  project.possessionStartDate ?? null,
-    possessionQuarter: null,
-    isVerified:      project.isVerified,
-    nocStatus:       (project.nocStatus as 'approved' | 'pending' | 'not_applied') ?? 'not_applied',
-    nocAuthority:    project.approvalAuthority ?? null,
-    nocNumber:       null,
-    legalDocumentUrl: project.legalDocs?.nocUrl ?? null,
-    shield: {
-      total:         project.highriseScore ?? 0,
-      nocScore:      0,
-      verifiedScore: 0,
-      builderScore:  0,
-      deliveryScore: 0,
-      breakdown:     null,
-    },
-    developerId:      project.developer,
-    developerName:    getDeveloperDisplayName(project.developerProfile),
-    developerSlug:    project.developer,
-    developerLogoUrl: project.developerProfile?.logoUrl ?? null,
-    developerBadge:   null,
-    isTrustedBuilder: project.isTrustedBuilder ?? false,
-    marketedBy:       null,
-    primaryImage,
-    imageCount:       (project.images ?? []).length,
-    isShortlisted:    false,
-    inquiryCount:     null,
-    amenities:        [],
-    fairPriceUrl:     null,
-    isFeatured:       project.isFeatured ?? false,
-    highriseScore:    project.highriseScore ?? 0,
-    createdAt:        project.createdAt ?? new Date().toISOString(),
-  };
-}
+// toProjectListing imported from @/types/projectDetail (single source — dedup)
 
 // Map removed from hero gallery (Wave 5A user feedback)
 // → Uses 5-photo grid (Option A) instead
@@ -467,7 +404,7 @@ export default function ProjectDetailHero({
   const videoCount = (project.videos?.length ?? 0) + (project.droneVideoUrl ? 1 : 0);
 
   // ── Listing shape for ShareMenu ──
-  const listingShape = toListingShape(project, primaryImage, area);
+  const listingShape = toProjectListing(project, primaryImage, area);
 
   // ── SPRINT 2: Favorites ──
   const {
@@ -899,6 +836,7 @@ export default function ProjectDetailHero({
         onClose={() => setInquiryOpen(false)}
         entityType="project"
         entityId={project._id}
+        entityCode={project.projectId}
         entityTitle={project.projectName}
         entityPrice={overallMinPrice}
         entityLocation={`${area}, ${project.city}`}

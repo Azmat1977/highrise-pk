@@ -1383,6 +1383,7 @@ export default function ProjectDetailPage({ project, initialUnits }: PageProps) 
         onClose={() => setShowInquiry(false)}
         entityType="project"
         entityId={project._id}
+        entityCode={project.projectId}
         entityTitle={project.projectName}
         entityPrice={overallMinPrice}
         entityLocation={`${areaDisplay}, ${project.city}`}

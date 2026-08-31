@@ -26,6 +26,7 @@ interface UniversalInquiryModalProps {
   onClose: () => void;
   entityType: 'property' | 'project';
   entityId: string;
+  entityCode?: string;   // HR-PRJ-XXXXX — buyer reference
   entityTitle?: string;
   entityPrice?: number;
   entityLocation?: string;
@@ -174,6 +175,7 @@ export default function UniversalInquiryModal({
   onClose,
   entityType,
   entityId,
+  entityCode,
   entityTitle = 'Property',
   entityPrice,
   entityLocation,
@@ -478,7 +480,7 @@ export default function UniversalInquiryModal({
           ) : (
             <>
               {/* ── Entity Info Card ── */}
-              {(entityPrice || entityLocation) && (
+              {(entityPrice || entityLocation || entityCode) && (
                 <div className="px-6 pt-4">
                   <div className="bg-gray-50 rounded-xl p-4 flex items-center gap-4">
                     {entityImage && (
@@ -489,9 +491,19 @@ export default function UniversalInquiryModal({
                       />
                     )}
                     <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-gray-900 truncate">
-                        {entityTitle}
-                      </p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-semibold text-gray-900 truncate">
+                          {entityTitle}
+                        </p>
+                        {entityCode && (
+                          <span
+                            title="Reference number — mention this when contacting"
+                            className="shrink-0 text-[10px] font-mono font-bold text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded"
+                          >
+                            {entityCode}
+                          </span>
+                        )}
+                      </div>
                       {entityLocation && (
                         <p className="text-sm text-gray-500 truncate">
                           {entityLocation}
