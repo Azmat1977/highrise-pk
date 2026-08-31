@@ -1,32 +1,31 @@
 /**
  * components/project-detail/DeveloperTrustCard.tsx
  *
- * Highrise.pk — Developer Trust Card (Wave 3)
+ * Highrise.pk — Developer Trust Card (V2 — Evidence Edition)
  *
- * REPLACES: Basic developer section + completed projects section
+ * Single evidence-based developer block:
+ *   → Logo + name + ONE tier badge (no emoji, palette-compliant)
+ *   → Identity meta line (SECP · Est. year)
+ *   → Description (clamped)
+ *   → Track record inline strip (Completed · Ongoing · Years Active)
+ *   → Tier meaning — one quiet line
+ *   → Portfolio grid with progressive disclosure
+ *   → Single "Full Profile" link (header only)
  *
- * WHAT IT SHOWS:
- *   → Developer logo + name + trust tier badge
- *   → Accountability metrics (total/completed/ongoing projects)
- *   → Years in operation
- *   → SECP verification status
- *   → Trust tier visual (new_entrant/emerging/trusted/premium)
- *   → Developer description
- *   → Completed projects grid
- *   → AI-generated developer note (rule-based)
- *   → Link to full developer profile page
+ * REMOVED vs Wave 3:
+ *   → Duplicate Trust Tier visual block + pseudo progress bar
+ *   → AI developer note (repeated metric facts as prose)
+ *   → Bottom CTA (duplicate of header link)
+ *   → Roadmap placeholder text (buyer-facing)
+ *   → Off-palette tier colors + emoji badges
  *
  * SECURITY:
  *   → No phone/email displayed (contact gating enforced)
  *   → No sensitive data in props
- *   → External links: noopener noreferrer
- *   → aria-labels on all interactive elements
  *
  * SEO:
- *   → Section id="developer" for scroll spy + tab nav
- *   → Internal link to developer profile (authority transfer)
- *   → h2 semantic heading
- *   → Developer name in heading for keyword relevance
+ *   → id="developer" (scroll spy + section tabs)
+ *   → h2 semantic heading, internal link to developer profile
  */
 
 'use client';
@@ -35,33 +34,21 @@ import React, { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
-  Building2,
   Building,
-  Calendar,
-  CheckCircle2,
-  Award,
+  Building2,
   ArrowRight,
   ChevronDown,
   ChevronUp,
   ShieldCheck,
-  TrendingUp,
-  Clock,
-  Star,
-  BadgeCheck,
-  Users,
   MapPin,
 } from 'lucide-react';
 
 import type {
   DeveloperProfileDetail,
-  DeveloperAccountability,
   RelatedProject,
 } from '@/types/projectDetail';
 
-import {
-  computeDeveloperAccountability,
-  formatDetailPrice,
-} from '@/types/projectDetail';
+import { computeDeveloperAccountability } from '@/types/projectDetail';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROPS
@@ -76,143 +63,89 @@ interface DeveloperTrustCardProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRUST TIER CONFIG
+// TRUST TIER CONFIG — palette-compliant
+// Proven tiers (premium/trusted) carry brand/navy; unproven stay neutral.
+// Distinction is carried by text + meaning line, not decoration.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const TRUST_TIER_CONFIG = {
   premium: {
-    label:     'Premium Developer',
-    emoji:     '💎',
-    bgColor:   'bg-purple-50',
-    textColor: 'text-purple-700',
-    border:    'border-purple-200',
-    barColor:  'bg-purple-500',
-    barWidth:  '100%',
-    desc:      'Highest tier. Consistent delivery, verified track record, premium quality.',
+    label:  'Premium Developer',
+    badge:  'border-[#004063] bg-[#004063]/5 text-[#004063]',
+    desc:   'Consistent delivery with a verified track record.',
   },
   trusted: {
-    label:     'Trusted Builder',
-    emoji:     '🏆',
-    bgColor:   'bg-[#029bba]/5',
-    textColor: 'text-[#029bba]',
-    border:    'border-[#029bba]/20',
-    barColor:  'bg-[#029bba]',
-    barWidth:  '75%',
-    desc:      'Verified track record with multiple completed projects and strong buyer ratings.',
+    label:  'Trusted Builder',
+    badge:  'border-[#029bba] bg-[#029bba]/5 text-[#029bba]',
+    desc:   'Verified track record across multiple completed projects.',
   },
   emerging: {
-    label:     'Emerging Developer',
-    emoji:     '⭐',
-    bgColor:   'bg-blue-50',
-    textColor: 'text-blue-700',
-    border:    'border-blue-200',
-    barColor:  'bg-blue-500',
-    barWidth:  '50%',
-    desc:      'Growing reputation with some completed projects and positive buyer feedback.',
+    label:  'Emerging Developer',
+    badge:  'border-gray-300 bg-gray-50 text-gray-600',
+    desc:   'Growing reputation — review documentation carefully.',
   },
   new_entrant: {
-    label:     'New Entrant',
-    emoji:     '🆕',
-    bgColor:   'bg-gray-50',
-    textColor: 'text-gray-600',
-    border:    'border-gray-200',
-    barColor:  'bg-gray-400',
-    barWidth:  '25%',
-    desc:      'New to the market. Limited track record — conduct additional due diligence.',
+    label:  'New Developer',
+    badge:  'border-gray-300 bg-gray-50 text-gray-600',
+    desc:   'Limited track record — additional due diligence advised.',
   },
 } as const;
 
 // ─────────────────────────────────────────────────────────────────────────────
-// METRIC CARD
+// STAT — plain label:value, no cards (§39)
 // ─────────────────────────────────────────────────────────────────────────────
 
-function MetricCard({
-  label,
+function Stat({
   value,
+  label,
   sub,
-  color = 'text-gray-900',
-  bg    = 'bg-gray-50',
 }: {
-  label: string;
   value: string | number;
+  label: string;
   sub?:  string;
-  color?: string;
-  bg?:   string;
 }) {
   return (
-    <div className={`${bg} rounded-xl p-4 border border-gray-100 text-center`}>
-      <p className={`text-2xl font-black ${color}`}>{value}</p>
-      <p className="text-[10px] text-gray-500 uppercase font-bold
-                    tracking-wider mt-1">
+    <div>
+      <p className="text-xl font-black text-gray-900 leading-tight tabular-nums">
+        {value}
+      </p>
+      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mt-0.5">
         {label}
       </p>
       {sub && (
-        <p className="text-[10px] text-gray-400 mt-0.5">{sub}</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">{sub}</p>
       )}
     </div>
   );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// COMPLETED PROJECT MINI CARD
+// COMPLETED PROJECT MINI CARD — name/year + location/type, no chips
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CompletedProjectCard({ project }: { project: RelatedProject }) {
   return (
-    <div className="bg-gray-50 rounded-xl p-4 border border-gray-200
-                    hover:border-[#029bba]/20 hover:bg-white transition-all">
-      <div className="flex items-start justify-between gap-2 mb-2">
-        <h4 className="font-bold text-gray-900 text-sm leading-tight">
+    <div className="rounded-xl border border-gray-200 p-4
+                    hover:border-[#029bba]/30 transition-colors">
+      <div className="flex items-baseline justify-between gap-2 mb-1.5">
+        <h4 className="font-bold text-gray-900 text-sm leading-tight truncate">
           {project.name}
         </h4>
-        <span className="text-xs font-bold text-gray-400 flex-shrink-0">
+        <span className="text-xs font-bold text-gray-400 flex-shrink-0 tabular-nums">
           {project.year}
         </span>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1.5 text-xs text-gray-500">
         <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-        <p className="text-xs text-gray-500 truncate">{project.location}</p>
-      </div>
-      <div className="mt-2">
-        <span className="px-2 py-0.5 bg-[#029bba]/10 text-[#029bba]
-                         text-[10px] rounded-lg font-bold capitalize">
-          {project.type}
+        <span className="truncate">
+          {project.location}
+          {project.type && (
+            <span className="text-gray-400"> · {project.type}</span>
+          )}
         </span>
       </div>
     </div>
   );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AI DEVELOPER NOTE (rule-based, no LLM)
-// ─────────────────────────────────────────────────────────────────────────────
-
-function buildDeveloperNote(
-  accountability: DeveloperAccountability,
-  developerName:  string,
-): string {
-  const {
-    trustTier,
-    completedProjects,
-    yearsInOperation,
-    isSECPVerified,
-    totalProjects,
-    ongoingProjects,
-  } = accountability;
-
-  if (trustTier === 'premium') {
-    return `${developerName} is a premium-tier developer with ${completedProjects} completed projects and ${yearsInOperation}+ years of operation. Their track record places them among the most reliable developers on Highrise.pk. ${isSECPVerified ? 'SECP verified.' : ''}`;
-  }
-
-  if (trustTier === 'trusted') {
-    return `${developerName} holds Highrise Trusted Builder status with ${completedProjects} completed project${completedProjects !== 1 ? 's' : ''} on record. ${ongoingProjects > 0 ? `${ongoingProjects} project${ongoingProjects !== 1 ? 's' : ''} currently under development.` : ''} ${yearsInOperation > 0 ? `${yearsInOperation} years in the industry.` : ''}`;
-  }
-
-  if (trustTier === 'emerging') {
-    return `${developerName} is an emerging developer with ${completedProjects} completed project${completedProjects !== 1 ? 's' : ''} and ${totalProjects} total project${totalProjects !== 1 ? 's' : ''} in their portfolio. Their growing reputation makes them worth monitoring — buyers should review all documentation carefully.`;
-  }
-
-  return `${developerName} is a new market entrant. While new developers can offer competitive pricing, buyers should conduct additional verification including site visits and independent legal review before committing.`;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -231,19 +164,18 @@ export default function DeveloperTrustCard({
   // Prefer completedProjects, fall back to relatedProjects
   const projectList = completedProjects ?? relatedProjects ?? [];
 
-  // Current project is ongoing (developmentProgress < 100)
-  // For V1: always assume current project counts as 1 ongoing
-  // V2: will pass actual project.developmentProgress from parent
+  // Current project counts as 1 ongoing (V1 assumption — documented in
+  // computeDeveloperAccountability; V2 will pass real progress)
   const currentProjectIsOngoing = true;
 
-  // Compute accountability — pass array + ongoing flag for smart fallback
   const accountability = computeDeveloperAccountability(
     developerProfile,
     projectList,
     currentProjectIsOngoing,
   );
-  const tierConfig     = TRUST_TIER_CONFIG[accountability.trustTier];
-  const devNote        = buildDeveloperNote(accountability, developerName);
+
+  const tierConfig = TRUST_TIER_CONFIG[accountability.trustTier];
+  const displayName = developerName || 'Developer';
   const visibleProjects = showAllProjects
     ? projectList
     : projectList.slice(0, 6);
@@ -268,7 +200,7 @@ export default function DeveloperTrustCard({
           href={profileUrl}
           className="text-xs font-bold text-[#029bba] hover:underline
                      flex items-center gap-1"
-          aria-label={`View ${developerName} full developer profile`}
+          aria-label={`View ${displayName} full developer profile`}
         >
           Full Profile <ArrowRight className="w-3 h-3" />
         </Link>
@@ -276,165 +208,111 @@ export default function DeveloperTrustCard({
 
       <div className="p-6 space-y-6">
 
-        {/* ── Developer Identity ── */}
+        {/* ── Identity: Logo + Name + Badge + Meta + Description ── */}
         <div className="flex flex-col sm:flex-row gap-5">
 
-          {/* Logo */}
           <div className="flex-shrink-0">
             {developerProfile?.logoUrl ? (
-              <div className="w-20 h-20 rounded-2xl overflow-hidden
-                              border border-gray-200 bg-white p-2 relative
-                              shadow-sm">
+              <div className="w-16 h-16 rounded-xl overflow-hidden
+                              border border-gray-200 bg-white p-1.5 relative">
                 <Image
                   src={developerProfile.logoUrl}
-                  alt={`${developerName} logo`}
+                  alt={`${displayName} logo`}
                   fill
-                  className="object-contain p-1"
-                  sizes="80px"
+                  className="object-contain"
+                  sizes="64px"
                 />
               </div>
             ) : (
-              <div className="w-20 h-20 rounded-2xl bg-gray-100
+              <div className="w-16 h-16 rounded-xl bg-gray-50
                               flex items-center justify-center border
                               border-gray-200">
-                <Building2 className="w-8 h-8 text-gray-300" />
+                <Building2 className="w-6 h-6 text-gray-300" />
               </div>
             )}
           </div>
 
-          {/* Name + Badge + Description */}
           <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-2">
-              <h3 className="text-xl font-black text-gray-900">
-                {developerName}
+            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
+              <h3 className="text-lg font-bold text-gray-900 truncate">
+                {displayName}
               </h3>
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1
-                               rounded-full text-xs font-bold border
-                               ${tierConfig.bgColor}
-                               ${tierConfig.textColor}
-                               ${tierConfig.border}`}>
-                {tierConfig.emoji} {tierConfig.label}
+              <span className={`inline-flex items-center px-2.5 py-0.5
+                               rounded-full text-[11px] font-bold border
+                               whitespace-nowrap ${tierConfig.badge}`}>
+                {tierConfig.label}
               </span>
             </div>
 
+            {/* Identity meta line — facts only */}
+            {(accountability.establishedYear || accountability.isSECPVerified) && (
+              <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500 mb-3">
+                {accountability.establishedYear && (
+                  <span>Est. {accountability.establishedYear}</span>
+                )}
+                {accountability.isSECPVerified && (
+                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    SECP Verified
+                  </span>
+                )}
+              </div>
+            )}
+
             {developerProfile?.description && (
-              <p className="text-gray-600 text-sm leading-relaxed line-clamp-3">
+              <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
                 {developerProfile.description}
               </p>
             )}
-
-            {/* Quick stats row */}
-            <div className="flex flex-wrap items-center gap-4 mt-3 text-sm">
-              {accountability.establishedYear && (
-                <div className="flex items-center gap-1.5 text-gray-500">
-                  <Calendar className="w-3.5 h-3.5" />
-                  <span>Est. {accountability.establishedYear}</span>
-                  <span className="text-gray-400">
-                    ({accountability.yearsInOperation} yrs)
-                  </span>
-                </div>
-              )}
-              {accountability.isSECPVerified && (
-                <div className="flex items-center gap-1.5 text-emerald-600">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span className="font-semibold text-xs">SECP Verified</span>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* ── Trust Tier Visual ── */}
-        <div className={`rounded-xl p-4 border ${tierConfig.border}
-                         ${tierConfig.bgColor}`}>
-          <div className="flex items-center justify-between mb-2">
-            <p className={`text-xs font-black uppercase tracking-wider
-                           ${tierConfig.textColor}`}>
-              Developer Trust Tier
-            </p>
-            <span className={`text-sm font-black ${tierConfig.textColor}`}>
-              {tierConfig.emoji} {tierConfig.label}
-            </span>
+        {/* ── Track Record — inline strip, no cards ── */}
+        <div>
+          <p className="text-[10px] text-gray-400 uppercase font-bold
+                        tracking-wider mb-3">
+            Track Record
+          </p>
+          <div className="grid grid-cols-3 divide-x divide-gray-100">
+            <div className="pr-4">
+              <Stat
+                value={accountability.completedProjects > 0
+                  ? accountability.completedProjects
+                  : '—'}
+                label="Completed"
+              />
+            </div>
+            <div className="px-4">
+              <Stat
+                value={accountability.ongoingProjects > 0
+                  ? accountability.ongoingProjects
+                  : '—'}
+                label="Ongoing"
+              />
+            </div>
+            <div className="pl-4">
+              <Stat
+                value={accountability.yearsInOperation > 0
+                  ? `${accountability.yearsInOperation} yrs`
+                  : '—'}
+                label="Active"
+                sub={accountability.establishedYear
+                  ? `since ${accountability.establishedYear}`
+                  : undefined}
+              />
+            </div>
           </div>
-          <div className="h-2.5 bg-white/60 rounded-full overflow-hidden mb-2">
-            <div
-              className={`h-full rounded-full transition-all duration-700
-                           ${tierConfig.barColor}`}
-              style={{ width: tierConfig.barWidth }}
-              role="progressbar"
-              aria-label={`Trust tier: ${tierConfig.label}`}
-            />
-          </div>
-          <p className="text-[11px] text-gray-600 leading-relaxed">
+          {/* Tier meaning — one quiet line */}
+          <p className="text-xs text-gray-500 mt-3 leading-relaxed">
             {tierConfig.desc}
           </p>
         </div>
 
-        {/* ── Accountability Metrics ── */}
-        <div>
-          <p className="text-xs text-gray-400 uppercase font-black
-                        tracking-wider mb-3">
-            Track Record
-          </p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            <MetricCard
-              label="Total Projects"
-              value={accountability.totalProjects > 0
-                ? accountability.totalProjects
-                : '—'}
-              bg="bg-gray-50"
-            />
-            <MetricCard
-              label="Completed"
-              value={accountability.completedProjects > 0
-                ? accountability.completedProjects
-                : '—'}
-              color="text-emerald-600"
-              bg="bg-emerald-50"
-            />
-            <MetricCard
-              label="Ongoing"
-              value={accountability.ongoingProjects > 0
-                ? accountability.ongoingProjects
-                : '—'}
-              color="text-[#029bba]"
-              bg="bg-[#029bba]/5"
-            />
-          </div>
-
-          {/* V1 note — more metrics in V2 */}
-          <p className="text-[10px] text-gray-400 mt-2 text-center">
-            Delivery history and delay records will be available in
-            upcoming updates.
-          </p>
-        </div>
-
-        {/* ── AI Developer Note ── */}
-        <div className="bg-gradient-to-br from-gray-50 to-white rounded-xl
-                        border border-gray-100 p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <div className="w-6 h-6 rounded-lg bg-[#029bba]/10
-                            flex items-center justify-center">
-              <TrendingUp className="w-3.5 h-3.5 text-[#029bba]" />
-            </div>
-            <p className="text-[10px] text-gray-500 uppercase font-black
-                          tracking-wider">
-              Highrise Developer Analysis
-            </p>
-          </div>
-          <p className="text-sm text-gray-600 leading-relaxed">
-            {devNote}
-          </p>
-          <p className="text-[10px] text-gray-400 mt-2 italic">
-            Based on verified platform data. Not financial advice.
-          </p>
-        </div>
-
-        {/* ── Completed Projects ── */}
+        {/* ── Portfolio ── */}
         {projectList.length > 0 && (
-          <div>
+          <div className="pt-6 border-t border-gray-100">
             <div className="flex items-center justify-between mb-3">
-              <p className="text-xs text-gray-400 uppercase font-black
+              <p className="text-[10px] text-gray-400 uppercase font-bold
                             tracking-wider">
                 Portfolio — {projectList.length} Project
                 {projectList.length !== 1 ? 's' : ''}
@@ -443,7 +321,7 @@ export default function DeveloperTrustCard({
                 <button
                   onClick={() => setShowAllProjects(v => !v)}
                   aria-expanded={showAllProjects}
-                  className="text-[10px] text-[#029bba] font-bold
+                  className="text-[11px] text-[#029bba] font-bold
                              hover:underline flex items-center gap-1"
                 >
                   {showAllProjects ? (
@@ -464,23 +342,6 @@ export default function DeveloperTrustCard({
             </div>
           </div>
         )}
-
-        {/* ── View Full Profile CTA ── */}
-        <div className="pt-4 border-t border-gray-100">
-          <Link
-            href={profileUrl}
-            className="w-full flex items-center justify-center gap-2
-                       py-3 px-4 rounded-xl border-2 border-[#029bba]/20
-                       bg-[#029bba]/5 text-[#029bba] font-bold text-sm
-                       hover:bg-[#029bba]/10 hover:border-[#029bba]/40
-                       transition-all"
-            aria-label={`View complete ${developerName} developer profile`}
-          >
-            <Building2 className="w-4 h-4" />
-            View Complete Developer Profile
-            <ArrowRight className="w-4 h-4" />
-          </Link>
-        </div>
 
       </div>
     </section>
