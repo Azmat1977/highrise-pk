@@ -111,7 +111,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const project: any = await Project.findById(projectId).select(
-        'projectName slug city area minPrice maxPrice projectCategory projectNature images gallery developerProfile'
+        'projectName slug projectId city area minPrice maxPrice projectCategory projectNature images gallery developerProfile'
       );
       if (!project) {
         return res.status(404).json({ success: false, message: 'Project not found.' });
@@ -127,6 +127,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
       const projectSnapshot = {
         _id: project._id,
+        projectCode: project.projectId || undefined,   // HR-PRJ-XXXXX — phone-friendly reference
         projectName: project.projectName,
         slug: project.slug,
         city: project.city,
@@ -216,6 +217,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         const safeSource = escapeHtml(source);
         const safeMessage = escapeHtml(normalizedMessage);
         const safeTitle = escapeHtml(listingTitle);
+        const safeProjectCode = escapeHtml(projectSnapshot.projectCode || '');
         const safeCity = escapeHtml(projectSnapshot.city || '');
         const safeArea = escapeHtml(projectSnapshot.area || '');
 
@@ -404,6 +406,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
             { email: { $regex: search, $options: 'i' } },
             { phone: { $regex: search, $options: 'i' } },
             { message: { $regex: search, $options: 'i' } },
+            { 'projectSnapshot.projectName': { $regex: search, $options: 'i' } },
+            { 'projectSnapshot.projectCode': { $regex: search, $options: 'i' } },
           ],
         };
 
