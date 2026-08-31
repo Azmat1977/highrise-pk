@@ -45,13 +45,13 @@ import ShareMenu             from '@/components/projects/ShareMenu';
 import UniversalInquiryModal from '@/components/UniversalInquiryModal';
 
 import type { ProjectDetailData, InquiryType } from '@/types/projectDetail';
-import type { ProjectListing }                 from '@/types/projects';
 
 import {
   formatDetailPrice,
   getPrimaryImageUrl,
   getProjectAreaDisplay,
   getDeveloperDisplayName,
+  toProjectListing,
 } from '@/types/projectDetail';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,67 +96,7 @@ function useScrollVisibility(threshold: number) {
   return { visible, mounted };
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// HELPER — minimal listing shape for ShareMenu
-// ─────────────────────────────────────────────────────────────────────────────
-
-function toListingShape(
-  project:      ProjectDetailData,
-  primaryImage: string,
-  area:         string,
-): ProjectListing {
-  return {
-    _id:             project._id,
-    slug:            project.slug,
-    projectName:     project.projectName,
-    tagline:         project.tagline ?? null,
-    city:            project.city,
-    area,
-    locality:        null,
-    propertyType:    [],
-    projectCategory: project.projectCategory,
-    projectNature:   project.projectNature,
-    projectStatus:   'under_construction',
-    minPrice:        project.minPrice ?? null,
-    maxPrice:        project.maxPrice ?? null,
-    priceOnRequest:  !project.minPrice,
-    minAreaMarla:    null,
-    maxAreaMarla:    null,
-    minBedrooms:     null,
-    maxBedrooms:     null,
-    possessionDate:  project.possessionStartDate ?? null,
-    possessionQuarter: null,
-    isVerified:      project.isVerified,
-    nocStatus:       (project.nocStatus as 'approved' | 'pending' | 'not_applied') ?? 'not_applied',
-    nocAuthority:    project.approvalAuthority ?? null,
-    nocNumber:       null,
-    legalDocumentUrl: project.legalDocs?.nocUrl ?? null,
-    shield: {
-      total:         project.highriseScore ?? 0,
-      nocScore:      0,
-      verifiedScore: 0,
-      builderScore:  0,
-      deliveryScore: 0,
-      breakdown:     null,
-    },
-    developerId:     project.developer,
-    developerName:   getDeveloperDisplayName(project.developerProfile),
-    developerSlug:   project.developer,
-    developerLogoUrl: project.developerProfile?.logoUrl ?? null,
-    developerBadge:  null,
-    isTrustedBuilder: project.isTrustedBuilder ?? false,
-    marketedBy:      null,
-    primaryImage,
-    imageCount:      (project.images ?? []).length,
-    isShortlisted:   false,
-    inquiryCount:    null,
-    amenities:       [],
-    fairPriceUrl:    null,
-    isFeatured:      project.isFeatured ?? false,
-    highriseScore:   project.highriseScore ?? 0,
-    createdAt:       project.createdAt ?? new Date().toISOString(),
-  };
-}
+// toProjectListing imported from @/types/projectDetail (single source — dedup)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // BAR INNER — actual rendered content
@@ -174,7 +114,7 @@ function QuickActionsBarInner({
   const area          = getProjectAreaDisplay(project);
   const primaryImage  = getPrimaryImageUrl(project);
   const developerName = getDeveloperDisplayName(project.developerProfile);
-  const listing       = toListingShape(project, primaryImage, area);
+  const listing       = toProjectListing(project, primaryImage, area);
 
   // ── SPRINT 2: Favorites — correct API ──
   const {
@@ -216,7 +156,7 @@ function QuickActionsBarInner({
       <nav
         aria-label="Quick project actions"
         className={`
-          fixed bottom-0 left-0 right-0 z-40
+          fixed bottom-0 left-0 right-0 z-40 lg:hidden
           bg-white border-t border-gray-200 shadow-2xl
           transition-transform duration-300 ease-in-out
           ${visible ? 'translate-y-0' : 'translate-y-full'}
@@ -347,6 +287,7 @@ function QuickActionsBarInner({
         onClose={() => setInquiryOpen(false)}
         entityType="project"
         entityId={project._id}
+        entityCode={project.projectId}
         entityTitle={project.projectName}
         entityPrice={overallMinPrice}
         entityLocation={`${area}, ${project.city}`}

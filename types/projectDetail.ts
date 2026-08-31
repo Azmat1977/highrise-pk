@@ -12,7 +12,7 @@
  * Rule Set C: SEO structured data types included
  */
 
-import type { DeveloperBadge, NocStatus } from './projects';
+import type { DeveloperBadge, NocStatus, ProjectListing } from './projects';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // RE-EXPORTS — convenience (components import from one place)
@@ -738,6 +738,72 @@ export function getPrimaryImageUrl(project: ProjectDetailData): string {
  */
 export function getProjectAreaDisplay(project: ProjectDetailData): string {
   return project.areaName ?? project.area ?? '';
+}
+
+/**
+ * toProjectListing
+ * Maps ProjectDetailData → ProjectListing for ShareMenu (single source —
+ * previously duplicated in ProjectDetailHero + QuickActionsBar).
+ * SECURITY: Only public fields. No contact data.
+ */
+export function toProjectListing(
+  project:      ProjectDetailData,
+  primaryImage: string,
+  area:         string,
+): ProjectListing {
+  return {
+    _id:             project._id,
+    slug:            project.slug,
+    projectName:     project.projectName,
+    tagline:         project.tagline ?? null,
+    city:            project.city,
+    area,
+    locality:        null,
+    propertyType:    [],
+    projectCategory: project.projectCategory,
+    projectNature:   project.projectNature,
+    // Real status (was hardcoded 'under_construction' — fake data fix).
+    // DB stores string; ProjectListing expects union — documented cast.
+    projectStatus:   (project.projectStatus ?? project.status ?? 'under_construction') as ProjectListing['projectStatus'],
+    minPrice:        project.minPrice ?? null,
+    maxPrice:        project.maxPrice ?? null,
+    priceOnRequest:  !project.minPrice,
+    minAreaMarla:    null,
+    maxAreaMarla:    null,
+    minBedrooms:     null,
+    maxBedrooms:     null,
+    possessionDate:  project.possessionStartDate ?? null,
+    possessionQuarter: null,
+    isVerified:      project.isVerified,
+    nocStatus:       (project.nocStatus as 'approved' | 'pending' | 'not_applied') ?? 'not_applied',
+    nocAuthority:    project.approvalAuthority ?? null,
+    nocNumber:       null,
+    legalDocumentUrl: project.legalDocs?.nocUrl ?? null,
+    shield: {
+      total:         project.highriseScore ?? 0,
+      nocScore:      0,
+      verifiedScore: 0,
+      builderScore:  0,
+      deliveryScore: 0,
+      breakdown:     null,
+    },
+    developerId:      project.developer,
+    developerName:    getDeveloperDisplayName(project.developerProfile),
+    developerSlug:    project.developer,
+    developerLogoUrl: project.developerProfile?.logoUrl ?? null,
+    developerBadge:   null,
+    isTrustedBuilder: project.isTrustedBuilder ?? false,
+    marketedBy:       null,
+    primaryImage,
+    imageCount:       (project.images ?? []).length,
+    isShortlisted:    false,
+    inquiryCount:     null,
+    amenities:        [],
+    fairPriceUrl:     null,
+    isFeatured:       project.isFeatured ?? false,
+    highriseScore:    project.highriseScore ?? 0,
+    createdAt:        project.createdAt ?? new Date().toISOString(),
+  };
 }
 
 /**
