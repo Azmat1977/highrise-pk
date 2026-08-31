@@ -29,7 +29,7 @@ import {
 interface PriceWithConverterProps {
   minPKR: number;
   maxPKR?: number;
-  displayText: string;       // The PKR text to display (e.g., "PKR 1.21 Cr - 2.08 Cr")
+  displayText?: string;      // Optional — omit for icon-only usage (e.g. ChooseYourSpace rows)
   size?: 'sm' | 'md' | 'lg'; // Icon size
   align?: 'left' | 'right';  // Tooltip alignment
   className?: string;
@@ -40,7 +40,7 @@ interface CurrencyConverterModalProps {
   onClose: () => void;
   minPKR: number;
   maxPKR?: number;
-  displayText: string;
+  displayText?: string;
   projectName?: string;
 }
 
@@ -51,18 +51,26 @@ interface CurrencyConverterModalProps {
 function CurrencyTooltip({
   minPKR,
   maxPKR,
+  align = 'right',
   onOpenModal,
+  onMouseEnter,
+  onMouseLeave,
 }: {
   minPKR: number;
   maxPKR?: number;
+  align?: 'left' | 'right';
   onOpenModal: () => void;
-}): React.ReactElement {
-  const topCurrencies = getSortedCurrencies(5);
+  onMouseEnter: () => void;
+  onMouseLeave: () => void;
+}): React.ReactElement {  const topCurrencies = getSortedCurrencies(5);
   const effectiveMax = maxPKR ?? minPKR;
 
   return (
-    <div className="absolute z-50 top-full right-0 mt-2 w-72 bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800">
-      {/* Header */}
+    <div
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+      className={`absolute z-50 top-full ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-72 bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800`}
+    >      {/* Header */}
       <div className="px-4 py-3 bg-gradient-to-r from-[#029bba] to-[#017a94] flex items-center gap-2">
         <Globe className="w-4 h-4 text-white" />
         <p className="text-xs font-black text-white uppercase tracking-wide">
@@ -112,9 +120,8 @@ function CurrencyTooltip({
         </div>
       </div>
 
-      {/* Arrow pointer */}
-      <div className="absolute -top-1.5 right-4 w-3 h-3 bg-[#029bba] rotate-45" />
-    </div>
+     {/* Arrow pointer */}
+      <div className={`absolute -top-1.5 ${align === 'left' ? 'left-4' : 'right-4'} w-3 h-3 bg-[#029bba] rotate-45`} />    </div>
   );
 }
 
@@ -155,6 +162,9 @@ function CurrencyConverterModal({
       onClick={onClose}
     >
       <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Currency converter"
         className="relative w-full max-w-lg max-h-[90vh] bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
@@ -175,6 +185,7 @@ function CurrencyConverterModal({
           </div>
           <button
             onClick={onClose}
+            autoFocus
             aria-label="Close"
             className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 flex items-center justify-center transition-colors"
           >
@@ -183,12 +194,14 @@ function CurrencyConverterModal({
         </div>
 
         {/* Original Price Display */}
-        <div className="px-6 py-4 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100 shrink-0">
-          <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">
-            Original Price (Pakistani Rupees)
-          </p>
-          <p className="text-xl font-black text-gray-900">{displayText}</p>
-        </div>
+        {displayText && (
+          <div className="px-6 py-4 bg-gradient-to-br from-gray-50 to-white border-b border-gray-100 shrink-0">
+            <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">
+              Original Price (Pakistani Rupees)
+            </p>
+            <p className="text-xl font-black text-gray-900">{displayText}</p>
+          </div>
+        )}
 
         {/* Currency List — Scrollable */}
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
@@ -285,11 +298,15 @@ export default function PriceWithConverter({
 }: PriceWithConverterProps): React.ReactElement {
   const [isHovering, setIsHovering] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActiveElementRef = useRef<HTMLElement | null>(null);
 
+  // Clear pending hover timeout on unmount
+  useEffect(() => () => {
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+  }, []);
   const iconSize = size === 'sm' ? 'w-3.5 h-3.5' : size === 'lg' ? 'w-5 h-5' : 'w-4 h-4';
-  const buttonSize = size === 'sm' ? 'w-6 h-6' : size === 'lg' ? 'w-8 h-8' : 'w-7 h-7';
-
+  const buttonSize = size === 'sm' ? 'w-7 h-7' : size === 'lg' ? 'w-8 h-8' : 'w-7 h-7';
   const handleMouseEnter = useCallback(() => {
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     setIsHovering(true);
@@ -302,24 +319,27 @@ export default function PriceWithConverter({
   }, []);
 
   const openModal = useCallback(() => {
+    lastActiveElementRef.current =
+      typeof document !== 'undefined'
+        ? (document.activeElement as HTMLElement | null)
+        : null;
     setIsHovering(false);
     setIsModalOpen(true);
   }, []);
 
   const closeModal = useCallback(() => {
     setIsModalOpen(false);
+    lastActiveElementRef.current?.focus();
   }, []);
-
   // Don't show converter if no valid price
   if (!minPKR || minPKR <= 0) {
-    return <>{displayText}</>;
+    return <>{displayText ?? null}</>;
   }
 
   return (
     <>
       <span className={`inline-flex items-center gap-1.5 ${className}`}>
-        <span>{displayText}</span>
-
+        {displayText && <span>{displayText}</span>}
         {/* Converter Icon */}
         <span
           className="relative inline-block"
@@ -329,28 +349,27 @@ export default function PriceWithConverter({
           <button
             type="button"
             onClick={openModal}
+            onFocus={handleMouseEnter}
+            onBlur={handleMouseLeave}
             aria-label="View price in other currencies"
-            className={`${buttonSize} rounded-full bg-green-100 hover:bg-green-200 flex items-center justify-center transition-all duration-200 hover:scale-110 group`}
+            title="Convert currency"
+            className={`${buttonSize} rounded-full flex items-center justify-center
+                        text-[#029bba]/70 hover:text-[#029bba]
+                        hover:bg-[#029bba]/10
+                        transition-colors duration-150`}
           >
-            <Coins
-              className={`${iconSize} text-green-600 group-hover:text-green-700`}
-              strokeWidth={2.5}
-            />
+            <Coins className={iconSize} strokeWidth={2} />
           </button>
-
           {/* Hover Tooltip */}
           {isHovering && (
-            <div
-              className={`${align === 'right' ? 'right-0' : 'left-0'}`}
+            <CurrencyTooltip
+              minPKR={minPKR}
+              maxPKR={maxPKR}
+              align={align}
+              onOpenModal={openModal}
               onMouseEnter={handleMouseEnter}
               onMouseLeave={handleMouseLeave}
-            >
-              <CurrencyTooltip
-                minPKR={minPKR}
-                maxPKR={maxPKR}
-                onOpenModal={openModal}
-              />
-            </div>
+            />
           )}
         </span>
       </span>
