@@ -175,6 +175,45 @@ function Section({ id, title, icon, children, headerExtra, className = '' }: {
   );
 }
 
+// ── Floor plan media: universal format support ──
+// Builders upload PDF / TIFF / JPG / PNG / … — every format gets a
+// renderable card via Cloudinary on-the-fly conversion (image resources):
+//   PDF → page-1 JPG (f_jpg,pg_1) · TIFF/SVG/exotic → JPG (f_jpg)
+// Raw Cloudinary resources cannot transform → cover + fullscreen/download.
+type PlanMediaKind = 'pdf' | 'image' | 'tiff' | 'unknown';
+
+function detectPlanMediaKind(url: string): PlanMediaKind {
+  const clean = url.split('?')[0].toLowerCase();
+  if (clean.endsWith('.pdf')) return 'pdf';
+  if (/\.(png|jpe?g|webp|gif|avif|bmp)$/.test(clean)) return 'image';
+  if (/\.(tiff|tif)$/.test(clean)) return 'tiff';
+  return 'unknown';
+}
+
+function buildCloudinaryJpg(url: string, isPdf: boolean): string | null {
+  if (!url.startsWith('https://res.cloudinary.com')) return null;
+  const marker = '/image/upload/';
+  const idx = url.indexOf(marker);
+  if (idx === -1) return null; // raw resource — cannot transform
+  let path = url.slice(idx + marker.length);
+  // Drop existing transformations (keep from version segment onward)
+  const vIdx = path.search(/\/v\d+\//);
+  if (vIdx > 0) path = path.slice(vIdx + 1);
+  // Swap extension to .jpg (Cloudinary converts on delivery)
+  const lastSlash = path.lastIndexOf('/');
+  const file = path.slice(lastSlash + 1);
+  const dot = file.lastIndexOf('.');
+  const stem = dot > 0 ? file.slice(0, dot) : file;
+  path = `${path.slice(0, lastSlash + 1)}${stem}.jpg`;
+  const transform = isPdf ? 'f_jpg,pg_1' : 'f_jpg';
+  return `${url.slice(0, idx + marker.length)}${transform}/${path}`;
+}
+
+function getPlanPreviewUrl(url: string, kind: PlanMediaKind): string | null {
+  if (kind === 'image' && !/\.svg$/i.test(url.split('?')[0])) return url;
+  return buildCloudinaryJpg(url, kind === 'pdf');
+}
+
 // ── PDF cover content (shared: object fallback + mobile) ──
 function FloorPlanPdfCover({ plan }: { plan: string }): React.ReactElement {
   return (
@@ -242,6 +281,17 @@ function FloorPlanModal({ plan, imageUrl, pdfUrl, onClose }: {
                 <ZoomIn className="w-4 h-4" />
               </button>
             </div>
+          )}
+          {pdfUrl && (
+            <a
+              href={pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="Open PDF in new tab"
+              className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+            >
+              <ExternalLink className="w-4 h-4" />
+            </a>
           )}
           <button
             onClick={onClose}
@@ -916,8 +966,8 @@ export default function ProjectDetailPage({ project }: PageProps) {
                 {/* Segmented floor tabs */}
                 <div className="flex flex-wrap gap-2 mb-6 pb-4 border-b border-gray-100">
                   {project.buildingFloorPlans!.map((fp, idx) => {
-                    const isActive = activeFloorPlanIdx === idx;
-                    const hasPdf   = !!fp.pdfUrl;
+                    const isActive  = activeFloorPlanIdx === idx;
+                    const hasMedia  = !!(fp.imageUrl || fp.pdfUrl);
                     return (
                       <button
                         key={idx}
@@ -930,10 +980,10 @@ export default function ProjectDetailPage({ project }: PageProps) {
                         }`}
                       >
                         {fp.floorName}
-                        {hasPdf && (
+                        {hasMedia && (
                           <span
                             className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white/80' : 'bg-gray-400'}`}
-                            title="PDF available"
+                            title="Media available"
                           />
                         )}
                       </button>
@@ -944,29 +994,44 @@ export default function ProjectDetailPage({ project }: PageProps) {
                 {project.buildingFloorPlans![activeFloorPlanIdx] && (() => {
                   const fp       = project.buildingFloorPlans![activeFloorPlanIdx];
                   const plan     = fp.floorName;
-                  const hasImage = !!fp.imageUrl;
-                  const hasPdf   = !!fp.pdfUrl;
 
+                  // Universal media: any format → renderable preview
+                  const primaryUrl  = fp.imageUrl ?? fp.pdfUrl ?? '';
+                  const kind        = primaryUrl ? detectPlanMediaKind(primaryUrl) : 'unknown';
+                  const previewUrl  = primaryUrl ? getPlanPreviewUrl(primaryUrl, kind) : null;
+                  const pdfUrl      = fp.pdfUrl;
+                  const hasMedia    = !!(previewUrl || pdfUrl);
+
+                  // PDF plans open the interactive document in the viewer;
+                  // image/TIFF plans open the zoomable preview
                   const openViewer = () => setFloorPlanViewer({
                     plan,
-                    imageUrl: fp.imageUrl,
-                    pdfUrl:   fp.pdfUrl,
+                    imageUrl: pdfUrl ? undefined : previewUrl ?? fp.imageUrl,
+                    pdfUrl,
                   });
+
+                  const kindLabel =
+                    pdfUrl && previewUrl ? 'PDF · Page Preview'
+                    : pdfUrl ? 'PDF Document'
+                    : kind === 'tiff' ? 'TIFF'
+                    : kind === 'image' ? 'Image'
+                    : 'Document';
 
                   return (
                     <div className="rounded-2xl border border-gray-200 overflow-hidden">
-                      {/* Plan viewer */}
+                      {/* Plan viewer — preview image for ANY format
+                          (Cloudinary converts PDF page-1 / TIFF / etc. to JPG) */}
                       <div className="relative bg-[#f8fafc]">
-                        {hasImage ? (
+                        {previewUrl ? (
                           <button
                             type="button"
                             onClick={openViewer}
-                            aria-label={`View ${plan} floor plan fullscreen with zoom`}
+                            aria-label={`View ${plan} floor plan`}
                             className="block w-full group"
                           >
-                            <div className="relative w-full h-64 md:h-[28rem]">
+                            <div className="relative w-full h-64 md:h-[28rem] bg-white">
                               <Image
-                                src={fp.imageUrl!}
+                                src={previewUrl}
                                 alt={`Floor plan: ${plan}`}
                                 fill
                                 className="object-contain p-4"
@@ -978,33 +1043,19 @@ export default function ProjectDetailPage({ project }: PageProps) {
                                                  rounded-full bg-black/60 backdrop-blur-sm
                                                  text-white text-xs font-bold">
                                   <Maximize2 className="w-3.5 h-3.5" />
-                                  Click to zoom
+                                  Click to expand
                                 </span>
                               </div>
                             </div>
                           </button>
-                        ) : hasPdf ? (
-                          <>
-                            {/* Inline PDF — browser's native viewer renders the
-                                actual floor plan with built-in zoom and pan.
-                                (PDFs display even without a separate image.) */}
-                            <object
-                              data={fp.pdfUrl!}
-                              type="application/pdf"
-                              aria-label={`${plan} floor plan`}
-                              className="hidden sm:block w-full h-64 md:h-[28rem] bg-white"
-                            >
-                              <div className="w-full h-full flex flex-col items-center justify-center">
-                                <FloorPlanPdfCover plan={plan} />
-                              </div>
-                            </object>
-                            {/* Mobile: browsers cannot inline PDFs — branded cover */}
-                            <div className="sm:hidden w-full h-56 flex flex-col items-center justify-center
-                                            bg-gradient-to-br from-[#004063]/[0.04] via-white to-[#029bba]/[0.04]">
-                              <FloorPlanPdfCover plan={plan} />
-                            </div>
-                          </>
-                        ) : null}
+                        ) : (
+                          /* Non-transformable (raw PDF) — branded cover;
+                             Fullscreen modal + Open/Download carry viewing */
+                          <div className="w-full h-64 md:h-80 flex flex-col items-center justify-center
+                                          bg-gradient-to-br from-[#004063]/[0.04] via-white to-[#029bba]/[0.04]">
+                            <FloorPlanPdfCover plan={plan} />
+                          </div>
+                        )}
 
                         {/* Floor badge */}
                         <div className="absolute top-3 left-3 px-3 py-1.5 rounded-lg bg-white/90 backdrop-blur-sm
@@ -1022,7 +1073,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
                             <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{fp.description}</p>
                           )}
                           <div className="flex items-center gap-2 mt-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
-                            <span>{hasImage ? 'Image + PDF' : 'Interactive PDF'}</span>
+                            <span>{kindLabel}</span>
                             {fp.floorType && (
                               <>
                                 <span className="w-1 h-1 rounded-full bg-gray-300" />
@@ -1033,7 +1084,19 @@ export default function ProjectDetailPage({ project }: PageProps) {
                         </div>
 
                         <div className="flex items-center gap-2">
-                          {(hasImage || hasPdf) && (
+                          {pdfUrl && (
+                            <a
+                              href={pdfUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 text-xs font-bold
+                                         text-[#029bba] hover:underline whitespace-nowrap"
+                            >
+                              <ExternalLink className="w-3.5 h-3.5" />
+                              Open
+                            </a>
+                          )}
+                          {hasMedia && (
                             <button
                               onClick={openViewer}
                               aria-label={`View ${plan} floor plan fullscreen`}
@@ -1047,9 +1110,9 @@ export default function ProjectDetailPage({ project }: PageProps) {
                               Fullscreen
                             </button>
                           )}
-                          {hasPdf && (
+                          {pdfUrl && (
                             <button
-                              onClick={() => downloadFile(fp.pdfUrl!, `${project.slug}-${plan}.pdf`)}
+                              onClick={() => downloadFile(pdfUrl, `${project.slug}-${plan}.pdf`)}
                               aria-label={`Download ${plan} floor plan PDF`}
                               className="inline-flex items-center gap-2 px-5 py-2.5
                                          bg-gradient-to-r from-[#029bba] to-[#017a94]
