@@ -59,6 +59,23 @@ export const CompletedProjectInputSchema = z.object({
   images:   z.array(z.string().max(2048)).max(10).optional(),
 });
 
+export const AmenityInputSchema = z.object({
+  name:        trimmed(100),
+  category:    z.string().max(40).optional(),
+  description: nullableTrimmed(500).optional(),
+});
+
+export const NearbyFacilityInputSchema = z.object({
+  name:     trimmed(100),
+  category: z.string().max(40).optional(),
+  distance: nullableTrimmed(40).optional(),
+});
+
+export const LocationAdvantageInputSchema = z.object({
+  title:  trimmed(150),
+  points: z.array(z.string().max(200)).max(20).optional(),
+});
+
 const FloorPlanInputSchema = z.object({
   floorName:    trimmed(80),
   floorNumber:  nullableCount.optional(),
@@ -264,7 +281,10 @@ export const ProjectContentSchema = z.object({
   virtualTourUrl:      nullableTrimmed(2048).optional(),
 
   // Lists
-  developmentUpdates: z.array(DevelopmentUpdateInputSchema).max(100).optional(),
+  developmentUpdates:  z.array(DevelopmentUpdateInputSchema).max(100).optional(),
+  amenitiesDetailed:   z.array(AmenityInputSchema).max(60).optional(),
+  nearbyFacilities:    z.array(NearbyFacilityInputSchema).max(40).optional(),
+  locationAdvantages:  z.array(LocationAdvantageInputSchema).max(20).optional(),
   completedProjects:  z.array(CompletedProjectInputSchema).max(50).optional(),
   projectDocuments:   DocumentsInputSchema.optional(),
   buildingFloorPlans: z.array(FloorPlanInputSchema).max(30).optional(),
@@ -297,6 +317,7 @@ const DIRECT_KEYS = [
   'paymentMeta', 'installmentPlan', 'fullPaymentInfo', 'discountOffers',
   'featureImageUrl', 'featureImagePublicId', 'droneVideoUrl', 'virtualTourUrl',
   'projectDocuments', 'buildingFloorPlans', 'unitTypeBreakdown',
+  'amenitiesDetailed', 'nearbyFacilities', 'locationAdvantages',
 ] as const;
 
 /**
