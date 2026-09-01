@@ -958,7 +958,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
               )}
             </Section>
 
-                        {/* ══════════════════════════════════════
+            {/* ══════════════════════════════════════
                 FLOOR PLANS
             ══════════════════════════════════════ */}
             {(project.buildingFloorPlans?.length ?? 0) > 0 && (
@@ -992,8 +992,41 @@ export default function ProjectDetailPage({ project }: PageProps) {
                 </div>
 
                 {project.buildingFloorPlans![activeFloorPlanIdx] && (() => {
-                  const fp       = project.buildingFloorPlans![activeFloorPlanIdx];
-                  const plan     = fp.floorName;
+                  const fp   = project.buildingFloorPlans![activeFloorPlanIdx];
+                  const plan = fp.floorName;
+
+                  // ── Universal format helpers (inline — self-contained) ──
+                  // PDF → page-1 JPG via Cloudinary (f_jpg,pg_1) · TIFF/exotic
+                  // → JPG (f_jpg) · images as-is. Raw resources → null.
+                  const detectPlanMediaKind = (url: string): 'pdf' | 'image' | 'tiff' | 'unknown' => {
+                    const clean = url.split('?')[0].toLowerCase();
+                    if (clean.endsWith('.pdf')) return 'pdf';
+                    if (/\.(png|jpe?g|webp|gif|avif|bmp)$/.test(clean)) return 'image';
+                    if (/\.(tiff|tif)$/.test(clean)) return 'tiff';
+                    return 'unknown';
+                  };
+
+                  const buildCloudinaryJpg = (url: string, isPdf: boolean): string | null => {
+                    if (!url.startsWith('https://res.cloudinary.com')) return null;
+                    const marker = '/image/upload/';
+                    const idx = url.indexOf(marker);
+                    if (idx === -1) return null;
+                    let path = url.slice(idx + marker.length);
+                    const vIdx = path.search(/\/v\d+\//);
+                    if (vIdx > 0) path = path.slice(vIdx + 1);
+                    const lastSlash = path.lastIndexOf('/');
+                    const file = path.slice(lastSlash + 1);
+                    const dot = file.lastIndexOf('.');
+                    const stem = dot > 0 ? file.slice(0, dot) : file;
+                    path = `${path.slice(0, lastSlash + 1)}${stem}.jpg`;
+                    const transform = isPdf ? 'f_jpg,pg_1' : 'f_jpg';
+                    return `${url.slice(0, idx + marker.length)}${transform}/${path}`;
+                  };
+
+                  const getPlanPreviewUrl = (url: string, kind: string): string | null => {
+                    if (kind === 'image' && !/\.svg$/i.test(url.split('?')[0])) return url;
+                    return buildCloudinaryJpg(url, kind === 'pdf');
+                  };
 
                   // Universal media: any format → renderable preview
                   const primaryUrl  = fp.imageUrl ?? fp.pdfUrl ?? '';
