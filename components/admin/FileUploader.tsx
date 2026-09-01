@@ -88,14 +88,16 @@ export default function FileUploader({
     setUploading(true);
 
     try {
-      // Delete old file if exists
+      // Delete old file if exists — resource type detected from URL path
+      // (legacy raw PDFs: /raw/upload/ · new image-resource PDFs: /image/upload/)
       if (value?.publicId) {
+        const oldIsRaw = value.url.includes('/raw/upload/');
         await fetch('/api/upload/delete', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             publicId: value.publicId,
-            resourceType: isPdf ? 'raw' : 'image',
+            resourceType: oldIsRaw ? 'raw' : 'image',
           }),
         });
       }
@@ -133,14 +135,15 @@ export default function FileUploader({
     if (!value?.publicId) return;
 
     try {
-      const isPdf = value.url.toLowerCase().endsWith('.pdf');
+      // Resource type from URL path — robust for legacy raw + new image PDFs
+      const oldIsRaw = value.url.includes('/raw/upload/');
       
       await fetch('/api/upload/delete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           publicId: value.publicId,
-          resourceType: isPdf ? 'raw' : 'image',
+          resourceType: oldIsRaw ? 'raw' : 'image',
         }),
       });
 
@@ -168,6 +171,25 @@ export default function FileUploader({
   const isPdf =
     accept === 'pdf' ||
     (!!value?.url && value.url.toLowerCase().endsWith('.pdf'));
+
+  // PDF page-1 preview (image-resource PDFs only — raw cannot transform).
+  // Gives admins instant visual confirmation that the PDF will display
+  // on the detail page.
+  const pdfPreviewUrl = (() => {
+    if (!isPdf || !value?.url) return null;
+    const idx = value.url.indexOf('/image/upload/');
+    if (idx === -1) return null;
+    const prefix = `${value.url.slice(0, idx)}/image/upload/`;
+    let rest = value.url.slice(idx + '/image/upload/'.length);
+    const vIdx = rest.search(/\/v\d+\//);
+    if (vIdx > 0) rest = rest.slice(vIdx + 1);
+    const lastSlash = rest.lastIndexOf('/');
+    const file = rest.slice(lastSlash + 1);
+    const dot = file.lastIndexOf('.');
+    const stem = dot > 0 ? file.slice(0, dot) : file;
+    rest = `${rest.slice(0, lastSlash + 1)}${stem}.jpg`;
+    return `${prefix}f_jpg,pg_1/${rest}`;
+  })();
 
   return (
     <div className="space-y-2">
@@ -244,8 +266,18 @@ export default function FileUploader({
           <div className="flex items-center gap-4">
             {/* Preview */}
             {isPdf ? (
-              <div className="w-16 h-16 rounded-lg bg-red-100 flex items-center justify-center flex-shrink-0">
-                <FileText className="w-8 h-8 text-red-500" />
+              <div className="w-16 h-16 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0
+                              border border-gray-200 flex items-center justify-center">
+                {pdfPreviewUrl && !imageError ? (
+                  <img
+                    src={pdfPreviewUrl}
+                    alt="PDF page 1 preview"
+                    className="w-full h-full object-cover"
+                    onError={() => setImageError(true)}
+                  />
+                ) : (
+                  <FileText className="w-8 h-8 text-red-500" />
+                )}
               </div>
             ) : (
               <div className="w-16 h-16 rounded-lg overflow-hidden flex-shrink-0 bg-gray-200 flex items-center justify-center">
