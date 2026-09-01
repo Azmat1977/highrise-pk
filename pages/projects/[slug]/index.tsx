@@ -20,6 +20,9 @@ import {
   Heart, Coffee, Lock, Droplets, TreePine,
   School, Hospital, ShoppingBag, UtensilsCrossed,
   FileText,
+  Maximize2,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import ProjectDetailHero   from '@/components/project-detail/ProjectDetailHero';
 import QuickActionsBar     from '@/components/project-detail/QuickActionsBar';
@@ -172,6 +175,109 @@ function Section({ id, title, icon, children, headerExtra, className = '' }: {
   );
 }
 
+// ── PDF cover content (shared: object fallback + mobile) ──
+function FloorPlanPdfCover({ plan }: { plan: string }): React.ReactElement {
+  return (
+    <>
+      <div className="w-20 h-24 rounded-xl bg-white border-2 border-dashed border-[#029bba]/30
+                      flex flex-col items-center justify-center shadow-sm mb-4">
+        <FileText className="w-8 h-8 text-[#029bba] mb-1" strokeWidth={1.5} />
+        <span className="text-[9px] font-black uppercase tracking-widest text-[#029bba]">PDF</span>
+      </div>
+      <p className="text-sm font-bold text-gray-700 mb-1">{plan} — Floor Plan Document</p>
+      <p className="text-xs text-gray-500">
+        Tap Fullscreen or Download to view the complete layout.
+      </p>
+    </>
+  );
+}
+
+// ── FloorPlanModal — fullscreen viewer (image zoom OR native PDF) ──
+function FloorPlanModal({ plan, imageUrl, pdfUrl, onClose }: {
+  plan: string;
+  imageUrl?: string;
+  pdfUrl?: string;
+  onClose: () => void;
+}): React.ReactElement {
+  const [zoom, setZoom] = useState(1);
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => {
+      document.body.style.overflow = '';
+      window.removeEventListener('keydown', handler);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[110] bg-black/95 flex flex-col"
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${plan} floor plan viewer`}
+    >
+      {/* Header: plan name + zoom controls + close */}
+      <div className="flex items-center justify-between gap-3 px-4 sm:px-6 py-3 border-b border-white/10">
+        <p className="text-white font-bold text-sm sm:text-base truncate">
+          {plan} — Floor Plan
+        </p>
+        <div className="flex items-center gap-1.5">
+          {imageUrl && (
+            <div className="flex items-center gap-0.5">
+              <button
+                onClick={() => setZoom(z => Math.max(1, +(z - 0.5).toFixed(1)))}
+                aria-label="Zoom out"
+                className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <ZoomOut className="w-4 h-4" />
+              </button>
+              <span className="text-xs text-white/60 tabular-nums w-8 text-center">{zoom}x</span>
+              <button
+                onClick={() => setZoom(z => Math.min(4, +(z + 0.5).toFixed(1)))}
+                aria-label="Zoom in"
+                className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+              >
+                <ZoomIn className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+          <button
+            onClick={onClose}
+            aria-label="Close viewer"
+            className="p-2 rounded-lg text-white/70 hover:text-white hover:bg-white/10 transition-colors"
+          >
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+      </div>
+
+      {/* Content: zoomable image (raw <img> for pan/scroll) OR native PDF */}
+      <div className="flex-1 overflow-auto">
+        {imageUrl ? (
+          <div className="min-h-full flex items-start justify-center p-4">
+            <img
+              src={imageUrl}
+              alt={`${plan} floor plan`}
+              style={{ transform: `scale(${zoom})` }}
+              className={`transition-transform duration-200 object-contain ${
+                zoom > 1 ? 'max-w-none' : 'max-w-full max-h-[75vh]'
+              }`}
+            />
+          </div>
+        ) : pdfUrl ? (
+          <iframe
+            src={pdfUrl}
+            className="w-full h-full bg-white"
+            title={`${plan} floor plan PDF`}
+          />
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 // GalleryModal removed — ProjectGallery component handles lightbox (Wave 4 cleanup)
 
 // ShareMenu removed — Sprint 1 ShareMenu (components/projects/ShareMenu.tsx) handles it via ProjectDetailHero (Wave 4 cleanup)
@@ -198,6 +304,11 @@ export default function ProjectDetailPage({ project }: PageProps) {
   const [activeOfferingTab, setActiveOfferingTab] = useState<'all' | 'residential' | 'commercial'>('all');
   const [activeOfferingIdx, setActiveOfferingIdx] = useState(0);
   const [activeFloorPlanIdx, setActiveFloorPlanIdx] = useState(0);
+  const [floorPlanViewer, setFloorPlanViewer] = useState<{
+    plan: string;
+    imageUrl?: string;
+    pdfUrl?: string;
+  } | null>(null);
 
   // VideoModal removed — ProjectMediaExplorer owns media viewing
 
@@ -802,41 +913,157 @@ export default function ProjectDetailPage({ project }: PageProps) {
             ══════════════════════════════════════ */}
             {(project.buildingFloorPlans?.length ?? 0) > 0 && (
               <Section title="Floor Plans" icon={<Layers className="w-5 h-5 text-[#029bba]" />}>
+                {/* Segmented floor tabs */}
                 <div className="flex flex-wrap gap-2 mb-6 pb-4 border-b border-gray-100">
-                  {project.buildingFloorPlans!.map((fp, idx) => (
-                    <button key={idx} onClick={() => setActiveFloorPlanIdx(idx)}
-                      className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                        activeFloorPlanIdx === idx
-                          ? 'bg-[#029bba] text-white shadow-md'
-                          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                      }`}>
-                      {fp.floorName}
-                    </button>
-                  ))}
+                  {project.buildingFloorPlans!.map((fp, idx) => {
+                    const isActive = activeFloorPlanIdx === idx;
+                    const hasPdf   = !!fp.pdfUrl;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => setActiveFloorPlanIdx(idx)}
+                        aria-pressed={isActive}
+                        className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                          isActive
+                            ? 'bg-gradient-to-r from-[#029bba] to-[#017a94] text-white shadow-md shadow-[#029bba]/20'
+                            : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                        }`}
+                      >
+                        {fp.floorName}
+                        {hasPdf && (
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${isActive ? 'bg-white/80' : 'bg-gray-400'}`}
+                            title="PDF available"
+                          />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
+
                 {project.buildingFloorPlans![activeFloorPlanIdx] && (() => {
-                  const fp = project.buildingFloorPlans![activeFloorPlanIdx];
+                  const fp       = project.buildingFloorPlans![activeFloorPlanIdx];
+                  const plan     = fp.floorName;
+                  const hasImage = !!fp.imageUrl;
+                  const hasPdf   = !!fp.pdfUrl;
+
+                  const openViewer = () => setFloorPlanViewer({
+                    plan,
+                    imageUrl: fp.imageUrl,
+                    pdfUrl:   fp.pdfUrl,
+                  });
+
                   return (
-                    <div className="bg-gray-50 rounded-xl p-6 text-center">
-                      {fp.imageUrl ? (
-                        <div className="relative w-full h-48 md:h-80 mb-4">
-                          <Image src={fp.imageUrl} alt={`Floor plan: ${fp.floorName}`}
-                            fill className="object-contain" sizes="(max-width: 768px) 100vw, 66vw" />
+                    <div className="rounded-2xl border border-gray-200 overflow-hidden">
+                      {/* Plan viewer */}
+                      <div className="relative bg-[#f8fafc]">
+                        {hasImage ? (
+                          <button
+                            type="button"
+                            onClick={openViewer}
+                            aria-label={`View ${plan} floor plan fullscreen with zoom`}
+                            className="block w-full group"
+                          >
+                            <div className="relative w-full h-64 md:h-[28rem]">
+                              <Image
+                                src={fp.imageUrl!}
+                                alt={`Floor plan: ${plan}`}
+                                fill
+                                className="object-contain p-4"
+                                sizes="(max-width: 768px) 100vw, 66vw"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center
+                                              opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="inline-flex items-center gap-1.5 px-3 py-1.5
+                                                 rounded-full bg-black/60 backdrop-blur-sm
+                                                 text-white text-xs font-bold">
+                                  <Maximize2 className="w-3.5 h-3.5" />
+                                  Click to zoom
+                                </span>
+                              </div>
+                            </div>
+                          </button>
+                        ) : hasPdf ? (
+                          <>
+                            {/* Inline PDF — browser's native viewer renders the
+                                actual floor plan with built-in zoom and pan.
+                                (PDFs display even without a separate image.) */}
+                            <object
+                              data={fp.pdfUrl!}
+                              type="application/pdf"
+                              aria-label={`${plan} floor plan`}
+                              className="hidden sm:block w-full h-64 md:h-[28rem] bg-white"
+                            >
+                              <div className="w-full h-full flex flex-col items-center justify-center">
+                                <FloorPlanPdfCover plan={plan} />
+                              </div>
+                            </object>
+                            {/* Mobile: browsers cannot inline PDFs — branded cover */}
+                            <div className="sm:hidden w-full h-56 flex flex-col items-center justify-center
+                                            bg-gradient-to-br from-[#004063]/[0.04] via-white to-[#029bba]/[0.04]">
+                              <FloorPlanPdfCover plan={plan} />
+                            </div>
+                          </>
+                        ) : null}
+
+                        {/* Floor badge */}
+                        <div className="absolute top-3 left-3 px-3 py-1.5 rounded-lg bg-white/90 backdrop-blur-sm
+                                        border border-gray-200 shadow-sm pointer-events-none">
+                          <p className="text-xs font-bold text-gray-800">{plan}</p>
                         </div>
-                      ) : (
-                        <div className="w-full h-48 bg-gray-200 rounded-xl flex items-center justify-center mb-4">
-                          <FileText className="w-16 h-16 text-gray-300" />
+                      </div>
+
+                      {/* Meta + actions bar */}
+                      <div className="px-5 py-4 bg-white border-t border-gray-100
+                                      flex items-center justify-between gap-3 flex-wrap">
+                        <div className="min-w-0">
+                          <h4 className="font-bold text-gray-900 text-sm leading-tight">{plan}</h4>
+                          {fp.description && (
+                            <p className="text-xs text-gray-500 mt-0.5 line-clamp-1">{fp.description}</p>
+                          )}
+                          <div className="flex items-center gap-2 mt-1.5 text-[10px] font-bold uppercase tracking-wider text-gray-400">
+                            <span>{hasImage ? 'Image + PDF' : 'Interactive PDF'}</span>
+                            {fp.floorType && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-gray-300" />
+                                <span className="capitalize">{fp.floorType}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
-                      )}
-                      <h4 className="font-bold text-gray-900 mb-2">{fp.floorName}</h4>
-                      {fp.description && <p className="text-sm text-gray-600 mb-4">{fp.description}</p>}
-                      {fp.pdfUrl && (
-                        <button onClick={() => downloadFile(fp.pdfUrl!, `${project.slug}-${fp.floorName}.pdf`)}
-                          className="inline-flex items-center gap-2 px-6 py-3 bg-[#029bba] hover:bg-[#027a94]
-                                     text-white rounded-xl font-medium transition-colors">
-                          <Download className="w-5 h-5" />Download PDF
-                        </button>
-                      )}
+
+                        <div className="flex items-center gap-2">
+                          {(hasImage || hasPdf) && (
+                            <button
+                              onClick={openViewer}
+                              aria-label={`View ${plan} floor plan fullscreen`}
+                              className="inline-flex items-center gap-1.5 px-4 py-2.5
+                                         rounded-xl border border-gray-200 bg-white
+                                         text-gray-700 text-sm font-semibold
+                                         hover:bg-gray-50 hover:border-gray-300
+                                         transition-all whitespace-nowrap"
+                            >
+                              <Maximize2 className="w-4 h-4" />
+                              Fullscreen
+                            </button>
+                          )}
+                          {hasPdf && (
+                            <button
+                              onClick={() => downloadFile(fp.pdfUrl!, `${project.slug}-${plan}.pdf`)}
+                              aria-label={`Download ${plan} floor plan PDF`}
+                              className="inline-flex items-center gap-2 px-5 py-2.5
+                                         bg-gradient-to-r from-[#029bba] to-[#017a94]
+                                         hover:from-[#02a8c9] hover:to-[#018a9a]
+                                         text-white rounded-xl font-semibold text-sm
+                                         shadow-md shadow-[#029bba]/20 hover:shadow-lg
+                                         transition-all whitespace-nowrap"
+                            >
+                              <Download className="w-4 h-4" />
+                              Download PDF
+                            </button>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   );
                 })()}
@@ -1132,6 +1359,16 @@ export default function ProjectDetailPage({ project }: PageProps) {
           : 'Send Inquiry'
         }
       />
+
+      {/* Floor plan fullscreen viewer */}
+      {floorPlanViewer && (
+        <FloorPlanModal
+          plan={floorPlanViewer.plan}
+          imageUrl={floorPlanViewer.imageUrl}
+          pdfUrl={floorPlanViewer.pdfUrl}
+          onClose={() => setFloorPlanViewer(null)}
+        />
+      )}
 
     </div>
   );
