@@ -178,6 +178,32 @@ export interface DeveloperAccountability {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// RISK ALERTS (mirrors Projects model IRiskAlert — serialized shape:
+// dates arrive as ISO strings via getStaticProps JSON round-trip)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type RiskAlertSeverity = 'low' | 'medium' | 'high' | 'critical';
+
+export type RiskAlertCategory =
+  | 'legal' | 'financial' | 'construction' | 'fraud' | 'noc' | 'general';
+
+export type RiskAlertStatus = 'active' | 'resolved' | 'investigating';
+
+export interface RiskAlertDetail {
+  _id?:         string;
+  title:        string;
+  description:  string;
+  severity:     RiskAlertSeverity;
+  category:     RiskAlertCategory;
+  issuedBy:     string;
+  issuedAt:     string;
+  resolvedAt?:  string;
+  status:       RiskAlertStatus;
+  sourceUrl?:   string;
+  affectedUnits?: string[];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // INSTALLMENT PLAN
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -321,6 +347,9 @@ export interface ProjectDetailData {
     legalDisclaimer?: string;
   };
 
+  // Risk Alerts (Projects model — embedded IRiskAlert, serialized)
+  riskAlerts?: RiskAlertDetail[];
+
   // Timeline
   launchDate?:             string;
   expectedCompletionDate?: string;
@@ -435,14 +464,15 @@ export interface SectionTab {
 
 export const DETAIL_SECTION_TABS: readonly SectionTab[] = [
   // Order matches physical page order — scroll-spy + tab highlighting flow
-  { id: 'overview',   label: 'Overview'       },
-  { id: 'about',      label: 'About'          },
-  { id: 'developer',  label: 'Developer'      },
-  { id: 'units',      label: 'Units & Pricing'},
-  { id: 'features',   label: 'Features'       },
-  { id: 'location',   label: 'Location'       },
-  { id: 'payment',    label: 'Payment Plan'   },
-  { id: 'legal',      label: 'Documents'      },
+  { id: 'overview',     label: 'Overview'       },
+  { id: 'about',        label: 'About'          },
+  { id: 'developer',    label: 'Developer'      },
+  { id: 'units',        label: 'Units & Pricing'},
+  { id: 'features',     label: 'Features'       },
+  { id: 'construction', label: 'Progress'       },
+  { id: 'location',     label: 'Location'       },
+  { id: 'payment',      label: 'Payment Plan'   },
+  { id: 'legal',        label: 'Documents'      },
 ] as const;
 
 // ─────────────────────────────────────────────────────────────────────────────

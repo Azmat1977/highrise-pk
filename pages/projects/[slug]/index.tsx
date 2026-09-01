@@ -30,6 +30,7 @@ import SimilarProjectsSection    from '@/components/project-detail/SimilarProjec
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
+import RiskAlertsSection         from '@/components/project-detail/RiskAlertsSection';
 import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
 // Trust calculator imports removed — Trust Index, Passport, and AI Risk sections removed per client request
 import type {
@@ -541,7 +542,10 @@ export default function ProjectDetailPage({ project }: PageProps) {
       <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-none">
           <div className="flex gap-1 py-1">
-            {DETAIL_SECTION_TABS.map(s => (
+            {DETAIL_SECTION_TABS
+              .filter(s => s.id !== 'construction'
+                || (project.developmentUpdates?.length ?? 0) > 0)
+              .map(s => (
               <button key={s.id}
                 onClick={() => {
                   const el = document.getElementById(s.id);
@@ -620,6 +624,12 @@ export default function ProjectDetailPage({ project }: PageProps) {
                 Moved up — buyers see developer trust
                 BEFORE pricing details
             ══════════════════════════════════════ */}
+            {/* ══════════════════════════════════════
+                RISK ALERTS — Important Information
+                (after positive evidence — balanced context)
+            ══════════════════════════════════════ */}
+            <RiskAlertsSection project={project} />
+
             <DeveloperTrustCard
               developerProfile={project.developerProfile}
               developerObjectId={project.developer || project.developerId || ''}
