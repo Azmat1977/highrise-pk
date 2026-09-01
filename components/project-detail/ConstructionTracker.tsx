@@ -278,6 +278,20 @@ export default function ConstructionTracker({
                     </div>
                   )}
 
+                  {/* Site activity video — model-backed evidence */}
+                  {upd.videoUrl && (
+                    <a
+                      href={upd.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-[#029bba]
+                                 hover:underline mb-3"
+                    >
+                      <Video className="w-3.5 h-3.5" />
+                      Watch Site Video
+                    </a>
+                  )}
+
                   {/* Engineer note */}
                   {upd.engineerNote && (
                     <div className="flex gap-2.5 rounded-xl bg-gray-50 border border-gray-100 px-3.5 py-2.5 mb-3">

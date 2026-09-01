@@ -1170,6 +1170,10 @@ const DevelopmentUpdateSchema = new Schema(
     ],
     videoUrl: { type: String },
     progressPercent: { type: Number, min: 0, max: 100 },
+    // Transparency evidence fields (ConstructionTracker display support)
+    isDroneUpdate: { type: Boolean, default: false },
+    engineerNote: { type: String, maxlength: 1000 },
+    qualityChecks: [{ type: String, maxlength: 100 }],
   },
   { _id: false }
 );

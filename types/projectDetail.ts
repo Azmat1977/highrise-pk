@@ -91,6 +91,7 @@ export interface ConstructionMilestone {
   title:            string;
   description?:     string;
   images?:          string[];
+  videoUrl?:        string;       // site activity video (model field — was missing here)
   progress?:        number;       // 0–100
   progressPercent?: number;       // alias
   isDroneUpdate?:   boolean;
