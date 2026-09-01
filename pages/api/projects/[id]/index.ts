@@ -371,6 +371,7 @@ async function handleGet(
   projectObject.commercialFloors       = fd.floorsForCommercial ?? null;
   projectObject.residentialFloors      = fd.floorsForResidential ?? null;
   projectObject.totalLandArea          = sd.totalLandArea != null ? String(sd.totalLandArea) : '';
+  projectObject.landAreaUnit           = String(sd.landAreaUnit ?? 'Kanal');
   projectObject.totalResidentialPlots  = sd.totalResidentialPlots ?? null;
   projectObject.totalCommercialPlots   = sd.totalCommercialPlots ?? null;
   projectObject.plotSizesOffered       = sd.plotSizesOffered ?? '';

@@ -30,6 +30,7 @@ import SimilarProjectsSection    from '@/components/project-detail/SimilarProjec
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
+import { PaymentPlanList }       from '@/components/projects/PaymentPlanCard';
 import RiskAlertsSection         from '@/components/project-detail/RiskAlertsSection';
 import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
 // Trust calculator imports removed — Trust Index, Passport, and AI Risk sections removed per client request
@@ -224,6 +225,15 @@ export default function ProjectDetailPage({ project }: PageProps) {
   const breakdownTotal = (project.unitTypeBreakdown ?? []).reduce(
     (s, ut) => s + (ut.totalUnits ?? 0), 0
   );
+
+  // Active payment plans (model paymentPlans[] — validity filtered)
+  const activePaymentPlans = (project.paymentPlans ?? []).filter((p) => {
+    if (p.isActive === false) return false;
+    const now = Date.now();
+    if (p.validFrom && new Date(p.validFrom).getTime() > now) return false;
+    if (p.validUntil && new Date(p.validUntil).getTime() < now) return false;
+    return true;
+  });
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk';
   const canonicalUrl = `${siteUrl}/projects/${project.slug}`;
 
@@ -834,9 +844,32 @@ export default function ProjectDetailPage({ project }: PageProps) {
             )}
 
             {/* ══════════════════════════════════════
-                PAYMENT PLAN
+                PAYMENT PLANS (multi-plan) — falls back
+                to single installmentPlan below when empty
             ══════════════════════════════════════ */}
-            {project.installmentPlan && project.saleMode === 'Installment' && (
+            {activePaymentPlans.length > 0 && (
+              <section id="payment" className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-[#029bba]" />
+                    Payment Plans
+                  </h2>
+                  {activePaymentPlans.length > 1 && (
+                    <span className="text-sm text-gray-500">
+                      {activePaymentPlans.length} plans available
+                    </span>
+                  )}
+                </div>
+                <div className="p-6">
+                  <PaymentPlanList plans={activePaymentPlans} />
+                </div>
+              </section>
+            )}
+
+            {/* ══════════════════════════════════════
+                PAYMENT PLAN (single — legacy fallback)
+            ══════════════════════════════════════ */}
+            {activePaymentPlans.length === 0 && project.installmentPlan && project.saleMode === 'Installment' && (
               <Section id="payment" title="Payment Plan" icon={<CreditCard className="w-5 h-5 text-[#029bba]" />}>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {project.installmentPlan.bookingAmount && (
