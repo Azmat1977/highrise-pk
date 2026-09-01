@@ -46,10 +46,10 @@ export default function FileUploader({
   // Determine accept attribute
   const acceptAttr =
     accept === 'image'
-      ? 'image/jpeg,image/png,image/webp,image/gif'
+      ? 'image/jpeg,image/png,image/webp,image/gif,image/tiff'
       : accept === 'pdf'
       ? 'application/pdf'
-      : 'image/jpeg,image/png,image/webp,image/gif,application/pdf';
+      : 'image/jpeg,image/png,image/webp,image/gif,image/tiff,application/pdf';
 
   // Get file type for API
   const fileType = accept === 'both' ? 'auto' : accept;
@@ -69,7 +69,7 @@ export default function FileUploader({
     const isPdf = file.type === 'application/pdf';
 
     if (accept === 'image' && !isImage) {
-      setError('Please select an image file (JPG, PNG, WebP)');
+      setError('Please select an image file (JPG, PNG, WebP, TIFF)');
       return;
     }
 
@@ -102,13 +102,19 @@ export default function FileUploader({
         });
       }
 
-      // Upload new file
+      // Upload new file — folder goes in the QUERY string (endpoint contract:
+      // it reads req.query.folder; FormData fields were silently ignored).
+      // Dynamic sub-paths collapse to their root key:
+      //   'projects/slug/floor-plans' → 'project-floorplans' (full-detail, no crop)
+      //   'projects/slug/documents'   → 'projects' (PDF + images)
+      const folderKey = folder.toLowerCase().includes('floor-plan')
+        ? 'project-floorplans'
+        : folder.split('/')[0]?.toLowerCase() ?? 'general';
+
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('folder', folder);
-      formData.append('fileType', fileType);
 
-      const response = await fetch('/api/upload', {
+      const response = await fetch(`/api/upload?folder=${encodeURIComponent(folderKey)}`, {
         method: 'POST',
         body: formData,
       });

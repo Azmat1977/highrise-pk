@@ -339,13 +339,18 @@ export default async function handler(
     const { buffer, filename, mimeType, size } = parsed;
 
     // ── Determine file category from folder ───────────────────
+    // projects: feature images + brochures + floor plans (JPG/PNG/WebP/PDF/TIFF)
     const fileCategory = folderParam === 'documents'
       ? 'kyc'
       : folderParam === 'property-floorplans'
         ? 'propertyFloorplan'
-        : folderParam === 'properties'
-          ? 'propertyImage'
-          : 'image';
+        : folderParam === 'project-floorplans'
+          ? 'propertyFloorplan'
+          : folderParam === 'projects'
+            ? 'propertyFloorplan'
+            : folderParam === 'properties'
+              ? 'propertyImage'
+              : 'image';
 
     // ── Validate file (mime + extension + size + magic bytes) ─
     // validateFile() from lib/cloudinary.ts — single source of truth

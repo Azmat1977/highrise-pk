@@ -51,7 +51,7 @@ export const IMAGE_DIMENSION_LIMITS = {
 export const ALLOWED_MIME_TYPES = {
   image:             ['image/jpeg', 'image/png', 'image/webp', 'image/gif'] as const,
   propertyImage:     ['image/jpeg', 'image/png', 'image/webp'] as const,
-  propertyFloorplan: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'] as const,
+  propertyFloorplan: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf', 'image/tiff'] as const,
   document:          ['application/pdf'] as const,
   video:             ['video/mp4', 'video/webm'] as const,
   avatar:            ['image/jpeg', 'image/png', 'image/webp'] as const,
@@ -61,7 +61,7 @@ export const ALLOWED_MIME_TYPES = {
 export const ALLOWED_EXTENSIONS = {
   image:             ['.jpg', '.jpeg', '.png', '.webp', '.gif'] as const,
   propertyImage:     ['.jpg', '.jpeg', '.png', '.webp'] as const,
-  propertyFloorplan: ['.jpg', '.jpeg', '.png', '.webp', '.pdf'] as const,
+  propertyFloorplan: ['.jpg', '.jpeg', '.png', '.webp', '.pdf', '.tiff', '.tif'] as const,
   document:          ['.pdf'] as const,
   video:             ['.mp4', '.webm'] as const,
   avatar:            ['.jpg', '.jpeg', '.png', '.webp'] as const,
@@ -74,6 +74,7 @@ export const FOLDERS = {
   propertyFloorplans: 'highrise-pk/properties/floorplans',
   projects:       'highrise-pk/projects',
   projectDocuments: 'highrise-pk/projects/documents',
+  projectFloorplans: 'highrise-pk/projects/floorplans',
   unitImages:     'highrise-pk/units/images',
   unitFloorplans: 'highrise-pk/units/floorplans',
   unitLayouts:    'highrise-pk/units/layouts',
@@ -99,6 +100,7 @@ export const UPLOAD_FOLDER_MAP: Record<string, keyof typeof FOLDERS> = {
   'property-floorplans': 'propertyFloorplans',
   documents:  'kyc',
   projects:   'projects',
+  'project-floorplans': 'projectFloorplans',
   agents:     'agents',
   blog:       'blog',
   'trusted-partners': 'trustedPartners',
@@ -214,13 +216,14 @@ export function validateMagicBytes(
     gif:  ['47494638'],
     webp: ['52494646'],
     pdf:  ['25504446'],
+    tiff: ['49492A00', '4D4D002A'], // II* (LE) + MM (BE) headers
     mp4:  ['00000018', '00000020', '66747970'],
   };
 
   const categorySignatures: Record<FileCategory, string[]> = {
     image:             [...signatures.jpeg, ...signatures.png, ...signatures.gif, ...signatures.webp],
     propertyImage:     [...signatures.jpeg, ...signatures.png, ...signatures.webp],
-    propertyFloorplan: [...signatures.jpeg, ...signatures.png, ...signatures.webp, ...signatures.pdf],
+    propertyFloorplan: [...signatures.jpeg, ...signatures.png, ...signatures.webp, ...signatures.pdf, ...signatures.tiff],
     document:          [...signatures.pdf],
     video:             [...signatures.mp4],
     avatar:            [...signatures.jpeg, ...signatures.png, ...signatures.webp],
@@ -405,7 +408,8 @@ export function getUploadOptions(
       baseOptions.transformation = avatarTransform;
       break;
     case 'propertyFloorplans':
-      // Floor-plan PDFs/raw files must not receive image transformations.
+    case 'projectFloorplans':
+      // Floor plans need full detail — no resize/crop transformations.
       baseOptions.transformation = [];
       break;
     case 'kyc':
@@ -455,6 +459,16 @@ export async function uploadBuffer(
     if (!validation.valid) return { success: false, error: validation.error };
 
     const uploadOptions = getUploadOptions(folder, { tags: options?.tags });
+
+    // PDFs upload as IMAGE resources (Cloudinary supports PDF as an image
+    // format). This unlocks f_jpg,pg_1 page previews on delivery AND the
+    // browser receives application/pdf (inline rendering) instead of
+    // octet-stream (forced Save As). Image transformations are raster
+    // crop/resize ops — strip them so multi-page documents stay intact.
+    if (mimeType === 'application/pdf') {
+      uploadOptions.resource_type = 'image';
+      uploadOptions.transformation = [];
+    }
 
     const result = await new Promise<UploadApiResponse>((resolve, reject) => {
       const stream = cloudinary.uploader.upload_stream(
@@ -649,6 +663,8 @@ export function getMimeTypeFromExtension(filename: string): string {
     '.gif':  'image/gif',
     '.webp': 'image/webp',
     '.pdf':  'application/pdf',
+    '.tiff': 'image/tiff',
+    '.tif':  'image/tiff',
     '.mp4':  'video/mp4',
     '.webm': 'video/webm',
   };
