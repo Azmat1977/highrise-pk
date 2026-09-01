@@ -19,6 +19,18 @@ import DocumentsSection, { ProjectDocuments } from '@/components/admin/Documents
 import FileUploader from '@/components/admin/FileUploader';
 import BuildingFloorPlansSection, { BuildingFloorPlan } from '@/components/admin/BuildingFloorPlansSection';
 import UnitPlansSection, { UnitPlan } from '@/components/admin/UnitPlansSection';
+import {
+  DevelopmentUpdatesEditor,
+  AmenitiesEditor,
+  NearbyFacilitiesEditor,
+  LocationAdvantagesEditor,
+  type DevelopmentUpdateInput,
+  type AmenityInput,
+  type NearbyFacilityInput,
+  type LocationAdvantageInput,
+} from '@/components/admin/ProjectContentSections';
+
+type DevelopmentUpdate = DevelopmentUpdateInput;
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -36,15 +48,6 @@ interface CompletedProjectPayload {
   year: number | null;
 }
 
-interface DevelopmentUpdate {
-  date: string;
-  progressPercent: string;
-  title: string;
-  description: string;
-  videoUrl: string;
-  imageUrl: string;
-}
-
 interface DevelopmentUpdatePayload {
   date: string | null;
   progressPercent: number | null;
@@ -52,6 +55,27 @@ interface DevelopmentUpdatePayload {
   description: string | null;
   videoUrl: string | null;
   imageUrl: string | null;
+  images: { url: string }[];
+  isDroneUpdate: boolean;
+  engineerNote: string | null;
+  qualityChecks: string[];
+}
+
+interface AmenityPayload {
+  name: string;
+  category: string;
+  description: string | null;
+}
+
+interface NearbyFacilityPayload {
+  name: string;
+  category: string;
+  distance: string | null;
+}
+
+interface LocationAdvantagePayload {
+  title: string;
+  points: string[];
 }
 
 interface CustomOffer {
@@ -143,6 +167,9 @@ interface RawConstructionUpdate {
   videoUrl?: unknown;
   imageUrl?: unknown;
   images?: unknown;
+  isDroneUpdate?: unknown;
+  engineerNote?: unknown;
+  qualityChecks?: unknown;
 }
 
 interface RawCompletedProject {
@@ -207,6 +234,9 @@ interface RawProject {
   coordinatesRaw?: unknown;
   developmentUpdates?: unknown[];   // model field name (read-key fix)
   completedProjects?: unknown[];
+  amenitiesDetailed?: unknown[];
+  nearbyFacilities?: unknown[];
+  locationAdvantages?: unknown[];
   projectDocuments?: ProjectDocuments;
   buildingFloorPlans?: unknown[];
   unitPlans?: unknown[];
@@ -275,6 +305,9 @@ interface ProjectUpdateBody {
   coordinatesRaw: string | null;
   developmentUpdates: DevelopmentUpdatePayload[];
   completedProjects: CompletedProjectPayload[];
+  amenitiesDetailed: AmenityPayload[];
+  nearbyFacilities: NearbyFacilityPayload[];
+  locationAdvantages: LocationAdvantagePayload[];
   projectDocuments: ProjectDocuments;
   buildingFloorPlans: BuildingFloorPlan[];
   unitTypeBreakdown: UnitPlan[];
@@ -566,6 +599,9 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   // â”€â”€ Lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [completedProjects,   setCompletedProjects]   = useState<CompletedProject[]>([{ name: '', type: '', location: '', year: '' }]);
   const [developmentUpdates, setDevelopmentUpdates] = useState<DevelopmentUpdate[]>([]);
+  const [amenities,          setAmenities]          = useState<AmenityInput[]>([]);
+  const [nearbyFacilities,   setNearbyFacilities]   = useState<NearbyFacilityInput[]>([]);
+  const [locationAdvantages, setLocationAdvantages] = useState<LocationAdvantageInput[]>([]);
   const [projectDocuments,    setProjectDocuments]    = useState<ProjectDocuments>({});
   const [buildingFloorPlans,  setBuildingFloorPlans]  = useState<BuildingFloorPlan[]>([]);
   const [unitPlans,           setUnitPlans]           = useState<UnitPlan[]>([]);
@@ -833,10 +869,61 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                 title:           safeTrim(upd.title),
                 description:     safeTrim(upd.description),
                 videoUrl:        safeTrim(upd.videoUrl),
-                imageUrl:        safeTrim(upd.imageUrl)
-                  || (Array.isArray((upd as { images?: unknown }).images)
-                    ? safeTrim(((upd as { images?: Array<{ url?: unknown }> }).images ?? [])[0]?.url)
-                    : ''),
+                imageUrl:        safeTrim(upd.imageUrl),
+                images:          Array.isArray((upd as { images?: unknown }).images)
+                  ? ((upd as { images?: Array<{ url?: unknown }> }).images ?? [])
+                      .map((im) => safeTrim(im?.url))
+                      .filter(Boolean)
+                  : [],
+                isDroneUpdate:   !!(upd as { isDroneUpdate?: unknown }).isDroneUpdate,
+                engineerNote:    safeTrim((upd as { engineerNote?: unknown }).engineerNote),
+                qualityChecks:   Array.isArray((upd as { qualityChecks?: unknown }).qualityChecks)
+                  ? ((upd as { qualityChecks?: unknown[] }).qualityChecks ?? [])
+                      .map((q) => safeTrim(q)).filter(Boolean).join(', ')
+                  : '',
+              };
+            })
+          );
+        }
+
+        // Amenities (display: Features section)
+        if (Array.isArray(project.amenitiesDetailed)) {
+          setAmenities(
+            (project.amenitiesDetailed as unknown[]).map((a) => {
+              const am = a as { name?: unknown; category?: unknown; description?: unknown };
+              return {
+                name:        safeTrim(am.name),
+                category:    safeTrim(am.category) || 'general',
+                description: safeTrim(am.description),
+              };
+            })
+          );
+        }
+
+        // Nearby facilities (display: Nearby Places)
+        if (Array.isArray(project.nearbyFacilities)) {
+          setNearbyFacilities(
+            (project.nearbyFacilities as unknown[]).map((n) => {
+              const nf = n as { name?: unknown; category?: unknown; distance?: unknown };
+              return {
+                name:     safeTrim(nf.name),
+                category: safeTrim(nf.category) || 'other',
+                distance: safeTrim(nf.distance),
+              };
+            })
+          );
+        }
+
+        // Location advantages (display: Location Advantages)
+        if (Array.isArray(project.locationAdvantages)) {
+          setLocationAdvantages(
+            (project.locationAdvantages as unknown[]).map((a) => {
+              const la = a as { title?: unknown; points?: unknown };
+              return {
+                title:  safeTrim(la.title),
+                points: Array.isArray(la.points)
+                  ? (la.points as unknown[]).map((p) => safeTrim(p)).filter(Boolean).join('\n')
+                  : '',
               };
             })
           );
@@ -884,22 +971,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
   // â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  const handleAddDevelopmentUpdate = useCallback((): void => {
-    setDevelopmentUpdates((prev) => [
-      ...prev,
-      { date: '', progressPercent: '', title: '', description: '', videoUrl: '', imageUrl: '' },
-    ]);
-  }, []);
-
-  const handleRemoveDevelopmentUpdate = useCallback((index: number): void => {
-    setDevelopmentUpdates((prev) => prev.filter((_, i) => i !== index));
-  }, []);
-
-  const handleDevelopmentUpdateChange = useCallback((
-    index: number, field: keyof DevelopmentUpdate, value: string
-  ): void => {
-    setDevelopmentUpdates((prev) => prev.map((u, i) => i === index ? { ...u, [field]: value } : u));
-  }, []);
+  // Development update handlers removed — DevelopmentUpdatesEditor manages internally
 
   const handleAddProject = useCallback((): void => {
     setCompletedProjects((prev) => [...prev, { name: '', type: '', location: '', year: '' }]);
@@ -1026,7 +1098,8 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
       else if (projectNature === 'mixed') mappedProjectType = 'Mixed Use';
 
       const developmentUpdatesPayload: DevelopmentUpdatePayload[] = developmentUpdates
-        .filter((u) => u.date || u.progressPercent || u.title || u.description || u.videoUrl || u.imageUrl)
+        .filter((u) => u.date || u.progressPercent || u.title || u.description || u.videoUrl || u.imageUrl
+          || u.images.some(Boolean) || u.engineerNote || u.qualityChecks)
         .map((u) => ({
           date:            u.date || null,
           progressPercent: u.progressPercent ? clamp(safeNum(u.progressPercent), 0, 100) : null,
@@ -1034,6 +1107,34 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           description:     toNullIfEmpty(u.description),
           videoUrl:        toNullIfEmpty(u.videoUrl),
           imageUrl:        toNullIfEmpty(u.imageUrl),
+          images:          u.images.map((url) => url.trim()).filter(Boolean).map((url) => ({ url })),
+          isDroneUpdate:   !!u.isDroneUpdate,
+          engineerNote:    toNullIfEmpty(u.engineerNote),
+          qualityChecks:   u.qualityChecks.split(',')
+            .map((q) => q.trim()).filter(Boolean),
+        }));
+
+      const amenitiesPayload: AmenityPayload[] = amenities
+        .filter((a) => safeTrim(a.name))
+        .map((a) => ({
+          name:        safeTrim(a.name),
+          category:    safeTrim(a.category) || 'general',
+          description: toNullIfEmpty(a.description),
+        }));
+
+      const nearbyFacilitiesPayload: NearbyFacilityPayload[] = nearbyFacilities
+        .filter((n) => safeTrim(n.name))
+        .map((n) => ({
+          name:     safeTrim(n.name),
+          category: safeTrim(n.category) || 'other',
+          distance: toNullIfEmpty(n.distance),
+        }));
+
+      const locationAdvantagesPayload: LocationAdvantagePayload[] = locationAdvantages
+        .filter((a) => safeTrim(a.title))
+        .map((a) => ({
+          title:  safeTrim(a.title),
+          points: a.points.split('\n').map((p) => p.trim()).filter(Boolean),
         }));
 
       const completedProjectsPayload: CompletedProjectPayload[] = completedProjects
@@ -1160,6 +1261,9 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
         coordinatesRaw:     toNullIfEmpty(coordinatesRaw),
         developmentUpdates: developmentUpdatesPayload,
         completedProjects:   completedProjectsPayload,
+        amenitiesDetailed:   amenitiesPayload,
+        nearbyFacilities:    nearbyFacilitiesPayload,
+        locationAdvantages:  locationAdvantagesPayload,
         projectDocuments,
         buildingFloorPlans,
         unitTypeBreakdown:  unitPlans,
@@ -1212,7 +1316,8 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     downPaymentBonusDescription, earlyBirdEnabled, earlyBirdDiscountPercent,
     earlyBirdDescription, earlyBirdValidFrom, earlyBirdValidTill, customOffers,
     featureImage, droneVideoUrl, virtualTourUrl, googleMapLink, coordinatesRaw,
-    developmentUpdates, completedProjects, projectDocuments, buildingFloorPlans,
+    developmentUpdates, amenities, nearbyFacilities, locationAdvantages,
+    completedProjects, projectDocuments, buildingFloorPlans,
     unitPlans, projectId, apiFetch,
   ]);
 
@@ -1382,95 +1487,11 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           </Section>
 
           {/* â”€â”€ Section: Construction Progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <Section
-            title="Construction Progress & Site Updates"
-            subtitle="Add dated updates with site activity videos so buyers can see real progress."
-            icon="ًںڈ—ï¸ڈ"
-          >
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <p className="text-sm text-[#666666]">
-                  Time to time yahan per naya update add karein â€“ date, % progress, aur site ki video link ke sath.
-                </p>
-                <button type="button" onClick={handleAddDevelopmentUpdate} disabled={saving}
-                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#029bba] text-white hover:bg-[#027a94] transition-colors shadow-sm disabled:opacity-50">
-                  <Plus className="w-4 h-4" />
-                  Add Update
-                </button>
-              </div>
-
-              {developmentUpdates.length === 0 && (
-                <div className="rounded-xl border border-dashed border-gray-200 bg-[#f8f9fa] px-4 py-6 text-center text-sm text-[#666666]">
-                  Abhi koi update nahi hai. Pehla update add karein â€“ e.g. &quot;Grey structure work started&quot; with site video link.
-                </div>
-              )}
-
-              <div className="space-y-4">
-                {developmentUpdates.map((update, index) => (
-                  <div key={index} className="relative rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-                    <button type="button" onClick={() => handleRemoveDevelopmentUpdate(index)} disabled={saving}
-                      className="absolute top-3 right-3 p-1.5 text-[#ef4444] hover:bg-[#fef2f2] rounded-lg transition-colors">
-                      <X className="w-4 h-4" />
-                    </button>
-
-                    <div className="mb-3 flex items-center justify-between gap-3">
-                      <p className="text-sm font-semibold text-[#004063]">Update #{index + 1}</p>
-                      {update.progressPercent && (
-                        <span className="inline-flex items-center rounded-full bg-[#f0fdf4] px-3 py-1 text-xs font-semibold text-[#10b981]">
-                          {update.progressPercent}% complete
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-3">
-                      <div>
-                        <label className={labelClass}>Date</label>
-                        <input type="date" className={inputClass} value={update.date}
-                          onChange={(e) => handleDevelopmentUpdateChange(index, 'date', e.target.value)} disabled={saving} />
-                      </div>
-                      <div>
-                        <label className={labelClass}>Progress (%)</label>
-                        <input type="number" min={0} max={100} className={inputClass} placeholder="e.g. 40"
-                          value={update.progressPercent}
-                          onChange={(e) => handleDevelopmentUpdateChange(index, 'progressPercent', e.target.value)} disabled={saving} />
-                      </div>
-                      <div>
-                        <label className={labelClass}>Short Title</label>
-                        <input type="text" className={inputClass} placeholder="e.g. Block A grey structure completed"
-                          value={update.title}
-                          onChange={(e) => handleDevelopmentUpdateChange(index, 'title', e.target.value)} disabled={saving} />
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className={labelClass}>Description (Optional)</label>
-                        <textarea className={`${inputClass} min-h-[90px] resize-y`}
-                          placeholder="e.g. Raft + columns complete, brickwork in progress on 3rd floor."
-                          value={update.description}
-                          onChange={(e) => handleDevelopmentUpdateChange(index, 'description', e.target.value)} disabled={saving} />
-                      </div>
-                      <div className="space-y-3">
-                        <div>
-                          <label className={labelClass}>Site Activity Video URL</label>
-                          <input type="url" className={inputClass} placeholder="YouTube / Vimeo link"
-                            value={update.videoUrl}
-                            onChange={(e) => handleDevelopmentUpdateChange(index, 'videoUrl', e.target.value)} disabled={saving} />
-                        </div>
-                        <div>
-                          <label className={labelClass}>Image URL (Optional)</label>
-                          <input type="url" className={inputClass} placeholder="Direct link to site image"
-                            value={update.imageUrl}
-                            onChange={(e) => handleDevelopmentUpdateChange(index, 'imageUrl', e.target.value)} disabled={saving} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </Section>
-
+          <DevelopmentUpdatesEditor
+            value={developmentUpdates}
+            onChange={setDevelopmentUpdates}
+            disabled={saving}
+          />
           {/* â”€â”€ Legal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section title="Legal Documents & Approvals"
             subtitle="Project-level approvals from development authorities (CDA, LDA, etc.)" icon="ًں§¾">
@@ -1626,6 +1647,15 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
           {/* Unit plans */}
           <UnitPlansSection unitPlans={unitPlans} onChange={setUnitPlans} projectSlug={projectCategory || 'project'} />
+
+          {/* Amenities — display: Features section */}
+          <AmenitiesEditor value={amenities} onChange={setAmenities} disabled={saving} />
+
+          {/* Nearby places — display: Location section */}
+          <NearbyFacilitiesEditor value={nearbyFacilities} onChange={setNearbyFacilities} disabled={saving} />
+
+          {/* Location advantages — display: Location section */}
+          <LocationAdvantagesEditor value={locationAdvantages} onChange={setLocationAdvantages} disabled={saving} />
 
           {/* â”€â”€ Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section title="Payment Structure" subtitle="Define pricing, payment options, and special discounts" icon="ًں’°">
