@@ -23,6 +23,10 @@ import {
 } from '@/lib/rateLimit';
 
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
+import {
+  ProjectContentSchema,
+  applyProjectContentFields,
+} from '@/lib/validators/projectForm';
 
 // ============================================================================
 // SECURITY HEADERS
@@ -204,8 +208,10 @@ function isHighrisePublicId(publicId: string): boolean {
 // ZOD SCHEMA — POST validation (minimal wizard fields only)
 // ============================================================================
 
-const ProjectCreateSchema = z.object({
-  // Required wizard fields
+// Rich create schema — shared contract + create-time required fields.
+// The create form sends the full payload (was silently stripped by the
+// old minimal wizard schema — contract collapse fix).
+const ProjectCreateSchema = ProjectContentSchema.extend({
   projectName: z
     .string({ message: 'Project name is required' })
     .trim()
@@ -226,37 +232,11 @@ const ProjectCreateSchema = z.object({
     .min(2, 'City must be at least 2 characters')
     .max(80, 'City cannot exceed 80 characters'),
 
-  area: z
+  areaName: z
     .string({ message: 'Area is required' })
     .trim()
     .min(2, 'Area must be at least 2 characters')
     .max(120, 'Area cannot exceed 120 characters'),
-
-  // Optional but recommended at create time
-  tagline: z.string().trim().max(200).optional(),
-  shortDescription: z.string().trim().max(500).optional(),
-  specificLocation: z.string().trim().max(300).optional(),
-
-  coordinates: z
-    .object({
-      lat: z.number().min(-90).max(90),
-      lng: z.number().min(-180).max(180),
-    })
-    .optional(),
-
-  featureImageUrl: z.string().url().max(2048).optional(),
-  featureImagePublicId: z.string().max(512).optional(),
-
-  projectType: z.enum(['Residential', 'Commercial', 'Mixed Use']).optional(),
-  projectStatus: z
-    .enum([
-      'Planning',
-      'Pre-Launch',
-      'Under Development',
-      'Launched',
-      'Completed',
-    ])
-    .optional(),
 });
 
 type ProjectCreateInput = z.infer<typeof ProjectCreateSchema>;
@@ -1042,6 +1022,38 @@ async function handlePost(
 
     const data: ProjectCreateInput = validation.data;
 
+    // Create-form payment shapes (raw keys — stripped by schema, read
+    // from body) → canonical installmentPlan / fullPaymentInfo
+    const rawBody = bodyRaw as Record<string, unknown>;
+    if (
+      data.installmentPlan === undefined &&
+      rawBody.installmentInfo && typeof rawBody.installmentInfo === 'object'
+    ) {
+      const ii = rawBody.installmentInfo as Record<string, number | undefined>;
+      data.installmentPlan = {
+        totalPrice:      ii.totalUnitPrice ?? 0,
+        bookingAmount:   ii.bookingPayment ?? 0,
+        downPayment:     ii.downPayment ?? 0,
+        monthlyAmount:   ii.monthlyInstallmentAmount ?? 0,
+        monthlyDuration: ii.totalMonthlyInstallments ?? 0,
+        possessionAmount: ii.possessionCharges ?? 0,
+      };
+    }
+    if (
+      data.fullPaymentInfo === undefined &&
+      rawBody.fullPaymentInfo && typeof rawBody.fullPaymentInfo === 'object'
+    ) {
+      const fp = rawBody.fullPaymentInfo as Record<string, unknown>;
+      const fullPrice = Number(fp.fullPrice) || 0;
+      data.fullPaymentInfo = {
+        basePrice:     fullPrice,
+        finalPrice:    fullPrice,
+        areaSize:      Number(fp.areaSize) || 0,
+        areaUnit:      typeof fp.areaUnit === 'string' ? fp.areaUnit : 'sqft',
+        pricePerUnit:  Number(fp.pricePerUnit) || 0,
+      };
+    }
+
     // Validate Cloudinary public_id (if provided)
     if (data.featureImagePublicId && !isHighrisePublicId(data.featureImagePublicId)) {
       res.status(400).json({
@@ -1164,12 +1176,12 @@ async function handlePost(
       projectCategory: data.projectCategory,
       projectNature: data.projectNature,
       city: data.city,
-      area: data.area,
-      tagline: data.tagline,
-      shortDescription: data.shortDescription,
-      specificLocation: data.specificLocation,
-      projectType: data.projectType,
-      projectStatus: data.projectStatus || 'Planning',
+      area: data.areaName ?? data.area ?? undefined,
+      tagline: data.tagline ?? undefined,
+      shortDescription: data.shortDescription ?? undefined,
+      specificLocation: data.specificLocation ?? undefined,
+      projectType: (data.projectType as IProject['projectType']) ?? undefined,
+      projectStatus: (data.projectStatus as IProject['projectStatus']) || 'Planning',
 
       // Wizard default: draft status — developer continues via PATCH
       status: 'draft',
@@ -1222,6 +1234,12 @@ async function handlePost(
       projectDoc.coordinates = { lat: coords.lat, lng: coords.lng };
     }
 
+    // Rich form content (shared contract — restores full create payload)
+    applyProjectContentFields(
+      projectDoc as unknown as Record<string, unknown>,
+      data,
+    );
+
     // ───────────── Create project ─────────────
     const created = await Project.create(projectDoc);
 
@@ -1249,6 +1267,7 @@ async function handlePost(
     res.status(201).json({
       success: true,
       message: 'Project created successfully. Continue editing in the wizard.',
+      projectId: String(created.projectId ?? ''),
       project: {
         _id: String(created._id),
         projectId: created.projectId,
