@@ -19,7 +19,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
-import type { ProjectDetailData } from '@/types/projectDetail';
+import type { ProjectDetailData, ProjectImage } from '@/types/projectDetail';
 import {
   getYouTubeEmbedUrl,
   getMapEmbedUrl,
@@ -33,6 +33,9 @@ interface ProjectMediaExplorerProps {
   onClose: () => void;
   project: ProjectDetailData;
   initialTab?: ExplorerTab;
+  initialPhotoIdx?: number;   // open at a specific photo (gallery tile click)
+  images?: ProjectImage[];    // photo list override — hero's merged list
+                               // (keeps counts 1:1 with gallery + chips)
 }
 
 export default function ProjectMediaExplorer({
@@ -40,8 +43,10 @@ export default function ProjectMediaExplorer({
   onClose,
   project,
   initialTab = 'photos',
+  initialPhotoIdx = 0,
+  images: imagesProp,
 }: ProjectMediaExplorerProps): React.ReactElement | null {
-  const images = project.images ?? [];
+  const images = imagesProp ?? project.images ?? [];
   const videos = [
     ...(project.droneVideoUrl
       ? [{ url: project.droneVideoUrl, title: 'Drone Footage' }]
@@ -52,13 +57,13 @@ export default function ProjectMediaExplorer({
   const [activeTab, setActiveTab] = useState<ExplorerTab>(initialTab);
   const [photoIdx, setPhotoIdx] = useState(0);
 
-  // Reset on open
+  // Reset on open — photo index from gallery tile click (default 0)
   useEffect(() => {
     if (isOpen) {
       setActiveTab(initialTab);
-      setPhotoIdx(0);
+      setPhotoIdx(initialPhotoIdx);
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, initialTab, initialPhotoIdx]);
 
   // Scroll lock + keyboard (Esc / arrow navigation)
   useEffect(() => {

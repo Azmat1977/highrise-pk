@@ -137,6 +137,10 @@ export default function ProjectDetailHero({
   const developerName = getDeveloperDisplayName(project.developerProfile);
   const primaryImage  = getPrimaryImageUrl(project);
 
+  // Media list — SINGLE SOURCE OF TRUTH (fix: count desync).
+  // project.images + featureImageUrl cover (only if not already listed),
+  // order-sorted. Gallery, MediaExplorer and chips all consume this array
+  // → photo counts always 1:1 with what renders.
   const galleryImages: GalleryImage[] = (project.images ?? []).map(img => ({
     url:       img.url,
     publicId:  img.publicId,
@@ -145,18 +149,26 @@ export default function ProjectDetailHero({
     order:     img.order,
     category:  img.category ?? img.type,
   }));
+  if (primaryImage && !galleryImages.some(img => img.url === primaryImage)) {
+    galleryImages.unshift({
+      url:       primaryImage,
+      isPrimary: true,
+      order:     -1,
+      caption:   'Cover Image',
+    });
+  }
+  galleryImages.sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
 
-  const coverImage = primaryImage ? { url: primaryImage } : null;
-
-  // Counts — DB-synced (project.images is the source of truth)
+  // Counts — synced with galleryImages (the array everything renders)
   const photoCount = galleryImages.length;
   const videoCount = (project.videos?.length ?? 0) + (project.droneVideoUrl ? 1 : 0);
 
   const listing = toProjectListing(project, primaryImage, area);
 
   // Media explorer state
-  const [explorerOpen, setExplorerOpen] = useState(false);
-  const [explorerTab,  setExplorerTab]  = useState<ExplorerTab>('photos');
+  const [explorerOpen,   setExplorerOpen]   = useState(false);
+  const [explorerTab,    setExplorerTab]    = useState<ExplorerTab>('photos');
+  const [explorerPhotoIdx, setExplorerPhotoIdx] = useState(0);
 
   // Share state
   const [shareOpen, setShareOpen] = useState(false);
@@ -178,8 +190,9 @@ export default function ProjectDetailHero({
   const isCompared     = isInCompare(project._id);
   const comparePending = compareActionState === 'pending';
 
-  const openExplorer = useCallback((tab: ExplorerTab) => {
+  const openExplorer = useCallback((tab: ExplorerTab, photoIdx = 0) => {
     setExplorerTab(tab);
+    setExplorerPhotoIdx(photoIdx);
     setExplorerOpen(true);
   }, []);
 
@@ -247,9 +260,9 @@ export default function ProjectDetailHero({
             <ProjectGallery
               images={galleryImages}
               projectName={project.projectName}
-              coverImage={coverImage}
               variant="full"
               maxVisible={12}
+              onImageClick={(idx) => openExplorer('photos', idx)}
             />
             <MediaChips
               photoCount={photoCount}
@@ -421,6 +434,8 @@ export default function ProjectDetailHero({
         onClose={() => setExplorerOpen(false)}
         project={project}
         initialTab={explorerTab}
+        initialPhotoIdx={explorerPhotoIdx}
+        images={galleryImages}
       />
     </>
   );

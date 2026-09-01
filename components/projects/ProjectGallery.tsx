@@ -44,6 +44,12 @@ interface ProjectGalleryProps {
   variant?:     'full' | 'grid' | 'hero';
   maxVisible?:  number;
   className?:   string;
+  /**
+   * Delegation hook — when provided (project detail hero), image clicks
+   * are owned by the parent's media viewer (ProjectMediaExplorer) instead
+   * of the internal Lightbox. Other consumers keep default Lightbox.
+   */
+  onImageClick?: (index: number) => void;
 }
 
 // ════════════════════════════════════════════════════
@@ -336,6 +342,99 @@ function HeroGallery({
     );
   }
 
+  // ── Small-count layouts — fix: 2-4 images previously rendered the 5-tile
+  // grid with gray placeholder tiles ("2 images but 1 shows" bug) ──
+
+  if (images.length === 2) {
+    return (
+      <div className="grid grid-cols-2 gap-2 rounded-2xl overflow-hidden">
+        {images.map((img, idx) => (
+          <button
+            key={idx}
+            onClick={() => onOpenLightbox(idx)}
+            className="relative aspect-[4/3] overflow-hidden bg-gray-100 group"
+          >
+            <Image
+              src={img.url}
+              alt={img.caption || `${projectName} ${idx + 1}`}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes="50vw"
+              priority={idx === 0}
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
+                            transition-colors" />
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  if (images.length === 3) {
+    return (
+      <div className="grid grid-cols-3 grid-rows-2 gap-2 rounded-2xl overflow-hidden
+                      aspect-[16/9]">
+        <button
+          onClick={() => onOpenLightbox(0)}
+          className="relative col-span-2 row-span-2 overflow-hidden bg-gray-100 group"
+        >
+          <Image
+            src={images[0].url}
+            alt={projectName}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            sizes="66vw"
+            priority
+          />
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
+                          transition-colors" />
+        </button>
+        {images.slice(1, 3).map((img, idx) => (
+          <button
+            key={idx}
+            onClick={() => onOpenLightbox(idx + 1)}
+            className="relative overflow-hidden bg-gray-100 group"
+          >
+            <Image
+              src={img.url}
+              alt={img.caption || `${projectName} ${idx + 2}`}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-300"
+              sizes="33vw"
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
+                            transition-colors" />
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  if (images.length === 4) {
+    return (
+      <div className="grid grid-cols-2 gap-2 rounded-2xl overflow-hidden">
+        {images.map((img, idx) => (
+          <button
+            key={idx}
+            onClick={() => onOpenLightbox(idx)}
+            className="relative aspect-[4/3] overflow-hidden bg-gray-100 group"
+          >
+            <Image
+              src={img.url}
+              alt={img.caption || `${projectName} ${idx + 1}`}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes="50vw"
+              priority={idx === 0}
+            />
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
+                            transition-colors" />
+          </button>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div className="grid grid-cols-4 grid-rows-2 gap-2 rounded-2xl overflow-hidden
                     aspect-[16/7]">
@@ -385,12 +484,8 @@ function HeroGallery({
         </button>
       ))}
 
-      {/* Fill empty slots if less than 4 secondaries */}
-      {secondaries.length < 4 &&
-        Array.from({ length: 4 - secondaries.length }).map((_, idx) => (
-          <div key={`empty-${idx}`} className="bg-gray-50" />
-        ))
-      }
+      {/* Empty-slot filler removed — counts 2/3/4 use dedicated layouts
+          above; 5+ always fills all 8 grid cells */}
     </div>
   );
 }
@@ -529,6 +624,7 @@ export default function ProjectGallery({
   variant    = 'hero',
   maxVisible = 12,
   className  = '',
+  onImageClick,
 }: ProjectGalleryProps): React.ReactElement {
   const [lightboxOpen, setLightboxOpen]     = useState(false);
   const [lightboxIndex, setLightboxIndex]   = useState(0);
@@ -558,6 +654,16 @@ export default function ProjectGallery({
     setLightboxOpen(true);
   }, []);
 
+  // Delegation — parent media viewer (MediaExplorer) owns viewing when
+  // onImageClick is provided; internal Lightbox serves other consumers.
+  const openImage = useCallback((index: number) => {
+    if (onImageClick) {
+      onImageClick(index);
+      return;
+    }
+    handleOpenLightbox(index);
+  }, [onImageClick, handleOpenLightbox]);
+
   const handleCloseLightbox = useCallback(() => {
     setLightboxOpen(false);
   }, []);
@@ -569,7 +675,7 @@ export default function ProjectGallery({
         <HeroGallery
           images={allImages}
           projectName={projectName}
-          onOpenLightbox={handleOpenLightbox}
+          onOpenLightbox={openImage}
         />
       )}
 
@@ -578,7 +684,7 @@ export default function ProjectGallery({
           images={allImages}
           projectName={projectName}
           maxVisible={maxVisible}
-          onOpenLightbox={handleOpenLightbox}
+          onOpenLightbox={openImage}
         />
       )}
 
@@ -588,7 +694,7 @@ export default function ProjectGallery({
           <HeroGallery
             images={allImages}
             projectName={projectName}
-            onOpenLightbox={handleOpenLightbox}
+            onOpenLightbox={openImage}
           />
 
           {/* Grid below hero if many images */}
@@ -598,7 +704,7 @@ export default function ProjectGallery({
                 images={allImages.slice(5)}
                 projectName={projectName}
                 maxVisible={maxVisible}
-                onOpenLightbox={(idx) => handleOpenLightbox(idx + 5)}
+                onOpenLightbox={(idx) => openImage(idx + 5)}
               />
             </div>
           )}
