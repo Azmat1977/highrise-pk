@@ -255,6 +255,7 @@ export const ProjectContentSchema = z.object({
 
   // Society — flat form → nested model (societyDetails)
   totalLandArea:         nullableTrimmed(40).optional(),
+  landAreaUnit:          z.string().max(20).optional(),
   totalResidentialPlots: nullableCount.optional(),
   totalCommercialPlots:  nullableCount.optional(),
   plotSizesOffered:      nullableTrimmed(120).optional(),
@@ -391,9 +392,13 @@ export function applyProjectContentFields(
     const existing = (doc.societyDetails as Record<string, unknown> | undefined) ?? {};
     const next: Record<string, unknown> = { ...existing };
     if (data.totalLandArea !== undefined) {
-      // Phase 2 upgrades this to number+unit input; parse numeric for now
+      // Number+unit input (display contract: societyDetails.totalLandArea
+      // numeric + landAreaUnit). Text fallback: numeric prefix parsed.
       const n = Number(String(data.totalLandArea ?? '').replace(/[^\d.]/g, ''));
       next.totalLandArea = Number.isFinite(n) && n > 0 ? n : undefined;
+    }
+    if (data.landAreaUnit !== undefined) {
+      next.landAreaUnit = data.landAreaUnit;
     }
     if (data.totalResidentialPlots !== undefined) next.totalResidentialPlots = data.totalResidentialPlots ?? undefined;
     if (data.totalCommercialPlots !== undefined)  next.totalCommercialPlots = data.totalCommercialPlots ?? undefined;
@@ -420,14 +425,20 @@ export function applyProjectContentFields(
     }));
   }
 
-  // completedProjects — images[] fallback → image (model display field)
+  // completedProjects — model field is images: [String] (RelatedProjectSchema).
+  // Single `image` input is a legacy form shape → normalized into images[].
+  // (Never write `image` — strict mode drops unknown schema fields.)
   if (data.completedProjects !== undefined) {
     doc.completedProjects = data.completedProjects.map((p) => ({
       name:     p.name,
       type:     p.type ?? undefined,
       location: p.location ?? undefined,
       year:     p.year ?? undefined,
-      image:    p.image ?? p.images?.[0],
+      images:   p.images && p.images.length > 0
+        ? p.images
+        : p.image
+          ? [p.image]
+          : [],
     }));
   }
 }

@@ -124,13 +124,15 @@ function Stat({
 // ─────────────────────────────────────────────────────────────────────────────
 
 function CompletedProjectCard({ project }: { project: RelatedProject }) {
+  // Model canonical: images[0] (array); legacy docs may hold single image
+  const projectImage = project.images?.[0] ?? project.image;
   return (
     <div className="rounded-xl border border-gray-200 overflow-hidden
                     hover:border-[#029bba]/30 transition-colors group">
-      {project.image ? (
+      {projectImage ? (
         <div className="relative w-full aspect-[16/10] bg-gray-100">
           <Image
-            src={project.image}
+            src={projectImage}
             alt={project.name}
             fill
             className="object-cover group-hover:scale-[1.03]

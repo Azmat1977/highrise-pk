@@ -252,7 +252,8 @@ export interface RelatedProject {
   type:     string;
   location: string;
   year:     number;
-  image?:   string;
+  images?:  string[];  // model field (RelatedProjectSchema — canonical)
+  image?:   string;    // legacy single-URL (older docs / form input)
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

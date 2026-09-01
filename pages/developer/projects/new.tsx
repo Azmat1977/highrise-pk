@@ -11,6 +11,14 @@ import DocumentsSection, { ProjectDocuments } from '@/components/admin/Documents
 import FileUploader from '@/components/admin/FileUploader';
 import BuildingFloorPlansSection, { BuildingFloorPlan } from '@/components/admin/BuildingFloorPlansSection';
 import UnitPlansSection, { UnitPlan } from '@/components/admin/UnitPlansSection';
+import {
+  AmenitiesEditor,
+  NearbyFacilitiesEditor,
+  LocationAdvantagesEditor,
+  type AmenityInput,
+  type NearbyFacilityInput,
+  type LocationAdvantageInput,
+} from '@/components/admin/ProjectContentSections';
 
 // â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -74,6 +82,9 @@ interface ProjectCreateBody {
   buildingPlanApproved: boolean;
   saleMode: string;
   completedProjects: CompletedProjectPayload[];
+  amenitiesDetailed?: { name: string; category: string; description: string | null }[];
+  nearbyFacilities?: { name: string; category: string; distance: string | null }[];
+  locationAdvantages?: { title: string; points: string[] }[];
   projectDocuments: ProjectDocuments;
   buildingFloorPlans: BuildingFloorPlan[];
   unitTypeBreakdown: UnitPlan[];
@@ -93,6 +104,7 @@ interface ProjectCreateBody {
   };
   // Society fields
   totalLandArea?: string;
+  landAreaUnit?: string;
   totalBlocks?: string;
   totalResidentialPlots?: string;
   totalCommercialPlots?: string;
@@ -299,6 +311,14 @@ function ProjectForm(): React.ReactElement {
   const [buildingFloorPlans, setBuildingFloorPlans] = useState<BuildingFloorPlan[]>([]);
   const [unitPlans,          setUnitPlans]           = useState<UnitPlan[]>([]);
 
+  // Display-sync content (Phase 2A mirror)
+  const [amenities,          setAmenities]          = useState<AmenityInput[]>([]);
+  const [nearbyFacilities,   setNearbyFacilities]   = useState<NearbyFacilityInput[]>([]);
+  const [locationAdvantages, setLocationAdvantages] = useState<LocationAdvantageInput[]>([]);
+
+  // Society land area unit (number input + unit — display contract)
+  const [landAreaUnit, setLandAreaUnit] = useState('Kanal');
+
   // â”€â”€ Static map preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
@@ -350,6 +370,12 @@ function ProjectForm(): React.ReactElement {
     },
     []
   );
+
+  const handleProjectImageChange = useCallback((index: number, val: FileUploaderValue | null): void => {
+    setCompletedProjects((prev) => prev.map((p, i) =>
+      i === index ? { ...p, images: val?.url ? [val.url] : [] } : p
+    ));
+  }, []);
 
   // â”€â”€ FileUploader change handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -414,7 +440,29 @@ function ProjectForm(): React.ReactElement {
           }))
           .filter((p) => p.name);
 
-        // â€” Build JSON body â€” session-scoped, no userId/developerId â€”
+        // — Display-sync content payloads —
+        const amenitiesPayload = amenities
+          .filter((a) => a.name.trim())
+          .map((a) => ({
+            name:        a.name.trim().slice(0, 100),
+            category:    a.category || 'general',
+            description: a.description.trim() || null,
+          }));
+        const nearbyPayload = nearbyFacilities
+          .filter((n) => n.name.trim())
+          .map((n) => ({
+            name:     n.name.trim().slice(0, 100),
+            category: n.category || 'other',
+            distance: n.distance.trim() || null,
+          }));
+        const advantagesPayload = locationAdvantages
+          .filter((a) => a.title.trim())
+          .map((a) => ({
+            title:  a.title.trim().slice(0, 150),
+            points: a.points.split('\n').map((p) => p.trim()).filter(Boolean),
+          }));
+
+        // — Build JSON body — session-scoped, no userId/developerId —
         const body: ProjectCreateBody = {
           projectCategory,
           projectNature,
@@ -445,6 +493,9 @@ function ProjectForm(): React.ReactElement {
           buildingPlanApproved: getFormChecked(form, 'buildingPlanApproved'),
           saleMode,
           completedProjects: completedProjectsPayload,
+          amenitiesDetailed:   amenitiesPayload,
+          nearbyFacilities:    nearbyPayload,
+          locationAdvantages:  advantagesPayload,
           projectDocuments,
           buildingFloorPlans,
           unitTypeBreakdown: unitPlans,
@@ -480,6 +531,7 @@ function ProjectForm(): React.ReactElement {
           }),
           ...(projectCategory === 'society' && {
             totalLandArea:         getFormString(form, 'totalLandArea'),
+            landAreaUnit,
             totalBlocks:           getFormString(form, 'totalBlocks'),
             totalResidentialPlots: getFormString(form, 'totalResidentialPlots'),
             totalCommercialPlots:  getFormString(form, 'totalCommercialPlots'),
@@ -519,6 +571,7 @@ function ProjectForm(): React.ReactElement {
       loading, projectCategory, projectNature, featureImage,
       description, developmentProgress, saleMode,
       fullPrice, areaSize, areaUnit, completedProjects,
+      amenities, nearbyFacilities, locationAdvantages, landAreaUnit,
       projectDocuments, buildingFloorPlans, unitPlans,
     ]
   );
@@ -881,7 +934,7 @@ function ProjectForm(): React.ReactElement {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {[
-                    { name: 'totalLandArea',         label: 'Total Land Area',      type: 'text',   ph: 'e.g. 500 Acres'                   },
+                    { name: 'totalLandArea',         label: 'Total Land Area',      type: 'number', ph: 'e.g. 500'                          },
                     { name: 'totalBlocks',            label: 'Total Blocks/Sectors', type: 'number', ph: 'e.g. 10'                          },
                     { name: 'totalResidentialPlots',  label: 'Residential Plots',    type: 'number', ph: 'e.g. 2000'                        },
                     { name: 'totalCommercialPlots',   label: 'Commercial Plots',     type: 'number', ph: 'e.g. 200'                         },
@@ -896,6 +949,16 @@ function ProjectForm(): React.ReactElement {
                       />
                     </div>
                   ))}
+                  <div>
+                    <label className={labelClass}>Land Area Unit</label>
+                    <select className={selectClass} value={landAreaUnit}
+                      onChange={(e) => setLandAreaUnit(e.target.value)}>
+                      <option value="Kanal">Kanal</option>
+                      <option value="Marla">Marla</option>
+                      <option value="Acre">Acre</option>
+                      <option value="Sq Ft">Sq Ft</option>
+                    </select>
+                  </div>
                   <div>
                     <label className={labelClass}>Development Status</label>
                     <select name="developmentStatus" className={selectClass} defaultValue="">
@@ -949,6 +1012,15 @@ function ProjectForm(): React.ReactElement {
             onChange={setUnitPlans}
             projectSlug={projectCategory || 'project'}
           />
+
+          {/* Amenities — display: Features section */}
+          <AmenitiesEditor value={amenities} onChange={setAmenities} disabled={loading} />
+
+          {/* Nearby places — display: Location section */}
+          <NearbyFacilitiesEditor value={nearbyFacilities} onChange={setNearbyFacilities} disabled={loading} />
+
+          {/* Location advantages — display: Location section */}
+          <LocationAdvantagesEditor value={locationAdvantages} onChange={setLocationAdvantages} disabled={loading} />
 
           {/* â”€â”€ Section 5: Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section
@@ -1118,13 +1190,18 @@ function ProjectForm(): React.ReactElement {
                   </div>
                 </div>
 
-                {/* Images note â€” uploads handled via DocumentsSection */}
-                <div className="mt-4 bg-[#eff6ff] border-l-4 border-[#029bba] rounded-lg p-3">
-                  <p className="text-xs text-[#333333]">
-                    To attach images to this past project, use the{' '}
-                    <span className="font-semibold">Documents &amp; Media</span> section above
-                    after submission.
-                  </p>
+               {/* Project image — inline upload (display: portfolio cards) */}
+                <div className="mt-4">
+                  <label className={labelClass}>Project Image</label>
+                  <div className="max-w-xs">
+                    <FileUploader
+                      label="Upload Image"
+                      value={project.images[0] ? { url: project.images[0], publicId: '' } : null}
+                      onChange={(val) => handleProjectImageChange(index, val)}
+                      folder="projects"
+                      accept="image"
+                    />
+                  </div>
                 </div>
               </div>
             ))}
