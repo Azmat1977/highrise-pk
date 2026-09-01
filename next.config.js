@@ -76,7 +76,7 @@ function buildCsp() {
       ? "connect-src 'self' https://challenges.cloudflare.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com"
       : "connect-src 'self' http: https: ws: wss:",
 
-    "frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com",
+    "frame-src 'self' https://challenges.cloudflare.com https://www.google.com https://maps.google.com https://www.youtube.com https://www.youtube-nocookie.com https://player.vimeo.com https://res.cloudinary.com",
     "media-src 'self' blob: https://res.cloudinary.com",
     "worker-src 'self' blob:",
     "manifest-src 'self'",
