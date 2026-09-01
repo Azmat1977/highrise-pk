@@ -178,16 +178,17 @@ function formatPricePK(price: number): string {
 
 /**
  * Auto-derive Project.developerBadge tier from developer's completed projects.
+ * Evidence ladder — aligned with computeDeveloperAccountability (display side):
+ * 1+ delivered = Trusted Builder (a delivered project is unfakeable execution
+ * proof). Display-side logic may only UPGRADE above this stored floor.
  *  0      → new_entrant
- *  1-2    → emerging
- *  3-9    → trusted
+ *  1-9    → trusted
  *  10+    → premium
  * Admin can override later via badge.ts endpoint.
  */
 function deriveBadgeFromProjectCount(count: number): DeveloperBadgeTier {
   if (count >= 10) return 'premium';
-  if (count >= 3) return 'trusted';
-  if (count >= 1) return 'emerging';
+  if (count >= 1) return 'trusted';
   return 'new_entrant';
 }
 
