@@ -12,7 +12,6 @@
 
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
-import { z } from 'zod';
 
 import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
@@ -39,6 +38,12 @@ import {
   denormalizeProjectToUnits,
 } from '@/lib/units/syncUnitTypeBreakdown';
 
+import {
+  ProjectPatchSchema,
+  ProjectPatchInput,
+  applyProjectContentFields,
+} from '@/lib/validators/projectForm';
+
 // ─────────────────────────────────────────────
 // Types
 // ─────────────────────────────────────────────
@@ -55,73 +60,9 @@ type ApiResponse<T = unknown> = {
 // Zod v4 — PATCH validation schema
 // ─────────────────────────────────────────────
 
-const PatchProjectSchema = z.object({
-  // Identity
-  projectName:      z.string().min(3).max(120).optional(),
-  tagline:          z.string().max(200).optional(),
-  shortDescription: z.string().max(500).optional(),
-  description:      z.string().max(10000).optional(),
-
-  // Category & nature
-  projectCategory: z.enum([
-    'highrise', 'society', 'mixed_use',
-    'commercial_plaza', 'townhouse', 'gated_community',
-  ]).optional(),
-  projectNature: z.enum(['residential', 'commercial', 'mixed']).optional(),
-
-  // Location
-  city:             z.string().max(80).optional(),
-  area:             z.string().max(120).optional(),
-  specificLocation: z.string().max(200).optional(),
-  googleMapLink:    z.string().url().optional().or(z.literal('')),
-  coordinates: z.object({
-    lat: z.number().min(-90).max(90),
-    lng: z.number().min(-180).max(180),
-  }).optional(),
-
-  // Pricing
-  minPrice: z.number().min(0).optional(),
-  maxPrice: z.number().min(0).optional(),
-  priceRangeText: z.string().max(100).optional(),
-
-  // Timeline
-  launchDate:             z.string().optional(),
-  expectedCompletionDate: z.string().optional(),
-  possessionStartDate:    z.string().optional(),
-  developmentProgress:    z.number().min(0).max(100).optional(),
-
-  // Units summary (manual override before sync)
-  totalUnits:      z.number().int().min(0).optional(),
-
-  // Media
-  featureImageUrl: z.string().url().optional(),
-  images: z.array(z.object({
-    url:       z.string().url(),
-    isPrimary: z.boolean().optional(),
-    caption:   z.string().max(200).optional(),
-  })).max(30).optional(),
-
-  // Legal
-  legalDocs: z.array(z.object({
-    title: z.string().max(100),
-    url:   z.string().url(),
-    type:  z.string().max(50).optional(),
-  })).max(10).optional(),
-
-  // Installment plan
-  installmentPlan: z.object({
-    available:          z.boolean().optional(),
-    downPaymentPercent: z.number().min(0).max(100).optional(),
-    monthlyInstallment: z.number().min(0).optional(),
-    installmentMonths:  z.number().int().min(0).optional(),
-    handoverPercent:    z.number().min(0).max(100).optional(),
-  }).optional(),
-
-  // Submit for review (draft → pending)
-  submitForReview: z.boolean().optional(),
-}).strict();
-
-type PatchBody = z.infer<typeof PatchProjectSchema>;
+// Schema imported from shared contract (lib/validators/projectForm) —
+// form-aligned superset. Non-strict: unknown keys are stripped by Zod
+// and never applied (applyProjectContentFields only writes validated keys).
 
 // ─────────────────────────────────────────────
 // Security headers
@@ -421,6 +362,21 @@ async function handleGet(
   }
 
   const projectObject = project.toObject() as Record<string, unknown>;
+
+  // Flat compat layer — edit form reads flat keys (model stores nested)
+  const fd = (projectObject.floorDetails ?? {}) as Record<string, unknown>;
+  const sd = (projectObject.societyDetails ?? {}) as Record<string, unknown>;
+  projectObject.totalFloors            = fd.totalFloors ?? null;
+  projectObject.parkingFloors          = fd.floorsForParking ?? null;
+  projectObject.commercialFloors       = fd.floorsForCommercial ?? null;
+  projectObject.residentialFloors      = fd.floorsForResidential ?? null;
+  projectObject.totalLandArea          = sd.totalLandArea != null ? String(sd.totalLandArea) : '';
+  projectObject.totalResidentialPlots  = sd.totalResidentialPlots ?? null;
+  projectObject.totalCommercialPlots   = sd.totalCommercialPlots ?? null;
+  projectObject.plotSizesOffered       = sd.plotSizesOffered ?? '';
+  projectObject.developmentStatus      = sd.developmentStatus ?? '';
+  projectObject.societyFacilities      = Array.isArray(sd.societyFacilities) ? sd.societyFacilities : [];
+
   if (!isAdmin && !isOwner) {
     delete projectObject.developerId;
     delete projectObject.verifiedBy;
@@ -553,7 +509,7 @@ async function handlePatch(
     });
   }
 
-  const parsed = PatchProjectSchema.safeParse(body);
+   const parsed = ProjectPatchSchema.safeParse(body);
   if (!parsed.success) {
     return void res.status(422).json({
       success: false,
@@ -563,7 +519,7 @@ async function handlePatch(
     });
   }
 
-  const data: PatchBody = parsed.data;
+  const data: ProjectPatchInput = parsed.data;
 
   // ── Status transition: submitForReview ──────
   // Developer can move draft → pending by setting submitForReview: true
@@ -595,14 +551,14 @@ async function handlePatch(
   // ── Apply changes via findOne() + save() ────
   // ARCH RULE: never findByIdAndUpdate for mutations
 
-  const { submitForReview: _omit, ...updateFields } = data;
+  const { submitForReview: _omit, isFullUpdate: _fullUpdateFlag, ...updateFields } = data;
 
-  // Apply each validated field to the document
-  for (const [key, value] of Object.entries(updateFields)) {
-    if (value !== undefined) {
-      (project as unknown as Record<string, unknown>)[key] = value;
-    }
-  }
+  // Shared contract mapping — includes flat→nested transforms
+  // (floorDetails / societyDetails / coordinates) and list shape sync
+  applyProjectContentFields(
+    project as unknown as Record<string, unknown>,
+    updateFields,
+  );
 
   // Apply status transition if applicable
   if (newStatus) {

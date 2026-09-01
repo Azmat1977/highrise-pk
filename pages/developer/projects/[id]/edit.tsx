@@ -142,6 +142,7 @@ interface RawConstructionUpdate {
   description?: unknown;
   videoUrl?: unknown;
   imageUrl?: unknown;
+  images?: unknown;
 }
 
 interface RawCompletedProject {
@@ -204,7 +205,7 @@ interface RawProject {
   virtualTourUrl?: unknown;
   googleMapLink?: unknown;
   coordinatesRaw?: unknown;
-  constructionUpdates?: unknown[];
+  developmentUpdates?: unknown[];   // model field name (read-key fix)
   completedProjects?: unknown[];
   projectDocuments?: ProjectDocuments;
   buildingFloorPlans?: unknown[];
@@ -821,10 +822,10 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
         setGoogleMapLink(safeTrim(project.googleMapLink));
         setCoordinatesRaw(safeTrim(project.coordinatesRaw));
 
-        // Development updates (field name: developmentUpdates in Project model)
-        if (Array.isArray(project.constructionUpdates) && project.constructionUpdates.length > 0) {
+        // Development updates (model field: developmentUpdates — read-key fixed)
+        if (Array.isArray(project.developmentUpdates) && project.developmentUpdates.length > 0) {
           setDevelopmentUpdates(
-            (project.constructionUpdates as unknown[]).map((u) => {
+            (project.developmentUpdates as unknown[]).map((u) => {
               const upd = u as RawConstructionUpdate;
               return {
                 date:            upd.date ? String(upd.date).split('T')[0] : '',
@@ -832,7 +833,10 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                 title:           safeTrim(upd.title),
                 description:     safeTrim(upd.description),
                 videoUrl:        safeTrim(upd.videoUrl),
-                imageUrl:        safeTrim(upd.imageUrl),
+                imageUrl:        safeTrim(upd.imageUrl)
+                  || (Array.isArray((upd as { images?: unknown }).images)
+                    ? safeTrim(((upd as { images?: Array<{ url?: unknown }> }).images ?? [])[0]?.url)
+                    : ''),
               };
             })
           );
