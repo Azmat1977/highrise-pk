@@ -399,109 +399,12 @@ export interface ProjectDetailPageProps {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// TRUST INDEX — 7 sub-scores, 100 points total
+// TRUST INDEX — REMOVED (legacy HighriseTrustIndex component deleted;
+// verification evidence lives in project.verificationPanel)
 // ─────────────────────────────────────────────────────────────────────────────
 
-export interface TrustSubScore {
-  key:         string;
-  label:       string;
-  score:       number;      // actual points earned
-  maxScore:    number;      // maximum possible
-  percentage:  number;      // score / maxScore * 100
-  color:       string;      // Tailwind color class
-  reasons:     string[];    // why this score was given
-  missing?:    string[];    // what would improve this score
-}
-
-export interface TrustIndexBreakdown {
-  overall:      number;         // 0–100 sum of all sub-scores
-  grade:        TrustGrade;
-  gradeLabel:   string;
-  gradeColor:   string;         // Tailwind text color class
-  gradeBg:      string;         // Tailwind bg color class
-  subScores:    TrustSubScore[];
-  explanation:  string;         // 1-sentence human-readable summary
-  strengths:    string[];       // top 3 positives
-  weaknesses:   string[];       // top 3 gaps
-  platformAvg:  number;         // platform average (hardcoded 67 for V1)
-  vsAverage:    number;         // overall - platformAvg (positive = above)
-  lastUpdated:  string;         // ISO date
-  dataPoints:   number;         // how many fields contributed
-}
-
-export type TrustGrade = 'A+' | 'A' | 'B+' | 'B' | 'C' | 'D';
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PROPERTY PASSPORT — digital identity per project
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type PassportStatus = 'verified' | 'partial' | 'pending';
-
-export interface PassportBadge {
-  id:       string;
-  label:    string;
-  emoji:    string;
-  color:    string;   // Tailwind color class
-  verified: boolean;
-}
-
-export interface LegalApproval {
-  authority:   string;      // 'LDA' | 'CDA' | 'DHA' | 'SECP' etc.
-  status:      'approved' | 'pending' | 'not_applicable';
-  docUrl?:     string;
-  label:       string;
-}
-
-export interface PropertyPassport {
-  passportId:    string;      // HPP-YYYY-CCC-NNNNN
-  status:        PassportStatus;
-  statusLabel:   string;
-  statusColor:   string;      // Tailwind color class
-  issuedDate:    string;      // ISO
-  projectName:   string;
-  developerName: string;
-  city:          string;
-  category:      string;
-
-  // Verification chain
-  legalApprovals:       LegalApproval[];
-  verificationBadges:   PassportBadge[];
-  constructionArchive:  ConstructionArchiveEntry[];
-
-  // Passport completeness (0–100)
-  completeness:         number;
-  completenessLabel:    string;
-}
-
-export interface ConstructionArchiveEntry {
-  date:       string;   // ISO
-  milestone:  string;
-  progress:   number;   // 0–100
-  hasPhotos:  boolean;
-  hasDrone:   boolean;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// AI RISK SUMMARY — rule-based for V1 (no LLM required)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type RiskLevel = 'low' | 'medium' | 'high';
-
-export interface AIRiskSummary {
-  riskLevel:        RiskLevel;
-  riskLabel:        string;
-  riskColor:        string;     // Tailwind text color
-  riskBg:           string;     // Tailwind bg color
-  riskBorder:       string;     // Tailwind border color
-  confidence:       number;     // 0–100
-  dataPoints:       number;     // fields used in analysis
-  overview:         string;     // paragraph 1: what this project is
-  riskAssessment:   string;     // paragraph 2: risks and trust signals
-  recommendation:   string;     // paragraph 3: who this is best for
-  warnings:         string[];   // red flags (if any)
-  positives:        string[];   // green flags
-  lastUpdated:      string;     // ISO
-}
+// Legacy Passport + AI Risk clusters removed — components deleted;
+// verification evidence lives in project.verificationPanel.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // QUICK ACTIONS BAR
@@ -691,30 +594,6 @@ export function getMapsDirectLink(project: ProjectDetailData): string {
   return `https://www.google.com/maps/search/${encodeURIComponent(
     area + ', ' + project.city + ', Pakistan'
   )}`;
-}
-
-/**
- * generatePassportId
- * Creates a deterministic passport ID from project data.
- * Format: HPP-YYYY-CCC-NNNNN
- * Example: HPP-2026-ISB-00847
- */
-export function generatePassportId(project: ProjectDetailData): string {
-  const year    = project.createdAt
-    ? new Date(project.createdAt).getFullYear()
-    : new Date().getFullYear();
-
-  const cityCode = (project.city ?? 'PKK')
-    .substring(0, 3)
-    .toUpperCase()
-    .replace(/[^A-Z]/g, 'X');
-
-  // Deterministic numeric suffix from _id
-  const idStr  = project._id ?? '00000';
-  const suffix = parseInt(idStr.slice(-5), 16) % 100000;
-  const padded = String(suffix).padStart(5, '0');
-
-  return `HPP-${year}-${cityCode}-${padded}`;
 }
 
 /**

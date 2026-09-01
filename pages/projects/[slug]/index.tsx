@@ -29,6 +29,7 @@ import HomeLoanCalculator        from '@/components/project-detail/HomeLoanCalcu
 import SimilarProjectsSection    from '@/components/project-detail/SimilarProjectsSection';
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
+import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
 import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
 // Trust calculator imports removed — Trust Index, Passport, and AI Risk sections removed per client request
 import type {
@@ -84,13 +85,6 @@ const NEARBY_ICONS: Record<string, React.ComponentType<{ className?: string }>> 
 // ============================================
 
 // formatDetailPrice is imported from '@/types/projectDetail'
-
-function formatDate(dateStr: string): string {
-  if (!dateStr) return '';
-  return new Date(dateStr).toLocaleDateString('en-PK', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  });
-}
 
 function sanitizeHtml(input: string): string {
   if (!input) return '';
@@ -706,56 +700,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
               </Section>
             )}
 
-            {/* ══════════════════════════════════════
-                CONSTRUCTION UPDATES
-            ══════════════════════════════════════ */}
-            {(project.developmentUpdates?.length ?? 0) > 0 && (
-              <Section title="Construction Updates" icon={<Calendar className="w-5 h-5 text-[#029bba]" />}>
-                <div className="space-y-6">
-                  {[...(project.developmentUpdates || [])].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).map((upd, idx, arr) => (
-                    <div key={idx} className="flex gap-4">
-                      <div className="flex flex-col items-center">
-                        <div className="w-3 h-3 rounded-full bg-[#029bba] ring-4 ring-[#029bba]/10" />
-                        {idx < arr.length - 1 && <div className="w-0.5 flex-1 bg-gray-200 my-2" />}
-                      </div>
-                      <div className="flex-1 pb-2">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-xs font-bold text-[#029bba] bg-[#029bba]/5 px-2 py-1 rounded-md">
-                            {formatDate(upd.date)}
-                          </span>
-                          {((upd.progress ?? upd.progressPercent ?? 0) > 0) && (
-                            <span className="text-xs font-bold text-gray-400">{upd.progress ?? upd.progressPercent}%</span>
-                          )}
-                        </div>
-                        <h4 className="font-bold text-gray-900 mb-1">{upd.title}</h4>
-                        {upd.description && (
-                          <p className="text-gray-600 text-sm mb-3">{upd.description}</p>
-                        )}
-                        {(upd.images?.length ?? 0) > 0 && (
-                          <div className="flex flex-wrap gap-2">
-                            {upd.images!.map((img, imgIdx) => {
-                              // Handle both string URLs (legacy) and object format {url, publicId, caption}
-                              const imgUrl = typeof img === 'string' ? img : (img as { url?: string })?.url;
-                              if (!imgUrl) return null;
-                              return (
-                                <div key={imgIdx} className="relative w-28 h-20 rounded-lg overflow-hidden border border-gray-200">
-                                  <Image src={imgUrl} alt={`Update photo ${imgIdx + 1}`} fill className="object-cover" sizes="112px" />
-                                </div>
-                              );
-                            })}
-                          </div>
-                        )}
-                        {((upd.progress ?? upd.progressPercent ?? 0) > 0) && (
-                          <div className="mt-3 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                            <div className="h-full bg-[#029bba] rounded-full" style={{ width: `${upd.progress ?? upd.progressPercent}%` }} />
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </Section>
-            )}
+            <ConstructionTracker project={project} />
 
             {/* ══════════════════════════════════════
                 LOCATION
