@@ -39,6 +39,7 @@ interface CompletedProject {
   type: string;
   location: string;
   year: string;
+  image: string;   // URL from FileUploader (model: images[0])
 }
 
 interface CompletedProjectPayload {
@@ -46,6 +47,7 @@ interface CompletedProjectPayload {
   type: string | null;
   location: string | null;
   year: number | null;
+  image: string | null;
 }
 
 interface DevelopmentUpdatePayload {
@@ -177,6 +179,8 @@ interface RawCompletedProject {
   type?: unknown;
   location?: unknown;
   year?: unknown;
+  image?: unknown;
+  images?: unknown;
 }
 
 interface RawProject {
@@ -215,6 +219,7 @@ interface RawProject {
   commercialFloors?: unknown;
   residentialFloors?: unknown;
   totalLandArea?: unknown;
+  landAreaUnit?: unknown;
   totalResidentialPlots?: unknown;
   totalCommercialPlots?: unknown;
   plotSizesOffered?: unknown;
@@ -287,6 +292,7 @@ interface ProjectUpdateBody {
   commercialFloors: number | null;
   residentialFloors: number | null;
   totalLandArea: string | null;
+  landAreaUnit: string;
   totalResidentialPlots: number | null;
   totalCommercialPlots: number | null;
   plotSizesOffered: string | null;
@@ -543,6 +549,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
   // â”€â”€ Society scale â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [totalLandArea,          setTotalLandArea]          = useState('');
+  const [landAreaUnit,           setLandAreaUnit]           = useState('Kanal');
   const [totalResidentialPlots,  setTotalResidentialPlots]  = useState('');
   const [totalCommercialPlots,   setTotalCommercialPlots]   = useState('');
   const [plotSizesOffered,       setPlotSizesOffered]       = useState('');
@@ -597,7 +604,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [staticMapUrl,    setStaticMapUrl]    = useState<string | null>(null);
 
   // â”€â”€ Lists â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const [completedProjects,   setCompletedProjects]   = useState<CompletedProject[]>([{ name: '', type: '', location: '', year: '' }]);
+  const [completedProjects,   setCompletedProjects]   = useState<CompletedProject[]>([{ name: '', type: '', location: '', year: '', image: '' }]);
   const [developmentUpdates, setDevelopmentUpdates] = useState<DevelopmentUpdate[]>([]);
   const [amenities,          setAmenities]          = useState<AmenityInput[]>([]);
   const [nearbyFacilities,   setNearbyFacilities]   = useState<NearbyFacilityInput[]>([]);
@@ -752,6 +759,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
         // Society
         setTotalLandArea(safeTrim(project.totalLandArea));
+        setLandAreaUnit(safeTrim(project.landAreaUnit) || 'Kanal');
         setTotalResidentialPlots(project.totalResidentialPlots != null ? String(project.totalResidentialPlots) : '');
         setTotalCommercialPlots(project.totalCommercialPlots != null ? String(project.totalCommercialPlots) : '');
         setPlotSizesOffered(safeTrim(project.plotSizesOffered));
@@ -934,11 +942,15 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           setCompletedProjects(
             (project.completedProjects as unknown[]).map((p) => {
               const cp = p as RawCompletedProject;
+              const legacyImage = safeTrim(cp.image);
+              const imagesArr   = Array.isArray(cp.images) ? (cp.images as unknown[]) : [];
+              const firstImage  = imagesArr.length > 0 ? safeTrim(imagesArr[0]) : '';
               return {
                 name:     safeTrim(cp.name),
                 type:     safeTrim(cp.type),
                 location: safeTrim(cp.location),
                 year:     cp.year != null ? String(cp.year) : '',
+                image:    legacyImage || firstImage,
               };
             })
           );
@@ -974,7 +986,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   // Development update handlers removed — DevelopmentUpdatesEditor manages internally
 
   const handleAddProject = useCallback((): void => {
-    setCompletedProjects((prev) => [...prev, { name: '', type: '', location: '', year: '' }]);
+    setCompletedProjects((prev) => [...prev, { name: '', type: '', location: '', year: '', image: '' }]);
   }, []);
 
   const handleRemoveProject = useCallback((index: number): void => {
@@ -985,6 +997,12 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     index: number, field: keyof CompletedProject, value: string
   ): void => {
     setCompletedProjects((prev) => prev.map((p, i) => i === index ? { ...p, [field]: value } : p));
+  }, []);
+
+  const handleProjectImageChange = useCallback((index: number, val: FileUploaderValue | null): void => {
+    setCompletedProjects((prev) => prev.map((p, i) =>
+      i === index ? { ...p, image: val?.url ?? '' } : p
+    ));
   }, []);
 
   const handleFacilityToggle = useCallback((facility: string): void => {
@@ -1144,6 +1162,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           type:     toNullIfEmpty(p.type),
           location: toNullIfEmpty(p.location),
           year:     p.year ? safeIntOrNull(p.year) : null,
+          image:    toNullIfEmpty(p.image),
         }));
 
       const body: ProjectUpdateBody = {
@@ -1180,6 +1199,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
         commercialFloors:  safeIntOrNull(commercialFloors),
         residentialFloors: safeIntOrNull(residentialFloors),
         totalLandArea:         toNullIfEmpty(totalLandArea),
+        landAreaUnit:          landAreaUnit || 'Kanal',
         totalResidentialPlots: safeIntOrNull(totalResidentialPlots),
         totalCommercialPlots:  safeIntOrNull(totalCommercialPlots),
         plotSizesOffered:      toNullIfEmpty(plotSizesOffered),
@@ -1301,7 +1321,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     environmentClearance, buildingPlanApproved,
     totalArea, totalBlocks, totalUnits, unitsSold, unitsAvailable,
     totalFloors, parkingFloors, commercialFloors, residentialFloors,
-    totalLandArea, totalResidentialPlots, totalCommercialPlots,
+    totalLandArea, landAreaUnit, totalResidentialPlots, totalCommercialPlots,
     plotSizesOffered, developmentStatus, societyFacilities,
     saleMode, representativeUnitType, priceDisclaimer,
     fullPaymentEnabled, fullPaymentBasePriceNum, fullPaymentDiscountPercentNum,
@@ -1591,7 +1611,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
                   {[
-                    { label: 'Total Land Area',    name: 'totalLandArea',         type: 'text',   value: totalLandArea,         setter: setTotalLandArea         },
+                    { label: 'Total Land Area',    name: 'totalLandArea',         type: 'number', value: totalLandArea,         setter: setTotalLandArea         },
                     { label: 'Total Blocks/Sectors',name:'totalBlocks',           type: 'number', value: totalBlocks,           setter: setTotalBlocks           },
                     { label: 'Residential Plots',  name: 'totalResidentialPlots', type: 'number', value: totalResidentialPlots, setter: setTotalResidentialPlots },
                     { label: 'Commercial Plots',   name: 'totalCommercialPlots',  type: 'number', value: totalCommercialPlots,  setter: setTotalCommercialPlots  },
@@ -1604,6 +1624,15 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                         {...(f.type === 'number' ? { min: 0 } : { maxLength: 80 })} />
                     </div>
                   ))}
+                  <div>
+                    <label className={labelClass}>Land Area Unit</label>
+                    <select className={selectClass} value={landAreaUnit} onChange={(e) => setLandAreaUnit(e.target.value)} disabled={saving}>
+                      <option value="Kanal">Kanal</option>
+                      <option value="Marla">Marla</option>
+                      <option value="Acre">Acre</option>
+                      <option value="Sq Ft">Sq Ft</option>
+                    </select>
+                  </div>
                   <div>
                     <label className={labelClass}>Development Status</label>
                     <select className={selectClass} value={developmentStatus} onChange={(e) => setDevelopmentStatus(e.target.value)} disabled={saving}>
@@ -2056,12 +2085,6 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
           {/* â”€â”€ Completed Projects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
           <Section title="Completed Projects by Developer" subtitle="Showcase your past successful developments" icon="ًںڈ—">
-            <div className="bg-[#fef3c7] border border-[#f59e0b]/30 rounded-xl p-4 mb-5">
-              <p className="text-sm text-[#333333]">
-                <span className="font-semibold">Note:</span> Images for completed projects are managed separately via the Documents section.
-              </p>
-            </div>
-
             {completedProjects.map((project, index) => (
               <div key={index} className="p-5 bg-[#f8f9fa] rounded-xl border border-gray-200 mb-4 relative">
                 {index > 0 && (
@@ -2101,6 +2124,20 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                     <input type="text" className={inputClass} value={project.year}
                       onChange={(e) => handleProjectChange(index, 'year', e.target.value)}
                       placeholder="e.g. 2022" disabled={saving} maxLength={4} />
+                  </div>
+                </div>
+
+                {/* Project image — inline upload (display: portfolio cards) */}
+                <div className="mt-4">
+                  <label className={labelClass}>Project Image</label>
+                  <div className="max-w-xs">
+                    <FileUploader
+                      label="Upload Image"
+                      value={project.image ? { url: project.image, publicId: '' } : null}
+                      onChange={(val) => handleProjectImageChange(index, val)}
+                      folder="projects"
+                      accept="image"
+                    />
                   </div>
                 </div>
               </div>
