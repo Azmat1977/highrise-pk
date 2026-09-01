@@ -228,58 +228,7 @@ export interface PaymentPlanDetail {
   name:                  string;
   description?:          string;
   planType:              PaymentPlanType;
-  applicableTo?:         string;
-  unitTypes?:            string[];
-  totalPrice?:           number;
-  currency?:             string;
-  bookingAmount?:        number;
-  bookingPercent?:       number;
-  downPayment?:          number;
-  downPaymentPercent?:   number;
-  downPaymentDueIn?:     string;
-  installments?:         PaymentPlanInstallment[];
-  possessionAmount?:     number;
-  possessionPercent?:    number;
-  planDuration?:         number;
-  planDurationUnit?:     string;
-  earlyPaymentDiscount?: number;
-  fullPaymentDiscount?:  number;
-  bulkBookingDiscount?:  number;
-  validFrom?:            string;
-  validUntil?:           string;
-  isActive?:             boolean;
-  isDefault?:            boolean;
-  isFeatured?:           boolean;
-  order?:                number;
-  termsAndConditions?:   string;
-  disclaimers?:          string;
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
-// PAYMENT PLANS (multi-plan — mirrors model IProjectPaymentPlan, serialized)
-// ─────────────────────────────────────────────────────────────────────────────
-
-export type PaymentPlanType =
-  | 'standard' | 'easy_installment' | 'flexi'
-  | 'down_payment' | 'full_payment' | 'custom';
-
-export interface PaymentPlanInstallment {
-  label:       string;
-  amount:      number;
-  percentage?: number;
-  dueDate?:    string;
-  dueAfter?:   string;
-  frequency?:  string;
-  count?:      number;
-  notes?:      string;
-}
-
-export interface PaymentPlanDetail {
-  _id?:                  string;
-  name:                  string;
-  description?:          string;
-  planType:              PaymentPlanType;
-  applicableTo?:         string;
+  applicableTo?:         'all_units' | 'residential' | 'commercial' | 'specific_types';
   unitTypes?:            string[];
   totalPrice?:           number;
   currency?:             string;
@@ -453,9 +402,6 @@ export interface ProjectDetailData {
 
   // Risk Alerts (Projects model — embedded IRiskAlert, serialized)
   riskAlerts?: RiskAlertDetail[];
-
-  // Payment plans (model: paymentPlans[] — rich multi-plan backend)
-  paymentPlans?: PaymentPlanDetail[];
 
   // Timeline
   launchDate?:             string;
