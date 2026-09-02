@@ -580,16 +580,20 @@ function ProfileForm(): React.ReactElement {
   // ── Active section for sticky nav ─────────────────────────
   const [activeSection, setActiveSection] = useState<string>(SECTIONS[0].id);
 
-  // ── Sync profile into form ────────────────────────────────
+  // ── Sync profile into form (guarded) ──────────────────────
+  // BUG FIX: any profile refetch (context refresh, upload round-trip,
+  // navigation) re-initialized the form mid-edit — wiping NTN/SECP/CNIC/
+  // phone inputs (never echoed from server by design). Guard: sync only
+  // when the user has NO unsaved changes. After a successful save,
+  // setHasChanges(false) re-triggers this effect and syncs server values.
   useEffect(() => {
-    if (profile) {
+    if (profile && !hasChanges) {
       setForm(initFormState(profile));
       setOperatingCities(profile.operatingCities ?? []);
       setServiceAreas(profile.serviceAreas ?? []);
       setCompletedProjects(profileProjectsToForm(profile));
-      setHasChanges(false);
     }
-  }, [profile]);
+  }, [profile, hasChanges]);
 
   // ── Auto-dismiss success banner ───────────────────────────
   useEffect(() => {
@@ -663,6 +667,7 @@ function ProfileForm(): React.ReactElement {
           ["email", "Email"],
           ["city", "City"],
           ["authorizedPersonName", "Authorized Person Name"],
+          ["officeAddress", "Office Address"],
         ];
         for (const [field, label] of required) {
           if (!form[field].trim()) {
@@ -673,6 +678,12 @@ function ProfileForm(): React.ReactElement {
         }
         if (!logoUpload.ref) {
           setBanner({ type: "error", message: "Company logo is required." });
+          return;
+        }
+        // Mirrors server-side validation — prevents the failed-submit
+        // round-trip that previously triggered the form-reset data loss.
+        if (!coverUpload.ref) {
+          setBanner({ type: "error", message: "Cover image is required." });
           return;
         }
         // V6.4.5+: Validate company email verified

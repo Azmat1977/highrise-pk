@@ -192,6 +192,7 @@ export default async function handler(
   if (req.method === 'GET') {
     try {
       const developer = await DeveloperProfile.findById(developerIdStr)
+        .select('+adminNotes')   // select:false — admin detail view needs it
         .populate('user', 'name email createdAt')
         .lean()
         .maxTimeMS(MAX_TIME_MS);
@@ -389,7 +390,11 @@ export default async function handler(
         changes.before.highriseScore = developer.highriseScore as number;
         changes.after.highriseScore  = highriseScore;
         developer.highriseScore      = highriseScore;
-        trustUpdated                 = true;
+        // Manual admin score is authoritative — flag protects it from the
+        // pre-save trustScore sync hook (model fix). Survives every save
+        // and recalculation until explicitly changed again.
+        developer.highriseScoreOverride = true;
+        trustUpdated                   = true;
       }
 
       if (onTimeDeliveryRate !== undefined) {
@@ -461,6 +466,7 @@ export default async function handler(
           isVerified:         1,
           verificationLevel:  1,
           highriseScore:      1,
+          highriseScoreOverride: 1,
           onTimeDeliveryRate: 1,
           riskLevel:          1,
           adminNotes:         1,   // select:false field — explicit inclusion required
