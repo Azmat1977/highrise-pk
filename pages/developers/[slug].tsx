@@ -57,6 +57,7 @@ interface DeveloperProfile {
   _id:                 string;
   companyName:         string;
   slug:                string;
+  badges?:             string[];
   logo?:               { url: string };
   coverImage?:         { url: string };
   description?:        string;
@@ -90,6 +91,15 @@ type ActiveTab = 'all' | 'ongoing' | 'completed';
 
 const SITE_URL        = 'https://highrise.pk';
 const ISR_REVALIDATE  = 60;
+
+// Admin-awarded trust badges (assign-badge API → badges[] → public display)
+const PUBLIC_BADGE_LABELS: Record<string, string> = {
+  highrise_verified: 'Highrise Verified',
+  top_developer:     'Top Developer',
+  trusted_builder:   'Trusted Builder',
+  on_time_delivery:  'On-Time Delivery',
+  premium_partner:   'Premium Partner',
+};
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 // Helpers
@@ -535,11 +545,11 @@ export default function DeveloperProfilePage({
         {/* JSON-LD */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: orgLd }}
+          dangerouslySetInnerHTML={{ __html: orgLd.replace(/</g, '\\u003c') }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: breadcrumbLd }}
+          dangerouslySetInnerHTML={{ __html: breadcrumbLd.replace(/</g, '\\u003c') }}
         />
       </Head>
 
@@ -614,6 +624,23 @@ export default function DeveloperProfilePage({
                         </span>
                       )}
                     </div>
+
+                    {/* Admin-awarded trust badges — public trust display */}
+                    {(developer.badges ?? []).some((b) => PUBLIC_BADGE_LABELS[b]) && (
+                      <div className="mb-4 flex flex-wrap gap-2">
+                        {(developer.badges ?? [])
+                          .filter((b) => PUBLIC_BADGE_LABELS[b])
+                          .map((b) => (
+                            <span
+                              key={b}
+                              className="inline-flex items-center gap-1.5 rounded-lg border border-[#029bba]/20 bg-[#029bba]/10 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-[#004063]"
+                            >
+                              <Shield className="h-3 w-3" />
+                              {PUBLIC_BADGE_LABELS[b]}
+                            </span>
+                          ))}
+                      </div>
+                    )}
 
                     <div className="mb-6 flex flex-wrap gap-5 text-sm font-semibold text-slate-500">
                       {developer.city && (

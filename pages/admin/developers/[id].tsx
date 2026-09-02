@@ -965,7 +965,15 @@ export default function AdminDeveloperDetail(): React.ReactElement {
         );
         const data: {
           success: boolean;
-          developer?: Developer;
+          developer?: Developer & {
+            verification?: {
+              ntnNumber?: string | null;
+              secpNumber?: string | null;
+              authorizedPersonCNIC?: string | null;
+              phone?: string | null;
+              authorizedPersonPhone?: string | null;
+            };
+          };
           message?: string;
         } = await res.json();
 
@@ -974,7 +982,17 @@ export default function AdminDeveloperDetail(): React.ReactElement {
           return;
         }
 
-        setDeveloper(data.developer);
+        // Decrypted verification numbers (admin-only GET payload) →
+        // the existing DocumentCard typedValue fields. Numbers render
+        // side-by-side with NTN/SECP/CNIC documents for cross-checking.
+        const v = data.developer.verification;
+        setDeveloper({
+          ...data.developer,
+          ntnNumber:             v?.ntnNumber ?? undefined,
+          secpNumber:            v?.secpNumber ?? undefined,
+          authorizedPersonCNIC:  v?.authorizedPersonCNIC ?? undefined,
+          phone:                 v?.phone ?? undefined,
+        });
 
         // Sync trust values
         setTrustValues({

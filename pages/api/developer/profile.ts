@@ -1271,6 +1271,32 @@ export default async function handler(
 
       const changes: Record<string, unknown> = {};
 
+      // ── KYC COMPLETENESS GUARD (enterprise sync) ────────────
+      // Prevents "empty success": a profile saved with documents but
+      // WITHOUT registration numbers (the form-wipe aftermath). If a
+      // number is absent from BOTH the stored profile AND this request,
+      // reject with clear guidance instead of silently skipping.
+      const kycMissing: string[] = [];
+      if (!profile.ntnHash && !body.ntnNumber?.trim()) {
+        kycMissing.push("NTN number");
+      }
+      if (!profile.secpHash && !body.secpNumber?.trim()) {
+        kycMissing.push("SECP registration number");
+      }
+      if (
+        !profile.authorizedPersonCnicHash &&
+        !body.authorizedPersonCNIC?.trim()
+      ) {
+        kycMissing.push("Authorized person CNIC number");
+      }
+      if (kycMissing.length > 0) {
+        return void res.status(400).json({
+          success: false,
+          code: "KYC_NUMBERS_MISSING",
+          message: `Please provide: ${kycMissing.join(", ")}. Registration numbers are required for verification and cannot be left empty.`,
+        });
+      }
+
       // ── TEXT FIELDS ───────────────────────────────────────
       const textFields = [
         "companyName",

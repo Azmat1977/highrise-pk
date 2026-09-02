@@ -404,6 +404,7 @@ export interface IDeveloperProfile extends Document, IRawFieldsCarrier {
   // ─────────────────────────────────────────
   trustScore: ITrustScore;
   highriseScore?: number;
+  highriseScoreOverride?: boolean;
   riskLevel?: RiskLevel;
 
   // ─────────────────────────────────────────
@@ -1053,6 +1054,9 @@ const DeveloperProfileSchema = new Schema<IDeveloperProfile>(
       }),
     },
     highriseScore: { type: Number, min: 0, max: 100 },
+    // Admin-set manual score is authoritative — survives every save and
+    // trustScore recalculation until explicitly cleared.
+    highriseScoreOverride: { type: Boolean, default: false },
     riskLevel: { type: String, enum: ["low", "medium", "high"] },
 
     // ─────────────────────────────────────────
@@ -1465,7 +1469,11 @@ DeveloperProfileSchema.pre("save", async function (next) {
     }
 
     // ── 11. SYNC HIGHRISE SCORE ──────────────────────────────
-    if (doc.trustScore?.overall !== undefined) {
+    if (
+      doc.trustScore?.overall !== undefined &&
+      !doc.highriseScoreOverride &&
+      (doc.isModified('trustScore') || doc.highriseScore === undefined)
+    ) {
       doc.highriseScore = doc.trustScore.overall;
     }
 
