@@ -44,15 +44,22 @@ import {
 
 export type CompletedProjectType =
   | "residential_society"
+  | "residential_highrise"
+  | "apartment_complex"
   | "commercial_society"
   | "highrise_building"
   | "mixed_use"
   | "townhouse_complex"
   | "gated_community"
   | "housing_scheme"
+  | "township"
   | "farmhouse_society"
   | "commercial_plaza"
-  | "shopping_mall";
+  | "shopping_mall"
+  | "corporate_office_tower"
+  | "industrial_park"
+  | "retirement_community"
+  | "student_housing";
 
 export type CompletedProjectStatus =
   | "completed"
@@ -105,16 +112,23 @@ const MAX_IMAGES_PER_PROJECT = 5;
 const CURRENT_YEAR = new Date().getFullYear();
 
 const PROJECT_TYPES: { value: CompletedProjectType; label: string }[] = [
-  { value: "residential_society", label: "Residential Society" },
-  { value: "commercial_society",  label: "Commercial Society" },
-  { value: "highrise_building",   label: "Highrise Building" },
-  { value: "mixed_use",           label: "Mixed Use Development" },
-  { value: "townhouse_complex",   label: "Townhouse Complex" },
-  { value: "gated_community",     label: "Gated Community" },
-  { value: "housing_scheme",      label: "Housing Scheme" },
-  { value: "farmhouse_society",   label: "Farmhouse Society" },
-  { value: "commercial_plaza",    label: "Commercial Plaza" },
-  { value: "shopping_mall",       label: "Shopping Mall" },
+  { value: "residential_society",    label: "Residential Society" },
+  { value: "residential_highrise",   label: "Residential High-Rise Building" },
+  { value: "apartment_complex",      label: "Apartment Complex" },
+  { value: "commercial_society",     label: "Commercial Society" },
+  { value: "highrise_building",      label: "Highrise Building" },
+  { value: "mixed_use",              label: "Mixed Use Development" },
+  { value: "townhouse_complex",      label: "Townhouse Complex" },
+  { value: "gated_community",        label: "Gated Community" },
+  { value: "housing_scheme",         label: "Housing Scheme" },
+  { value: "township",               label: "Township" },
+  { value: "farmhouse_society",      label: "Farmhouse Society" },
+  { value: "commercial_plaza",       label: "Commercial Plaza" },
+  { value: "shopping_mall",          label: "Shopping Mall" },
+  { value: "corporate_office_tower", label: "Corporate Office Tower" },
+  { value: "industrial_park",        label: "Industrial Park" },
+  { value: "retirement_community",   label: "Senior Living / Retirement Community" },
+  { value: "student_housing",        label: "Student Housing / Hostels" },
 ];
 
 const PROJECT_STATUSES: {

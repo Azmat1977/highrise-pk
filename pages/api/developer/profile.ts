@@ -204,15 +204,22 @@ interface UpdateProfileBody {
 
 const VALID_PROJECT_TYPES: CompletedProjectType[] = [
   "residential_society",
+  "residential_highrise",
+  "apartment_complex",
   "commercial_society",
   "highrise_building",
   "mixed_use",
   "townhouse_complex",
   "gated_community",
   "housing_scheme",
+  "township",
   "farmhouse_society",
   "commercial_plaza",
   "shopping_mall",
+  "corporate_office_tower",
+  "industrial_park",
+  "retirement_community",
+  "student_housing",
 ];
 
 const VALID_PROJECT_STATUSES: CompletedProjectStatus[] = [
