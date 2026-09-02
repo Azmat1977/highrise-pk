@@ -129,6 +129,9 @@ export type CompletedProjectStatus =
 export interface ICloudinaryAsset {
   url: string;
   public_id: string;
+  // Facebook-style cover focal position (0-100). Optional — only
+  // meaningful on coverImage; harmless on other asset usages.
+  focalY?: number;
 }
 
 export interface IGalleryItem extends ICloudinaryAsset {
@@ -548,6 +551,7 @@ const CloudinaryAssetSchema = new Schema<ICloudinaryAsset>(
   {
     url: { type: String, required: true },
     public_id: { type: String, required: true },
+    focalY: { type: Number, min: 0, max: 100 },
   },
   { _id: false }
 );
