@@ -165,8 +165,8 @@ function buildOrganizationLd(
       addressLocality:  developer.city,
       addressCountry:   'PK',
     },
-    telephone: developer.phone,
-    email:     developer.email,
+    // PII fields are not in the public API payload (contact gating) —
+    // removed from structured data to keep the contract consistent.
     sameAs:    sameAs.length > 0 ? sameAs : undefined,
   };
 
@@ -445,17 +445,22 @@ export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
       `${base}/api/developers/${encodeURIComponent(slug)}`,
       { headers: { 'Content-Type': 'application/json' } }
     );
+    // NOTE: base env (NEXT_PUBLIC_SITE_URL) must point to the running dev
+    // server (http://localhost:3000) in local dev — production build uses
+    // the real domain. If 404 persists locally, verify this env value.
 
     if (res.status === 404) return { notFound: true };
     if (!res.ok)            return { notFound: true };
 
     const data = await res.json().catch(() => ({}));
 
-    if (!data.success || !data.developer) return { notFound: true };
+    // API contract: { success: true, data: { ...profile } } — NOT a
+    // `developer` key (the old mismatch caused 404 on every profile).
+    if (!data.success || !data.data) return { notFound: true };
 
     return {
       props: {
-        developer: data.developer as DeveloperProfile,
+        developer: data.data as DeveloperProfile,
         projects:  (data.projects ?? [])  as Project[],
         slug,
       },
@@ -708,18 +713,9 @@ export default function DeveloperProfilePage({
                   Contact Information
                 </h3>
                 <div className="space-y-8">
-                  <ContactItem
-                    icon={<Phone className="h-5 w-5" />}
-                    label="Phone"
-                    value={developer.phone}
-                    href={developer.phone ? `tel:${developer.phone}` : undefined}
-                  />
-                  <ContactItem
-                    icon={<Mail className="h-5 w-5" />}
-                    label="Email"
-                    value={developer.email}
-                    href={developer.email ? `mailto:${developer.email}` : undefined}
-                  />
+                  {/* Contact gating: phone/email are NEVER in the public API
+                      payload (verified — toPublicProfile excludes PII).
+                      Office address + website remain public by design. */}
                   <ContactItem
                     icon={<MapPin className="h-5 w-5" />}
                     label="Office Address"
