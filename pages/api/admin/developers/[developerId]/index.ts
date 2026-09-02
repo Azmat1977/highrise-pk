@@ -191,13 +191,14 @@ export default async function handler(
 
   if (req.method === 'GET') {
     try {
-      const developer = await DeveloperProfile.findById(developerIdStr)
-        .select('+adminNotes')   // select:false — admin detail view needs it
-        .populate('user', 'name email createdAt')
-        .lean()
+      // Full document (NOT lean) — decrypt instance methods require a
+      // Mongoose document. Verification numbers below are decrypted
+      // ADMIN-ONLY: never exposed in public/developer-facing responses.
+      const developerDoc = await DeveloperProfile.findById(developerIdStr)
+        .select('+adminNotes')
         .maxTimeMS(MAX_TIME_MS);
 
-      if (!developer) {
+      if (!developerDoc) {
         void res.status(404).json({
           success: false,
           message: 'Developer not found',
@@ -206,6 +207,11 @@ export default async function handler(
         });
         return;
       }
+
+      // Identity needs populate — run separately on the doc
+      await developerDoc.populate('user', 'name email createdAt');
+
+      const developer = developerDoc.toObject({ virtuals: false }) as Record<string, unknown>;
 
       // ── Identity summary (admin detail view — email acceptable) ─
       const userRef = developer.user as {
@@ -237,6 +243,18 @@ export default async function handler(
       // Sensitive legal/KYC assets are delivered with short-lived signed URLs.
       // Legacy public-only URLs remain visible to admins temporarily and are
       // explicitly flagged so they can be migrated to authenticated delivery.
+      // ── Decrypted verification numbers (ADMIN-ONLY) ──────────
+      // Verification workflow requires comparing the number against the
+      // submitted document image. Encrypted at rest; decrypted only in
+      // admin responses, never in developer/public payloads.
+      const verification = {
+        ntnNumber:               developerDoc.getNTN?.() ?? null,
+        secpNumber:              developerDoc.getSECP?.() ?? null,
+        authorizedPersonCNIC:    developerDoc.getAuthorizedPersonCNIC?.() ?? null,
+        phone:                   developerDoc.getPhone?.() ?? null,
+        authorizedPersonPhone:   developerDoc.getAuthorizedPersonPhone?.() ?? null,
+      };
+
       const legalDocs = (developer as Record<string, any>).legalDocs;
       if (legalDocs) {
         for (const key of [
@@ -264,7 +282,10 @@ export default async function handler(
 
       void res.status(200).json({
         success: true,
-        developer,
+        developer: {
+          ...developer,
+          verification,
+        },
         identitySummary,
         requestId,
       });
