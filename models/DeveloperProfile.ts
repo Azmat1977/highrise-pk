@@ -1549,6 +1549,16 @@ DeveloperProfileSchema.methods.getAuthorizedPersonPhone = function (
   try { return decryptPhone(this.authorizedPersonPhoneEncrypted); } catch { return null; }
 };
 
+DeveloperProfileSchema.methods.getWhatsapp = function (
+  this: IDeveloperProfile
+): string | null {
+  try {
+    return this.whatsappEncrypted ? decryptPhone(this.whatsappEncrypted) : null;
+  } catch {
+    return null;
+  }
+};
+
 DeveloperProfileSchema.methods.getMaskedNTN = function (
   this: IDeveloperProfile
 ): string {

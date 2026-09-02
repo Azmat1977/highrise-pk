@@ -195,7 +195,11 @@ export default async function handler(
       // Mongoose document. Verification numbers below are decrypted
       // ADMIN-ONLY: never exposed in public/developer-facing responses.
       const developerDoc = await DeveloperProfile.findById(developerIdStr)
-        .select('+adminNotes')
+        .select(
+          '+adminNotes +ntnEncrypted +secpEncrypted ' +
+          '+authorizedPersonCnicEncrypted +phoneEncrypted +whatsappEncrypted ' +
+          '+authorizedPersonPhoneEncrypted'
+        )
         .maxTimeMS(MAX_TIME_MS);
 
       if (!developerDoc) {
@@ -212,6 +216,20 @@ export default async function handler(
       await developerDoc.populate('user', 'name email createdAt');
 
       const developer = developerDoc.toObject({ virtuals: false }) as Record<string, unknown>;
+
+      // Encrypted ciphertext + hashes NEVER leave the server — only the
+      // decrypted verification values above reach the admin client.
+      delete developer.ntnEncrypted;
+      delete developer.secpEncrypted;
+      delete developer.authorizedPersonCnicEncrypted;
+      delete developer.phoneEncrypted;
+      delete developer.whatsappEncrypted;
+      delete developer.authorizedPersonPhoneEncrypted;
+      delete developer.ntnHash;
+      delete developer.secpHash;
+      delete developer.authorizedPersonCnicHash;
+      delete developer.phoneHash;
+      delete developer.authorizedPersonPhoneHash;
 
       // ── Identity summary (admin detail view — email acceptable) ─
       const userRef = developer.user as {
@@ -252,6 +270,7 @@ export default async function handler(
         secpNumber:              developerDoc.getSECP?.() ?? null,
         authorizedPersonCNIC:    developerDoc.getAuthorizedPersonCNIC?.() ?? null,
         phone:                   developerDoc.getPhone?.() ?? null,
+        whatsappNumber:          (developerDoc as unknown as { getWhatsapp?: () => string | null }).getWhatsapp?.() ?? null,
         authorizedPersonPhone:   developerDoc.getAuthorizedPersonPhone?.() ?? null,
       };
 
