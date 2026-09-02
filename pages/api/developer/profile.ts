@@ -419,7 +419,7 @@ function toPublicProfile(profile: IDeveloperProfile): Record<string, unknown> {
     website: profile.website,
     logo: profile.logo?.url ? { url: profile.logo.url } : undefined,
     coverImage: profile.coverImage?.url
-      ? { url: profile.coverImage.url }
+      ? { url: profile.coverImage.url, focalY: profile.coverImage.focalY }
       : undefined,
     socialLinks: profile.socialLinks ?? {},
     isVerified: Boolean(profile.isVerified),

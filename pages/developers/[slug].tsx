@@ -59,7 +59,7 @@ interface DeveloperProfile {
   slug:                string;
   badges?:             string[];
   logo?:               { url: string };
-  coverImage?:         { url: string };
+  coverImage?:               { url: string; focalY?: number };
   description?:        string;
   establishedYear?:    number;
   officeAddress?:      string;
@@ -561,19 +561,24 @@ export default function DeveloperProfilePage({
       {/* TODO: Wrap with <Layout> when Header/Footer built (Section 9) */}
       <div className="min-h-screen bg-gray-50 pb-20">
 
-        {/* â”€â”€ Hero Banner â”€â”€ */}
-        <div className="relative h-[250px] w-full overflow-hidden bg-[#029bba]">
-          {developer.coverImage?.url && (
+        {/* Hero Banner */}
+         {/* Facebook-style cover: fixed height, cover-crop, saved focal position */}
+        <div className="relative h-48 w-full overflow-hidden bg-gray-100 md:h-72 lg:h-80">
+          {developer.coverImage?.url ? (
             <Image
               src={developer.coverImage.url}
-              alt={`${developer.companyName} cover`}
+              alt={`${developer.companyName} cover banner`}
               fill
-              className="object-cover opacity-30"
+              className="object-cover"
+              style={{ objectPosition: `center ${developer.coverImage.focalY ?? 50}%` }}
               priority
               sizes="100vw"
             />
+          ) : (
+            <div className="h-full w-full bg-[#029bba]" />
           )}
-          <div className="absolute inset-0 bg-black/10" />
+          {/* Designed marketing banner: pixel-exact display (object-contain,
+              white canvas). Breadcrumb chip has its own blur backdrop. */}
 
           {/* Breadcrumb overlay */}
           <div className="absolute left-0 right-0 top-6 z-10 mx-auto max-w-7xl px-4">
@@ -592,29 +597,30 @@ export default function DeveloperProfilePage({
           </div>
         </div>
 
-        {/* â”€â”€ Profile Card â”€â”€ */}
-        <div className="relative z-20 mx-auto -mt-24 max-w-7xl px-4">
-          <div className="overflow-visible rounded-[2.5rem] border border-gray-100 bg-white shadow-2xl">
+        {/* Profile Card */}
+        <div className="relative z-20 mx-auto -mt-14 max-w-7xl px-4">
+          <div className="overflow-visible rounded-3xl border border-gray-100 bg-white shadow-xl shadow-gray-200/50">
             <div className="flex flex-col lg:flex-row">
 
-              {/* Left â€” Main Info */}
-              <div className="flex-1 p-8 lg:p-12">
+              {/* Left — Main Info */}
+              <div className="flex-1 p-6 lg:p-10">
                 <div className="flex flex-col items-start gap-8 md:flex-row">
 
                   {/* Logo */}
-                  <div className="relative z-50 -mt-32 flex h-auto min-h-[120px] w-52 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-white p-4 shadow-2xl">
-                    {developer.logo?.url ? (
-                      <Image
-                        src={developer.logo.url}
-                        alt={`${developer.companyName} logo`}
-                        width={180}
-                        height={120}
-                        className="h-auto max-h-32 w-full object-contain"
-                      />
-                    ) : (
-                      <Building2 className="h-16 w-16 text-gray-100" />
-                    )}
-                  </div>
+  
+                       <div className="relative z-50 -mt-24 flex h-auto min-h-[110px] w-44 shrink-0 items-center justify-center rounded-2xl border border-gray-100 bg-white p-4 shadow-lg">
+                  {developer.logo?.url ? (
+                    <Image
+                      src={developer.logo.url}
+                      alt={`${developer.companyName} logo`}
+                      width={176}
+                      height={110}
+                      className="h-auto max-h-28 w-full object-contain"
+                    />
+                  ) : (
+                    <Building2 className="h-14 w-14 text-gray-100" />
+                  )}
+                </div>
 
                   {/* Name + Details */}
                   <div className="flex-1 pt-2">
@@ -704,8 +710,8 @@ export default function DeveloperProfilePage({
               </div>
 
               {/* Right â€” Sidebar */}
-              <div className="w-full border-t border-gray-100 bg-slate-50/50 p-8 lg:w-80 lg:border-l lg:border-t-0 lg:p-12">
-                <div className="mb-10">
+              <div className="w-full border-t border-gray-100 bg-slate-50/50 p-6 lg:w-80 lg:border-l lg:border-t-0 lg:p-10">
+                <div className="mb-8">
                   <HighriseInsightCard developer={developer} />
                 </div>
 

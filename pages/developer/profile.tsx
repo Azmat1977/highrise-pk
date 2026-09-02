@@ -63,6 +63,8 @@ import EmailVerifyField from "@/components/shared/EmailVerifyField";
 interface CloudinaryRef {
   url: string;
   public_id: string;
+  // Facebook-style cover focal position (0-100%) — optional, cover only
+  focalY?: number;
 }
 
 interface UploadState {
@@ -566,6 +568,10 @@ function ProfileForm(): React.ReactElement {
 
   const [logoUpload, setLogoUpload] = useState<UploadState>(makeEmptyUpload());
   const [coverUpload, setCoverUpload] = useState<UploadState>(makeEmptyUpload());
+  // Facebook-style cover position: 0% = top crop, 50% = center, 100% = bottom
+  const [coverFocalY, setCoverFocalY] = useState<number>(
+    (profile?.coverImage as { focalY?: number } | undefined)?.focalY ?? 50
+  );
   const [secpDocUpload, setSecpDocUpload] = useState<UploadState>(makeEmptyUpload());
   const [ntnDocUpload, setNtnDocUpload] = useState<UploadState>(makeEmptyUpload());
   const [memorandumUpload, setMemorandumUpload] = useState<UploadState>(makeEmptyUpload());
@@ -745,7 +751,15 @@ function ProfileForm(): React.ReactElement {
 
         // Media refs
         if (logoUpload.ref) body.logo = logoUpload.ref;
-        if (coverUpload.ref) body.coverImage = coverUpload.ref;
+        if (coverUpload.ref) {
+          body.coverImage = { ...coverUpload.ref, focalY: coverFocalY };
+        } else if (profile?.coverImage?.url) {
+          const existingPid = (profile.coverImage as { public_id?: string }).public_id;
+          if (existingPid) {
+            // Position-only update — same asset, new focal point
+            body.coverImage = { url: profile.coverImage.url, public_id: existingPid, focalY: coverFocalY };
+          }
+        }
 
         // Legal docs
         const legalDocs: Record<string, unknown> = {};
@@ -799,7 +813,7 @@ function ProfileForm(): React.ReactElement {
         setSaving(false);
       }
     },
-    [form, isNewProfile, logoUpload, coverUpload, secpDocUpload, ntnDocUpload,
+    [form, isNewProfile, logoUpload, coverUpload, coverFocalY, secpDocUpload, ntnDocUpload,
      memorandumUpload, cnicFrontUpload, cnicBackUpload, operatingCities,
      serviceAreas, completedProjects, companyEmailVerified,
      authPersonEmailVerified, refreshProfile]
@@ -931,9 +945,32 @@ function ProfileForm(): React.ReactElement {
               <FileUploadField label="Company Logo" required={isNewProfile} accept="image/jpeg,image/png,image/webp" folder="profiles"
                 currentUrl={profile?.logo?.url} uploadState={logoUpload} onUpload={makeUploadHandler(setLogoUpload)}
                 helpText="Square recommended. 400×400px. Max 10MB." isImage />
-              <FileUploadField label="Cover Image" accept="image/jpeg,image/png,image/webp" folder="profiles"
-                currentUrl={profile?.coverImage?.url} uploadState={coverUpload} onUpload={makeUploadHandler(setCoverUpload)}
-                helpText="Landscape recommended. 1200×400px. Max 10MB." isImage />
+              <div>
+                <FileUploadField label="Cover Image" accept="image/jpeg,image/png,image/webp" folder="profiles"
+                  currentUrl={profile?.coverImage?.url} uploadState={coverUpload} onUpload={makeUploadHandler(setCoverUpload)}
+                  helpText="Landscape recommended. 1920×640px. Max 10MB." isImage />
+                <div className="mt-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                  <label htmlFor="coverFocalY" className="block text-sm font-semibold text-[#333333] mb-2">
+                    Cover Position (Facebook-style crop)
+                  </label>
+                  <input
+                    id="coverFocalY"
+                    type="range"
+                    min={0}
+                    max={100}
+                    step={5}
+                    value={coverFocalY}
+                    onChange={(e) => { setCoverFocalY(Number(e.target.value)); setHasChanges(true); }}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#029bba]"
+                  />
+                  <div className="flex justify-between text-[10px] font-semibold text-gray-400 mt-1">
+                    <span>Top</span><span>{coverFocalY}%</span><span>Bottom</span>
+                  </div>
+                  <p className="text-xs text-[#666666] mt-1.5">
+                    Image is cropped to a fixed banner height — set which part stays visible.
+                  </p>
+                </div>
+              </div>
             </div>
           </Section>
 

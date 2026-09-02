@@ -47,7 +47,7 @@ interface PublicDeveloperProfile {
 
   // Media
   logo?: { url: string };
-  coverImage?: { url: string };
+  coverImage?: { url: string; focalY?: number };
   gallery: Array<{ url: string; caption?: string }>;
 
   // Social
@@ -159,7 +159,7 @@ function toPublicProfile(
     `${profile.companyName} is a verified ${profile.developerType} based in ${profile.city} with ${profile.completedProjectsCount ?? 0} completed projects. View projects and reviews on Highrise.pk`;
 
   const canonicalUrl =
-    profile.canonicalUrl ?? `${appUrl}/developer/${profile.slug}`;
+    profile.canonicalUrl ?? `${appUrl}/developers/${profile.slug}`;
 
   const ogImage =
     profile.coverImage?.url ??
@@ -185,7 +185,7 @@ function toPublicProfile(
     // Logo URL only — never public_id
     logo: profile.logo?.url ? { url: profile.logo.url } : undefined,
     coverImage: profile.coverImage?.url
-      ? { url: profile.coverImage.url }
+      ? { url: profile.coverImage.url, focalY: profile.coverImage.focalY }
       : undefined,
     gallery: (profile.gallery ?? []).map((g) => ({
       url: g.url,
