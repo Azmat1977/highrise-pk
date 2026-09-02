@@ -126,6 +126,8 @@ interface Developer {
   email?: string;
   authorizedPersonName?: string;
   authorizedPersonCNIC?: string;
+  whatsappNumber?: string;
+  authorizedPersonPhone?: string;
   authorizedPersonVerificationLevel?: AuthorizedPersonVerificationLevel;
   status: DeveloperStatus;
   isVerified: boolean;
@@ -992,6 +994,8 @@ export default function AdminDeveloperDetail(): React.ReactElement {
           secpNumber:            v?.secpNumber ?? undefined,
           authorizedPersonCNIC:  v?.authorizedPersonCNIC ?? undefined,
           phone:                 v?.phone ?? undefined,
+          whatsappNumber:        (v as { whatsappNumber?: string | null } | undefined)?.whatsappNumber ?? undefined,
+          authorizedPersonPhone: (v as { authorizedPersonPhone?: string | null } | undefined)?.authorizedPersonPhone ?? undefined,
         });
 
         // Sync trust values
@@ -1912,6 +1916,7 @@ export default function AdminDeveloperDetail(): React.ReactElement {
                 <InfoRow label="Office Address" value={developer.officeAddress} />
                 <InfoRow label="City"           value={developer.city} />
                 <InfoRow label="Phone"          value={developer.phone} />
+                <InfoRow label="WhatsApp"       value={developer.whatsappNumber} />
                 <InfoRow label="Email"          value={developer.email} />
               </dl>
             </Section>
@@ -1920,6 +1925,7 @@ export default function AdminDeveloperDetail(): React.ReactElement {
               <dl>
                 <InfoRow label="Full Name"   value={developer.authorizedPersonName} />
                 <InfoRow label="CNIC"        value={developer.authorizedPersonCNIC} />
+                <InfoRow label="Phone"       value={developer.authorizedPersonPhone} />
                 <InfoRow label="Verification"
                   value={developer.authorizedPersonVerificationLevel?.replace(/_/g, ' ')} />
               </dl>
