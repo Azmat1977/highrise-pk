@@ -208,15 +208,30 @@ async function fetchPois(
   for (const el of data.elements ?? []) {
     const elLat = el.lat ?? el.center?.lat;
     const elLng = el.lon ?? el.center?.lon;
-    const name = el.tags?.['name'];
+    // English name preferred; Urdu/other only when English absent
+    const name = el.tags?.['name:en'] ?? el.tags?.['name'];
     if (elLat === undefined || elLng === undefined || !name) continue;
 
+    // Exact tag+value matching (map iteration order — specific first)
+    // e.g. amenity=place_of_worship → mosque; shop=mall → mall
     let category: PoiCategory = 'other';
-    for (const [cat, tagDefs] of Object.entries(OVERPASS_QUERIES) as Array<
-      [PoiCategory, { tag: string; value?: string }[]]
-    >) {
-      const matches = tagDefs.some(({ tag, value }) => el.tags?.[tag] === value);
-      if (matches) { category = cat; break; }
+    const CATEGORY_BY_TAG: Record<string, PoiCategory> = {
+      'amenity=hospital': 'hospital',
+      'amenity=clinic': 'hospital',
+      'amenity=school': 'school',
+      'amenity=college': 'school',
+      'amenity=university': 'university',
+      'shop=mall': 'mall',
+      'shop=supermarket': 'mall',
+      'amenity=place_of_worship': 'mosque',
+      'amenity=bank': 'bank',
+      'leisure=park': 'park',
+      'aeroway=aerodrome': 'airport',
+      'amenity=restaurant': 'restaurant',
+    };
+    for (const [tagKey, cat] of Object.entries(CATEGORY_BY_TAG)) {
+      const [tag, value] = tagKey.split('=');
+      if (el.tags?.[tag] === value) { category = cat; break; }
     }
 
     pois.push({
