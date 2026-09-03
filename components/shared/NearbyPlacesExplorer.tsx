@@ -137,11 +137,40 @@ async function fetchPois(
     .join('');
 
   const query = `[out:json][timeout:25];(${filters});out center 200;`;
-  const url = `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(query)}`;
 
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`Overpass ${res.status}`);
-  const data = (await res.json()) as { elements?: OverpassElement[] };
+  // Overpass mirrors — public server often busy (429/504). Try each in
+  // order; first success wins. (kumi.systems is the most reliable mirror.)
+  const mirrors = [
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
+  ];
+
+  let data: { elements?: OverpassElement[] } | null = null;
+  let lastError: Error | null = null;
+
+  for (const mirror of mirrors) {
+    try {
+      const res = await fetch(mirror, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: `data=${encodeURIComponent(query)}`,
+      });
+      if (!res.ok) {
+        lastError = new Error(`Overpass ${res.status}`);
+        continue; // next mirror
+      }
+      data = (await res.json()) as { elements?: OverpassElement[] };
+      break; // success
+    } catch (err: unknown) {
+      lastError = err instanceof Error ? err : new Error('Network error');
+      // next mirror
+    }
+  }
+
+  if (!data) {
+    throw lastError ?? new Error('Overpass failed');
+  }
 
   const pois: DiscoveredPOI[] = [];
   for (const el of data.elements ?? []) {
@@ -266,8 +295,8 @@ export default function NearbyPlacesExplorer({
     } catch (err: unknown) {
       setError(
         err instanceof Error && err.message.includes('Overpass')
-          ? 'Discovery service is busy — try again in a moment.'
-          : 'Failed to discover nearby places. Please try again.'
+          ? 'All discovery servers are busy right now. Please try again in a moment.'
+          : 'Failed to discover nearby places. Check your connection and try again.'
       );
       setPois([]);
     } finally {
