@@ -3,6 +3,7 @@
 // Design: Clean white, MagicBricks gallery, Realtor sidebar, Zameen PKR context
 
 import React, { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { GetStaticPaths, GetStaticProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -33,7 +34,22 @@ import SimilarProjectsSection    from '@/components/project-detail/SimilarProjec
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
-import NearbyPlacesExplorer      from '@/components/shared/NearbyPlacesExplorer';
+import type { NearbyPlacesExplorerProps } from '@/components/shared/NearbyPlacesExplorer';
+
+// Leaflet requires browser APIs (window) — dynamic import skips SSR
+const NearbyPlacesExplorer = dynamic<NearbyPlacesExplorerProps>(
+  () => import('@/components/shared/NearbyPlacesExplorer'),
+  { ssr: false, loading: () => (
+    <div className="h-[420px] rounded-2xl border border-gray-200 bg-gray-50
+                    flex items-center justify-center">
+      <div className="text-center">
+        <div className="w-8 h-8 border-4 border-[#029bba] border-t-transparent
+                        rounded-full animate-spin mx-auto" />
+        <p className="text-xs text-gray-400 mt-2">Loading map...</p>
+      </div>
+    </div>
+  ) }
+);
 import { PaymentPlanList }       from '@/components/projects/PaymentPlanCard';
 import RiskAlertsSection         from '@/components/project-detail/RiskAlertsSection';
 import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
@@ -901,138 +917,30 @@ export default function ProjectDetailPage({ project }: PageProps) {
                   )}
                 </div>
               </div>
-
-              {/* Nearby places — category tabs + distance chips (Zameen-pattern, Highrise identity) */}
-              {(project.nearbyFacilities?.length ?? 0) > 0 && (() => {
-                const cats = [...new Set(project.nearbyFacilities!.map((p) => p.category))];
-                // Auto-format: <1000 → meters, ≥1000 → km (input numeric ya "2.5 km")
-                // Normalize to meters. Unit detection priority:
-                //   explicit "km" in string → kilometers
-                //   explicit standalone "m" → meters
-                //   bare number → KILOMETERS (form convention & industry
-                //   standard — "2.5" means 2.5 km, property context)
-                const toMeters = (raw?: string): number | null => {
-                  if (!raw) return null;
-                  const n = parseFloat(raw.replace(/[^\d.]/g, ''));
-                  if (!Number.isFinite(n) || n <= 0) return null;
-                  const lower = raw.toLowerCase();
-                  if (lower.includes('km')) return Math.round(n * 1000);
-                  if (/(\dm\b|meter)/.test(lower)) return Math.round(n);
-                  return Math.round(n * 1000); // bare number = km
-                };
-                const fmtDist = (raw?: string): string => {
-                  const m = toMeters(raw);
-                  if (m === null) return raw ?? '';
-                  if (nearbyUnit === 'm') return `${m.toLocaleString('en-PK')} m`;
-                  return `${(m / 1000).toFixed(1)} km`;
-                };
-                return (
-                  <div className="mb-6">
-                    <h4 className="font-semibold text-gray-900 mb-3">Around This Project</h4>
-
-                    {/* Category filter chips + unit toggle */}
-                    <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
-                      <div className="flex flex-wrap gap-1.5">
-                      {['all', ...cats].map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => setActiveNearbyTab(cat)}
-                          aria-pressed={activeNearbyTab === cat}
-                          className={`px-3 py-1.5 rounded-full text-xs font-bold capitalize transition-all ${
-                            activeNearbyTab === cat
-                              ? 'bg-[#029bba] text-white shadow-sm'
-                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                          }`}
-                        >
-                          {cat === 'all' ? `All (${project.nearbyFacilities!.length})` : cat}
-                        </button>
-                      ))}
-                      </div>
-
-                      {/* Unit toggle — enterprise segmented control */}
-                      <div className="flex items-center rounded-lg border border-gray-200 bg-white
-                                      overflow-hidden shrink-0" role="group" aria-label="Distance unit">
-                        {(['km', 'm'] as const).map((u) => (
-                          <button
-                            key={u}
-                            type="button"
-                            onClick={() => setNearbyUnit(u)}
-                            aria-pressed={nearbyUnit === u}
-                            className={`px-3 py-1.5 text-xs font-bold transition-colors
-                                        flex items-center gap-1 tabular-nums ${
-                              nearbyUnit === u
-                                ? 'bg-[#029bba] text-white'
-                                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
-                            }`}
-                          >
-                            {u === 'km' ? (
-                              <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none"
-                                   stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                                <path d="M12 21V3M12 3l-4 4M12 3l4 4" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            ) : (
-                              <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none"
-                                   stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
-                                <path d="M3 21L21 3M21 3h-6M21 3v6" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
-                            {u === 'km' ? 'km' : 'meters'}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Filtered list — scrollable */}
-                    <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl max-h-[280px] overflow-y-auto">
-                      {project.nearbyFacilities!
-                        .filter((p) => activeNearbyTab === 'all' || p.category === activeNearbyTab)
-                        .map((place, idx) => {
-                          const PlaceIcon = NEARBY_ICONS[place.category] ?? MapPin;
-                          return (
-                            <div key={idx} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
-                              <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
-                                <PlaceIcon className="w-4 h-4 text-gray-400" />
-                              </div>
-                              <p className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">
-                                {place.name}
-                              </p>
-                              {place.distance && (
-                                <span className="px-2.5 py-1 rounded-full bg-[#029bba]/10 text-[#029bba]
-                                                 text-xs font-bold tabular-nums whitespace-nowrap shrink-0">
-                                  {fmtDist(place.distance)}
-                                </span>
-                              )}
-                            </div>
-                          );
-                        })}
-                    </div>
-                  </div>
-                );
-              })()}
-
-              {/* Map */}
-              <div className="rounded-xl overflow-hidden border border-gray-200">
-                <div className="aspect-video">
-                  <iframe src={getMapEmbedUrl(project)} width="100%" height="100%"
-                    style={{ border: 0 }} allowFullScreen loading="lazy"
-                    referrerPolicy="no-referrer-when-downgrade" title="Project Location" />
-                </div>
-                <a href={getMapsLink(project)} target="_blank" rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 p-3 bg-gray-50
-                             hover:bg-gray-100 transition-colors text-[#029bba] font-medium text-sm">
-                  <ExternalLink className="w-4 h-4" />Open in Google Maps
-                </a>
-              </div>
-
-              {/* Live Nearby Explorer — Leaflet + Overpass (auto-discovery) */}
-              {project.coordinates?.lat && project.coordinates?.lng && (
-                <div className="mb-6">
+              {/* Nearby list merged into Live Nearby Explorer below (single map) */}
+              {/* Single interactive map — Leaflet explorer (was iframe embed).
+                  Google Maps deep-link below for navigation handoff. */}
+              {project.coordinates?.lat && project.coordinates?.lng ? (
+                <>
                   <NearbyPlacesExplorer
                     projectLat={project.coordinates.lat}
                     projectLng={project.coordinates.lng}
                     projectName={project.projectName}
+                    verifiedPlaces={project.nearbyFacilities ?? []}
                   />
+                  <a href={getMapsLink(project)} target="_blank" rel="noopener noreferrer"
+                    className="mt-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50
+                               hover:bg-gray-100 transition-colors text-[#029bba] font-medium text-sm border border-gray-200">
+                    <ExternalLink className="w-4 h-4" />Open in Google Maps
+                  </a>
+                </>
+              ) : (
+                <div className="rounded-xl overflow-hidden border border-gray-200">
+                  <div className="aspect-video">
+                    <iframe src={getMapEmbedUrl(project)} width="100%" height="100%"
+                      style={{ border: 0 }} allowFullScreen loading="lazy"
+                      referrerPolicy="no-referrer-when-downgrade" title="Project Location" />
+                  </div>
                 </div>
               )}
 
