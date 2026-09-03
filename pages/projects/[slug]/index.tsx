@@ -926,7 +926,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
                     projectLat={project.coordinates.lat}
                     projectLng={project.coordinates.lng}
                     projectName={project.projectName}
-                    verifiedPlaces={project.nearbyFacilities ?? []}
+
                   />
                   <a href={getMapsLink(project)} target="_blank" rel="noopener noreferrer"
                     className="mt-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50

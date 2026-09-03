@@ -287,7 +287,7 @@ export default function NearbyPlacesExplorer({
   );
   const [selectedPoi, setSelectedPoi] = useState<DiscoveredPOI | null>(null);
   const [discovered, setDiscovered] = useState(false);
-  const [distUnit, setDistUnit] = useState<'km' | 'm'>('km');
+
 
   // ── Init map (once) ──
   useEffect(() => {
@@ -406,15 +406,7 @@ export default function NearbyPlacesExplorer({
     });
   };
 
-  const verifiedDistMeters = (raw?: string): number | null => {
-    if (!raw) return null;
-    const n = parseFloat(raw.replace(/[^\d.]/g, ''));
-    if (!Number.isFinite(n) || n <= 0) return null;
-    const lower = raw.toLowerCase();
-    if (lower.includes('km')) return Math.round(n * 1000);
-    if (/(\dm\b|meter)/.test(lower)) return Math.round(n);
-    return Math.round(n * 1000); // bare number = km (form convention)
-  };
+
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -509,45 +501,7 @@ export default function NearbyPlacesExplorer({
 
         {/* Sidebar */}
         <div className="border-t lg:border-t-0 lg:border-l border-gray-100">
-          {/* Verified by developer */}
-          {verifiedPlaces.length > 0 && (
-            <div className="border-b border-gray-100">
-              <div className="px-4 py-2.5 flex items-center justify-between bg-[#029bba]/[0.03]">
-                <p className="text-xs font-bold text-[#004063] uppercase tracking-wide flex items-center gap-1.5">
-                  <BadgeCheck className="w-3.5 h-3.5 text-[#029bba]" />
-                  Verified by Developer
-                </p>
-              </div>
-              <div className="max-h-[180px] overflow-y-auto divide-y divide-gray-50">
-                {verifiedPlaces.map((place, i) => {
-                  const cat = (place.category in CATEGORY_META ? place.category : 'other') as PoiCategory;
-                  const Icon = TAB_ICONS[cat];
-                  const m = verifiedDistMeters(place.distance);
-                  return (
-                    <div key={i} className="flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors">
-                      <span
-                        className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                        style={{ backgroundColor: `${CATEGORY_META[cat].color}18` }}
-                      >
-                        <Icon className="w-3.5 h-3.5" style={{ color: CATEGORY_META[cat].color }} />
-                      </span>
-                      <p className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
-                        {place.name}
-                      </p>
-                      {m !== null && (
-                        <span className="px-2 py-0.5 rounded-full bg-[#029bba]/10 text-[#029bba]
-                                         text-[11px] font-bold tabular-nums shrink-0">
-                          {distUnit === 'km' ? `${(m / 1000).toFixed(1)} km` : `${m.toLocaleString('en-PK')} m`}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Auto-discovered */}
+          {/* Discovered places */}
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
               Auto-Discovered ({visiblePois.length})
