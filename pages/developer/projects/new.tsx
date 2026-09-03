@@ -624,8 +624,8 @@ function ProjectForm(): React.ReactElement {
               className="text-[#666666] hover:text-[#333333] text-lg leading-none"
               aria-label="Dismiss error"
             >
-              أ—
-            </button>
+              ×
+              </button>
           </div>
         )}
 
@@ -636,7 +636,7 @@ function ProjectForm(): React.ReactElement {
           <Section
             title="Project Classification"
             subtitle="Choose the category and nature of your project"
-            icon="ًںڈ—ï¸ڈ"
+          icon=""
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
@@ -686,7 +686,7 @@ function ProjectForm(): React.ReactElement {
           <Section
             title="Basic Project Info"
             subtitle="Essential details about your project"
-            icon="ًں“چ"
+          icon=""
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
@@ -806,13 +806,12 @@ function ProjectForm(): React.ReactElement {
             </div>
           </Section>
 
-          {/* â”€â”€ Section 3: Legal Documents â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* Section 3: Legal Documents */}
           <Section
             title="Legal Documents & Approvals"
             subtitle="Project-level approvals from development authorities (CDA, LDA, etc.)"
-            icon="ًں§¾"
-          >
-            {/* Info banner â€” upload via /api/upload */}
+            icon=""          >
+            {/* Info banner upload via /api/upload */}
             <div className="mb-5 bg-[#eff6ff] border-l-4 border-[#029bba] rounded-xl p-4">
               <p className="text-sm text-[#333333]">
                 <span className="font-semibold">Upload documents separately</span> using the
@@ -893,11 +892,11 @@ function ProjectForm(): React.ReactElement {
             projectSlug={projectCategory || 'project'}
           />
 
-          {/* â”€â”€ Section 4: Scale & Units â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* Section 4: Scale & Units */}
           <Section
             title="Project Scale & Units"
             subtitle="Define the size and unit breakdown of your project"
-            icon="ًں“ٹ"
+            icon=""
           >
             {!projectCategory && (
               <div className="text-center py-8 text-[#666666] text-sm">
@@ -972,7 +971,7 @@ function ProjectForm(): React.ReactElement {
 
                 {/* Society Facilities */}
                 <div className="rounded-xl bg-[#f8f9fa] p-5">
-                  <h4 className="font-semibold text-[#004063] mb-3">ًںڈ‍ Society Facilities</h4>
+                <h4 className="font-semibold text-[#004063] mb-3">Society Facilities</h4>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                     {[
                       { value: 'parks',           label: 'Parks / Playgrounds' },
@@ -1026,7 +1025,7 @@ function ProjectForm(): React.ReactElement {
           <Section
             title="Payment Structure"
             subtitle="Define how buyers can pay for units"
-            icon="ًں’°"
+            icon=""
           >
             <div className="mb-6">
               <label className={labelClass} htmlFor="saleMode">
@@ -1127,7 +1126,7 @@ function ProjectForm(): React.ReactElement {
           <Section
             title="Completed Projects by Developer"
             subtitle="Showcase your past successful developments"
-            icon="ًںڈ—"
+            icon=""
           >
             {completedProjects.map((project, index) => (
               <div
@@ -1216,15 +1215,15 @@ function ProjectForm(): React.ReactElement {
             </button>
           </Section>
 
-          {/* â”€â”€ Section 7: Visuals & Location â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* Section 7: Visuals & Location */}
           <Section
             title="Visuals & Location"
             subtitle="Add videos, images, and map location"
-            icon="ًں“·"
+            icon=""
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
 
-              {/* Feature image â€” via FileUploader â†’ /api/upload â†’ URL stored */}
+              {/* Feature image via FileUploader /api/upload URL stored */}
               <div className="md:col-span-2">
                 <label className={labelClass}>
                   Main Feature Image (Cover Photo){' '}
@@ -1240,8 +1239,7 @@ function ProjectForm(): React.ReactElement {
                   />
                 </div>
                 <p className="text-xs text-[#666666] mt-2">
-                  High-quality landscape image recommended (1920أ—1080). This becomes your
-                  hero image on listing pages.
+                  High-quality landscape image recommended (1920x1080). This becomes your                  hero image on listing pages.
                 </p>
               </div>
 
@@ -1285,8 +1283,7 @@ function ProjectForm(): React.ReactElement {
                 </p>
                 {staticMapUrl && (
                   <div className="mt-4">
-                    <p className="text-sm text-[#333333] mb-2">ًں“چ Location Preview:</p>
-                    <img
+                    <p className="text-sm text-[#333333] mb-2">Location Preview:</p>                    <img
                       src={staticMapUrl}
                       alt="Location preview"
                       className="rounded-xl border border-gray-200 w-full max-w-lg"
@@ -1297,12 +1294,11 @@ function ProjectForm(): React.ReactElement {
             </div>
           </Section>
 
-          {/* â”€â”€ Developer profile link â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* Developer profile link */}
           <div className="rounded-2xl border border-gray-200 bg-gradient-to-br from-[#eff6ff] to-white p-6">
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div>
-                <h3 className="text-base font-semibold text-[#004063]">ًں‘¥ Developer Profile</h3>
-                <p className="text-sm text-[#666666] mt-1">
+                <h3 className="text-base font-semibold text-[#004063]">Developer Profile</h3>                <p className="text-sm text-[#666666] mt-1">
                   Company details and documents are linked from your developer profile.
                 </p>
               </div>
@@ -1316,7 +1312,7 @@ function ProjectForm(): React.ReactElement {
             </div>
           </div>
 
-          {/* â”€â”€ Submit bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* Submit bar */}
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
             <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
               <p className="text-sm text-[#666666]">
@@ -1358,7 +1354,7 @@ function ProjectForm(): React.ReactElement {
   );
 }
 
-// â”€â”€â”€ Page export â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// Page export
 
 export default function NewProjectPage(): React.ReactElement {
   return (
