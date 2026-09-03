@@ -1201,6 +1201,7 @@ export default async function handler(
       });
 
     } catch (err: unknown) {
+       console.error('[PROFILE-ERROR] Full details:', err);
       const isMongoError =
         err instanceof Error &&
         "code" in err &&
@@ -1758,6 +1759,7 @@ export default async function handler(
       });
 
     } catch (err: unknown) {
+       console.error('[PROFILE-ERROR] Full details:', err);
       const isMongoError =
         err instanceof Error &&
         "code" in err &&
