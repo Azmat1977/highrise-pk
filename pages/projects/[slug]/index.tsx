@@ -1170,7 +1170,66 @@ export default function ProjectDetailPage({ project }: PageProps) {
                 PAYMENT PLANS (multi-plan) — falls back
                 to single installmentPlan below when empty
             ══════════════════════════════════════ */}
-            {activePaymentPlans.length > 0 && (
+            {(project.paymentPlanImages?.length ?? 0) > 0 && (
+              <section id="payment" className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+                <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+                  <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                    <CreditCard className="w-5 h-5 text-[#029bba]" />
+                    Payment Plans
+                  </h2>
+                  {project.projectDocuments?.paymentPlanUrl && (
+                    <a
+                      href={project.projectDocuments.paymentPlanUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs font-bold text-[#029bba] hover:underline"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      Download PDF
+                    </a>
+                  )}
+                </div>
+                <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  {project.paymentPlanImages!.map((img, i) => (
+                    <button
+                      key={i}
+                      type="button"
+                      onClick={() => setFloorPlanViewer({
+                        plan: img.caption || 'Payment Plan',
+                        imageUrl: img.url,
+                      })}
+                      className="group rounded-2xl border border-gray-200 overflow-hidden text-left
+                                 hover:border-[#029bba]/30 hover:shadow-lg transition-all bg-white"
+                    >
+                      <div className="relative bg-[#f8fafc] h-64 sm:h-72 flex items-center justify-center p-4">
+                        <img
+                          src={img.url}
+                          alt={img.caption || 'Payment plan'}
+                          className="max-h-full max-w-full object-contain transition-transform duration-300
+                                     group-hover:scale-[1.02]"
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center opacity-0
+                                        group-hover:opacity-100 transition-opacity">
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full
+                                           bg-black/60 backdrop-blur-sm text-white text-xs font-bold">
+                            <Maximize2 className="w-3.5 h-3.5" />
+                            Click to expand
+                          </span>
+                        </div>
+                      </div>
+                      <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-2">
+                        <p className="text-sm font-bold text-gray-900 truncate">
+                          {img.caption || `Payment Plan ${i + 1}`}
+                        </p>
+                        <Maximize2 className="w-4 h-4 text-gray-400 shrink-0" />
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {(project.paymentPlanImages?.length ?? 0) === 0 && activePaymentPlans.length > 0 && (
               <section id="payment" className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -1192,7 +1251,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
             {/* ══════════════════════════════════════
                 PAYMENT PLAN (single — legacy fallback)
             ══════════════════════════════════════ */}
-            {activePaymentPlans.length === 0 && project.installmentPlan && project.saleMode === 'Installment' && (
+            {activePaymentPlans.length === 0 && (project.paymentPlanImages?.length ?? 0) === 0 && project.installmentPlan && project.saleMode === 'Installment' && (
               <Section id="payment" title="Payment Plan" icon={<CreditCard className="w-5 h-5 text-[#029bba]" />}>
                 <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
                   {project.installmentPlan.bookingAmount && (

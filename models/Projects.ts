@@ -494,6 +494,12 @@ export interface IFullPaymentInfo {
   pricePerUnit?: number;
 }
 
+export interface IPaymentPlanImage {
+  url:      string;
+  publicId?: string;
+  caption?: string;
+}
+
 export interface IInstallmentPlan {
   totalPrice?: number;
   bookingAmount?: number;
@@ -689,6 +695,7 @@ export interface IProject extends Document {
   fullPaymentInfo?: IFullPaymentInfo;
   installmentPlan?: IInstallmentPlan;
   paymentPlans?: IProjectPaymentPlan[];
+  paymentPlanImages?: IPaymentPlanImage[];
   unitTypeBreakdown?: IUnitType[];
 
   // ── DEVELOPER SNAPSHOT ─────────────────────
@@ -1547,6 +1554,13 @@ const ProjectSchema = new Schema<IProject>(
       areaUnit: { type: String, enum: ['Sq.ft', 'Marla', 'Sq.yard', 'Kanal'] },
       pricePerUnit: { type: Number, min: 0 },
     },
+    paymentPlanImages: [
+      {
+        url:      { type: String, required: true },
+        publicId: { type: String },
+        caption:  { type: String, maxlength: 150 },
+      },
+    ],
     installmentPlan: {
       totalPrice: { type: Number, min: 0 },
       bookingAmount: { type: Number, min: 0 },

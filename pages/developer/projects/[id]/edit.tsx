@@ -20,6 +20,8 @@ import FileUploader from '@/components/admin/FileUploader';
 import BuildingFloorPlansSection, { BuildingFloorPlan } from '@/components/admin/BuildingFloorPlansSection';
 import UnitPlansSection, { UnitPlan } from '@/components/admin/UnitPlansSection';
 import {
+  PaymentPlanImagesEditor,
+  type PaymentPlanImageInput,
   DevelopmentUpdatesEditor,
   AmenitiesEditor,
   NearbyFacilitiesEditor,
@@ -242,6 +244,7 @@ interface RawProject {
   amenitiesDetailed?: unknown[];
   nearbyFacilities?: unknown[];
   locationAdvantages?: unknown[];
+  paymentPlanImages?: unknown[];
   projectDocuments?: ProjectDocuments;
   buildingFloorPlans?: unknown[];
   unitPlans?: unknown[];
@@ -314,6 +317,7 @@ interface ProjectUpdateBody {
   amenitiesDetailed: AmenityPayload[];
   nearbyFacilities: NearbyFacilityPayload[];
   locationAdvantages: LocationAdvantagePayload[];
+  paymentPlanImages: { url: string; caption: string | undefined }[];
   projectDocuments: ProjectDocuments;
   buildingFloorPlans: BuildingFloorPlan[];
   unitTypeBreakdown: UnitPlan[];
@@ -609,6 +613,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [amenities,          setAmenities]          = useState<AmenityInput[]>([]);
   const [nearbyFacilities,   setNearbyFacilities]   = useState<NearbyFacilityInput[]>([]);
   const [locationAdvantages, setLocationAdvantages] = useState<LocationAdvantageInput[]>([]);
+  const [paymentPlanImages, setPaymentPlanImages] = useState<PaymentPlanImageInput[]>([]);
   const [projectDocuments,    setProjectDocuments]    = useState<ProjectDocuments>({});
   const [buildingFloorPlans,  setBuildingFloorPlans]  = useState<BuildingFloorPlan[]>([]);
   const [unitPlans,           setUnitPlans]           = useState<UnitPlan[]>([]);
@@ -922,6 +927,19 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           );
         }
 
+        // Payment plan images (display: Payment section cards)
+        if (Array.isArray(project.paymentPlanImages)) {
+          setPaymentPlanImages(
+            (project.paymentPlanImages as unknown[]).map((img) => {
+              const pi = img as { url?: unknown; caption?: unknown };
+              return {
+                url:     safeTrim(pi.url),
+                caption: safeTrim(pi.caption),
+              };
+            }).filter((img) => img.url)
+          );
+        }
+
         // Location advantages (display: Location Advantages)
         if (Array.isArray(project.locationAdvantages)) {
           setLocationAdvantages(
@@ -1148,6 +1166,13 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           distance: toNullIfEmpty(n.distance),
         }));
 
+      const paymentPlanImagesPayload = paymentPlanImages
+        .filter((img) => img.url.trim())
+        .map((img) => ({
+          url:     img.url.trim(),
+          caption: img.caption.trim() || undefined,
+        }));
+
       const locationAdvantagesPayload: LocationAdvantagePayload[] = locationAdvantages
         .filter((a) => safeTrim(a.title))
         .map((a) => ({
@@ -1284,6 +1309,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
         amenitiesDetailed:   amenitiesPayload,
         nearbyFacilities:    nearbyFacilitiesPayload,
         locationAdvantages:  locationAdvantagesPayload,
+        paymentPlanImages:   paymentPlanImagesPayload,
         projectDocuments,
         buildingFloorPlans,
         unitTypeBreakdown:  unitPlans,
@@ -1336,7 +1362,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     downPaymentBonusDescription, earlyBirdEnabled, earlyBirdDiscountPercent,
     earlyBirdDescription, earlyBirdValidFrom, earlyBirdValidTill, customOffers,
     featureImage, droneVideoUrl, virtualTourUrl, googleMapLink, coordinatesRaw,
-    developmentUpdates, amenities, nearbyFacilities, locationAdvantages,
+    developmentUpdates, amenities, nearbyFacilities, locationAdvantages, paymentPlanImages,
     completedProjects, projectDocuments, buildingFloorPlans,
     unitPlans, projectId, apiFetch,
   ]);
@@ -1685,6 +1711,9 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
           {/* Location advantages — display: Location section */}
           <LocationAdvantagesEditor value={locationAdvantages} onChange={setLocationAdvantages} disabled={saving} />
+
+          {/* Payment plan images — display: Payment section cards */}
+          <PaymentPlanImagesEditor value={paymentPlanImages} onChange={setPaymentPlanImages} disabled={saving} />
 
           {/* Payment */}
           <Section title="Payment Structure" subtitle="Define pricing, payment options, and special discounts" icon="">

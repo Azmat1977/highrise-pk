@@ -12,7 +12,7 @@
 
 'use client';
 
-import React, { useCallback } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Plus, X, Video } from 'lucide-react';
 
 // ─── Types (form-string shapes) ─────────────────────────────────────────────
@@ -396,6 +396,135 @@ export function NearbyFacilitiesEditor({
           <Plus className="w-4 h-4 mr-2" />
           Add Nearby Place
         </button>
+      </div>
+    </Section>
+  );
+}
+
+// ─── PaymentPlanImagesEditor ────────────────────────────────────────────────
+
+export interface PaymentPlanImageInput {
+  url:     string;
+  caption: string;
+}
+
+export function PaymentPlanImagesEditor({
+  value, onChange, disabled,
+}: EditorProps<PaymentPlanImageInput>): React.ReactElement {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const uploaded: PaymentPlanImageInput[] = [];
+      for (const file of files.slice(0, 6)) {
+        if (file.size > 10 * 1024 * 1024) {
+          setUploadError('Each image must be under 10MB.');
+          continue;
+        }
+        const formData = new FormData();
+        formData.append('file', file, file.name);
+        const res = await fetch('/api/upload?folder=projects', {
+          method: 'POST',
+          body: formData,
+          credentials: 'include',
+        });
+        const data = (await res.json()) as { success: boolean; data?: { url: string; publicId: string }; message?: string };
+        if (data.success && data.data) {
+          uploaded.push({ url: data.data.url, caption: '' });
+        } else {
+          setUploadError(data.message ?? 'Upload failed.');
+        }
+      }
+      if (uploaded.length) {
+        onChange((prev) => [...prev, ...uploaded].slice(0, 10));
+      }
+    } catch {
+      setUploadError('Upload failed. Please try again.');
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const change = (index: number, field: keyof PaymentPlanImageInput, v: string): void => {
+    onChange((prev) => prev.map((img, i) => (i === index ? { ...img, [field]: v } : img)));
+  };
+
+  const remove = (index: number): void => {
+    onChange((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  return (
+    <Section
+      title="Payment Plan Images"
+      subtitle="Upload plan banners (horizontal or vertical) — they appear on the project page payment section."
+    >
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm text-[#666666]">
+            Buyers see these as payment plan cards with fullscreen zoom.
+          </p>
+          <button type="button" onClick={() => inputRef.current?.click()} disabled={disabled || uploading}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#029bba] text-white hover:bg-[#027a94] transition-colors shadow-sm disabled:opacity-50">
+            <Plus className="w-4 h-4" />
+            {uploading ? 'Uploading...' : 'Add Images'}
+          </button>
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            multiple
+            className="hidden"
+            onChange={(e) => { void handleUpload(e); }}
+          />
+        </div>
+
+        {uploadError && (
+          <p className="text-xs text-[#ef4444]">{uploadError}</p>
+        )}
+
+        {value.length === 0 && !uploading && (
+          <div className="rounded-xl border border-dashed border-gray-200 bg-[#f8f9fa] px-4 py-6 text-center text-sm text-[#666666]">
+            No payment plan images yet — upload plan banners (JPG, PNG).
+          </div>
+        )}
+
+        <div className="space-y-3">
+          {value.map((img, index) => (
+            <div key={index} className="relative rounded-xl border border-gray-200 bg-white p-4">
+              <button type="button" onClick={() => remove(index)} disabled={disabled}
+                className="absolute top-3 right-3 p-1.5 text-[#ef4444] hover:bg-[#fef2f2] rounded-lg transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+              <div className="flex flex-col md:flex-row gap-4">
+                <div className="relative w-full md:w-56 h-32 rounded-lg overflow-hidden border border-gray-200 bg-gray-50 shrink-0">
+                  <img src={img.url} alt={img.caption || 'Payment plan'} className="w-full h-full object-contain" />
+                </div>
+                <div className="flex-1">
+                  <label className={labelClass}>Caption (Optional)</label>
+                  <input
+                    type="text"
+                    className={inputClass}
+                    placeholder="e.g. Hotel Suites Payment Plan"
+                    value={img.caption}
+                    onChange={(e) => change(index, 'caption', e.target.value)}
+                    disabled={disabled}
+                    maxLength={150}
+                  />
+                  <p className="text-xs text-[#666666] mt-1.5">
+                    Horizontal ya vertical — dono sizes supported, display auto-adjusts.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </Section>
   );
