@@ -343,6 +343,10 @@ export default function NearbyPlacesExplorer({
     map.on('click', () => map.scrollWheelZoom.enable());
     map.on('mouseout', () => map.scrollWheelZoom.disable());
 
+    // Container may render hidden/zero-height (SSR hydration timing) —
+    // force Leaflet to re-measure once visible
+    setTimeout(() => map.invalidateSize(), 200);
+
     mapRef.current = map;
     return () => {
       map.remove();
@@ -356,6 +360,10 @@ export default function NearbyPlacesExplorer({
 
   // ── Discover (Overpass) ──
   const discover = useCallback(async (): Promise<void> => {
+    if (enabledCats.size === 0) {
+      setError('Select at least one category to discover places.');
+      return;
+    }
     setLoading(true);
     setError(null);
     setDiscovered(true);
@@ -463,8 +471,9 @@ export default function NearbyPlacesExplorer({
 
           <button
             type="button"
-            onClick={() => void discover()}
-            disabled={loading || enabledCats.size === 0}
+            onClick={() => { void discover(); }}
+            disabled={loading}
+            title={enabledCats.size === 0 ? 'Select at least one category above' : 'Discover places'}
             className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
                        bg-[#029bba] hover:bg-[#027a94] text-white text-sm font-bold
                        shadow-sm transition-colors disabled:opacity-50"
