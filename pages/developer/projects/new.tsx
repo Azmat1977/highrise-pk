@@ -790,7 +790,7 @@ function ProjectForm(): React.ReactElement {
                 <textarea
                   id="shortDescription" name="shortDescription"
                   rows={2} className={inputClass}
-                  placeholder="A brief summary (2â€“3 lines) shown on the project search card..."
+                  placeholder="A brief summary (2-3 lines) shown on the project search card..."
                   maxLength={300}
                 />
               </div>
@@ -816,7 +816,7 @@ function ProjectForm(): React.ReactElement {
               <p className="text-sm text-[#333333]">
                 <span className="font-semibold">Upload documents separately</span> using the
                 Documents section below. Legal files must be uploaded via the secure upload
-                portal and linked here â€” never attached directly to this form.
+                portal and linked here - never attached directly to this form.
               </p>
             </div>
 
@@ -1279,7 +1279,7 @@ function ProjectForm(): React.ReactElement {
                   onChange={(e) => setCoordinatesRaw(e.target.value)}
                 />
                 <p className="text-xs text-[#666666] mt-1.5">
-                  Right-click on Google Maps â†’ "What's here?" to get coordinates.
+                  Right-click on Google Maps: "What's here?" to get coordinates.
                 </p>
                 {staticMapUrl && (
                   <div className="mt-4">
@@ -1360,7 +1360,7 @@ export default function NewProjectPage(): React.ReactElement {
   return (
     <DeveloperLayout>
       <Head>
-        <title>Create New Project â€” Developer Portal | Highrise.pk</title>
+        <title>Create New Project - Developer Portal | Highrise.pk</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <ProjectForm />
