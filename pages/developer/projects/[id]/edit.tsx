@@ -1402,14 +1402,14 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
               <p className="text-sm text-[#333333] mt-1">{saveError}</p>
             </div>
             <button onClick={() => setSaveError(null)}
-              className="text-[#666666] hover:text-[#333333] text-lg leading-none" aria-label="Dismiss">أ—</button>
+              className="text-[#666666] hover:text-[#333333] text-lg leading-none" aria-label="Dismiss">×</button>
           </div>
         )}
 
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
 
           {/*Section 1: Classification*/}
-          <Section title="Project Classification" subtitle="Choose the category and nature of your project" icon="ًںڈ—ï¸ڈ">
+          <Section title="Project Classification" subtitle="Choose the category and nature of your project" icon="">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className={labelClass}>Project Category <span className="text-[#ef4444]">*</span></label>
@@ -1514,7 +1514,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           />
           {/* Legal  */}
           <Section title="Legal Documents & Approvals"
-            subtitle="Project-level approvals from development authorities (CDA, LDA, etc.)" icon="ًں§¾">
+            subtitle="Project-level approvals from development authorities (CDA, LDA, etc.)" icon="">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-6">
               <div>
                 <label className={labelClass}>Approval Authority</label>
@@ -1577,7 +1577,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           <DocumentsSection documents={projectDocuments} onChange={setProjectDocuments} projectSlug={projectCategory || 'project'} />
 
           {/* Scale */}
-          <Section title="Project Scale & Units" subtitle="Define the size and unit breakdown of your project" icon="ًں“ٹ">
+          <Section title="Project Scale & Units" subtitle="Define the size and unit breakdown of your project" icon="">
             {!projectCategory && (
               <div className="text-center py-8 text-[#666666] text-sm">
                 Please select a Project Category above to see relevant fields.
@@ -1686,13 +1686,13 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           {/* Location advantages — display: Location section */}
           <LocationAdvantagesEditor value={locationAdvantages} onChange={setLocationAdvantages} disabled={saving} />
 
-          {/* â”€â”€ Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <Section title="Payment Structure" subtitle="Define pricing, payment options, and special discounts" icon="ًں’°">
+          {/* Payment */}
+          <Section title="Payment Structure" subtitle="Define pricing, payment options, and special discounts" icon="">
 
             {/* Basic settings */}
             <div className="rounded-xl bg-[#f8f9fa] p-5 border border-gray-200 mb-6">
               <h4 className="font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                <span>ًں“‹</span> Basic Settings
+                *()*Basic Settings
               </h4>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-4">
                 <div>
@@ -1723,7 +1723,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             {(saleMode === 'Installment' || saleMode === 'Both') && (
               <div className="rounded-xl bg-[#eff6ff] p-5 border border-[#029bba]/20 mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold text-[#004063] flex items-center gap-2"><span>ًں’³</span> Installment Plan (Smart Mode)</h4>
+                  <h4 className="font-semibold text-[#004063] flex items-center gap-2"><span>*(empty)*</span> Installment Plan (Smart Mode)</h4>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={installmentEnabled} onChange={(e) => setInstallmentEnabled(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-[#029bba] focus:ring-[#029bba]" disabled={saving} />
@@ -1776,7 +1776,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
                     {percentError && (
                       <div className="rounded-lg bg-[#fef2f2] border border-[#ef4444]/20 px-4 py-2 text-xs text-[#ef4444] mb-5">
-                        âڑ ï¸ڈ {percentError}
+                      Warning: {percentError}
                       </div>
                     )}
 
@@ -1833,7 +1833,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             {(saleMode === 'Full Payment' || saleMode === 'Both') && (
               <div className="rounded-xl bg-[#f0fdf4] p-5 border border-[#10b981]/20 mb-6">
                 <div className="flex items-center justify-between mb-4">
-                  <h4 className="font-semibold text-[#004063] flex items-center gap-2"><span>ًں’µ</span> Full Cash Payment</h4>
+                  <h4 className="font-semibold text-[#004063] flex items-center gap-2">*()*Full Cash Payment</h4>
                   <label className="flex items-center gap-2 cursor-pointer">
                     <input type="checkbox" checked={fullPaymentEnabled} onChange={(e) => setFullPaymentEnabled(e.target.checked)}
                       className="w-4 h-4 rounded border-gray-300 text-[#10b981] focus:ring-[#10b981]" disabled={saving} />
@@ -1870,7 +1870,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                         </div>
                         {fullPaymentDiscountAmount > 0 && (
                           <div className="bg-[#10b981] text-white px-4 py-2 rounded-lg text-sm font-semibold">
-                            ًں’° Customer Saves: Rs. {fullPaymentDiscountAmount.toLocaleString('en-PK')}
+                            Customer Saves: Rs. {fullPaymentDiscountAmount.toLocaleString('en-PK')}
                           </div>
                         )}
                       </div>
@@ -1913,7 +1913,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             {(saleMode === 'Installment' || saleMode === 'Both') && (
               <div className="rounded-xl bg-[#fef3c7] p-5 border border-[#f59e0b]/30 mb-6">
                 <h4 className="font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                  <span>ًںڈ·ï¸ڈ</span> Special Discount Offers
+                  *()*Special Discount Offers
                 </h4>
                 <p className="text-sm text-[#666666] mb-5">These offers apply to installment buyers. Enable the ones that apply.</p>
 
@@ -2083,8 +2083,8 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             )}
           </Section>
 
-          {/* â”€â”€ Completed Projects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <Section title="Completed Projects by Developer" subtitle="Showcase your past successful developments" icon="ًںڈ—">
+          {/* Completed Projects */}
+          <Section title="Completed Projects by Developer" subtitle="Showcase your past successful developments" icon="">
             {completedProjects.map((project, index) => (
               <div key={index} className="p-5 bg-[#f8f9fa] rounded-xl border border-gray-200 mb-4 relative">
                 {index > 0 && (
@@ -2151,15 +2151,15 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             </button>
           </Section>
 
-          {/* â”€â”€ Visuals & Location â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-          <Section title="Visuals & Location" subtitle="Add feature image, videos, and map location" icon="ًں“·">
+          {/* Visuals & Location */}
+          <Section title="Visuals & Location" subtitle="Add feature image, videos, and map location" icon="">
             <div className="mb-8 border-b border-gray-100 pb-8">
               <label className="block text-base font-semibold text-[#004063] mb-2">
                 Feature Image / Hero Cover <span className="text-[#ef4444]">*</span>
               </label>
               <p className="text-sm text-[#666666] mb-4">
                 This is the <span className="font-semibold">main image</span> shown at the top of your project page.
-                Use a high-quality (1920أ—1080) exterior shot or render.
+                Use a high-quality (1920x1080) exterior shot or render.
               </p>
               <div className="max-w-xl">
                 <FileUploader
@@ -2192,11 +2192,11 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                 <label className={labelClass}>Coordinates (Optional)</label>
                 <input type="text" className={inputClass} placeholder="e.g. 33.6996, 73.0362"
                   value={coordinatesRaw} onChange={(e) => setCoordinatesRaw(e.target.value)} disabled={saving} />
-                <p className="text-xs text-[#666666] mt-1.5">Right-click on Google Maps â†’ &quot;What&apos;s here?&quot;</p>
+                <p className="text-xs text-[#666666] mt-1.5">Right-click on Google Maps: &quot;What&apos;s here?&quot;</p>
               </div>
               {staticMapUrl && (
                 <div className="md:col-span-2">
-                  <p className="text-sm text-[#333333] mb-2">ًں“چ Location Preview:</p>
+                  <p className="text-sm text-[#333333] mb-2">Location Preview:</p>
                   <img src={staticMapUrl} alt="Location preview" loading="lazy" referrerPolicy="no-referrer"
                     className="rounded-xl border border-gray-200 w-full max-w-lg" />
                 </div>
@@ -2204,7 +2204,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             </div>
           </Section>
 
-          {/* â”€â”€ Submit bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* Submit bar */}
           <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-6">
             <div className="flex flex-col md:flex-row gap-4 md:items-center md:justify-between">
               <p className="text-sm text-[#666666]">Your changes will be saved and the project will be updated.</p>
@@ -2245,7 +2245,7 @@ export default function EditProjectPage(): React.ReactElement {
   return (
     <DeveloperLayout>
       <Head>
-        <title>Edit Project â€” Developer Portal | Highrise.pk</title>
+        <title>Edit Project - Developer Portal | Highrise.pk</title>
         <meta name="robots" content="noindex, nofollow, noarchive" />
         <meta name="googlebot" content="noindex, nofollow, noarchive" />
         <meta name="referrer" content="same-origin" />
