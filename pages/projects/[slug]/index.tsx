@@ -355,6 +355,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
   const [activeOfferingIdx, setActiveOfferingIdx] = useState(0);
   const [activeFloorPlanIdx, setActiveFloorPlanIdx] = useState(0);
   const [activeNearbyTab, setActiveNearbyTab] = useState<string>('all');
+  const [nearbyUnit, setNearbyUnit] = useState<'m' | 'km'>('km');
   const [floorPlanViewer, setFloorPlanViewer] = useState<{
     plan: string;
     imageUrl?: string;
@@ -904,21 +905,27 @@ export default function ProjectDetailPage({ project }: PageProps) {
               {(project.nearbyFacilities?.length ?? 0) > 0 && (() => {
                 const cats = [...new Set(project.nearbyFacilities!.map((p) => p.category))];
                 // Auto-format: <1000 → meters, ≥1000 → km (input numeric ya "2.5 km")
-                const fmtDist = (raw?: string): string => {
-                  if (!raw) return '';
+                // Normalize input to meters first, then display per unit toggle
+                const toMeters = (raw?: string): number | null => {
+                  if (!raw) return null;
                   const n = parseFloat(raw.replace(/[^\d.]/g, ''));
-                  if (!Number.isFinite(n) || n <= 0) return raw;
-                  if (raw.toLowerCase().includes('m') && !raw.toLowerCase().includes('km')) {
-                    return n >= 1000 ? `${(n / 1000).toFixed(1)} km` : `${Math.round(n)} m`;
-                  }
-                  return n >= 1000 ? `${n.toFixed(1)} km` : `${Math.round(n * 1000)} m`;
+                  if (!Number.isFinite(n) || n <= 0) return null;
+                  if (raw.toLowerCase().includes('km')) return Math.round(n * 1000);
+                  return Math.round(n); // bare numbers / "m" — meters
+                };
+                const fmtDist = (raw?: string): string => {
+                  const m = toMeters(raw);
+                  if (m === null) return raw ?? '';
+                  if (nearbyUnit === 'm') return `${m.toLocaleString('en-PK')} m`;
+                  return `${(m / 1000).toFixed(1)} km`;
                 };
                 return (
                   <div className="mb-6">
                     <h4 className="font-semibold text-gray-900 mb-3">Around This Project</h4>
 
-                    {/* Category filter chips */}
-                    <div className="flex flex-wrap gap-1.5 mb-3">
+                    {/* Category filter chips + unit toggle */}
+                    <div className="flex items-center justify-between gap-3 mb-3 flex-wrap">
+                      <div className="flex flex-wrap gap-1.5">
                       {['all', ...cats].map((cat) => (
                         <button
                           key={cat}
@@ -934,6 +941,20 @@ export default function ProjectDetailPage({ project }: PageProps) {
                           {cat === 'all' ? `All (${project.nearbyFacilities!.length})` : cat}
                         </button>
                       ))}
+                      </div>
+
+                      {/* Unit toggle: m ⇄ km */}
+                      <button
+                        type="button"
+                        onClick={() => setNearbyUnit(nearbyUnit === 'm' ? 'km' : 'm')}
+                        aria-label={`Switch distances to ${nearbyUnit === 'm' ? 'kilometers' : 'meters'}`}
+                        title="Switch unit"
+                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-xs
+                                   font-bold text-gray-600 hover:border-[#029bba]/30 hover:text-[#029bba]
+                                   transition-colors shrink-0 tabular-nums"
+                      >
+                        {nearbyUnit === 'm' ? 'm → km' : 'km → m'}
+                      </button>
                     </div>
 
                     {/* Filtered list — scrollable */}
