@@ -22,7 +22,7 @@ import {
   Navigation,
   Hospital,
   GraduationCap,
-  ShoppingBag,
+  ShoppingCart,
   Landmark,
   Building2,
   Trees,
@@ -95,7 +95,7 @@ const TAB_ICONS: Record<
   React.ComponentType<{ className?: string; style?: React.CSSProperties }>
 > = {
   hospital: Hospital, school: GraduationCap, university: GraduationCap,
-  mall: ShoppingBag, mosque: Landmark, bank: Building2,
+  mall: ShoppingCart, mosque: Landmark, bank: Building2,
   park: Trees, airport: Plane, restaurant: UtensilsCrossed,
   other: MapPin,
 };
@@ -108,8 +108,8 @@ const MARKER_SVGS: Record<PoiCategory, string> = {
   school:     '<path d="M21 5c-1.5-1-4-1.5-6-1-1 .3-2 .8-3 1.5C11 4.8 10 4.3 9 4c-2-.5-4.5 0-6 1v14c1.5-1 4-1.5 6-1 1 .3 2 .8 3 1.5 1-.7 2-1.2 3-1.5 2-.5 4.5 0 6 1V5z" fill="white"/>',
   // University: graduation cap (global academia)
   university: '<path d="M12 4L1 9l11 5 9-4.09V17h2V9L12 4z" fill="white"/><path d="M6 13.18V17c0 1.66 2.69 3 6 3s6-1.34 6-3v-3.82l-6 2.73-6-2.73z" fill="white"/>',
-  // Mall: shopping bag
-  mall:       '<path d="M6 7V6a6 6 0 0112 0v1h2v14H4V7h2zm2 0h8V6a4 4 0 00-8 0v1z" fill="white"/>',
+  // Mall/Grocery: shopping cart (universal retail symbol)
+  mall:       '<circle cx="9" cy="21" r="1.8" fill="white"/><circle cx="19" cy="21" r="1.8" fill="white"/><path d="M2 3h3l2.6 12.6a1.8 1.8 0 001.8 1.4h8.9a1.8 1.8 0 001.8-1.4L22 7H6" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>',
   // Mosque: crescent + dome (universal place of worship symbol)
   mosque:     '<path d="M15.5 3a8 8 0 100 15 8.5 8.5 0 01-2-1.8 7 7 0 112-11.4A8.4 8.4 0 0115.5 3z" fill="white"/><path d="M7 19h10v2H7z" fill="white"/>',
   // Bank: column institution (classic bank symbol)
