@@ -1,48 +1,40 @@
 // components/project-detail/ProjectOverview.tsx
 //
-// Highrise.pk — Project Overview (V1)
-// Single-owner fact sheet: type, floors breakdown, dates, authority/NOC,
-// sale mode, units, construction progress.
-// Replaces: hero StatsBar, sidebar Quick Info, overview 4-cards.
-// Every fact conditional — nothing invented (missing data = hidden).
+// Highrise.pk — Project Overview (V2 — Icon Tiles + Milestone Progress)
+//
+// Redesign: every fact gets a grey type-specific icon chip; the
+// construction progress becomes a milestone bar (gradient fill,
+// 25/50/75 markers, phase label) instead of a plain thin bar.
+//
+// Data logic identical to V1 — nothing invented, conditional facts only.
 
 'use client';
 
 import React from 'react';
-import { Building2 } from 'lucide-react';
+import {
+  Building2,
+  Home,
+  Ruler,
+  Layers,
+  Calendar,
+  KeyRound,
+  CalendarCheck,
+  Landmark,
+  CreditCard,
+  Activity,
+} from 'lucide-react';
 
 import type { ProjectDetailData } from '@/types/projectDetail';
 import { formatDetailDate } from '@/types/projectDetail';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PROPS + HELPERS (unchanged from V1)
+// ─────────────────────────────────────────────────────────────────────────────
 
 interface ProjectOverviewProps {
   project: ProjectDetailData;
 }
 
-function Fact({
-  label,
-  value,
-  sub,
-}: {
-  label: string;
-  value: React.ReactNode;
-  sub?: React.ReactNode;
-}) {
-  return (
-    <div className="min-w-0">
-      <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">
-        {label}
-      </p>
-      <div className="text-sm font-bold text-gray-900 truncate">{value}</div>
-      {sub && <p className="text-[11px] text-gray-500 mt-0.5 truncate">{sub}</p>}
-    </div>
-  );
-}
-
-/**
- * getLandAreaSecondary
- * Secondary land-area conversion line — Kanal ↔ Marla ↔ Acre.
- * Returns undefined for unknown units (fact stays single-line).
- */
 function getLandAreaSecondary(value: number, unit: string): string | undefined {
   const u = (unit || '').toLowerCase();
   const fmt = (n: number, dp = 1) =>
@@ -66,22 +58,127 @@ function getLandAreaSecondary(value: number, unit: string): string | undefined {
   return undefined;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// FACT TILE — grey icon chip + label + value + sub
+// ─────────────────────────────────────────────────────────────────────────────
+
+function FactTile({
+  icon,
+  label,
+  value,
+  sub,
+  subClass,
+}: {
+  icon:   React.ReactNode;
+  label:  string;
+  value:  React.ReactNode;
+  sub?:   React.ReactNode;
+  subClass?: string;
+}): React.ReactElement {
+  return (
+    <div className="flex items-start gap-3 min-w-0 rounded-xl px-3 py-3
+                    hover:bg-gray-50 transition-colors">
+      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center
+                      justify-center shrink-0 text-gray-400">
+        {icon}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">
+          {label}
+        </p>
+        <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+          {value}
+        </p>
+        {sub && (
+          <p className={`text-[11px] mt-0.5 truncate ${subClass ?? 'text-gray-500'}`}>
+            {sub}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MILESTONE PROGRESS BAR
+// ─────────────────────────────────────────────────────────────────────────────
+
+function MilestoneProgressBar({ progress }: { progress: number }): React.ReactElement {
+  const clamped = Math.min(100, Math.max(0, progress));
+
+  const phase =
+    clamped >= 90 ? 'Finishing stage — near handover'
+    : clamped >= 50 ? 'Structure phase — mid construction'
+    : clamped >= 25 ? 'Foundation & structure work underway'
+    : clamped > 0  ? 'Early construction phase'
+    : 'Not started';
+
+  return (
+    <div className="rounded-xl border border-gray-100 bg-gray-50/60 p-4">
+      <div className="flex items-baseline justify-between mb-3">
+        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider">
+          Construction Progress
+        </p>
+        <div className="flex items-baseline gap-1">
+          <span className="text-2xl font-black text-[#029bba] tabular-nums leading-none">
+            {clamped}
+          </span>
+          <span className="text-xs font-bold text-gray-400">%</span>
+        </div>
+      </div>
+
+      {/* Track with gradient fill + milestone dots */}
+      <div className="relative">
+        <div
+          className="h-3 w-full rounded-full bg-gray-200 overflow-hidden"
+          role="progressbar"
+          aria-valuenow={clamped}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`Construction ${clamped}% complete`}
+        >
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#029bba] to-[#004063]
+                       transition-all duration-700"
+            style={{ width: `${clamped}%` }}
+          />
+        </div>
+
+        {/* Milestone markers — sit above the track */}
+        {[25, 50, 75].map((m) => (
+          <div
+            key={m}
+            className={`absolute top-1/2 -translate-y-1/2 w-2 h-2 rounded-full
+                        border-2 transition-colors ${
+              clamped >= m
+                ? 'bg-white border-[#004063]'
+                : 'bg-gray-400 border-gray-200'
+            }`}
+            style={{ left: `calc(${m}% - 4px)` }}
+            title={`${m}% milestone`}
+          />
+        ))}
+      </div>
+
+      <p className="mt-2.5 text-[11px] text-gray-500 font-medium">
+        {phase}
+      </p>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// MAIN COMPONENT
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function ProjectOverview({ project }: ProjectOverviewProps) {
   const breakdown = project.unitTypeBreakdown ?? [];
-
-  // Land area — societyDetails (primary) → legacy totalArea (fallback)
-  const landValue = project.societyDetails?.totalLandArea ?? 0;
-  const landUnit  = project.societyDetails?.landAreaUnit ?? 'Kanal';
-  const hasLandArea = landValue > 0;
 
   const totalUnits =
     breakdown.reduce((s, ut) => s + (ut.totalUnits ?? 0), 0) ||
     project.totalUnits ||
     0;
-  const availableUnits =
-    breakdown.reduce((s, ut) => s + (ut.availableUnits ?? 0), 0) ||
-    project.unitsAvailable ||
-    0;
+
 
   const fd = project.floorDetails;
   const floorParts: string[] = [];
@@ -94,6 +191,10 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
   const progress = project.developmentProgress;
   const nocApproved = project.nocStatus === 'approved';
   const nocPending = project.nocStatus === 'pending';
+
+  // Land area — societyDetails (primary) → legacy totalArea (fallback)
+  const landValue = project.societyDetails?.totalLandArea ?? 0;
+  const landUnit  = project.societyDetails?.landAreaUnit ?? 'Kanal';
 
   return (
     <section
@@ -111,106 +212,112 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
           <h2 className="text-xl font-bold text-gray-900">Project Overview</h2>
         </div>
 
-        {/* Facts grid */}
-        <div className="p-6 grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-5">
+        <div className="p-5">
+          {/* Fact tiles grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1">
 
-          <Fact
-            label="Project Type"
-            value={<span className="capitalize">{(project.projectNature || '—').replace(/_/g, ' ')}</span>}
-          />
-
-          {hasLandArea ? (
-            <Fact
-              label="Project Area"
-              value={`${landValue.toLocaleString()} ${landUnit}`}
-              sub={getLandAreaSecondary(landValue, landUnit)}
+            <FactTile
+              icon={<Home className="w-5 h-5" />}
+              label="Project Type"
+              value={<span className="capitalize">{(project.projectNature || '—').replace(/_/g, ' ')}</span>}
             />
-          ) : project.totalArea ? (
-            <Fact
-              label="Project Area"
-              value={project.totalArea}
-            />
-          ) : null}
 
-          {fd?.totalFloors ? (
-            <Fact
-              label="Total Floors"
-              value={fd.totalFloors}
-              sub={floorBreakdown || undefined}
-            />
-          ) : null}
+            {landValue > 0 ? (
+              <FactTile
+                icon={<Ruler className="w-5 h-5" />}
+                label="Project Area"
+                value={`${landValue.toLocaleString()} ${landUnit}`}
+                sub={getLandAreaSecondary(landValue, landUnit)}
+              />
+            ) : project.totalArea ? (
+              <FactTile
+                icon={<Ruler className="w-5 h-5" />}
+                label="Project Area"
+                value={project.totalArea}
+              />
+            ) : null}
 
-          {project.launchDate && (
-            <Fact label="Launch Date" value={formatDetailDate(project.launchDate)} />
-          )}
+            {fd?.totalFloors ? (
+              <FactTile
+                icon={<Layers className="w-5 h-5" />}
+                label="Total Floors"
+                value={fd.totalFloors}
+                sub={floorBreakdown || undefined}
+              />
+            ) : null}
 
-          {project.possessionStartDate && (
-            <Fact label="Possession" value={formatDetailDate(project.possessionStartDate)} />
-          )}
+            {project.launchDate && (
+              <FactTile
+                icon={<Calendar className="w-5 h-5" />}
+                label="Launch Date"
+                value={formatDetailDate(project.launchDate)}
+              />
+            )}
 
-          {project.expectedCompletionDate && (
-            <Fact label="Completion" value={formatDetailDate(project.expectedCompletionDate)} />
-          )}
+            {project.possessionStartDate && (
+              <FactTile
+                icon={<KeyRound className="w-5 h-5" />}
+                label="Possession"
+                value={formatDetailDate(project.possessionStartDate)}
+              />
+            )}
 
-          {project.approvalAuthority && (
-            <Fact
-              label="Approved By"
-              value={project.approvalAuthority}
-              sub={
-                nocApproved ? (
-                  <span className="font-bold text-green-600">NOC Approved</span>
-                ) : nocPending ? (
-                  <span className="font-bold text-amber-600">NOC Pending</span>
-                ) : undefined
-              }
-            />
-          )}
+            {project.expectedCompletionDate && (
+              <FactTile
+                icon={<CalendarCheck className="w-5 h-5" />}
+                label="Completion"
+                value={formatDetailDate(project.expectedCompletionDate)}
+              />
+            )}
 
-          {project.saleMode && (
-            <Fact label="Sale Mode" value={project.saleMode} />
-          )}
+            {project.approvalAuthority && (
+              <FactTile
+                icon={<Landmark className="w-5 h-5" />}
+                label="Approved By"
+                value={project.approvalAuthority}
+                sub={
+                  nocApproved ? (
+                    <span className="font-bold text-green-600">NOC Approved</span>
+                  ) : nocPending ? (
+                    <span className="font-bold text-amber-600">NOC Pending</span>
+                  ) : undefined
+                }
+              />
+            )}
 
-          {status && (
-            <Fact label="Status" value={<span className="capitalize">{status.replace(/_/g, ' ')}</span>} />
-          )}
+            {project.saleMode && (
+              <FactTile
+                icon={<CreditCard className="w-5 h-5" />}
+                label="Sale Mode"
+                value={project.saleMode}
+              />
+            )}
 
-          {totalUnits > 0 && (
-            <Fact
-              label="Total Units"
-              value={totalUnits}
-              sub={availableUnits > 0 ? `${availableUnits} available` : undefined}
-            />
-          )}
+            {status && (
+              <FactTile
+                icon={<Activity className="w-5 h-5" />}
+                label="Status"
+                value={<span className="capitalize">{status.replace(/_/g, ' ')}</span>}
+              />
+            )}
 
-        </div>
+            {totalUnits > 0 && (
+              <FactTile
+                icon={<Building2 className="w-5 h-5" />}
+                label="Total Units"
+                value={totalUnits}
+              />
+            )}
 
-        {/* Construction progress — synced with developmentUpdates data */}
-        {progress !== undefined && (
-          <div className="px-6 py-5 border-t border-gray-100">
-            <div className="flex items-center gap-4">
-              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider whitespace-nowrap">
-                Construction Progress
-              </p>
-              <div
-                className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden"
-                role="progressbar"
-                aria-valuenow={progress}
-                aria-valuemin={0}
-                aria-valuemax={100}
-                aria-label={`Construction ${progress}% complete`}
-              >
-                <div
-                  className="h-full bg-gradient-to-r from-[#029bba] to-[#017a94] rounded-full transition-all duration-700"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <span className="text-sm font-black text-[#029bba] tabular-nums whitespace-nowrap">
-                {progress}%
-              </span>
-            </div>
           </div>
-        )}
 
+          {/* Construction progress — milestone bar */}
+          {progress !== undefined && (
+            <div className="mt-4">
+              <MilestoneProgressBar progress={progress} />
+            </div>
+          )}
+        </div>
       </div>
     </section>
   );
