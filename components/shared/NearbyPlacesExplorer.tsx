@@ -1,15 +1,14 @@
 // components/shared/NearbyPlacesExplorer.tsx
 //
-// Highrise.pk — Interactive Nearby Places Explorer (Phase 2 R1)
+// Highrise.pk — Interactive Nearby Places Explorer (Phase 2 R1+)
 // Leaflet + OpenStreetMap + Overpass API — 100% FREE stack.
 //
 //   → Project pin (teal pulse) at coordinates
-//   → Category POI auto-discovery (hospitals, schools, malls, mosques,
-//     banks, parks, roads, airports — Overpass radius query)
-//   → Haversine distance (exact meters)
-//   → Distance-sorted list + map markers (click-sync)
-//
-// R2 (routing) hook: onSelect POI → OSRM route (pending integration)
+//   → Category POI auto-discovery (Overpass — 3-mirror fallback)
+//   → Icon markers: white glyph SVG on category-colored pins
+//   → Verified places (developer-curated) — badge markers + list section
+//   → Distance-sorted auto list, category icon chips, radius selector
+//   → Google Maps directions deep-link per POI
 
 'use client';
 
@@ -21,11 +20,24 @@ import {
   MapPin,
   Search,
   Navigation,
+  Hospital,
+  GraduationCap,
+  ShoppingBag,
+  Landmark,
+  Building2,
+  Trees,
+  Plane,
+  UtensilsCrossed,
+  BadgeCheck,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES + CONFIG
 // ─────────────────────────────────────────────────────────────────────────────
+
+export type PoiCategory =
+  | 'hospital' | 'school' | 'university' | 'mall' | 'mosque'
+  | 'bank' | 'park' | 'airport' | 'restaurant' | 'other';
 
 export interface DiscoveredPOI {
   id: string;
@@ -33,26 +45,25 @@ export interface DiscoveredPOI {
   category: PoiCategory;
   lat: number;
   lng: number;
-  distanceMeters: number; // haversine — straight line
+  distanceMeters: number;
 }
 
-export type PoiCategory =
-  | 'hospital' | 'school' | 'university' | 'mall' | 'mosque'
-  | 'bank' | 'park' | 'airport' | 'restaurant' | 'other';
+export interface VerifiedPlace {
+  name: string;
+  category: string;
+  distance?: string;
+}
 
-interface NearbyPlacesExplorerProps {
+export interface NearbyPlacesExplorerProps {
   projectLat: number;
   projectLng: number;
   projectName: string;
-  /** Height of the map container (Tailwind class, default h-[420px]) */
   mapHeightClass?: string;
-  /** Initial discovery radius in meters (default 3000) */
   initialRadius?: number;
-  /** Called when user selects a POI (R2 routing hook) */
   onPoiSelect?: (poi: DiscoveredPOI) => void;
+  verifiedPlaces?: VerifiedPlace[];
 }
 
-// Overpass query tags → our categories
 const OVERPASS_QUERIES: Record<PoiCategory, { tag: string; value?: string }[]> = {
   hospital:    [{ tag: 'amenity', value: 'hospital' }, { tag: 'amenity', value: 'clinic' }],
   school:      [{ tag: 'amenity', value: 'school' }, { tag: 'amenity', value: 'college' }],
@@ -67,21 +78,42 @@ const OVERPASS_QUERIES: Record<PoiCategory, { tag: string; value?: string }[]> =
 };
 
 const CATEGORY_META: Record<PoiCategory, { label: string; color: string }> = {
-  hospital:   { label: 'Hospitals',   color: '#ef4444' },
-  school:     { label: 'Schools',     color: '#f59e0b' },
-  university: { label: 'Universities',color: '#7c3aed' },
-  mall:       { label: 'Shopping',    color: '#ec4899' },
-  mosque:     { label: 'Mosques',     color: '#10b981' },
-  bank:       { label: 'Banks',       color: '#029bba' },
-  park:       { label: 'Parks',       color: '#22c55e' },
-  airport:    { label: 'Airports',    color: '#004063' },
-  restaurant: { label: 'Restaurants', color: '#f97316' },
-  other:      { label: 'Other',       color: '#6b7280' },
+  hospital:   { label: 'Hospitals',    color: '#ef4444' },
+  school:     { label: 'Schools',      color: '#f59e0b' },
+  university: { label: 'Universities', color: '#7c3aed' },
+  mall:       { label: 'Shopping',     color: '#ec4899' },
+  mosque:     { label: 'Mosques',      color: '#10b981' },
+  bank:       { label: 'Banks',        color: '#029bba' },
+  park:       { label: 'Parks',        color: '#22c55e' },
+  airport:    { label: 'Airports',     color: '#004063' },
+  restaurant: { label: 'Restaurants',  color: '#f97316' },
+  other:      { label: 'Other',        color: '#6b7280' },
+};
+
+const TAB_ICONS: Record<
+  PoiCategory,
+  React.ComponentType<{ className?: string; style?: React.CSSProperties }>
+> = {
+  hospital: Hospital, school: GraduationCap, university: GraduationCap,
+  mall: ShoppingBag, mosque: Landmark, bank: Building2,
+  park: Trees, airport: Plane, restaurant: UtensilsCrossed,
+  other: MapPin,
+};
+
+const MARKER_SVGS: Record<PoiCategory, string> = {
+  hospital:   '<rect x="9" y="4" width="6" height="16" fill="white"/><rect x="4" y="9" width="16" height="6" fill="white"/>',
+  school:     '<path d="M12 4L1 9l11 5 9-4.09V17h2V9L12 4z" fill="white"/><path d="M6 13.18V17c0 1.66 2.69 3 6 3s6-1.34 6-3v-3.82l-6 2.73-6-2.73z" fill="white"/>',
+  university: '<path d="M12 4L1 9l11 5 9-4.09V17h2V9L12 4z" fill="white"/><path d="M6 13.18V17c0 1.66 2.69 3 6 3s6-1.34 6-3v-3.82l-6 2.73-6-2.73z" fill="white"/>',
+  mall:       '<path d="M6 7V6a6 6 0 0112 0v1h2v14H4V7h2zm2 0h8V6a4 4 0 00-8 0v1z" fill="white"/>',
+  mosque:     '<path d="M12 2c3 2 5 4 5 7H7c0-3 2-5 5-7zM4 10h16v2H4v-2zm2 3h12v7h-3v-4H9v4H6v-7z" fill="white"/>',
+  bank:       '<path d="M12 2l9 5v2H3V7l9-5zM5 10h2v8H5v-8zm6 0h2v8h-2v-8zm6 0h2v8h-2v-8zM3 19h18v2H3v-2z" fill="white"/>',
+  park:       '<path d="M12 2l5 8h-3l4 6H6l4-6H7l5-8zM11 16h2v6h-2v-6z" fill="white"/>',
+  airport:    '<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="white"/>',
+  restaurant: '<path d="M7 2v8a3 3 0 003 3v9h2v-9a3 3 0 003-3V2h-2v7h-1V2h-2v7H9V2H7zm12 0c-2 0-4 2.5-4 5v3h3v12h2V2h-1z" fill="white"/>',
+  other:      '<circle cx="12" cy="12" r="6" fill="white"/>',
 };
 
 const RADIUS_OPTIONS = [1000, 3000, 5000, 10000] as const;
-
-// Default enabled categories (focused discovery — not overwhelming)
 const DEFAULT_CATEGORIES: PoiCategory[] = [
   'hospital', 'school', 'mall', 'mosque', 'bank', 'park',
 ];
@@ -90,11 +122,8 @@ const DEFAULT_CATEGORIES: PoiCategory[] = [
 // HELPERS
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Haversine distance in meters */
-function haversine(
-  lat1: number, lng1: number, lat2: number, lng2: number,
-): number {
-  const R = 6371000; // Earth radius meters
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000;
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLng = ((lng2 - lng1) * Math.PI) / 180;
   const a =
@@ -118,7 +147,6 @@ interface OverpassElement {
   tags?: Record<string, string>;
 }
 
-/** Build + run Overpass query for enabled categories within radius */
 async function fetchPois(
   lat: number,
   lng: number,
@@ -127,7 +155,6 @@ async function fetchPois(
 ): Promise<DiscoveredPOI[]> {
   if (categories.length === 0) return [];
 
-  // Build tag filters: node["amenity"="hospital"](around:RADIUS,LAT,LNG);
   const filters = categories
     .flatMap((cat) =>
       OVERPASS_QUERIES[cat].map(({ tag, value }) =>
@@ -138,8 +165,6 @@ async function fetchPois(
 
   const query = `[out:json][timeout:25];(${filters});out center 200;`;
 
-  // Overpass mirrors — public server often busy (429/504). Try each in
-  // order; first success wins. (kumi.systems is the most reliable mirror.)
   const mirrors = [
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass-api.de/api/interpreter',
@@ -158,36 +183,29 @@ async function fetchPois(
       });
       if (!res.ok) {
         lastError = new Error(`Overpass ${res.status}`);
-        continue; // next mirror
+        continue;
       }
       data = (await res.json()) as { elements?: OverpassElement[] };
-      break; // success
+      break;
     } catch (err: unknown) {
       lastError = err instanceof Error ? err : new Error('Network error');
-      // next mirror
     }
   }
 
-  if (!data) {
-    throw lastError ?? new Error('Overpass failed');
-  }
+  if (!data) throw lastError ?? new Error('Overpass failed');
 
   const pois: DiscoveredPOI[] = [];
   for (const el of data.elements ?? []) {
     const elLat = el.lat ?? el.center?.lat;
     const elLng = el.lon ?? el.center?.lon;
     const name = el.tags?.['name'];
-    if (!elLat || !elLng || !name) continue;
+    if (elLat === undefined || elLng === undefined || !name) continue;
 
-    // Reverse-map tags → category
     let category: PoiCategory = 'other';
     for (const [cat, tagDefs] of Object.entries(OVERPASS_QUERIES) as Array<
       [PoiCategory, { tag: string; value?: string }[]]
     >) {
-      const matches = tagDefs.some(
-        ({ tag, value }) =>
-          el.tags?.[tag] === (value ?? el.tags?.[tag])
-      );
+      const matches = tagDefs.some(({ tag, value }) => el.tags?.[tag] === value);
       if (matches) { category = cat; break; }
     }
 
@@ -201,7 +219,6 @@ async function fetchPois(
     });
   }
 
-  // Closest first, dedupe by name+category
   const seen = new Set<string>();
   return pois
     .sort((a, b) => a.distanceMeters - b.distanceMeters)
@@ -212,6 +229,25 @@ async function fetchPois(
       return true;
     })
     .slice(0, 100);
+}
+
+/** Icon marker — white glyph SVG on category-colored rounded square */
+function makeIconMarker(category: PoiCategory, verified = false): L.DivIcon {
+  const color = CATEGORY_META[category].color;
+  const size = verified ? 34 : 28;
+  const border = verified ? 'border:3px solid #029bba;' : 'border:2px solid white;';
+  return L.divIcon({
+    className: '',
+    html: `<div style="position:relative;width:${size}px;height:${size}px;border-radius:9px;background:${color};
+            ${border}box-shadow:0 2px 6px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;">
+      <svg viewBox="0 0 24 24" width="${size - 12}" height="${size - 12}"
+           style="pointer-events:none">${MARKER_SVGS[category]}</svg>
+      ${verified ? `<div style="position:absolute;top:-6px;right:-6px;width:14px;height:14px;
+        border-radius:50%;background:#029bba;border:2px solid white;"></div>` : ''}
+    </div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -225,11 +261,12 @@ export default function NearbyPlacesExplorer({
   mapHeightClass = 'h-[420px]',
   initialRadius = 3000,
   onPoiSelect,
+  verifiedPlaces = [],
 }: NearbyPlacesExplorerProps): React.ReactElement {
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const markersRef = useRef<Map<string, L.CircleMarker>>(new Map());
-  const routeLineRef = useRef<L.Polyline | null>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const verifiedMarkersRef = useRef<L.Marker[]>([]);
 
   const [pois, setPois] = useState<DiscoveredPOI[]>([]);
   const [loading, setLoading] = useState(false);
@@ -240,6 +277,7 @@ export default function NearbyPlacesExplorer({
   );
   const [selectedPoi, setSelectedPoi] = useState<DiscoveredPOI | null>(null);
   const [discovered, setDiscovered] = useState(false);
+  const [distUnit, setDistUnit] = useState<'km' | 'm'>('km');
 
   // ── Init map (once) ──
   useEffect(() => {
@@ -248,7 +286,7 @@ export default function NearbyPlacesExplorer({
     const map = L.map(containerRef.current, {
       center: [projectLat, projectLng],
       zoom: 14,
-      scrollWheelZoom: false, // page scroll conflict — enable on click
+      scrollWheelZoom: false,
     });
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -256,7 +294,6 @@ export default function NearbyPlacesExplorer({
       maxZoom: 19,
     }).addTo(map);
 
-    // Project pin — teal pulse
     const projectIcon = L.divIcon({
       className: '',
       html: `<div style="width:18px;height:18px;border-radius:50%;background:#029bba;
@@ -278,6 +315,34 @@ export default function NearbyPlacesExplorer({
       mapRef.current = null;
     };
   }, [projectLat, projectLng, projectName]);
+
+  // ── Verified markers (developer-curated) — render once per places change ──
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+
+    verifiedMarkersRef.current.forEach((m) => m.remove());
+    verifiedMarkersRef.current = [];
+
+    // Spread verified markers in a ring around the project pin (curated
+    // entries have no exact coordinates — ring placement near project)
+    const ringRadius = 0.0022; // ~240m in degrees
+    verifiedPlaces.forEach((place, i) => {
+      const cat = (place.category in CATEGORY_META ? place.category : 'other') as PoiCategory;
+      const angle = (i / Math.max(verifiedPlaces.length, 1)) * 2 * Math.PI;
+      const mLat = projectLat + ringRadius * Math.sin(angle);
+      const mLng = projectLng + ringRadius * Math.cos(angle) * 1.22;
+
+      const marker = L.marker([mLat, mLng], { icon: makeIconMarker(cat, true) })
+        .addTo(map)
+        .bindPopup(
+          `<strong>${place.name}</strong><br/>${CATEGORY_META[cat].label}` +
+          (place.distance ? ` · ${place.distance}` : '') +
+          '<br/><em>Verified by developer</em>'
+        );
+      verifiedMarkersRef.current.push(marker);
+    });
+  }, [verifiedPlaces, projectLat, projectLng]);
 
   // ── Discover (Overpass) ──
   const discover = useCallback(async (): Promise<void> => {
@@ -304,27 +369,21 @@ export default function NearbyPlacesExplorer({
     }
   }, [projectLat, projectLng, radius, enabledCats]);
 
-  // ── Render POI markers ──
+  // ── Render discovered POI markers ──
   useEffect(() => {
     const map = mapRef.current;
     if (!map) return;
 
-    // Clear old markers
     markersRef.current.forEach((m) => m.remove());
     markersRef.current.clear();
 
     for (const poi of pois) {
-      const meta = CATEGORY_META[poi.category];
-      const marker = L.circleMarker([poi.lat, poi.lng], {
-        radius: 6,
-        color: '#ffffff',
-        weight: 2,
-        fillColor: meta.color,
-        fillOpacity: 1,
+      const marker = L.marker([poi.lat, poi.lng], {
+        icon: makeIconMarker(poi.category),
       })
         .addTo(map)
         .bindPopup(
-          `<strong>${poi.name}</strong><br/>${meta.label} · ${fmtDistance(poi.distanceMeters)}`
+          `<strong>${poi.name}</strong><br/>${CATEGORY_META[poi.category].label} · ${fmtDistance(poi.distanceMeters)}`
         );
 
       marker.on('click', () => {
@@ -361,6 +420,16 @@ export default function NearbyPlacesExplorer({
     });
   };
 
+  const verifiedDistMeters = (raw?: string): number | null => {
+    if (!raw) return null;
+    const n = parseFloat(raw.replace(/[^\d.]/g, ''));
+    if (!Number.isFinite(n) || n <= 0) return null;
+    const lower = raw.toLowerCase();
+    if (lower.includes('km')) return Math.round(n * 1000);
+    if (/(\dm\b|meter)/.test(lower)) return Math.round(n);
+    return Math.round(n * 1000); // bare number = km (form convention)
+  };
+
   return (
     <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
       {/* Header */}
@@ -368,15 +437,14 @@ export default function NearbyPlacesExplorer({
         <div>
           <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
             <MapPin className="w-5 h-5 text-[#029bba]" />
-            Live Nearby Explorer
+            Location Explorer
           </h3>
           <p className="text-xs text-gray-500 mt-0.5">
-            Real places around this project — auto-discovered from OpenStreetMap
+            Verified places + live discovery — distances at a glance, directions one click away
           </p>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Radius selector */}
           <select
             value={radius}
             onChange={(e) => setRadius(Number(e.target.value))}
@@ -391,7 +459,6 @@ export default function NearbyPlacesExplorer({
             ))}
           </select>
 
-          {/* Discover button */}
           <button
             type="button"
             onClick={() => void discover()}
@@ -412,13 +479,14 @@ export default function NearbyPlacesExplorer({
         </div>
       </div>
 
-      {/* Category filters */}
+      {/* Category filters — icon chips */}
       <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap gap-1.5 bg-gray-50/50">
         {(Object.keys(CATEGORY_META) as PoiCategory[])
           .filter((c) => c !== 'other')
           .map((cat) => {
             const meta = CATEGORY_META[cat];
             const active = enabledCats.has(cat);
+            const Icon = TAB_ICONS[cat];
             return (
               <button
                 key={cat}
@@ -433,17 +501,14 @@ export default function NearbyPlacesExplorer({
                   color: active ? meta.color : '#9ca3af',
                 }}
               >
-                <span
-                  className="w-2 h-2 rounded-full"
-                  style={{ backgroundColor: active ? meta.color : '#d1d5db' }}
-                />
+                <Icon className="w-3.5 h-3.5" />
                 {meta.label}
               </button>
             );
           })}
       </div>
 
-      {/* Map + list side by side (desktop) */}
+      {/* Map + sidebar */}
       <div className="grid grid-cols-1 lg:grid-cols-3">
         {/* Map */}
         <div className="lg:col-span-2 relative">
@@ -456,11 +521,59 @@ export default function NearbyPlacesExplorer({
           )}
         </div>
 
-        {/* List panel */}
+        {/* Sidebar */}
         <div className="border-t lg:border-t-0 lg:border-l border-gray-100">
+          {/* Verified by developer */}
+          {verifiedPlaces.length > 0 && (
+            <div className="border-b border-gray-100">
+              <div className="px-4 py-2.5 flex items-center justify-between bg-[#029bba]/[0.03]">
+                <p className="text-xs font-bold text-[#004063] uppercase tracking-wide flex items-center gap-1.5">
+                  <BadgeCheck className="w-3.5 h-3.5 text-[#029bba]" />
+                  Verified by Developer
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setDistUnit(distUnit === 'km' ? 'm' : 'km')}
+                  className="px-2 py-0.5 rounded-md border border-gray-200 text-[10px]
+                             font-bold text-gray-500 hover:text-[#029bba] hover:border-[#029bba]/40
+                             transition-colors tabular-nums"
+                >
+                  {distUnit === 'km' ? 'km' : 'm'}
+                </button>
+              </div>
+              <div className="max-h-[180px] overflow-y-auto divide-y divide-gray-50">
+                {verifiedPlaces.map((place, i) => {
+                  const cat = (place.category in CATEGORY_META ? place.category : 'other') as PoiCategory;
+                  const Icon = TAB_ICONS[cat];
+                  const m = verifiedDistMeters(place.distance);
+                  return (
+                    <div key={i} className="flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors">
+                      <span
+                        className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                        style={{ backgroundColor: `${CATEGORY_META[cat].color}18` }}
+                      >
+                        <Icon className="w-3.5 h-3.5" style={{ color: CATEGORY_META[cat].color }} />
+                      </span>
+                      <p className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
+                        {place.name}
+                      </p>
+                      {m !== null && (
+                        <span className="px-2 py-0.5 rounded-full bg-[#029bba]/10 text-[#029bba]
+                                         text-[11px] font-bold tabular-nums shrink-0">
+                          {distUnit === 'km' ? `${(m / 1000).toFixed(1)} km` : `${m.toLocaleString('en-PK')} m`}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Auto-discovered */}
           <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-              Nearby ({visiblePois.length})
+              Auto-Discovered ({visiblePois.length})
             </p>
             {selectedPoi && (
               <button
@@ -501,6 +614,7 @@ export default function NearbyPlacesExplorer({
 
             {visiblePois.map((poi) => {
               const meta = CATEGORY_META[poi.category];
+              const Icon = TAB_ICONS[poi.category];
               const isActive = selectedPoi?.id === poi.id;
               return (
                 <button
@@ -516,9 +630,11 @@ export default function NearbyPlacesExplorer({
                               }`}
                 >
                   <span
-                    className="w-2.5 h-2.5 rounded-full shrink-0"
-                    style={{ backgroundColor: meta.color }}
-                  />
+                    className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
+                    style={{ backgroundColor: `${meta.color}18` }}
+                  >
+                    <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
+                  </span>
                   <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
                     {poi.name}
                   </span>
@@ -530,7 +646,7 @@ export default function NearbyPlacesExplorer({
             })}
           </div>
 
-          {/* Selected POI action bar (R2 routing hook) */}
+          {/* Selected POI action bar */}
           {selectedPoi && (
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
               <p className="text-sm font-bold text-gray-900 truncate">
