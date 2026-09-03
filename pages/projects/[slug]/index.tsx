@@ -1217,8 +1217,8 @@ export default function ProjectDetailPage({ project }: PageProps) {
                           </span>
                         </div>
                       </div>
-                      <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between gap-2">
-                        <p className="text-sm font-bold text-gray-900 truncate">
+                      <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-center gap-2">
+                        <p className="text-sm font-bold text-gray-900 truncate text-center">
                           {img.caption || `Payment Plan ${i + 1}`}
                         </p>
                         <Maximize2 className="w-4 h-4 text-gray-400 shrink-0" />

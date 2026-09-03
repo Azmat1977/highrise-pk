@@ -403,6 +403,23 @@ export function NearbyFacilitiesEditor({
 
 // ─── PaymentPlanImagesEditor ────────────────────────────────────────────────
 
+// Floor-wise price labels — standard Pakistani building breakdown.
+// Dropdown + Custom fallback (BuildingFloorPlansSection pattern — consistent UX)
+const PAYMENT_PLAN_LABELS = [
+  'Lower Ground — Parking & Storage Prices',
+  'Ground Floor — Shops Prices',
+  'Ground Floor — Apartments Prices',
+  'Mezzanine Floor — Shops Prices',
+  '1st to 5th Floors — Apartments Prices',
+  '6th to 15th Floors (Typical) — Apartments Prices',
+  '16th to 25th Floors (Typical) — Apartments Prices',
+  'Penthouse Floor Prices',
+  'Complete Price List — All Floors',
+  'Booking & Installment Schedule',
+] as const;
+
+const PAYMENT_PLAN_LABEL_CUSTOM = '__custom__';
+
 export interface PaymentPlanImageInput {
   url:     string;
   caption: string;
@@ -463,7 +480,7 @@ export function PaymentPlanImagesEditor({
   return (
     <Section
       title="Payment Plan Images"
-      subtitle="Upload plan banners (horizontal or vertical) — they appear on the project page payment section."
+      subtitle="Floor-wise price list images — buyers see each floor's prices with a clear label."
     >
       <div className="space-y-3">
         <div className="flex items-center justify-between">
@@ -507,18 +524,44 @@ export function PaymentPlanImagesEditor({
                   <img src={img.url} alt={img.caption || 'Payment plan'} className="w-full h-full object-contain" />
                 </div>
                 <div className="flex-1">
-                  <label className={labelClass}>Caption (Optional)</label>
-                  <input
-                    type="text"
-                    className={inputClass}
-                    placeholder="e.g. Hotel Suites Payment Plan"
-                    value={img.caption}
-                    onChange={(e) => change(index, 'caption', e.target.value)}
+                  <label className={labelClass}>Label</label>
+                  <select
+                    className={selectClass}
+                    value={
+                      PAYMENT_PLAN_LABELS.includes(img.caption as typeof PAYMENT_PLAN_LABELS[number])
+                        ? img.caption
+                        : img.caption
+                          ? PAYMENT_PLAN_LABEL_CUSTOM
+                          : ''
+                    }
+                    onChange={(e) =>
+                      change(index, 'caption', e.target.value === PAYMENT_PLAN_LABEL_CUSTOM ? '' : e.target.value)
+                    }
                     disabled={disabled}
-                    maxLength={150}
-                  />
+                  >
+                    <option value="">Select label</option>
+                    {PAYMENT_PLAN_LABELS.map((label) => (
+                      <option key={label} value={label}>{label}</option>
+                    ))}
+                    <option value={PAYMENT_PLAN_LABEL_CUSTOM}>Custom Label...</option>
+                  </select>
+
+                  {/* Custom text input — dropdown "Custom" ya pehle se custom label ho */}
+                  {(img.caption === '' || !PAYMENT_PLAN_LABELS.includes(img.caption as typeof PAYMENT_PLAN_LABELS[number])) && (
+                    <input
+                      type="text"
+                      className={`${inputClass} mt-2`}
+                      placeholder="e.g. Lower Ground Price List"
+                      value={img.caption}
+                      onChange={(e) => change(index, 'caption', e.target.value)}
+                      disabled={disabled}
+                      maxLength={150}
+                    />
+                  )}
+
                   <p className="text-xs text-[#666666] mt-1.5">
-                    Horizontal ya vertical — dono sizes supported, display auto-adjusts.
+                    Floor-wise price images — label tells buyers which floor and unit type.
+                    Horizontal ya vertical dono supported.
                   </p>
                 </div>
               </div>
