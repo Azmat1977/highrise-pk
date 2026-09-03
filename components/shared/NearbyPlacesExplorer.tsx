@@ -100,15 +100,25 @@ const TAB_ICONS: Record<
   other: MapPin,
 };
 
+// International standard map symbols (WHO/UN-style POI glyphs)
 const MARKER_SVGS: Record<PoiCategory, string> = {
+  // Hospital: white cross (red field) — universal medical symbol
   hospital:   '<rect x="9" y="4" width="6" height="16" fill="white"/><rect x="4" y="9" width="16" height="6" fill="white"/>',
-  school:     '<path d="M12 4L1 9l11 5 9-4.09V17h2V9L12 4z" fill="white"/><path d="M6 13.18V17c0 1.66 2.69 3 6 3s6-1.34 6-3v-3.82l-6 2.73-6-2.73z" fill="white"/>',
+  // School: open book (universal education)
+  school:     '<path d="M21 5c-1.5-1-4-1.5-6-1-1 .3-2 .8-3 1.5C11 4.8 10 4.3 9 4c-2-.5-4.5 0-6 1v14c1.5-1 4-1.5 6-1 1 .3 2 .8 3 1.5 1-.7 2-1.2 3-1.5 2-.5 4.5 0 6 1V5z" fill="white"/>',
+  // University: graduation cap (global academia)
   university: '<path d="M12 4L1 9l11 5 9-4.09V17h2V9L12 4z" fill="white"/><path d="M6 13.18V17c0 1.66 2.69 3 6 3s6-1.34 6-3v-3.82l-6 2.73-6-2.73z" fill="white"/>',
+  // Mall: shopping bag
   mall:       '<path d="M6 7V6a6 6 0 0112 0v1h2v14H4V7h2zm2 0h8V6a4 4 0 00-8 0v1z" fill="white"/>',
-  mosque:     '<path d="M12 2c3 2 5 4 5 7H7c0-3 2-5 5-7zM4 10h16v2H4v-2zm2 3h12v7h-3v-4H9v4H6v-7z" fill="white"/>',
+  // Mosque: crescent + dome (universal place of worship symbol)
+  mosque:     '<path d="M15.5 3a8 8 0 100 15 8.5 8.5 0 01-2-1.8 7 7 0 112-11.4A8.4 8.4 0 0115.5 3z" fill="white"/><path d="M7 19h10v2H7z" fill="white"/>',
+  // Bank: column institution (classic bank symbol)
   bank:       '<path d="M12 2l9 5v2H3V7l9-5zM5 10h2v8H5v-8zm6 0h2v8h-2v-8zm6 0h2v8h-2v-8zM3 19h18v2H3v-2z" fill="white"/>',
+  // Park: tree (green space)
   park:       '<path d="M12 2l5 8h-3l4 6H6l4-6H7l5-8zM11 16h2v6h-2v-6z" fill="white"/>',
+  // Airport: airplane (global transport)
   airport:    '<path d="M21 16v-2l-8-5V3.5a1.5 1.5 0 00-3 0V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z" fill="white"/>',
+  // Restaurant: fork & knife (global dining)
   restaurant: '<path d="M7 2v8a3 3 0 003 3v9h2v-9a3 3 0 003-3V2h-2v7h-1V2h-2v7H9V2H7zm12 0c-2 0-4 2.5-4 5v3h3v12h2V2h-1z" fill="white"/>',
   other:      '<circle cx="12" cy="12" r="6" fill="white"/>',
 };
@@ -266,7 +276,7 @@ export default function NearbyPlacesExplorer({
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const verifiedMarkersRef = useRef<L.Marker[]>([]);
+
 
   const [pois, setPois] = useState<DiscoveredPOI[]>([]);
   const [loading, setLoading] = useState(false);
@@ -316,33 +326,9 @@ export default function NearbyPlacesExplorer({
     };
   }, [projectLat, projectLng, projectName]);
 
-  // ── Verified markers (developer-curated) — render once per places change ──
-  useEffect(() => {
-    const map = mapRef.current;
-    if (!map) return;
-
-    verifiedMarkersRef.current.forEach((m) => m.remove());
-    verifiedMarkersRef.current = [];
-
-    // Spread verified markers in a ring around the project pin (curated
-    // entries have no exact coordinates — ring placement near project)
-    const ringRadius = 0.0022; // ~240m in degrees
-    verifiedPlaces.forEach((place, i) => {
-      const cat = (place.category in CATEGORY_META ? place.category : 'other') as PoiCategory;
-      const angle = (i / Math.max(verifiedPlaces.length, 1)) * 2 * Math.PI;
-      const mLat = projectLat + ringRadius * Math.sin(angle);
-      const mLng = projectLng + ringRadius * Math.cos(angle) * 1.22;
-
-      const marker = L.marker([mLat, mLng], { icon: makeIconMarker(cat, true) })
-        .addTo(map)
-        .bindPopup(
-          `<strong>${place.name}</strong><br/>${CATEGORY_META[cat].label}` +
-          (place.distance ? ` · ${place.distance}` : '') +
-          '<br/><em>Verified by developer</em>'
-        );
-      verifiedMarkersRef.current.push(marker);
-    });
-  }, [verifiedPlaces, projectLat, projectLng]);
+  // Verified (curated) places: sidebar-list only — NO map markers (fake
+  // placement near project pin was misleading; exact coords unavailable
+  // until form collects lat/lng per place — R3 scope).
 
   // ── Discover (Overpass) ──
   const discover = useCallback(async (): Promise<void> => {
@@ -531,15 +517,6 @@ export default function NearbyPlacesExplorer({
                   <BadgeCheck className="w-3.5 h-3.5 text-[#029bba]" />
                   Verified by Developer
                 </p>
-                <button
-                  type="button"
-                  onClick={() => setDistUnit(distUnit === 'km' ? 'm' : 'km')}
-                  className="px-2 py-0.5 rounded-md border border-gray-200 text-[10px]
-                             font-bold text-gray-500 hover:text-[#029bba] hover:border-[#029bba]/40
-                             transition-colors tabular-nums"
-                >
-                  {distUnit === 'km' ? 'km' : 'm'}
-                </button>
               </div>
               <div className="max-h-[180px] overflow-y-auto divide-y divide-gray-50">
                 {verifiedPlaces.map((place, i) => {
