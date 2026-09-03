@@ -152,7 +152,7 @@ export function DevelopmentUpdatesEditor({
       <div className="space-y-4">
         <div className="flex items-center justify-between">
           <p className="text-sm text-[#666666]">
-            Time to time naya update add karein — date, % progress, photos aur site video ke sath.
+            Add dated updates with photos and site video — buyers track real construction progress.
           </p>
           <button type="button" onClick={add} disabled={disabled}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg bg-[#029bba] text-white hover:bg-[#027a94] transition-colors shadow-sm disabled:opacity-50">
@@ -163,7 +163,7 @@ export function DevelopmentUpdatesEditor({
 
         {value.length === 0 && (
           <div className="rounded-xl border border-dashed border-gray-200 bg-[#f8f9fa] px-4 py-6 text-center text-sm text-[#666666]">
-            Abhi koi update nahi hai. Pehla update add karein — e.g. &quot;Grey structure work started&quot;.
+            No updates yet. Add the first milestone — e.g. &quot;Grey structure work started&quot;.
           </div>
         )}
 
@@ -239,7 +239,7 @@ export function DevelopmentUpdatesEditor({
                   </button>
                 </div>
                 {update.images.length === 0 && (
-                  <p className="text-xs text-[#666666]">Koi photo nahi — URLs add karein (Cloudinary/gallery links).</p>
+                  <p className="text-xs text-[#666666]">No photos yet — add image URLs (Cloudinary/gallery links).</p>
                 )}
                 <div className="space-y-2">
                   {update.images.map((img, imgIdx) => (
@@ -295,7 +295,7 @@ export function AmenitiesEditor({
   return (
     <Section
       title="Amenities & Features"
-      subtitle="Project ki amenities — buyers in ko Features section mein dekhte hain."
+      subtitle="Amenities appear in the Features section of the project page."
     >
       <div className="space-y-3">
         {value.map((amenity, index) => (
@@ -356,7 +356,7 @@ export function NearbyFacilitiesEditor({
   return (
     <Section
       title="Nearby Places"
-      subtitle="Project ke aas-paas ki key locations — Location section mein dikhti hain."
+      subtitle="Nearby places appear in the Location section of the project page."
     >
       <div className="space-y-3">
         {value.map((place, index) => (
@@ -417,7 +417,7 @@ export function LocationAdvantagesEditor({
   return (
     <Section
       title="Location Advantages"
-      subtitle="Is location ke faide — har advantage ke points ek line per likhein."
+      subtitle="Location advantages appear on the project page — one point per line."
     >
       <div className="space-y-3">
         {value.map((adv, index) => (

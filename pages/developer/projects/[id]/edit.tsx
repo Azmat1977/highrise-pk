@@ -1709,7 +1709,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                   <label className={labelClass}>Representative Unit Type</label>
                   <input type="text" className={inputClass} placeholder="e.g. 2 Bed Type A - 950 sqft"
                     value={representativeUnitType} onChange={(e) => setRepresentativeUnitType(e.target.value)} disabled={saving} />
-                  <p className="text-xs text-[#666666] mt-1">Ye price kis unit type ke liye hai?</p>
+                  <p className="text-xs text-[#666666] mt-1">Which unit type does this price apply to?</p>
                 </div>
               </div>
               <div>
@@ -1785,7 +1785,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                         <label className={labelClass}>Plan Duration (Years) <span className="text-[#ef4444]">*</span></label>
                         <input type="number" min={1} max={30} step={0.5} className={inputClass} placeholder="e.g. 5"
                           value={planDurationYears} onChange={(e) => setPlanDurationYears(e.target.value)} disabled={saving} />
-                        <p className="text-xs text-[#666666] mt-1">Kitne saal ka installment plan?</p>
+                        <p className="text-xs text-[#666666] mt-1">Total plan duration in years?</p>
                       </div>
                       <div>
                         <label className={labelClass}>Installment Frequency</label>
@@ -1843,7 +1843,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
                 {fullPaymentEnabled && (
                   <>
-                    <p className="text-sm text-[#666666] mb-4">Cash buyers ke liye special discounted price set karein.</p>
+                    <p className="text-sm text-[#666666] mb-4">Set a special discounted price for cash buyers.</p>
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-5 mb-5">
                       <div>
                         <label className={labelClass}>Base Price (PKR) <span className="text-[#ef4444]">*</span></label>
@@ -1915,7 +1915,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
                 <h4 className="font-semibold text-[#004063] mb-4 flex items-center gap-2">
                   <span>ًںڈ·ï¸ڈ</span> Special Discount Offers
                 </h4>
-                <p className="text-sm text-[#666666] mb-5">Ye offers installment buyers ke liye hain. Enable karein jo applicable hon.</p>
+                <p className="text-sm text-[#666666] mb-5">These offers apply to installment buyers. Enable the ones that apply.</p>
 
                 {/* Advance installment discount */}
                 <div className="bg-white rounded-lg p-4 border border-[#f59e0b]/20 mb-4">
