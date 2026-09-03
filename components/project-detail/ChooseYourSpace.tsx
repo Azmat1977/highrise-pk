@@ -148,14 +148,17 @@ function getPerSqftRange(
   maxSqft: number,
 ): { min: number; max: number } | null {
   if (minSqft <= 0 || minPrice <= 0) return null;
-  const perMin = Math.round(minPrice / minSqft);
-  // max: use maxPrice/maxSqft when both exist; else minPrice/maxSqft for
-  // a conservative upper bound; else single value
+  // Pair by offer: the min-priced unit and the max-priced unit each get
+  // their own per-sqft rate. In real estate, larger units typically carry
+  // a lower per-sqft rate — so display order follows the price order
+  // (cheapest unit's rate first), NOT ascending numeric order.
+  //   e.g. 7.5M/750 = 10,000 (cheaper unit) · 9.5M/1,050 = 9,048 (pricier)
+  const rateLowPriceUnit = Math.round(minPrice / minSqft);
   if (maxPrice > minPrice && maxSqft > minSqft) {
-    const perMax = Math.round(maxPrice / maxSqft);
-    return { min: Math.min(perMin, perMax), max: Math.max(perMin, perMax) };
+    const rateHighPriceUnit = Math.round(maxPrice / maxSqft);
+    return { min: rateLowPriceUnit, max: rateHighPriceUnit };
   }
-  return { min: perMin, max: perMin };
+  return { min: rateLowPriceUnit, max: rateLowPriceUnit };
 }
 
 // ============================================
@@ -285,7 +288,7 @@ function UnitTypeRow({
               return (
                 <p className="text-[11px] font-semibold text-gray-500 tabular-nums mt-0.5 whitespace-nowrap">
                   ~ PKR {fmt(per.min)}
-                  {per.max > per.min && ` — ${fmt(per.max)}`}
+                  {per.max !== per.min && ` — ${fmt(per.max)}`}
                   {' '}/ sqft
                 </p>
               );
