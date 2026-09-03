@@ -173,33 +173,42 @@ async function fetchPois(
     )
     .join('');
 
-  const query = `[out:json][timeout:25];(${filters});out center 200;`;
+  // Compact query: shorter server timeout, fewer elements, no meta
+  const query = `[out:json][timeout:10];(${filters});out center 60;`;
 
+  // Parallel mirror RACE — first success wins, others aborted.
+  // (Serial fallback could hang 75s+ when the primary mirror queues.)
   const mirrors = [
-    'https://overpass.kumi.systems/api/interpreter',
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.private.coffee/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000); // hard 12s cap
+
+  const attempts = mirrors.map(async (mirror, i) => {
+    // Stagger 300ms per mirror — de-primary usually wins, race still fast
+    await new Promise((r) => setTimeout(r, i * 300));
+    const res = await fetch(mirror, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: `data=${encodeURIComponent(query)}`,
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`Overpass ${res.status}`);
+    return (await res.json()) as { elements?: OverpassElement[] };
+  });
 
   let data: { elements?: OverpassElement[] } | null = null;
   let lastError: Error | null = null;
-
-  for (const mirror of mirrors) {
-    try {
-      const res = await fetch(mirror, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: `data=${encodeURIComponent(query)}`,
-      });
-      if (!res.ok) {
-        lastError = new Error(`Overpass ${res.status}`);
-        continue;
-      }
-      data = (await res.json()) as { elements?: OverpassElement[] };
-      break;
-    } catch (err: unknown) {
-      lastError = err instanceof Error ? err : new Error('Network error');
-    }
+  try {
+    data = await Promise.any(attempts); // first success
+  } catch (err: unknown) {
+    lastError = err instanceof Error ? err : new Error('All mirrors failed');
+  } finally {
+    clearTimeout(timeout);
+    controller.abort(); // kill stragglers
   }
 
   if (!data) throw lastError ?? new Error('Overpass failed');
