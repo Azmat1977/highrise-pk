@@ -6,6 +6,7 @@
 
 import React, { useEffect } from 'react';
 import type { AppProps } from 'next/app';
+import 'leaflet/dist/leaflet.css';
 import { useRouter } from 'next/router';
 import { SessionProvider } from 'next-auth/react';
 import type { Session } from 'next-auth';

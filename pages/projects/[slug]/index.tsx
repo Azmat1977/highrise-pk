@@ -33,6 +33,7 @@ import SimilarProjectsSection    from '@/components/project-detail/SimilarProjec
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
+import NearbyPlacesExplorer      from '@/components/shared/NearbyPlacesExplorer';
 import { PaymentPlanList }       from '@/components/projects/PaymentPlanCard';
 import RiskAlertsSection         from '@/components/project-detail/RiskAlertsSection';
 import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
@@ -1023,6 +1024,17 @@ export default function ProjectDetailPage({ project }: PageProps) {
                   <ExternalLink className="w-4 h-4" />Open in Google Maps
                 </a>
               </div>
+
+              {/* Live Nearby Explorer — Leaflet + Overpass (auto-discovery) */}
+              {project.coordinates?.lat && project.coordinates?.lng && (
+                <div className="mb-6">
+                  <NearbyPlacesExplorer
+                    projectLat={project.coordinates.lat}
+                    projectLng={project.coordinates.lng}
+                    projectName={project.projectName}
+                  />
+                </div>
+              )}
 
               {/* Location advantages */}
               {(project.locationAdvantages?.length ?? 0) > 0 && (
