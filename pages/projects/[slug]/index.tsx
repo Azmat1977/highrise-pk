@@ -905,13 +905,19 @@ export default function ProjectDetailPage({ project }: PageProps) {
               {(project.nearbyFacilities?.length ?? 0) > 0 && (() => {
                 const cats = [...new Set(project.nearbyFacilities!.map((p) => p.category))];
                 // Auto-format: <1000 → meters, ≥1000 → km (input numeric ya "2.5 km")
-                // Normalize input to meters first, then display per unit toggle
+                // Normalize to meters. Unit detection priority:
+                //   explicit "km" in string → kilometers
+                //   explicit standalone "m" → meters
+                //   bare number → KILOMETERS (form convention & industry
+                //   standard — "2.5" means 2.5 km, property context)
                 const toMeters = (raw?: string): number | null => {
                   if (!raw) return null;
                   const n = parseFloat(raw.replace(/[^\d.]/g, ''));
                   if (!Number.isFinite(n) || n <= 0) return null;
-                  if (raw.toLowerCase().includes('km')) return Math.round(n * 1000);
-                  return Math.round(n); // bare numbers / "m" — meters
+                  const lower = raw.toLowerCase();
+                  if (lower.includes('km')) return Math.round(n * 1000);
+                  if (/(\dm\b|meter)/.test(lower)) return Math.round(n);
+                  return Math.round(n * 1000); // bare number = km
                 };
                 const fmtDist = (raw?: string): string => {
                   const m = toMeters(raw);
@@ -943,18 +949,37 @@ export default function ProjectDetailPage({ project }: PageProps) {
                       ))}
                       </div>
 
-                      {/* Unit toggle: m ⇄ km */}
-                      <button
-                        type="button"
-                        onClick={() => setNearbyUnit(nearbyUnit === 'm' ? 'km' : 'm')}
-                        aria-label={`Switch distances to ${nearbyUnit === 'm' ? 'kilometers' : 'meters'}`}
-                        title="Switch unit"
-                        className="px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white text-xs
-                                   font-bold text-gray-600 hover:border-[#029bba]/30 hover:text-[#029bba]
-                                   transition-colors shrink-0 tabular-nums"
-                      >
-                        {nearbyUnit === 'm' ? 'm → km' : 'km → m'}
-                      </button>
+                      {/* Unit toggle — enterprise segmented control */}
+                      <div className="flex items-center rounded-lg border border-gray-200 bg-white
+                                      overflow-hidden shrink-0" role="group" aria-label="Distance unit">
+                        {(['km', 'm'] as const).map((u) => (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => setNearbyUnit(u)}
+                            aria-pressed={nearbyUnit === u}
+                            className={`px-3 py-1.5 text-xs font-bold transition-colors
+                                        flex items-center gap-1 tabular-nums ${
+                              nearbyUnit === u
+                                ? 'bg-[#029bba] text-white'
+                                : 'text-gray-500 hover:text-gray-800 hover:bg-gray-50'
+                            }`}
+                          >
+                            {u === 'km' ? (
+                              <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none"
+                                   stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                <path d="M12 21V3M12 3l-4 4M12 3l4 4" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            ) : (
+                              <svg viewBox="0 0 24 24" className="w-3 h-3" fill="none"
+                                   stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                                <path d="M3 21L21 3M21 3h-6M21 3v6" strokeLinecap="round" strokeLinejoin="round"/>
+                              </svg>
+                            )}
+                            {u === 'km' ? 'km' : 'meters'}
+                          </button>
+                        ))}
+                      </div>
                     </div>
 
                     {/* Filtered list — scrollable */}
