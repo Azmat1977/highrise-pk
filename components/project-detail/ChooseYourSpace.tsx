@@ -134,6 +134,30 @@ function getPriceRange(ut: UnitTypeOffering): { min: number; max: number } {
   return { min, max };
 }
 
+/**
+ * getPerSqftRange
+ * Auto-calculated per-sqft cost (min and max) — buyer value signal.
+ * Formula: minPrice / minSqft → maxPrice / maxSqft.
+ * Returns null unless BOTH price and area data exist (never invented).
+ * Units: displays per Sq Ft (industry-standard comparison basis).
+ */
+function getPerSqftRange(
+  minPrice: number,
+  maxPrice: number,
+  minSqft: number,
+  maxSqft: number,
+): { min: number; max: number } | null {
+  if (minSqft <= 0 || minPrice <= 0) return null;
+  const perMin = Math.round(minPrice / minSqft);
+  // max: use maxPrice/maxSqft when both exist; else minPrice/maxSqft for
+  // a conservative upper bound; else single value
+  if (maxPrice > minPrice && maxSqft > minSqft) {
+    const perMax = Math.round(maxPrice / maxSqft);
+    return { min: Math.min(perMin, perMax), max: Math.max(perMin, perMax) };
+  }
+  return { min: perMin, max: perMin };
+}
+
 // ============================================
 // SUB-COMPONENTS
 // ============================================
@@ -230,24 +254,43 @@ function UnitTypeRow({
         </p>
       </div>
 
-      {/* Col 3: Price + Currency Converter (4 cols) */}
+      {/* Col 3: Price + per-sqft + Currency Converter (4 cols) */}
       <div className="lg:col-span-4 lg:border-l lg:border-gray-100 lg:pl-4 min-w-0">
         <MicroLabel>Price</MicroLabel>
         {hasPrice && displayMin > 0 ? (
-          <div className="flex items-center gap-1.5">
-            <p className="text-sm font-bold text-gray-800 tabular-nums whitespace-nowrap">
-              PKR {formatDetailPrice(displayMin)}
-              {maxPrice > displayMin && (
-                <span> — {formatDetailPrice(maxPrice)}</span>
-              )}
-            </p>
-            <PriceWithConverter
-              minPKR={displayMin}
-              maxPKR={maxPrice > displayMin ? maxPrice : undefined}
-              size="sm"
-              align="right"
-            />
-          </div>
+          <>
+            {/* Price row — converter icon right-aligned, single baseline
+                across every row (identical flex structure per row) */}
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-bold text-gray-800 tabular-nums whitespace-nowrap">
+                PKR {formatDetailPrice(displayMin)}
+                {maxPrice > displayMin && (
+                  <span> — {formatDetailPrice(maxPrice)}</span>
+                )}
+              </p>
+              <PriceWithConverter
+                minPKR={displayMin}
+                maxPKR={maxPrice > displayMin ? maxPrice : undefined}
+                size="sm"
+                align="right"
+              />
+            </div>
+
+            {/* Auto-calculated per-sqft cost — value signal for buyers
+                (residential / commercial / mixed — universal formula) */}
+            {(() => {
+              const per = getPerSqftRange(displayMin, maxPrice, minSqft, maxSqft);
+              if (!per) return null;
+              const fmt = (n: number) => n.toLocaleString('en-PK');
+              return (
+                <p className="text-[11px] font-semibold text-gray-500 tabular-nums mt-0.5 whitespace-nowrap">
+                  ~ PKR {fmt(per.min)}
+                  {per.max > per.min && ` — ${fmt(per.max)}`}
+                  {' '}/ sqft
+                </p>
+              );
+            })()}
+          </>
         ) : (
           <p className="text-sm font-bold text-gray-400">Contact for Price</p>
         )}
