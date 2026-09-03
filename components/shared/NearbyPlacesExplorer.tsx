@@ -123,7 +123,10 @@ const MARKER_SVGS: Record<PoiCategory, string> = {
   other:      '<circle cx="12" cy="12" r="6" fill="white"/>',
 };
 
-const RADIUS_OPTIONS = [1000, 3000, 5000, 10000] as const;
+const RADIUS_OPTIONS = [500, 1000, 3000, 5000, 10000] as const;
+const RADIUS_MIN = 100;    // 100m
+const RADIUS_MAX = 10000;  // 10km
+const RADIUS_STEP = 100;   // 100m steps
 const DEFAULT_CATEGORIES: PoiCategory[] = [
   'hospital', 'school', 'mall', 'mosque', 'bank', 'park',
 ];
@@ -306,6 +309,7 @@ export default function NearbyPlacesExplorer({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [radius, setRadius] = useState<number>(initialRadius);
+  // Slider works in meters (100m steps); presets in km
   const [enabledCats, setEnabledCats] = useState<Set<PoiCategory>>(
     new Set(DEFAULT_CATEGORIES)
   );
@@ -364,6 +368,7 @@ export default function NearbyPlacesExplorer({
       setError('Select at least one category to discover places.');
       return;
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- radius tracked below
     setLoading(true);
     setError(null);
     setDiscovered(true);
@@ -413,6 +418,14 @@ export default function NearbyPlacesExplorer({
     }
   }, [pois, onPoiSelect]);
 
+  // ── Auto re-discover on radius change (only after first discovery) ──
+  useEffect(() => {
+    if (discovered && !loading) {
+      void discover();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [radius]);
+
   // ── Selected POI → fly + highlight ──
   useEffect(() => {
     const map = mapRef.current;
@@ -455,19 +468,6 @@ export default function NearbyPlacesExplorer({
         </div>
 
         <div className="flex items-center gap-2">
-          <select
-            value={radius}
-            onChange={(e) => setRadius(Number(e.target.value))}
-            className="px-2.5 py-1.5 rounded-lg border border-gray-200 text-xs font-bold
-                       text-gray-600 focus:border-[#029bba] outline-none"
-            aria-label="Search radius"
-          >
-            {RADIUS_OPTIONS.map((r) => (
-              <option key={r} value={r}>
-                {(r / 1000).toFixed(r === 1000 ? 0 : 1)} km
-              </option>
-            ))}
-          </select>
 
           <button
             type="button"
@@ -487,6 +487,50 @@ export default function NearbyPlacesExplorer({
             )}
             {loading ? 'Discovering...' : discovered ? 'Refresh' : 'Discover Nearby'}
           </button>
+        </div>
+      </div>
+
+      {/* Radius control — slider + quick presets */}
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50/50">
+        <div className="flex items-center gap-3">
+          <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wide shrink-0">
+            Radius
+          </span>
+          <input
+            type="range"
+            min={RADIUS_MIN}
+            max={RADIUS_MAX}
+            step={RADIUS_STEP}
+            value={radius}
+            onChange={(e) => setRadius(Number(e.target.value))}
+            aria-label="Search radius in meters"
+            className="flex-1 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer
+                       accent-[#029bba] max-w-[240px]"
+          />
+          <span className="text-sm font-bold text-[#029bba] tabular-nums shrink-0 min-w-[52px]">
+            {radius >= 1000
+              ? `${(radius / 1000).toFixed(1)} km`
+              : `${radius} m`}
+          </span>
+        </div>
+        <div className="flex items-center gap-1.5 mt-2">
+          {RADIUS_OPTIONS.map((r) => (
+            <button
+              key={r}
+              type="button"
+              onClick={() => setRadius(r)}
+              aria-pressed={radius === r}
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold transition-all ${
+                radius === r
+                  ? 'bg-[#029bba] text-white'
+                  : 'bg-white text-gray-500 border border-gray-200 hover:border-[#029bba]/40'
+              }`}
+            >
+              {r >= 1000
+                ? `${(r / 1000).toFixed(r === 1000 || r === 10000 ? 0 : 1)} km`
+                : `${r} m`}
+            </button>
+          ))}
         </div>
       </div>
 
