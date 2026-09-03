@@ -354,6 +354,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
   const [activeOfferingTab, setActiveOfferingTab] = useState<'all' | 'residential' | 'commercial'>('all');
   const [activeOfferingIdx, setActiveOfferingIdx] = useState(0);
   const [activeFloorPlanIdx, setActiveFloorPlanIdx] = useState(0);
+  const [activeNearbyTab, setActiveNearbyTab] = useState<string>('all');
   const [floorPlanViewer, setFloorPlanViewer] = useState<{
     plan: string;
     imageUrl?: string;
@@ -899,28 +900,69 @@ export default function ProjectDetailPage({ project }: PageProps) {
                 </div>
               </div>
 
-              {/* Nearby places */}
-              {(project.nearbyFacilities?.length ?? 0) > 0 && (
-                <>
-                  <h4 className="font-semibold text-gray-900 mb-3">Nearby Places</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mb-6">
-                    {project.nearbyFacilities!.map((place, idx) => {
-                      const PlaceIcon = NEARBY_ICONS[place.category] ?? MapPin;
-                      return (
-                        <div key={idx} className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                          <div className="w-9 h-9 rounded-lg bg-white border border-gray-200 flex items-center justify-center">
-                            <PlaceIcon className="w-4 h-4 text-[#029bba]" />
-                          </div>
-                          <div>
-                            <p className="font-medium text-gray-900 text-sm">{place.name}</p>
-                            {place.distance && <p className="text-xs text-gray-500">{place.distance}</p>}
-                          </div>
-                        </div>
-                      );
-                    })}
+              {/* Nearby places — category tabs + distance chips (Zameen-pattern, Highrise identity) */}
+              {(project.nearbyFacilities?.length ?? 0) > 0 && (() => {
+                const cats = [...new Set(project.nearbyFacilities!.map((p) => p.category))];
+                // Auto-format: <1000 → meters, ≥1000 → km (input numeric ya "2.5 km")
+                const fmtDist = (raw?: string): string => {
+                  if (!raw) return '';
+                  const n = parseFloat(raw.replace(/[^\d.]/g, ''));
+                  if (!Number.isFinite(n) || n <= 0) return raw;
+                  if (raw.toLowerCase().includes('m') && !raw.toLowerCase().includes('km')) {
+                    return n >= 1000 ? `${(n / 1000).toFixed(1)} km` : `${Math.round(n)} m`;
+                  }
+                  return n >= 1000 ? `${n.toFixed(1)} km` : `${Math.round(n * 1000)} m`;
+                };
+                return (
+                  <div className="mb-6">
+                    <h4 className="font-semibold text-gray-900 mb-3">Around This Project</h4>
+
+                    {/* Category filter chips */}
+                    <div className="flex flex-wrap gap-1.5 mb-3">
+                      {['all', ...cats].map((cat) => (
+                        <button
+                          key={cat}
+                          type="button"
+                          onClick={() => setActiveNearbyTab(cat)}
+                          aria-pressed={activeNearbyTab === cat}
+                          className={`px-3 py-1.5 rounded-full text-xs font-bold capitalize transition-all ${
+                            activeNearbyTab === cat
+                              ? 'bg-[#029bba] text-white shadow-sm'
+                              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                          }`}
+                        >
+                          {cat === 'all' ? `All (${project.nearbyFacilities!.length})` : cat}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Filtered list — scrollable */}
+                    <div className="divide-y divide-gray-100 border border-gray-100 rounded-xl max-h-[280px] overflow-y-auto">
+                      {project.nearbyFacilities!
+                        .filter((p) => activeNearbyTab === 'all' || p.category === activeNearbyTab)
+                        .map((place, idx) => {
+                          const PlaceIcon = NEARBY_ICONS[place.category] ?? MapPin;
+                          return (
+                            <div key={idx} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+                              <div className="w-9 h-9 rounded-lg bg-gray-100 flex items-center justify-center shrink-0">
+                                <PlaceIcon className="w-4 h-4 text-gray-400" />
+                              </div>
+                              <p className="flex-1 min-w-0 text-sm font-medium text-gray-900 truncate">
+                                {place.name}
+                              </p>
+                              {place.distance && (
+                                <span className="px-2.5 py-1 rounded-full bg-[#029bba]/10 text-[#029bba]
+                                                 text-xs font-bold tabular-nums whitespace-nowrap shrink-0">
+                                  {fmtDist(place.distance)}
+                                </span>
+                              )}
+                            </div>
+                          );
+                        })}
+                    </div>
                   </div>
-                </>
-              )}
+                );
+              })()}
 
               {/* Map */}
               <div className="rounded-xl overflow-hidden border border-gray-200">
