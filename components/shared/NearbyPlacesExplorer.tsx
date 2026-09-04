@@ -847,25 +847,6 @@ export default function NearbyPlacesExplorer({
                   <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
                     {poi.name}
                   </span>
-                  {(() => {
-                    const road = roadDistances.get(poi.id);
-                    const shown = road !== undefined
-                      ? road
-                      : isRouted && routeData
-                        ? routeData.distanceMeters
-                        : null;
-                    return (
-                      <span
-                        className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                          shown !== null ? 'text-gray-700' : 'text-gray-400'
-                        }`}
-                      >
-                        {shown !== null
-                          ? fmtDistance(shown)
-                          : `≈ ${fmtDistance(poi.distanceMeters)}`}
-                      </span>
-                    );
-                  })()}
                 </button>
               );
             })}
