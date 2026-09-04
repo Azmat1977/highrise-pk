@@ -455,9 +455,14 @@ export default function NearbyPlacesExplorer({
       marker.openPopup();
     }
 
-    // Clear previous route
+    // Clear previous route (fill + casing + label)
     if (routeLineRef.current) {
-      routeLineRef.current.remove();
+      const oldFill = routeLineRef.current;
+      const oldCasing = (oldFill as unknown as { _casing?: L.Polyline })._casing;
+      const oldLabel = (oldFill as unknown as { _label?: L.Marker })._label;
+      oldFill.remove();
+      oldCasing?.remove();
+      oldLabel?.remove();
       routeLineRef.current = null;
     }
     setRouteData(null);
@@ -510,6 +515,24 @@ export default function NearbyPlacesExplorer({
           coords,
         });
 
+        // Route midpoint — distance + duration label (Google-style)
+        const midCoord = coords[Math.floor(coords.length / 2)];
+        const routeLabel = L.marker(midCoord, {
+          interactive: false, // clicks pass through to map
+          zIndexOffset: 1000,
+        })
+          .addTo(map)
+          .bindTooltip(
+            `${fmtDistance(route.distance)} · ${fmtDuration(route.duration)}`,
+            {
+              permanent: true,
+              direction: 'top',
+              className: 'route-dist-label', // styled via CSS below
+            }
+          );
+        // Track for cleanup with route lines
+        (routeLineRef.current as unknown as { _label?: L.Marker })._label = routeLabel;
+
         // Fit map to route bounds (both pins + path visible)
         const bounds = L.latLngBounds(coords);
         bounds.extend([projectLat, projectLng]);
@@ -532,11 +555,13 @@ export default function NearbyPlacesExplorer({
   // ── Route cleanup on POI deselect ──
   useEffect(() => {
     if (!selectedPoi && routeLineRef.current) {
-      // Remove both fill + casing
+      // Remove fill + casing + midpoint label
       const fill = routeLineRef.current;
       const casing = (fill as unknown as { _casing?: L.Polyline })._casing;
+      const label = (fill as unknown as { _label?: L.Marker })._label;
       fill.remove();
       casing?.remove();
+      label?.remove();
       routeLineRef.current = null;
       setRouteData(null);
     }
@@ -729,6 +754,9 @@ export default function NearbyPlacesExplorer({
               const meta = CATEGORY_META[poi.category];
               const Icon = TAB_ICONS[poi.category];
               const isActive = selectedPoi?.id === poi.id;
+              // Selected + route loaded → show ROAD distance (consistent
+              // with route panel); otherwise straight-line with ≈ prefix
+              const isRouted = isActive && routeData;
               return (
                 <button
                   key={poi.id}
@@ -751,8 +779,14 @@ export default function NearbyPlacesExplorer({
                   <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
                     {poi.name}
                   </span>
-                  <span className="text-[11px] font-bold text-gray-500 tabular-nums shrink-0">
-                    {fmtDistance(poi.distanceMeters)}
+                  <span
+                    className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                      isRouted ? 'text-[#029bba]' : 'text-gray-500'
+                    }`}
+                  >
+                    {isRouted
+                      ? fmtDistance(routeData!.distanceMeters)
+                      : `≈ ${fmtDistance(poi.distanceMeters)}`}
                   </span>
                 </button>
               );
@@ -773,7 +807,7 @@ export default function NearbyPlacesExplorer({
                   {CATEGORY_META[selectedPoi.category].label}
                 </span>
                 <span className="text-[11px] font-bold text-gray-400 tabular-nums">
-                  {fmtDistance(selectedPoi.distanceMeters)} straight
+                  ≈ {fmtDistance(selectedPoi.distanceMeters)} as the crow flies
                 </span>
               </div>
 
@@ -800,11 +834,9 @@ export default function NearbyPlacesExplorer({
                         {fmtDuration(routeData.durationSeconds)} drive
                       </span>
                     </p>
-                    {routeData.distanceMeters > selectedPoi.distanceMeters && (
-                      <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
-                        Road adds +{fmtDistance(routeData.distanceMeters - selectedPoi.distanceMeters)} over straight line
-                      </p>
-                    )}
+                    <p className="text-[10px] text-gray-400 mt-0.5">
+                      Actual driving distance — {fmtDuration(routeData.durationSeconds)} by road
+                    </p>
                   </>
                 ) : (
                   <p className="text-[10px] text-gray-400 italic">
