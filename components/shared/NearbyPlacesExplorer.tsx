@@ -465,9 +465,11 @@ export default function NearbyPlacesExplorer({
           `${projectLng},${projectLat}`,
           ...targets.map((p) => `${p.lng},${p.lat}`),
         ].join(';');
+        // annotations=distance REQUIRED — public OSRM returns only
+        // durations by default; distances field needs this flag.
         const url =
           `https://router.project-osrm.org/table/v1/driving/${coordStr}` +
-          `?sources=0&destinations=${destIdx}`;
+          `?sources=0&destinations=${destIdx}&annotations=distance`;
 
         const res = await fetch(url);
         if (!res.ok) {
@@ -475,16 +477,29 @@ export default function NearbyPlacesExplorer({
           return;
         }
         const data = (await res.json()) as {
-          distances?: number[][];
+          distances?: number[][]; // meters
+          durations?: number[][]; // seconds (fallback estimate basis)
         };
-        console.log('[OSRM-TABLE] response keys:', Object.keys(data), 'row0 len:', data.distances?.[0]?.length);
-        // With explicit sources+destinations: row = distances[0][j] for j=0..n
-        const row = data.distances?.[0];
+
+        // Distances array (annotation=distance) — preferred
+        let row: number[] | undefined = data.distances?.[0];
+
+        if (!row) {
+          console.warn('[OSRM-TABLE] distances missing — keys:', Object.keys(data));
+        }
+
+        if (!row && data.durations?.[0]) {
+          // Fallback: estimate distance from duration (~35 km/h urban
+          // average) — marked approximate but road-based (still better
+          // than straight-line for consistency)
+          row = data.durations[0].map((sec) => Math.round((sec * 35000) / 3600));
+        }
+
         if (!row || cancelled) return;
 
         const map = new Map<string, number>();
         targets.forEach((poi, i) => {
-          const d = row[i]; // row[j] aligns with destinations order
+          const d = row![i];
           if (typeof d === 'number' && d > 0) map.set(poi.id, Math.round(d));
         });
         if (!cancelled) setRoadDistances(map);
