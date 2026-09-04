@@ -583,6 +583,18 @@ export function formatDetailPrice(price: number | null | undefined): string {
 }
 
 /**
+ * formatCoordinate
+ * 5-decimal precision (~1.1m) — GPS overkill decimals trimmed.
+ */
+export function formatCoordinate(
+  coord: number | string | null | undefined,
+): string {
+  const n = typeof coord === 'string' ? parseFloat(coord) : coord;
+  if (n === null || n === undefined || !Number.isFinite(n)) return '';
+  return n.toFixed(5);
+}
+
+/**
  * formatDetailDate
  * Formats ISO date string for Pakistan locale.
  */

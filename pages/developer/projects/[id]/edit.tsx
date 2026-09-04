@@ -869,7 +869,20 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
         setDroneVideoUrl(safeTrim(project.droneVideoUrl));
         setVirtualTourUrl(safeTrim(project.virtualTourUrl));
         setGoogleMapLink(safeTrim(project.googleMapLink));
-        setCoordinatesRaw(safeTrim(project.coordinatesRaw));
+        // Trim to 5 decimals for display — full precision preserved on save
+        const rawCoords = safeTrim(project.coordinatesRaw);
+        if (rawCoords) {
+          const parts = rawCoords.split(',').map((s) => s.trim());
+          const lat = parts[0] ? parseFloat(parts[0]) : NaN;
+          const lng = parts[1] ? parseFloat(parts[1]) : NaN;
+          setCoordinatesRaw(
+            parts.length === 2 && Number.isFinite(lat) && Number.isFinite(lng)
+              ? `${lat.toFixed(5)}, ${lng.toFixed(5)}`
+              : rawCoords
+          );
+        } else {
+          setCoordinatesRaw('');
+        }
 
         // Development updates (model field: developmentUpdates — read-key fixed)
         if (Array.isArray(project.developmentUpdates) && project.developmentUpdates.length > 0) {

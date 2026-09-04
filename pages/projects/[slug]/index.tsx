@@ -67,6 +67,7 @@ import type {
 import {
   formatDetailPrice,
   formatDetailDate,
+  formatCoordinate,
   getProjectAreaDisplay,
   getDeveloperDisplayName,
   getPrimaryImageUrl,
@@ -913,7 +914,9 @@ export default function ProjectDetailPage({ project }: PageProps) {
                     {project.specificLocation ? `${project.specificLocation}, ` : ''}{areaDisplay}, {project.city}
                   </p>
                   {project.coordinates?.lat && project.coordinates?.lng && (
-                    <p className="text-sm text-gray-500 mt-1">{project.coordinates.lat}, {project.coordinates.lng}</p>
+                    <p className="text-sm text-gray-500 mt-1 tabular-nums">
+                      {formatCoordinate(project.coordinates.lat)}, {formatCoordinate(project.coordinates.lng)}
+                    </p>
                   )}
                 </div>
               </div>
