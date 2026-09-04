@@ -349,16 +349,28 @@ export default function NearbyPlacesExplorer({
       maxZoom: 19,
     }).addTo(map);
 
+    // Classic location marker (teardrop pin) — Google-style, brand teal
     const projectIcon = L.divIcon({
       className: '',
-      html: `<div style="width:18px;height:18px;border-radius:50%;background:#029bba;
-              box-shadow:0 0 0 4px rgba(2,155,186,0.3), 0 0 0 8px rgba(2,155,186,0.15);
-              border:3px solid white;"></div>`,
-      iconSize: [18, 18],
-      iconAnchor: [9, 9],
+      html: `<div style="position:relative;width:30px;height:42px;">
+        <svg viewBox="0 0 24 24" width="30" height="42"
+             style="filter:drop-shadow(0 3px 5px rgba(0,0,0,0.35));pointer-events:none;">
+          <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z"
+                fill="#029bba" stroke="#ffffff" stroke-width="1.5"/>
+          <circle cx="12" cy="12" r="4.5" fill="#ffffff"/>
+        </svg>
+      </div>`,
+      iconSize: [30, 42],
+      iconAnchor: [15, 42], // bottom tip anchors at exact coordinate
     });
-    L.marker([projectLat, projectLng], { icon: projectIcon })
+    L.marker([projectLat, projectLng], { icon: projectIcon, zIndexOffset: 1000 })
       .addTo(map)
+      .bindTooltip(projectName, {
+        permanent: true,
+        direction: 'top',
+        offset: [0, -14],
+        className: 'project-pin-label',
+      })
       .bindPopup(`<strong>${projectName}</strong><br/>Project location`);
 
     map.on('click', () => map.scrollWheelZoom.enable());
