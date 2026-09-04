@@ -443,6 +443,52 @@ export default function NearbyPlacesExplorer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radius]);
 
+  // ── Batch road distances (1:many OSRM) — every list entry shows ROAD
+  // distance. Consistency = trust: no mixed straight/road values.
+  const [roadDistances, setRoadDistances] = useState<Map<string, number>>(new Map());
+
+  useEffect(() => {
+    if (pois.length === 0 || !projectLat || !projectLng) {
+      setRoadDistances(new Map());
+      return;
+    }
+    let cancelled = false;
+
+    (async () => {
+      try {
+        // OSRM table service: project → all POIs (single request)
+        // Take top 30 nearest (request size cap)
+        const targets = pois.slice(0, 30);
+        const coordStr = [
+          `${projectLng},${projectLat}`,
+          ...targets.map((p) => `${p.lng},${p.lat}`),
+        ].join(';');
+        const url =
+          `https://router.project-osrm.org/table/v1/driving/${coordStr}` +
+          `?sources=0&annotations=distance`;
+
+        const res = await fetch(url);
+        if (!res.ok) return;
+        const data = (await res.json()) as {
+          distances?: number[][]; // [source][target] in meters
+        };
+        const row = data.distances?.[0];
+        if (!row || cancelled) return; // row[i] = project→POI[i] meters
+
+        const map = new Map<string, number>();
+        targets.forEach((poi, i) => {
+          const d = row[i + 1]; // skip source column
+          if (typeof d === 'number' && d > 0) map.set(poi.id, Math.round(d));
+        });
+        if (!cancelled) setRoadDistances(map);
+      } catch {
+        // Silent — straight-line (≈) fallback remains
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [pois, projectLat, projectLng]);
+
   // ── Selected POI → fly + highlight + OSRM route fetch ──
   useEffect(() => {
     const map = mapRef.current;
@@ -779,15 +825,25 @@ export default function NearbyPlacesExplorer({
                   <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
                     {poi.name}
                   </span>
-                  <span
-                    className={`text-[11px] font-bold tabular-nums shrink-0 ${
-                      isRouted ? 'text-[#029bba]' : 'text-gray-500'
-                    }`}
-                  >
-                    {isRouted
-                      ? fmtDistance(routeData!.distanceMeters)
-                      : `≈ ${fmtDistance(poi.distanceMeters)}`}
-                  </span>
+                  {(() => {
+                    const road = roadDistances.get(poi.id);
+                    const shown = road !== undefined
+                      ? road
+                      : isRouted && routeData
+                        ? routeData.distanceMeters
+                        : null;
+                    return (
+                      <span
+                        className={`text-[11px] font-bold tabular-nums shrink-0 ${
+                          shown !== null ? 'text-gray-700' : 'text-gray-400'
+                        }`}
+                      >
+                        {shown !== null
+                          ? fmtDistance(shown)
+                          : `≈ ${fmtDistance(poi.distanceMeters)}`}
+                      </span>
+                    );
+                  })()}
                 </button>
               );
             })}
@@ -807,7 +863,10 @@ export default function NearbyPlacesExplorer({
                   {CATEGORY_META[selectedPoi.category].label}
                 </span>
                 <span className="text-[11px] font-bold text-gray-400 tabular-nums">
-                  ≈ {fmtDistance(selectedPoi.distanceMeters)} as the crow flies
+                  {fmtDistance(
+                    roadDistances.get(selectedPoi.id) ?? selectedPoi.distanceMeters
+                  )}{' '}
+                  by road
                 </span>
               </div>
 
