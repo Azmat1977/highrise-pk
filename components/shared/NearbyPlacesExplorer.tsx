@@ -456,28 +456,35 @@ export default function NearbyPlacesExplorer({
 
     (async () => {
       try {
-        // OSRM table service: project → all POIs (single request)
-        // Take top 30 nearest (request size cap)
+        // OSRM table service: project (source) → all POIs (destinations).
+        // Explicit destinations param required by newer OSRM builds —
+        // implicit form returns inconsistent shapes.
         const targets = pois.slice(0, 30);
+        const destIdx = targets.map((_, i) => i + 1).join(';'); // skip index 0 (source)
         const coordStr = [
           `${projectLng},${projectLat}`,
           ...targets.map((p) => `${p.lng},${p.lat}`),
         ].join(';');
         const url =
           `https://router.project-osrm.org/table/v1/driving/${coordStr}` +
-          `?sources=0&annotations=distance`;
+          `?sources=0&destinations=${destIdx}`;
 
         const res = await fetch(url);
-        if (!res.ok) return;
+        if (!res.ok) {
+          console.warn('[OSRM-TABLE] HTTP', res.status, url);
+          return;
+        }
         const data = (await res.json()) as {
-          distances?: number[][]; // [source][target] in meters
+          distances?: number[][];
         };
+        console.log('[OSRM-TABLE] response keys:', Object.keys(data), 'row0 len:', data.distances?.[0]?.length);
+        // With explicit sources+destinations: row = distances[0][j] for j=0..n
         const row = data.distances?.[0];
-        if (!row || cancelled) return; // row[i] = project→POI[i] meters
+        if (!row || cancelled) return;
 
         const map = new Map<string, number>();
         targets.forEach((poi, i) => {
-          const d = row[i + 1]; // skip source column
+          const d = row[i]; // row[j] aligns with destinations order
           if (typeof d === 'number' && d > 0) map.set(poi.id, Math.round(d));
         });
         if (!cancelled) setRoadDistances(map);
