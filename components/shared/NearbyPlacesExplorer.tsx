@@ -15,6 +15,7 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import L from 'leaflet';
 import {
+  X,
   Loader2,
   RefreshCw,
   MapPin,
@@ -352,23 +353,24 @@ export default function NearbyPlacesExplorer({
     // Classic location marker (teardrop pin) — Google-style, brand teal
     const projectIcon = L.divIcon({
       className: '',
-      html: `<div style="position:relative;width:30px;height:42px;">
-        <svg viewBox="0 0 24 24" width="30" height="42"
-             style="filter:drop-shadow(0 3px 5px rgba(0,0,0,0.35));pointer-events:none;">
-          <path d="M12 0C5.4 0 0 5.4 0 12c0 9 12 24 12 24s12-15 12-24c0-6.6-5.4-12-12-12z"
+      html: `<div style="position:relative;width:26px;height:34px;">
+        <svg viewBox="0 0 24 34" width="26" height="34"
+             style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));pointer-events:none;">
+          <path d="M12 1C6 1 1.5 5.5 1.5 11.5c0 7 10.5 21.5 10.5 21.5S22.5 18.5 22.5 11.5C22.5 5.5 18 1 12 1z"
                 fill="#029bba" stroke="#ffffff" stroke-width="1.5"/>
-          <circle cx="12" cy="12" r="4.5" fill="#ffffff"/>
+          <circle cx="12" cy="11.5" r="4" fill="#ffffff"/>
         </svg>
       </div>`,
-      iconSize: [30, 42],
-      iconAnchor: [15, 42], // bottom tip anchors at exact coordinate
+      iconSize: [30, 30],
+      iconAnchor: [15, 30], // tip at exact coordinate; shorter size
+                               // prevents bottom clipping in zoomed viewports
     });
     L.marker([projectLat, projectLng], { icon: projectIcon, zIndexOffset: 1000 })
       .addTo(map)
       .bindTooltip(projectName, {
         permanent: true,
         direction: 'top',
-        offset: [0, -14],
+        offset: [0, -30],
         className: 'project-pin-label',
       })
       .bindPopup(`<strong>${projectName}</strong><br/>Project location`);
@@ -392,6 +394,37 @@ export default function NearbyPlacesExplorer({
   // until form collects lat/lng per place — R3 scope).
 
   // ── Discover (Overpass) ──
+  // Enterprise clear — full map reset to pristine state (project pin only)
+  const clearAll = useCallback((): void => {
+    // Remove all POI markers
+    markersRef.current.forEach((m) => m.remove());
+    markersRef.current.clear();
+
+    // Remove route
+    if (routeLineRef.current) {
+      const fill = routeLineRef.current;
+      const casing = (fill as unknown as { _casing?: L.Polyline })._casing;
+      const label = (fill as unknown as { _label?: L.Marker })._label;
+      fill.remove();
+      casing?.remove();
+      label?.remove();
+      routeLineRef.current = null;
+    }
+
+    // Reset all state → IDLE
+    setPois([]);
+    setSelectedPoi(null);
+    setRouteData(null);
+    setDiscovered(false);
+    setError(null);
+
+    // Reset map view to project location
+    const map = mapRef.current;
+    if (map) {
+      map.flyTo([projectLat, projectLng], 14, { duration: 0.8 });
+    }
+  }, [projectLat, projectLng]);
+
   const discover = useCallback(async (): Promise<void> => {
     if (enabledCats.size === 0) {
       setError('Select at least one category to discover places.');
@@ -435,7 +468,7 @@ export default function NearbyPlacesExplorer({
       })
         .addTo(map)
         .bindPopup(
-          `<strong>${poi.name}</strong><br/>${CATEGORY_META[poi.category].label} · ${fmtDistance(poi.distanceMeters)}`
+          `<strong>${poi.name}</strong><br/>${CATEGORY_META[poi.category].label}`
         );
 
       marker.on('click', () => {
@@ -632,10 +665,10 @@ export default function NearbyPlacesExplorer({
     };
   }, [selectedPoi, projectLat, projectLng]);
 
-  // ── Route cleanup on POI deselect ──
+  // ── Enterprise state machine: full reset on POI deselect ──
   useEffect(() => {
     if (!selectedPoi && routeLineRef.current) {
-      // Remove fill + casing + midpoint label
+      // Remove route (fill + casing + midpoint label)
       const fill = routeLineRef.current;
       const casing = (fill as unknown as { _casing?: L.Polyline })._casing;
       const label = (fill as unknown as { _label?: L.Marker })._label;
@@ -679,23 +712,40 @@ export default function NearbyPlacesExplorer({
 
         <div className="flex items-center gap-2">
 
+          {/* State machine: Discover → Refresh → Clear (cycle) */}
           <button
             type="button"
-            onClick={() => { void discover(); }}
+            onClick={() => {
+              if (discovered) {
+                clearAll();
+              } else {
+                void discover();
+              }
+            }}
             disabled={loading}
-            title={enabledCats.size === 0 ? 'Select at least one category above' : 'Discover places'}
-            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
-                       bg-[#029bba] hover:bg-[#027a94] text-white text-sm font-bold
-                       shadow-sm transition-colors disabled:opacity-50"
+            title={
+              enabledCats.size === 0
+                ? 'Select at least one category above'
+                : discovered
+                  ? 'Clear all places and reset map'
+                  : 'Discover places'
+            }
+            className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-lg
+                        text-white text-sm font-bold shadow-sm transition-colors
+                        disabled:opacity-50 ${
+                          discovered
+                            ? 'bg-gray-700 hover:bg-gray-800'
+                            : 'bg-[#029bba] hover:bg-[#027a94]'
+                        }`}
           >
             {loading ? (
               <Loader2 className="w-4 h-4 animate-spin" />
             ) : discovered ? (
-              <RefreshCw className="w-4 h-4" />
+              <X className="w-4 h-4" />
             ) : (
               <Search className="w-4 h-4" />
             )}
-            {loading ? 'Discovering...' : discovered ? 'Refresh' : 'Discover Nearby'}
+            {loading ? 'Discovering...' : discovered ? 'Clear Map' : 'Discover Nearby'}
           </button>
         </div>
       </div>
@@ -794,13 +844,13 @@ export default function NearbyPlacesExplorer({
               Auto-Discovered ({visiblePois.length})
             </p>
             {selectedPoi && (
-              <button
-                type="button"
-                onClick={() => setSelectedPoi(null)}
-                className="text-xs text-[#029bba] font-bold hover:underline"
-              >
-                Clear selection
-              </button>
+                <button
+                  type="button"
+                  onClick={() => void clearAll()}
+                  className="text-xs text-[#029bba] font-bold hover:underline"
+                >
+                  Clear all
+                </button>
             )}
           </div>
 
@@ -877,12 +927,7 @@ export default function NearbyPlacesExplorer({
                 >
                   {CATEGORY_META[selectedPoi.category].label}
                 </span>
-                <span className="text-[11px] font-bold text-gray-400 tabular-nums">
-                  {fmtDistance(
-                    roadDistances.get(selectedPoi.id) ?? selectedPoi.distanceMeters
-                  )}{' '}
-                  by road
-                </span>
+
               </div>
 
               {/* Road route (OSRM) — the Highrise differentiator */}
