@@ -152,6 +152,15 @@ function fmtDistance(m: number): string {
   return m >= 1000 ? `${(m / 1000).toFixed(1)} km` : `${m} m`;
 }
 
+function fmtDuration(seconds: number): string {
+  if (seconds < 60) return `${seconds}s`;
+  const min = Math.round(seconds / 60);
+  if (min < 60) return `${min} min`;
+  const hr = Math.floor(min / 60);
+  const remMin = min % 60;
+  return remMin > 0 ? `${hr}h ${remMin}m` : `${hr}h`;
+}
+
 interface OverpassElement {
   id: number;
   lat?: number;
@@ -303,6 +312,7 @@ export default function NearbyPlacesExplorer({
   const mapRef = useRef<L.Map | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const routeLineRef = useRef<L.Polyline | null>(null);
 
 
   const [pois, setPois] = useState<DiscoveredPOI[]>([]);
@@ -315,6 +325,13 @@ export default function NearbyPlacesExplorer({
   );
   const [selectedPoi, setSelectedPoi] = useState<DiscoveredPOI | null>(null);
   const [discovered, setDiscovered] = useState(false);
+  // R2: OSRM road routing
+  const [routeData, setRouteData] = useState<{
+    distanceMeters: number;
+    durationSeconds: number;
+    coords: Array<[number, number]>; // [lat, lng] polyline points
+  } | null>(null);
+  const [routeLoading, setRouteLoading] = useState(false);
 
 
   // ── Init map (once) ──
@@ -426,14 +443,102 @@ export default function NearbyPlacesExplorer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [radius]);
 
-  // ── Selected POI → fly + highlight ──
+  // ── Selected POI → fly + highlight + OSRM route fetch ──
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !selectedPoi) return;
+
+    // Fly + popup
     const marker = markersRef.current.get(selectedPoi.id);
     if (marker) {
       map.flyTo([selectedPoi.lat, selectedPoi.lng], 15, { duration: 0.8 });
       marker.openPopup();
+    }
+
+    // Clear previous route
+    if (routeLineRef.current) {
+      routeLineRef.current.remove();
+      routeLineRef.current = null;
+    }
+    setRouteData(null);
+
+    // OSRM road route — fetch (free public server)
+    let cancelled = false;
+    setRouteLoading(true);
+    (async () => {
+      try {
+        const url =
+          `https://router.project-osrm.org/route/v1/driving/` +
+          `${projectLng},${projectLat};${selectedPoi.lng},${selectedPoi.lat}` +
+          `?overview=full&geometries=geojson`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error('routing failed');
+        const data = (await res.json()) as {
+          routes?: Array<{
+            distance: number; // meters
+            duration: number; // seconds
+            geometry: { coordinates: Array<[number, number]> }; // [lng, lat]
+          }>;
+        };
+
+        const route = data.routes?.[0];
+        if (!route || cancelled) return;
+
+        const coords = route.geometry.coordinates.map(
+          ([lng, lat]): [number, number] => [lat, lng]
+        );
+
+        // Draw route polyline — brand teal, dashed with white casing
+        const line = L.polyline(coords, {
+          color: '#ffffff',
+          weight: 8,
+          opacity: 0.9,
+        }).addTo(map);
+        const lineFill = L.polyline(coords, {
+          color: '#029bba',
+          weight: 5,
+          opacity: 1,
+        }).addTo(map);
+        // Combine in ref (fill on top of casing — remove both together)
+        (line as unknown as { _casing?: L.Polyline })._casing = lineFill;
+        routeLineRef.current = lineFill;
+        (lineFill as unknown as { _casing?: L.Polyline })._casing = line;
+
+        setRouteData({
+          distanceMeters: Math.round(route.distance),
+          durationSeconds: Math.round(route.duration),
+          coords,
+        });
+
+        // Fit map to route bounds (both pins + path visible)
+        const bounds = L.latLngBounds(coords);
+        bounds.extend([projectLat, projectLng]);
+        bounds.extend([selectedPoi.lat, selectedPoi.lng]);
+        map.fitBounds(bounds, { padding: [40, 40] });
+      } catch {
+        if (!cancelled) {
+          // Silent fail — straight-line distance still shown (fallback)
+        }
+      } finally {
+        if (!cancelled) setRouteLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPoi, projectLat, projectLng]);
+
+  // ── Route cleanup on POI deselect ──
+  useEffect(() => {
+    if (!selectedPoi && routeLineRef.current) {
+      // Remove both fill + casing
+      const fill = routeLineRef.current;
+      const casing = (fill as unknown as { _casing?: L.Polyline })._casing;
+      fill.remove();
+      casing?.remove();
+      routeLineRef.current = null;
+      setRouteData(null);
     }
   }, [selectedPoi]);
 
@@ -654,23 +759,60 @@ export default function NearbyPlacesExplorer({
             })}
           </div>
 
-          {/* Selected POI action bar */}
+          {/* Selected POI action bar — with OSRM road route */}
           {selectedPoi && (
             <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/50">
               <p className="text-sm font-bold text-gray-900 truncate">
                 {selectedPoi.name}
               </p>
-              <div className="flex items-center gap-2 mt-1.5">
+              <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                 <span
                   className="px-2 py-0.5 rounded-full text-[10px] font-bold text-white"
                   style={{ backgroundColor: CATEGORY_META[selectedPoi.category].color }}
                 >
                   {CATEGORY_META[selectedPoi.category].label}
                 </span>
-                <span className="text-[11px] font-bold text-gray-500 tabular-nums">
-                  {fmtDistance(selectedPoi.distanceMeters)} away
+                <span className="text-[11px] font-bold text-gray-400 tabular-nums">
+                  {fmtDistance(selectedPoi.distanceMeters)} straight
                 </span>
               </div>
+
+              {/* Road route (OSRM) — the Highrise differentiator */}
+              <div className="mt-2.5 rounded-lg bg-white border border-gray-200 p-2.5">
+                {routeLoading ? (
+                  <div className="flex items-center gap-2 text-xs text-gray-400">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-[#029bba]" />
+                    Calculating road route...
+                  </div>
+                ) : routeData ? (
+                  <>
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-xs font-bold text-[#004063] flex items-center gap-1.5">
+                        <Navigation className="w-3.5 h-3.5 text-[#029bba]" />
+                        Driving Route
+                      </p>
+                      <span className="text-[10px] text-gray-400">via road</span>
+                    </div>
+                    <p className="text-sm font-black text-[#029bba] tabular-nums mt-1">
+                      {fmtDistance(routeData.distanceMeters)}
+                      <span className="text-gray-400 font-bold mx-1">·</span>
+                      <span className="text-gray-700">
+                        {fmtDuration(routeData.durationSeconds)} drive
+                      </span>
+                    </p>
+                    {routeData.distanceMeters > selectedPoi.distanceMeters && (
+                      <p className="text-[10px] text-gray-400 mt-1 tabular-nums">
+                        Road adds +{fmtDistance(routeData.distanceMeters - selectedPoi.distanceMeters)} over straight line
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-[10px] text-gray-400 italic">
+                    Road route unavailable — straight-line distance shown
+                  </p>
+                )}
+              </div>
+
               <a
                 href={`https://www.google.com/maps/dir/?api=1&origin=${projectLat},${projectLng}&destination=${selectedPoi.lat},${selectedPoi.lng}`}
                 target="_blank"
