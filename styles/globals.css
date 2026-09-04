@@ -444,3 +444,39 @@ button:hover {
   .animate-market-marquee,
   .animate-partner-marquee { animation: none; }
 }
+
+/* ═══ Location Explorer — Map Labels ═══ */
+
+/* Route midpoint label — Google-style dark pill (road distance + duration) */
+.route-dist-label {
+  background: #1f2937 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 4px 10px !important;
+  font-size: 11px !important;
+  font-weight: 700 !important;
+  font-family: inherit !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  white-space: nowrap !important;
+}
+.route-dist-label::before {
+  display: none !important;
+}
+
+/* Project pin label — Highrise identity (navy pill, project name) */
+.project-pin-label {
+  background: #004063 !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 4px 10px !important;
+  font-size: 12px !important;
+  font-weight: 700 !important;
+  font-family: inherit !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3) !important;
+  white-space: nowrap !important;
+}
+.project-pin-label::before {
+  display: none !important;
+}
