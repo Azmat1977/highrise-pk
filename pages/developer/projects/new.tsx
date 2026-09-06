@@ -343,7 +343,7 @@ function ProjectForm(): React.ReactElement {
   // Project gallery images (display: hero gallery on detail page)
   const [galleryImages, setGalleryImages] = useState<GalleryImageInput[]>([]);
 
-  // â”€â”€ Static map preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Static map preview
 
   useEffect(() => {
     if (!coordinatesRaw || !isValidLatLng(coordinatesRaw)) {
@@ -364,7 +364,7 @@ function ProjectForm(): React.ReactElement {
     );
   }, [coordinatesRaw]);
 
-  // â”€â”€ Computed â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // Computed
 
   const pricePerUnit = useMemo(() => {
     const fp = Number(fullPrice);
@@ -729,14 +729,6 @@ function ProjectForm(): React.ReactElement {
             </div>
           </Section>
 
-          {/* Project Pictures — multi-upload gallery (create-time) */}
-          <ProjectGallerySection
-            images={galleryImages}
-            onChange={setGalleryImages}
-            projectSlug={projectCategory || 'project'}
-            disabled={loading}
-          />
-
           {/* ─── Section 2: Basic Info ─── */}
           <Section
             title="Basic Project Info"
@@ -1060,16 +1052,19 @@ function ProjectForm(): React.ReactElement {
             />
           )}
 
-          {/* Project Gallery — hero images (after creation via gallery API) */}
-
+          {/* Project Gallery — multi-upload (feature image ke saath state mein save) */}
+          <ProjectGallerySection
+            images={galleryImages}
+            onChange={setGalleryImages}
+            projectSlug={projectCategory || 'project'}
+            disabled={loading}
+          />
 
           {/* Construction timeline & milestones */}
           <DevelopmentUpdatesEditor
             value={developmentUpdates}
             onChange={setDevelopmentUpdates}
             disabled={loading}
-            launchDate={/* form field se */ undefined}
-            possessionDate={undefined}
           />
 
           {/* Unit types */}
@@ -1308,6 +1303,16 @@ function ProjectForm(): React.ReactElement {
                 <p className="text-xs text-[#666666] mt-2">
                   High-quality landscape image recommended (1920x1080). This becomes your                  hero image on listing pages.
                 </p>
+              </div>
+
+              {/* Project Pictures — multi-upload gallery (feature image ke saath, ek hi section) */}
+              <div className="md:col-span-2">
+                <ProjectGallerySection
+                  images={galleryImages}
+                  onChange={setGalleryImages}
+                  projectSlug={projectCategory || 'project'}
+                  disabled={loading}
+                />
               </div>
 
               <div>
