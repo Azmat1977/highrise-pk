@@ -1181,7 +1181,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
                 PAYMENT PLANS (multi-plan) — falls back
                 to single installmentPlan below when empty
             ══════════════════════════════════════ */}
-            {(project.paymentPlanImages?.length ?? 0) > 0 && (
+            {((project.paymentPlanImages?.length ?? 0) > 0 || (project.floorWisePriceImages?.length ?? 0) > 0) && (
               <section id="payment" className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
                 <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
                   <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
@@ -1201,7 +1201,10 @@ export default function ProjectDetailPage({ project }: PageProps) {
                   )}
                 </div>
                 <div className="p-6 grid grid-cols-1 sm:grid-cols-2 gap-5">
-                  {project.paymentPlanImages!.map((img, i) => (
+                  {[
+                    ...(project.paymentPlanImages ?? []),
+                    ...(project.floorWisePriceImages ?? []),
+                  ].map((img, i) => (
                     <button
                       key={i}
                       type="button"

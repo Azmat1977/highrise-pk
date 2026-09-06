@@ -412,6 +412,7 @@ export interface ProjectDetailData {
   // Payment plans (model: paymentPlans[] — rich multi-plan backend)
   paymentPlans?: PaymentPlanDetail[];
   paymentPlanImages?: { url: string; publicId?: string; caption?: string }[];
+  floorWisePriceImages?: { url: string; caption?: string }[];
 
   // Inventory
   totalUnits?:     number;
