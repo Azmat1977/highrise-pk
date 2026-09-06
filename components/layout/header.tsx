@@ -840,17 +840,29 @@ export const Header: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  /* Admins don't need "List Your Property" button */
+                  /* Role-aware CTA: developers add projects; others list property */
                   !isAdmin && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
-                      onClick={() => router.push("/add-property")}
-                    >
-                      <Plus className="w-4 h-4" />
-                      List Property
-                    </Button>
+                    isDeveloper ? (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
+                        onClick={() => router.push("/developer/projects/new")}
+                      >
+                        <Building2 className="w-4 h-4" />
+                        Add Project
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
+                        onClick={() => router.push("/add-property")}
+                      >
+                        <Plus className="w-4 h-4" />
+                        List Property
+                      </Button>
+                    )
                   )
                 )}
               </>
