@@ -11,7 +11,7 @@ import {
   Bed,
   Bath,
   Maximize,
-  DollarSign,
+  CreditCard,
   Video,
   Image as ImageIcon,
   X,
@@ -218,10 +218,10 @@ export default function UnitPlansSection({
   return (
     <div className="bg-white rounded-2xl border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 bg-gradient-to-r from-purple-500/10 to-transparent border-b border-gray-200">
+      <div className="px-6 py-4 bg-gradient-to-r from-[#029bba]/10 to-transparent border-b border-gray-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-purple-500 flex items-center justify-center">
+            <div className="w-10 h-10 rounded-xl bg-[#029bba] flex items-center justify-center">
               <Home className="w-5 h-5 text-white" />
             </div>
             <div>
@@ -238,7 +238,7 @@ export default function UnitPlansSection({
             <button
               type="button"
               onClick={addUnitPlan}
-              className="flex items-center gap-2 px-4 py-2 bg-purple-500 text-white rounded-xl hover:bg-purple-600 transition-colors text-sm font-medium"
+              className="flex items-center gap-2 px-4 py-2 bg-[#029bba] text-white rounded-xl hover:bg-[#027a94] transition-colors text-sm font-medium"
             >
               <Plus className="w-4 h-4" />
               Add Unit Type
@@ -281,7 +281,7 @@ export default function UnitPlansSection({
                   className={`w-8 h-8 rounded-lg flex items-center justify-center ${
                     unit.category === 'commercial'
                       ? 'bg-amber-100 text-amber-600'
-                      : 'bg-purple-100 text-purple-600'
+                      : 'bg-[#029bba]/10 text-[#029bba]'
                   }`}
                 >
                   {getUnitIcon(unit.type)}
@@ -351,7 +351,7 @@ export default function UnitPlansSection({
                           category: selectedType?.category as 'residential' | 'commercial',
                         });
                       }}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                       disabled={disabled}
                     >
                       <option value="">Select type</option>
@@ -388,7 +388,7 @@ export default function UnitPlansSection({
                         updateUnitPlan(index, { name: e.target.value })
                       }
                       placeholder="e.g., Studio Services Apartment"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                       disabled={disabled}
                     />
                   </div>
@@ -402,7 +402,7 @@ export default function UnitPlansSection({
                       className={`px-3 py-2 rounded-xl text-sm font-medium text-center ${
                         unit.category === 'commercial'
                           ? 'bg-amber-100 text-amber-700'
-                          : 'bg-purple-100 text-purple-700'
+                          : 'bg-[#029bba]/10 text-[#029bba]'
                       }`}
                     >
                       {unit.category === 'commercial' ? '🏪 Commercial' : '🏠 Residential'}
@@ -413,7 +413,7 @@ export default function UnitPlansSection({
                 {/* Price Range */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    <DollarSign className="w-4 h-4 inline mr-1" />
+                    <CreditCard className="w-4 h-4 inline mr-1" />
                     Price Range (PKR) <span className="text-red-500">*</span>
                   </label>
                   <div className="grid grid-cols-2 gap-4">
@@ -433,7 +433,7 @@ export default function UnitPlansSection({
                           })
                         }
                         placeholder="e.g., 28800000"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                       {unit.priceRange?.min > 0 && (
@@ -458,7 +458,7 @@ export default function UnitPlansSection({
                           })
                         }
                         placeholder="e.g., 38800000"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                       {unit.priceRange?.max > 0 && (
@@ -494,7 +494,7 @@ export default function UnitPlansSection({
           });
         }}
         placeholder="e.g., 450"
-        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
         disabled={disabled}
       />
     </div>
@@ -515,7 +515,7 @@ export default function UnitPlansSection({
           });
         }}
         placeholder="e.g., 548"
-        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
         disabled={disabled}
       />
     </div>
@@ -534,7 +534,7 @@ export default function UnitPlansSection({
             },
           });
         }}
-        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
         disabled={disabled}
       >
         <option value="Sq. Ft.">Sq. Ft.</option>
@@ -586,7 +586,7 @@ export default function UnitPlansSection({
                         }
                         min="0"
                         max="10"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                     </div>
@@ -603,7 +603,7 @@ export default function UnitPlansSection({
                         }
                         min="0"
                         max="10"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                     </div>
@@ -618,7 +618,7 @@ export default function UnitPlansSection({
                           updateUnitPlan(index, { totalUnits: Number(e.target.value) })
                         }
                         min="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                     </div>
@@ -633,7 +633,7 @@ export default function UnitPlansSection({
                           updateUnitPlan(index, { availableUnits: Number(e.target.value) })
                         }
                         min="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                     </div>
@@ -654,7 +654,7 @@ export default function UnitPlansSection({
                           updateUnitPlan(index, { totalUnits: Number(e.target.value) })
                         }
                         min="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                     </div>
@@ -669,7 +669,7 @@ export default function UnitPlansSection({
                           updateUnitPlan(index, { availableUnits: Number(e.target.value) })
                         }
                         min="0"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                         disabled={disabled}
                       />
                     </div>
@@ -687,14 +687,14 @@ export default function UnitPlansSection({
                     {(unit.features || []).map((feature) => (
                       <span
                         key={feature}
-                        className="inline-flex items-center gap-1 px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm"
+                        className="inline-flex items-center gap-1 px-3 py-1 bg-[#029bba]/10 text-[#029bba] rounded-full text-sm"
                       >
                         {feature}
                         {!disabled && (
                           <button
                             type="button"
                             onClick={() => removeFeature(index, feature)}
-                            className="hover:text-purple-900"
+                            className="hover:text-[#004063]"
                           >
                             <X className="w-3 h-3" />
                           </button>
@@ -731,7 +731,7 @@ export default function UnitPlansSection({
                         setNewFeature({ ...newFeature, [index]: e.target.value })
                       }
                       placeholder="Add custom feature..."
-                      className="flex-1 px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none text-sm"
+                      className="flex-1 px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none text-sm"
                       disabled={disabled}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
@@ -763,7 +763,7 @@ export default function UnitPlansSection({
                     }
                     placeholder="Describe this unit type..."
                     rows={2}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none resize-none"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none resize-none"
                     disabled={disabled}
                   />
                 </div>
@@ -838,7 +838,7 @@ export default function UnitPlansSection({
                         })
                       }
                       placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
-                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500/20 focus:border-purple-500 outline-none"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none"
                       disabled={disabled}
                     />
                     <p className="text-xs text-gray-500 mt-1">
@@ -902,7 +902,7 @@ export default function UnitPlansSection({
           <button
             type="button"
             onClick={addUnitPlan}
-            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-purple-500 hover:text-purple-500 transition-colors flex items-center justify-center gap-2"
+            className="w-full py-3 border-2 border-dashed border-gray-300 rounded-xl text-gray-500 hover:border-[#029bba] hover:text-[#029bba] transition-colors flex items-center justify-center gap-2"
           >
             <Plus className="w-4 h-4" />
             Add Another Unit Type
