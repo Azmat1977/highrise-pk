@@ -283,6 +283,12 @@ export const ProjectContentSchema = z.object({
 
   // Lists
   developmentUpdates:  z.array(DevelopmentUpdateInputSchema).max(100).optional(),
+  galleryImages: z.array(z.object({
+    url:       z.string().url().max(2048),
+    publicId:  z.string().max(512).optional(),
+    caption:   z.string().max(200).optional(),
+    isPrimary: z.boolean().optional(),
+  })).max(30).optional(),
   paymentPlanImages: z.array(z.object({
     url:      z.string().url().max(2048),
     publicId: z.string().max(512).optional(),
@@ -331,6 +337,7 @@ const DIRECT_KEYS = [
   'amenitiesDetailed', 'nearbyFacilities', 'locationAdvantages',
   'paymentPlanImages',
   'floorWisePriceImages',
+  'galleryImages',
 ] as const;
 
 /**

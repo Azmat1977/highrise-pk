@@ -697,6 +697,12 @@ export interface IProject extends Document {
   paymentPlans?: IProjectPaymentPlan[];
   paymentPlanImages?: IPaymentPlanImage[];
   floorWisePriceImages?: { url: string; caption?: string }[];
+  galleryImages?: Array<{
+    url: string;
+    publicId?: string;
+    caption?: string;
+    isPrimary?: boolean;
+  }>;
   unitTypeBreakdown?: IUnitType[];
 
   // ── DEVELOPER SNAPSHOT ─────────────────────
@@ -1567,6 +1573,14 @@ const ProjectSchema = new Schema<IProject>(
       {
         url:     { type: String, required: true },
         caption: { type: String, maxlength: 150 },
+      },
+    ],
+    galleryImages: [
+      {
+        url:       { type: String, required: true },
+        publicId:  { type: String },
+        caption:   { type: String, maxlength: 200 },
+        isPrimary: { type: Boolean, default: false },
       },
     ],
     installmentPlan: {
