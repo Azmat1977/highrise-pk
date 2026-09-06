@@ -1550,6 +1550,8 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
             value={developmentUpdates}
             onChange={setDevelopmentUpdates}
             disabled={saving}
+            launchDate={launchDate}
+            possessionDate={possessionStartDate}
           />
           {/* Legal  */}
           <Section title="Legal Documents & Approvals"
