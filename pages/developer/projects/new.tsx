@@ -11,7 +11,7 @@ import DocumentsSection, { ProjectDocuments } from '@/components/admin/Documents
 import FileUploader from '@/components/admin/FileUploader';
 import BuildingFloorPlansSection, { BuildingFloorPlan } from '@/components/admin/BuildingFloorPlansSection';
 import UnitPlansSection, { UnitPlan } from '@/components/admin/UnitPlansSection';
-import ProjectGallerySection from '@/components/admin/ProjectGallerySection';
+import ProjectGallerySection, { type GalleryImageInput } from '@/components/admin/ProjectGallerySection';
 import {
   DevelopmentUpdatesEditor,
   type DevelopmentUpdateInput,
@@ -87,6 +87,7 @@ interface ProjectCreateBody {
   buildingPlanApproved: boolean;
   saleMode: string;
   completedProjects: CompletedProjectPayload[];
+  galleryImages?: GalleryImageInput[];
   developmentUpdates?: Array<{
     date: string | null;
     progressPercent: number | null;
@@ -339,6 +340,9 @@ function ProjectForm(): React.ReactElement {
   // Construction milestones (display: Construction Progress section)
   const [developmentUpdates, setDevelopmentUpdates] = useState<DevelopmentUpdateInput[]>([]);
 
+  // Project gallery images (display: hero gallery on detail page)
+  const [galleryImages, setGalleryImages] = useState<GalleryImageInput[]>([]);
+
   // â”€â”€ Static map preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
@@ -513,6 +517,12 @@ function ProjectForm(): React.ReactElement {
           buildingPlanApproved: getFormChecked(form, 'buildingPlanApproved'),
           saleMode,
           completedProjects: completedProjectsPayload,
+          galleryImages: galleryImages.map((img) => ({
+            url:       img.url,
+            publicId:  img.publicId,
+            caption:   img.caption,
+            isPrimary: img.isPrimary,
+          })),
           developmentUpdates: developmentUpdates
             .filter((u) => u.date || u.title || u.progressPercent)
             .map((u) => ({
@@ -608,7 +618,7 @@ function ProjectForm(): React.ReactElement {
       description, developmentProgress, saleMode,
       fullPrice, areaSize, areaUnit, completedProjects,
       amenities, nearbyFacilities, locationAdvantages, landAreaUnit,
-      developmentUpdates,
+      developmentUpdates, galleryImages,
       projectDocuments, buildingFloorPlans, unitPlans,
     ]
   );
@@ -719,7 +729,15 @@ function ProjectForm(): React.ReactElement {
             </div>
           </Section>
 
-          {/* â”€â”€ Section 2: Basic Info â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* Project Pictures — multi-upload gallery (create-time) */}
+          <ProjectGallerySection
+            images={galleryImages}
+            onChange={setGalleryImages}
+            projectSlug={projectCategory || 'project'}
+            disabled={loading}
+          />
+
+          {/* ─── Section 2: Basic Info ─── */}
           <Section
             title="Basic Project Info"
             subtitle="Essential details about your project"
@@ -1043,11 +1061,7 @@ function ProjectForm(): React.ReactElement {
           )}
 
           {/* Project Gallery — hero images (after creation via gallery API) */}
-          <ProjectGallerySection
-            projectId={submittedProjectId}
-            projectSlug={projectCategory || 'project'}
-            disabled={loading}
-          />
+
 
           {/* Construction timeline & milestones */}
           <DevelopmentUpdatesEditor
