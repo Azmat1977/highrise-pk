@@ -13,7 +13,7 @@
 'use client';
 
 import React, { useCallback, useRef, useState } from 'react';
-import { Plus, X, Video } from 'lucide-react';
+import { Plus, X, Video, Calendar, CalendarCheck } from 'lucide-react';
 
 // ─── Types (form-string shapes) ─────────────────────────────────────────────
 
@@ -101,8 +101,11 @@ function Section({
 // ─── DevelopmentUpdatesEditor ───────────────────────────────────────────────
 
 export function DevelopmentUpdatesEditor({
-  value, onChange, disabled,
-}: EditorProps<DevelopmentUpdateInput>): React.ReactElement {
+  value, onChange, disabled, launchDate, possessionDate,
+}: EditorProps<DevelopmentUpdateInput> & {
+  launchDate?: string;
+  possessionDate?: string;
+}): React.ReactElement {
   const add = useCallback((): void => {
     onChange((prev) => [
       ...prev,
@@ -150,6 +153,34 @@ export function DevelopmentUpdatesEditor({
       subtitle="Dated updates with photos, videos, and engineering evidence — buyers track real progress from launch to possession."
     >
       <div className="space-y-4">
+        {/* Timeline header — launch → possession (form context) */}
+        {launchDate && possessionDate && (
+          <div className="flex items-center justify-between rounded-xl bg-gradient-to-r from-[#029bba]/10 to-transparent p-4 mb-2">
+            <div>
+              <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">
+                Project Timeline
+              </p>
+              <div className="flex items-center gap-4 text-sm">
+                <span className="font-bold text-gray-900">
+                  <Calendar className="w-3.5 h-3.5 inline mr-1 text-[#029bba]" />
+                  {new Date(launchDate).toLocaleDateString('en-PK', { month: 'short', year: 'numeric' })}
+                </span>
+                <span className="text-gray-300">──→</span>
+                <span className="font-bold text-[#029bba]">
+                  <CalendarCheck className="w-3.5 h-3.5 inline mr-1" />
+                  {new Date(possessionDate).toLocaleDateString('en-PK', { month: 'short', year: 'numeric' })}
+                </span>
+              </div>
+            </div>
+            <span className="text-xs text-gray-400 font-medium">
+              {Math.round(
+                (new Date(possessionDate).getTime() - new Date(launchDate).getTime()) /
+                  (1000 * 60 * 60 * 24 * 30)
+              )} months
+            </span>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <p className="text-sm text-[#666666]">
             Add dated updates with photos and site video — buyers track real construction progress.

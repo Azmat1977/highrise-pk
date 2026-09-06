@@ -11,6 +11,11 @@ import DocumentsSection, { ProjectDocuments } from '@/components/admin/Documents
 import FileUploader from '@/components/admin/FileUploader';
 import BuildingFloorPlansSection, { BuildingFloorPlan } from '@/components/admin/BuildingFloorPlansSection';
 import UnitPlansSection, { UnitPlan } from '@/components/admin/UnitPlansSection';
+import ProjectGallerySection from '@/components/admin/ProjectGallerySection';
+import {
+  DevelopmentUpdatesEditor,
+  type DevelopmentUpdateInput,
+} from '@/components/admin/ProjectContentSections';
 import {
   AmenitiesEditor,
   NearbyFacilitiesEditor,
@@ -82,6 +87,18 @@ interface ProjectCreateBody {
   buildingPlanApproved: boolean;
   saleMode: string;
   completedProjects: CompletedProjectPayload[];
+  developmentUpdates?: Array<{
+    date: string | null;
+    progressPercent: number | null;
+    title: string | null;
+    description: string | null;
+    videoUrl: string | null;
+    imageUrl: string | null;
+    images: Array<{ url: string }>;
+    isDroneUpdate: boolean;
+    engineerNote: string | null;
+    qualityChecks: string[];
+  }>;
   amenitiesDetailed?: { name: string; category: string; description: string | null }[];
   nearbyFacilities?: { name: string; category: string; distance: string | null }[];
   locationAdvantages?: { title: string; points: string[] }[];
@@ -319,6 +336,9 @@ function ProjectForm(): React.ReactElement {
   // Society land area unit (number input + unit — display contract)
   const [landAreaUnit, setLandAreaUnit] = useState('Kanal');
 
+  // Construction milestones (display: Construction Progress section)
+  const [developmentUpdates, setDevelopmentUpdates] = useState<DevelopmentUpdateInput[]>([]);
+
   // â”€â”€ Static map preview â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
   useEffect(() => {
@@ -493,6 +513,22 @@ function ProjectForm(): React.ReactElement {
           buildingPlanApproved: getFormChecked(form, 'buildingPlanApproved'),
           saleMode,
           completedProjects: completedProjectsPayload,
+          developmentUpdates: developmentUpdates
+            .filter((u) => u.date || u.title || u.progressPercent)
+            .map((u) => ({
+              date:            u.date || null,
+              progressPercent: u.progressPercent ? Number(u.progressPercent) : null,
+              title:           u.title || null,
+              description:     u.description || null,
+              videoUrl:        u.videoUrl || null,
+              imageUrl:        u.imageUrl || null,
+              images:          u.images.filter(Boolean).map((url) => ({ url })),
+              isDroneUpdate:   u.isDroneUpdate || false,
+              engineerNote:    u.engineerNote || null,
+              qualityChecks:   u.qualityChecks
+                ? u.qualityChecks.split(',').map((q) => q.trim()).filter(Boolean)
+                : [],
+            })),
           amenitiesDetailed:   amenitiesPayload,
           nearbyFacilities:    nearbyPayload,
           locationAdvantages:  advantagesPayload,
@@ -572,6 +608,7 @@ function ProjectForm(): React.ReactElement {
       description, developmentProgress, saleMode,
       fullPrice, areaSize, areaUnit, completedProjects,
       amenities, nearbyFacilities, locationAdvantages, landAreaUnit,
+      developmentUpdates,
       projectDocuments, buildingFloorPlans, unitPlans,
     ]
   );
@@ -1004,6 +1041,22 @@ function ProjectForm(): React.ReactElement {
               projectSlug={projectCategory}
             />
           )}
+
+          {/* Project Gallery — hero images (after creation via gallery API) */}
+          <ProjectGallerySection
+            projectId={submittedProjectId}
+            projectSlug={projectCategory || 'project'}
+            disabled={loading}
+          />
+
+          {/* Construction timeline & milestones */}
+          <DevelopmentUpdatesEditor
+            value={developmentUpdates}
+            onChange={setDevelopmentUpdates}
+            disabled={loading}
+            launchDate={/* form field se */ undefined}
+            possessionDate={undefined}
+          />
 
           {/* Unit types */}
           <UnitPlansSection
