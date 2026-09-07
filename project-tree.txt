@@ -1,4 +1,5 @@
-﻿├── .highrise-backups
+﻿C:\dev\highrise-pk\project-tree.txt
+├── .highrise-backups
   ├── auth-foundation-2026-07-28T15-21-36-656Z
     ├── lib
       ├── auth

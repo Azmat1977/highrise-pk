@@ -1,4 +1,4 @@
-﻿
+﻿C:\dev\highrise-pk\project-files.txt
 Folder                                                                               File                                                    Ext           SizeKB
 ------                                                                               ----                                                    ---           ------
 .highrise-backups\auth-foundation-2026-07-28T15-21-36-656Z                           .gitignore                                              .gitignore       0.5
@@ -973,6 +973,3 @@ types                                                                           
 types                                                                                projects.ts                                             .ts             32.1
 types                                                                                property.ts                                             .ts             34.7
 utils                                                                                cloudinaryTransform.ts                                  .ts              0.9
-
-
-

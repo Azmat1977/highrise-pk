@@ -156,7 +156,7 @@ async function handlePost(
     city,
     society,
     description,
-    // Optional
+    // Optional - basic
     residentialType,
     listingPurpose,
     phase,
@@ -167,6 +167,51 @@ async function handlePost(
     images,
     contactDetails,
     amenities,
+    // Enterprise - size and details
+    areaSize,
+    frontSize,
+    depthSize,
+    coveredArea,
+    servantQuarters,
+    parkings,
+    floors,
+    floorNumber,
+    propertyAge,
+    facing,
+    cornerPlot,
+    boundaryWall,
+    furnishingStatus,
+    possessionStatus,
+    // Enterprise - pricing
+    monthlyRent,
+    securityDeposit,
+    advanceMonths,
+    utilitiesIncluded,
+    installmentPlan,
+    // Enterprise - utilities
+    electricityStatus,
+    suiGasStatus,
+    waterStatus,
+    sewerageStatus,
+    internetReady,
+    cctvCoverage,
+    streetLights,
+    roadCondition,
+    gatedCommunity,
+    // Enterprise - legal
+    ownershipType,
+    fileType,
+    documentsAvailable,
+    hasDispute,
+    disputeDetails,
+    taxPaidUpToDate,
+    societyMembershipRequired,
+    // Enterprise - media
+    videoUrl,
+    virtualTourUrl,
+    droneVideoUrl,
+    // Contact extra
+    showPhoneOnListing,
   } = req.body as Record<string, unknown>;
 
   // Required field validation
@@ -266,6 +311,89 @@ async function handlePost(
     bedrooms:  bedrooms  ? Number(bedrooms)  : undefined,
     bathrooms: bathrooms ? Number(bathrooms) : undefined,
 
+    // Enterprise - size and details
+    areaSize:       areaSize     ? Number(areaSize)     : undefined,
+    frontSize:      frontSize    ? Number(frontSize)    : undefined,
+    depthSize:      depthSize    ? Number(depthSize)    : undefined,
+    coveredArea:    coveredArea  ? Number(coveredArea)  : undefined,
+    servantQuarters: servantQuarters ? Number(servantQuarters) : undefined,
+    parkings:       parkings     ? Number(parkings)     : undefined,
+    floors:         floors       ? Number(floors)       : undefined,
+    floorNumber:    floorNumber  ? Number(floorNumber)  : undefined,
+    propertyAge:    propertyAge  ? Number(propertyAge)  : undefined,
+    facing:         facing       ? String(facing).trim()      : undefined,
+    cornerPlot:     cornerPlot   === true  ? true  : undefined,
+    boundaryWall:   boundaryWall === true  ? true  : undefined,
+    furnishingStatus: furnishingStatus ? String(furnishingStatus).trim() : undefined,
+    possessionStatus: possessionStatus
+      ? ["ready","under_construction","on_handover"].includes(String(possessionStatus))
+        ? String(possessionStatus)
+        : "ready"
+      : undefined,
+
+    // Enterprise - rental pricing
+    monthlyRent:    listingType === "rent" && monthlyRent    ? Number(monthlyRent)    : undefined,
+    securityDeposit: listingType === "rent" && securityDeposit ? Number(securityDeposit) : undefined,
+    advanceMonths:  listingType === "rent" && advanceMonths  ? Number(advanceMonths)  : undefined,
+    utilitiesIncluded: listingType === "rent" && utilitiesIncluded === true ? true : undefined,
+
+    // Enterprise - installment plan (Smart Calculator)
+    installmentPlan: installmentPlan && typeof installmentPlan === "object"
+      ? {
+          totalPrice:          Number((installmentPlan as Record<string, unknown>).totalPrice) || 0,
+          bookingPercent:      Number((installmentPlan as Record<string, unknown>).bookingPercent) || 0,
+          downPaymentPercent:  Number((installmentPlan as Record<string, unknown>).downPaymentPercent) || 0,
+          possessionPercent:   Number((installmentPlan as Record<string, unknown>).possessionPercent) || 0,
+          installmentCount:    Number((installmentPlan as Record<string, unknown>).installmentCount) || 0,
+          frequency:           String((installmentPlan as Record<string, unknown>).frequency ?? "quarterly"),
+        }
+      : undefined,
+
+    // Enterprise - utilities
+    electricityStatus: electricityStatus
+      ? ["available","applied","not_available"].includes(String(electricityStatus))
+        ? String(electricityStatus) : undefined
+      : undefined,
+    suiGasStatus: suiGasStatus
+      ? ["available","applied","not_available"].includes(String(suiGasStatus))
+        ? String(suiGasStatus) : undefined
+      : undefined,
+    waterStatus: waterStatus
+      ? ["available","applied","not_available"].includes(String(waterStatus))
+        ? String(waterStatus) : undefined
+      : undefined,
+    sewerageStatus: sewerageStatus
+      ? ["available","applied","not_available"].includes(String(sewerageStatus))
+        ? String(sewerageStatus) : undefined
+      : undefined,
+    internetReady:  internetReady  === true ? true : undefined,
+    cctvCoverage:   cctvCoverage   === true ? true : undefined,
+    streetLights:   streetLights   === true ? true : undefined,
+    gatedCommunity: gatedCommunity === true ? true : undefined,
+    roadCondition:  roadCondition  ? String(roadCondition).trim() : undefined,
+
+    // Enterprise - legal
+    ownershipType: ownershipType
+      ? ["freehold","leasehold","power_of_attorney"].includes(String(ownershipType))
+        ? String(ownershipType) : "freehold"
+      : undefined,
+    fileType: fileType
+      ? ["open_file","allocation","affidavit","registry","lease"].includes(String(fileType))
+        ? String(fileType) : undefined
+      : undefined,
+    documentsAvailable: Array.isArray(documentsAvailable)
+      ? (documentsAvailable as string[]).filter((d) => typeof d === "string").slice(0, 10)
+      : undefined,
+    hasDispute:  hasDispute  === true ? true : false,
+    disputeDetails: hasDispute && disputeDetails ? String(disputeDetails).trim().slice(0, 500) : undefined,
+    taxPaidUpToDate: taxPaidUpToDate === true ? true : undefined,
+    societyMembershipRequired: societyMembershipRequired === true ? true : undefined,
+
+    // Enterprise - media (video URLs)
+    videoUrl:        videoUrl        ? String(videoUrl).trim()        : undefined,
+    virtualTourUrl:  virtualTourUrl  ? String(virtualTourUrl).trim()  : undefined,
+    droneVideoUrl:   droneVideoUrl   ? String(droneVideoUrl).trim()   : undefined,
+
     // Media
     images: safeImages,
 
@@ -277,7 +405,7 @@ async function handlePost(
       ? (amenities as string[]).filter((a) => typeof a === "string").slice(0, 20)
       : [],
 
-    // Verification — starts as draft
+    // Verification - starts as draft
     verification: {
       status: "draft",
     },
