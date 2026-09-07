@@ -16,7 +16,7 @@ import {
   Clock,
   Users,
 } from "lucide-react";
-import UnifiedPropertyForm from "@/components/property/forms/UnifiedPropertyForm";
+import PropertyListingForm from "@/components/property/forms/listing/PropertyListingForm";
 
 // ─── Feature cards data ───────────────────────────────────────────────────────
 const FEATURES = [
@@ -184,7 +184,7 @@ export default function AddPropertyPage(): React.ReactElement {
           No auth logic needed here.
         */}
         <div className="container mx-auto px-4 pb-10">
-          <UnifiedPropertyForm />
+          <PropertyListingForm />
         </div>
 
         {/* ── Support Section ───────────────────────────────────────────────── */}

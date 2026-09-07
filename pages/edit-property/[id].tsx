@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
-import UnifiedPropertyForm from '@/components/property/forms/UnifiedPropertyForm';
+import PropertyListingForm from '@/components/property/forms/listing/PropertyListingForm';
 import { propertyToUnifiedFormState } from '@/components/property/forms/shared/propertyFormAdapter';
 import type { PropertyFormState } from '@/components/property/forms/shared/usePropertyForm';
 
@@ -107,13 +107,10 @@ export default function EditPropertyPage(): React.ReactElement {
           </div>
         )}
 
-        {!loading && !error && initialForm && (
-          <UnifiedPropertyForm
-            mode="edit"
-            propertyId={id}
-            initialForm={initialForm}
-            currentVerificationStatus={verification?.status ?? 'draft'}
-          />
+        {/* Edit mode: R5 will add initialForm population. For now, shows
+            blank form (compile fix after legacy form removal). */}
+        {!loading && !error && (
+          <PropertyListingForm />
         )}
       </div>
     </>
