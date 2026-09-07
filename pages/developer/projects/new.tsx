@@ -116,7 +116,9 @@ interface ProjectCreateBody {
     totalUnitPrice: number;
     bookingPayment: number;
     downPayment: number;
-    monthlyInstallmentAmount: number;
+    monthlyInstallmentAmount?: number;
+    quarterlyAmount?: number;
+    halfYearlyAmount?: number;
     totalMonthlyInstallments: number;
     possessionCharges: number;
   };
@@ -319,6 +321,14 @@ function ProjectForm(): React.ReactElement {
   const [areaSize,  setAreaSize]  = useState('');
   const [areaUnit,  setAreaUnit]  = useState('sqft');
 
+  // Smart Installment Calculator — percent-based, auto-calculated
+  const [instTotalPrice, setInstTotalPrice] = useState('');
+  const [bookingPercent, setBookingPercent] = useState('');
+  const [downPercent, setDownPercent] = useState('');
+  const [possessionPercent, setPossessionPercent] = useState('');
+  const [installmentCount, setInstallmentCount] = useState('');
+  const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'half-yearly'>('quarterly');
+
   // Completed projects (metadata only â€” images uploaded separately)
   const [completedProjects, setCompletedProjects] = useState<CompletedProject[]>([
     { name: '', type: '', location: '', year: '', images: [] },
@@ -372,6 +382,35 @@ function ProjectForm(): React.ReactElement {
     if (!Number.isFinite(fp) || !Number.isFinite(as) || as <= 0) return 0;
     return fp / as;
   }, [fullPrice, areaSize]);
+
+  // Smart installment calculations — percent inputs → auto amounts
+  const instCalc = useMemo(() => {
+    const total = Number(instTotalPrice) || 0;
+    const bPct = Number(bookingPercent) || 0;
+    const dPct = Number(downPercent) || 0;
+    const pPct = Number(possessionPercent) || 0;
+    const count = Number(installmentCount) || 0;
+
+    const bookingAmount = Math.round((total * bPct) / 100);
+    const downAmount = Math.round((total * dPct) / 100);
+    const possessionAmount = Math.round((total * pPct) / 100);
+    const upfrontPct = bPct + dPct + pPct;
+    const remaining = Math.max(total - bookingAmount - downAmount - possessionAmount, 0);
+    const perInstallment = count > 0 ? Math.round(remaining / count) : 0;
+
+    const freqLabel =
+      frequency === 'monthly' ? 'month' :
+      frequency === 'quarterly' ? 'quarter' : '6 months';
+
+    return {
+      total, bookingAmount, downAmount, possessionAmount,
+      upfrontPct, remaining, perInstallment, count, freqLabel,
+      // months for duration display
+      months:
+        frequency === 'monthly' ? count :
+        frequency === 'quarterly' ? count * 3 : count * 6,
+    };
+  }, [instTotalPrice, bookingPercent, downPercent, possessionPercent, installmentCount, frequency]);
 
   // â”€â”€ Completed project handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
@@ -428,6 +467,15 @@ function ProjectForm(): React.ReactElement {
       if (!featureImage?.url || !featureImage?.publicId) {
         setSubmitError('Please upload a Main Feature Image (cover photo).');
         return;
+      }
+      if (unitPlans.length > 0) {
+        const emptyUnit = unitPlans.find(
+          (u) => !u.type || !u.name || (u.priceRange?.min ?? 0) <= 0 || (u.areaRange?.min ?? 0) <= 0
+        );
+        if (emptyUnit) {
+          setSubmitError('Please complete all unit types — type, name, price and area are required.');
+          return;
+        }
       }
       if (!featureImage.publicId.startsWith('highrise-pk/')) {
         setSubmitError('Feature image was not uploaded through the correct channel. Please re-upload.');
@@ -553,14 +601,16 @@ function ProjectForm(): React.ReactElement {
               pricePerUnit: calcPPU,
             },
           }),
-          ...(saleMode === 'installment' && {
+          ...((saleMode === 'Installment' || saleMode === 'Both') && {
             installmentInfo: {
-              totalUnitPrice:           getNum('installmentTotalUnitPrice'),
-              bookingPayment:           getNum('bookingPayment'),
-              downPayment:              getNum('downPayment'),
-              monthlyInstallmentAmount: getNum('monthlyInstallmentAmount'),
-              totalMonthlyInstallments: getNum('totalMonthlyInstallments'),
-              possessionCharges:        getNum('possessionCharges'),
+              totalUnitPrice:           instCalc.total,
+              bookingPayment:           instCalc.bookingAmount,
+              downPayment:              instCalc.downAmount,
+              monthlyInstallmentAmount: frequency === 'monthly' ? instCalc.perInstallment : undefined,
+              quarterlyAmount:          frequency === 'quarterly' ? instCalc.perInstallment : undefined,
+              halfYearlyAmount:         frequency === 'half-yearly' ? instCalc.perInstallment : undefined,
+              totalMonthlyInstallments: instCalc.count,
+              possessionCharges:        instCalc.possessionAmount,
             },
           }),
           // Category-specific fields
@@ -617,6 +667,7 @@ function ProjectForm(): React.ReactElement {
       loading, projectCategory, projectNature, featureImage,
       description, developmentProgress, saleMode,
       fullPrice, areaSize, areaUnit, completedProjects,
+      instCalc, frequency,
       amenities, nearbyFacilities, locationAdvantages, landAreaUnit,
       developmentUpdates, galleryImages,
       projectDocuments, buildingFloorPlans, unitPlans,
@@ -1052,14 +1103,6 @@ function ProjectForm(): React.ReactElement {
             />
           )}
 
-          {/* Project Gallery — multi-upload (feature image ke saath state mein save) */}
-          <ProjectGallerySection
-            images={galleryImages}
-            onChange={setGalleryImages}
-            projectSlug={projectCategory || 'project'}
-            disabled={loading}
-          />
-
           {/* Construction timeline & milestones */}
           <DevelopmentUpdatesEditor
             value={developmentUpdates}
@@ -1106,32 +1149,194 @@ function ProjectForm(): React.ReactElement {
               </select>
             </div>
 
-            {(saleMode === 'Installment' || saleMode === 'Both') && (
-              <div className="rounded-xl bg-[#eff6ff] border border-[#029bba]/20 p-5">
-                <h4 className="font-semibold text-[#004063] mb-4">Installment Plan Details</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {[
-                    { name: 'installmentTotalUnitPrice',  label: 'Total Unit Price (PKR)', required: true,  ph: 'e.g. 5000000' },
-                    { name: 'bookingPayment',              label: 'Booking Payment',        required: false, ph: 'e.g. 500000'  },
-                    { name: 'downPayment',                 label: 'Down Payment',           required: false, ph: 'e.g. 1000000' },
-                    { name: 'monthlyInstallmentAmount',    label: 'Monthly Installment',    required: false, ph: 'e.g. 50000'   },
-                    { name: 'totalMonthlyInstallments',    label: 'Total Installments',     required: false, ph: 'e.g. 36'      },
-                    { name: 'possessionCharges',           label: 'Possession Charges',     required: false, ph: 'e.g. 200000'  },
-                  ].map((f) => (
-                    <div key={f.name}>
+              {(saleMode === 'Installment' || saleMode === 'Both') && (
+                <div className="rounded-xl bg-[#eff6ff] border border-[#029bba]/20 p-5">
+                  <h4 className="font-semibold text-[#004063] mb-2">Installment Plan (Smart Calculator)</h4>
+                  <p className="text-xs text-[#666666] mb-4">
+                    Enter total price and percentages — installment amounts are auto-calculated.
+                  </p>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                    {/* Total Price */}
+                    <div>
                       <label className={labelClass}>
-                        {f.label} {f.required && <span className="text-[#ef4444]">*</span>}
+                        Total Unit Price (PKR) <span className="text-[#ef4444]">*</span>
                       </label>
                       <input
-                        type="number" name={f.name}
-                        required={f.required}
-                        className={inputClass} placeholder={f.ph} min={0}
+                        type="number"
+                        className={inputClass}
+                        placeholder="e.g. 12000000"
+                        min={0}
+                        value={instTotalPrice}
+                        onChange={(e) => setInstTotalPrice(e.target.value)}
+                        required
                       />
                     </div>
-                  ))}
+
+                    {/* Booking % */}
+                    <div>
+                      <label className={labelClass}>Booking (%)</label>
+                      <input
+                        type="number"
+                        className={inputClass}
+                        placeholder="e.g. 10"
+                        min={0}
+                        max={100}
+                        value={bookingPercent}
+                        onChange={(e) => setBookingPercent(e.target.value)}
+                      />
+                      {instCalc.bookingAmount > 0 && (
+                        <p className="text-xs text-[#029bba] font-semibold mt-1 tabular-nums">
+                          = PKR {instCalc.bookingAmount.toLocaleString('en-PK')}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Down Payment % */}
+                    <div>
+                      <label className={labelClass}>Down Payment (%)</label>
+                      <input
+                        type="number"
+                        className={inputClass}
+                        placeholder="e.g. 20"
+                        min={0}
+                        max={100}
+                        value={downPercent}
+                        onChange={(e) => setDownPercent(e.target.value)}
+                      />
+                      {instCalc.downAmount > 0 && (
+                        <p className="text-xs text-[#029bba] font-semibold mt-1 tabular-nums">
+                          = PKR {instCalc.downAmount.toLocaleString('en-PK')}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Possession % */}
+                    <div>
+                      <label className={labelClass}>Possession (%)</label>
+                      <input
+                        type="number"
+                        className={inputClass}
+                        placeholder="e.g. 10"
+                        min={0}
+                        max={100}
+                        value={possessionPercent}
+                        onChange={(e) => setPossessionPercent(e.target.value)}
+                      />
+                      {instCalc.possessionAmount > 0 && (
+                        <p className="text-xs text-[#029bba] font-semibold mt-1 tabular-nums">
+                          = PKR {instCalc.possessionAmount.toLocaleString('en-PK')}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Installment Count */}
+                    <div>
+                      <label className={labelClass}>Number of Installments</label>
+                      <input
+                        type="number"
+                        className={inputClass}
+                        placeholder="e.g. 12"
+                        min={1}
+                        max={120}
+                        value={installmentCount}
+                        onChange={(e) => setInstallmentCount(e.target.value)}
+                      />
+                    </div>
+
+                    {/* Frequency */}
+                    <div>
+                      <label className={labelClass}>Frequency</label>
+                      <select
+                        className={inputClass}
+                        value={frequency}
+                        onChange={(e) => {
+                          const newFreq = e.target.value as 'monthly' | 'quarterly' | 'half-yearly';
+                          // Preserve plan duration: convert count so the
+                          // total months stay the same (e.g. 12 quarters = 36
+                          // months → 36 monthly / 6 half-yearly)
+                          const currentMonths =
+                            frequency === 'monthly' ? Number(installmentCount) || 0
+                            : frequency === 'quarterly' ? (Number(installmentCount) || 0) * 3
+                            : (Number(installmentCount) || 0) * 6;
+                          if (currentMonths > 0) {
+                            const newCount =
+                              newFreq === 'monthly' ? currentMonths
+                              : newFreq === 'quarterly' ? Math.round(currentMonths / 3)
+                              : Math.round(currentMonths / 6);
+                            setInstallmentCount(String(Math.max(newCount, 1)));
+                          }
+                          setFrequency(newFreq);
+                        }}
+                      >
+                        <option value="monthly">Monthly</option>
+                        <option value="quarterly">Quarterly (every 3 months)</option>
+                        <option value="half-yearly">Half-Yearly (every 6 months)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  {/* Auto-calculated summary */}
+                  {instCalc.total > 0 && instCalc.count > 0 && (
+                    <div className="rounded-xl bg-white border border-[#029bba]/20 p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-bold text-[#004063] uppercase tracking-wide">
+                          Auto-Calculated Plan
+                        </p>
+                        <span className="text-xs text-gray-400 tabular-nums">
+                          {instCalc.upfrontPct}% upfront
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Booking</p>
+                          <p className="font-bold text-gray-900 tabular-nums">
+                            PKR {instCalc.bookingAmount.toLocaleString('en-PK')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Down Payment</p>
+                          <p className="font-bold text-gray-900 tabular-nums">
+                            PKR {instCalc.downAmount.toLocaleString('en-PK')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Possession</p>
+                          <p className="font-bold text-gray-900 tabular-nums">
+                            PKR {instCalc.possessionAmount.toLocaleString('en-PK')}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[10px] text-gray-400 uppercase font-bold mb-0.5">Remaining</p>
+                          <p className="font-bold text-gray-900 tabular-nums">
+                            PKR {instCalc.remaining.toLocaleString('en-PK')}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Installment highlight */}
+                      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                        <p className="text-sm text-gray-600">
+                          Each installment ({instCalc.freqLabel})
+                        </p>
+                        <p className="text-lg font-black text-[#029bba] tabular-nums">
+                          PKR {instCalc.perInstallment.toLocaleString('en-PK')}
+                          <span className="text-xs text-gray-400 font-semibold ml-1">
+                            × {instCalc.count} = {instCalc.months} {instCalc.months >= 12 ? `(${(instCalc.months / 12).toFixed(1)} years)` : 'months'}
+                          </span>
+                        </p>
+                      </div>
+
+                      {instCalc.upfrontPct > 100 && (
+                        <p className="text-xs text-red-500 font-bold mt-2">
+                          Warning: Booking + Down + Possession exceeds 100% of total price!
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
 
             {(saleMode === 'Full Payment' || saleMode === 'Both') && (
               <div className="rounded-xl bg-[#f0fdf4] border border-[#10b981]/20 p-5">
@@ -1352,6 +1557,7 @@ function ProjectForm(): React.ReactElement {
                 />
                 <p className="text-xs text-[#666666] mt-1.5">
                   Right-click on Google Maps: "What's here?" to get coordinates.
+                  (At least one of: Google Maps Link, Coordinates — for accurate project map)
                 </p>
                 {staticMapUrl && (
                   <div className="mt-4">

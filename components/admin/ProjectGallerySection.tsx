@@ -18,9 +18,54 @@ import {
 export interface GalleryImageInput {
   url: string;
   publicId: string;
-  caption?: string;
+  caption?: string; // room type label
   isPrimary?: boolean;
 }
+
+// Room/property type labels — Pakistani market complete coverage:
+// residential (houses/apartments), commercial (shops/offices),
+// societies (amenities), plots/land (farm) — sab property types
+export const ROOM_TYPE_LABELS = [
+  // Residential — rooms
+  'Bed Room',
+  'Master Bed Room',
+  'Kitchen',
+  'Washroom',
+  'Drawing Room',
+  'Dining Room',
+  'TV Lounge',
+  'Living Room',
+  'Store Room',
+  'Servant Quarter',
+  'Prayer Room',
+  // Residential — house/society areas
+  'Lawn / Garden',
+  'Courtyard',
+  'Front / Entrance',
+  'Balcony',
+  'Terrace',
+  'Stairs',
+  'Corridor',
+  'Gallery / Hallway',
+  // Commercial
+  'Shop / Showroom',
+  'Office Space',
+  'Lobby / Reception',
+  'Warehouse',
+  'Food Court / Cafe',
+  'Parking',
+  // Society amenities
+  'Gym',
+  'Swimming Pool',
+  'Community Center',
+  'Play Area / Jogging Track',
+  'Masjid',
+  'Security Room',
+  // Views / general
+  'Exterior / Front View',
+  'Site View',
+  'Other',
+] as const;
 
 interface ProjectGallerySectionProps {
   images: GalleryImageInput[];
@@ -96,6 +141,13 @@ export default function ProjectGallerySection({
       setUploading(false);
       if (inputRef.current) inputRef.current.value = '';
     }
+  };
+
+  // ── Update caption (room type) ──
+  const updateCaption = (index: number, caption: string): void => {
+    onChange((prev) =>
+      prev.map((img, i) => (i === index ? { ...img, caption } : img))
+    );
   };
 
   // ── Set primary ──
@@ -188,8 +240,28 @@ export default function ProjectGallerySection({
                 <img
                   src={img.url}
                   alt={img.caption || `Project image ${idx + 1}`}
-                  className="w-full h-24 object-cover"
+                  className="w-full h-28 object-cover"
                 />
+
+                {/* Room type caption — bottom overlay dropdown (z-20 above hover
+                    so it stays clickable on hover too) */}
+                <div className="absolute bottom-0 left-0 right-0 bg-black/60 backdrop-blur-sm
+                                p-1 flex items-center gap-1 z-20">
+                  <select
+                    value={img.caption || ''}
+                    onChange={(e) => updateCaption(idx, e.target.value)}
+                    disabled={disabled}
+                    className="flex-1 min-w-0 text-[10px] font-bold text-white bg-transparent
+                               border-none outline-none cursor-pointer
+                               [&>option]:text-gray-800 [&>option]:bg-white"
+                    aria-label={`Room type for image ${idx + 1}`}
+                  >
+                    <option value="">Label...</option>
+                    {ROOM_TYPE_LABELS.map((label) => (
+                      <option key={label} value={label}>{label}</option>
+                    ))}
+                  </select>
+                </div>
 
                 {/* Primary badge */}
                 {img.isPrimary && (
@@ -198,9 +270,10 @@ export default function ProjectGallerySection({
                   </div>
                 )}
 
-                {/* Hover actions */}
+                {/* Hover actions — z-index above image but BELOW caption
+                    dropdown (caption must stay clickable, not blocked) */}
                 <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity
-                                flex items-center justify-center gap-2">
+                                flex items-center justify-center gap-2 z-10">
                   <button
                     type="button"
                     onClick={() => setPrimary(idx)}

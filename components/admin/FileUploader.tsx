@@ -309,7 +309,9 @@ export default function FileUploader({
                 </span>
               </div>
               <p className="text-xs text-gray-500 truncate mt-1">
-                {value.url.split('/').pop()}
+                {(value.url.split('/').pop() ?? '').split('.')[0].length > 20
+                  ? 'Image uploaded'
+                  : value.url.split('/').pop()}
               </p>
             </div>
 

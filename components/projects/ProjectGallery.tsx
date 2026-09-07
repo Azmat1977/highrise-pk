@@ -338,6 +338,17 @@ function HeroGallery({
             <Maximize2 className="w-8 h-8 text-white drop-shadow-lg" />
           </div>
         </div>
+
+        {/* Room type caption badge */}
+        {primary.caption && primary.caption !== 'Cover Image' && (
+          <span
+            className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md
+                       bg-black/60 backdrop-blur-sm text-white
+                       text-[10px] font-bold whitespace-nowrap pointer-events-none"
+          >
+            {primary.caption}
+          </span>
+        )}
       </button>
     );
   }
@@ -364,6 +375,17 @@ function HeroGallery({
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
                             transition-colors" />
+
+            {/* Room type caption badge */}
+            {img.caption && img.caption !== 'Cover Image' && (
+              <span
+                className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md
+                           bg-black/60 backdrop-blur-sm text-white
+                           text-[10px] font-bold whitespace-nowrap pointer-events-none"
+              >
+                {img.caption}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -388,6 +410,17 @@ function HeroGallery({
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
                           transition-colors" />
+
+          {/* Room type caption badge */}
+          {images[0].caption && images[0].caption !== 'Cover Image' && (
+            <span
+              className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md
+                         bg-black/60 backdrop-blur-sm text-white
+                         text-[10px] font-bold whitespace-nowrap pointer-events-none"
+            >
+              {images[0].caption}
+            </span>
+          )}
         </button>
         {images.slice(1, 3).map((img, idx) => (
           <button
@@ -404,6 +437,17 @@ function HeroGallery({
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
                             transition-colors" />
+
+            {/* Room type caption badge */}
+            {img.caption && img.caption !== 'Cover Image' && (
+              <span
+                className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md
+                           bg-black/60 backdrop-blur-sm text-white
+                           text-[10px] font-bold whitespace-nowrap pointer-events-none"
+              >
+                {img.caption}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -429,6 +473,17 @@ function HeroGallery({
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
                             transition-colors" />
+
+            {/* Room type caption badge */}
+            {img.caption && img.caption !== 'Cover Image' && (
+              <span
+                className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md
+                           bg-black/60 backdrop-blur-sm text-white
+                           text-[10px] font-bold whitespace-nowrap pointer-events-none"
+              >
+                {img.caption}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -453,6 +508,17 @@ function HeroGallery({
         />
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
                         transition-colors" />
+
+        {/* Room type caption badge */}
+        {primary.caption && primary.caption !== 'Cover Image' && (
+          <span
+            className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md
+                       bg-black/60 backdrop-blur-sm text-white
+                       text-[10px] font-bold whitespace-nowrap pointer-events-none"
+          >
+            {primary.caption}
+          </span>
+        )}
       </button>
 
       {/* Secondaries — 2x2 grid */}
@@ -471,6 +537,17 @@ function HeroGallery({
           />
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10
                           transition-colors" />
+
+          {/* Room type caption badge */}
+          {img.caption && img.caption !== 'Cover Image' && (
+            <span
+              className="absolute bottom-2 left-2 px-2 py-0.5 rounded-md
+                         bg-black/60 backdrop-blur-sm text-white
+                         text-[10px] font-bold whitespace-nowrap pointer-events-none"
+            >
+              {img.caption}
+            </span>
+          )}
 
           {/* Show remaining count on last visible */}
           {idx === secondaries.length - 1 && remaining > 0 && (
