@@ -365,6 +365,11 @@ export default async function handler(
         $set: {
           isVerifiedOwner: true,
           ownerVerificationStatus: "approved",
+          // KYC listing gate (middleware) — owner approval = KYC pass
+          // tokenVersion++ (below) forces JWT refresh so /owner/* + add/edit gates see it live
+          kycVerified: true,
+          cnicVerified: true,
+          cnicStatus: "verified",
         },
         $inc: {
           tokenVersion: 1, // Force session refresh
