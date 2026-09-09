@@ -207,6 +207,8 @@ async function handlePost(
     taxPaidUpToDate,
     societyMembershipRequired,
     // Enterprise - media
+    featureImageUrl,
+    featureImagePublicId,
     videoUrl,
     virtualTourUrl,
     droneVideoUrl,
@@ -293,8 +295,8 @@ async function handlePost(
     title:       String(title).trim(),
     description: String(description).trim(),
 
-    // Pricing
-    price:           Number(price),
+    // Pricing — rent listings have no sale price; avoid NaN
+    price:           listingType === "rent" ? 0 : (Number(price) || 0),
     priceNegotiable: Boolean(priceNegotiable),
 
     // Size
@@ -311,83 +313,114 @@ async function handlePost(
     bedrooms:  bedrooms  ? Number(bedrooms)  : undefined,
     bathrooms: bathrooms ? Number(bathrooms) : undefined,
 
-    // Enterprise - size and details
-    areaSize:       areaSize     ? Number(areaSize)     : undefined,
-    frontSize:      frontSize    ? Number(frontSize)    : undefined,
-    depthSize:      depthSize    ? Number(depthSize)    : undefined,
-    coveredArea:    coveredArea  ? Number(coveredArea)  : undefined,
-    servantQuarters: servantQuarters ? Number(servantQuarters) : undefined,
-    parkings:       parkings     ? Number(parkings)     : undefined,
-    floors:         floors       ? Number(floors)       : undefined,
-    floorNumber:    floorNumber  ? Number(floorNumber)  : undefined,
-    propertyAge:    propertyAge  ? Number(propertyAge)  : undefined,
-    facing:         facing       ? String(facing).trim()      : undefined,
-    cornerPlot:     cornerPlot   === true  ? true  : undefined,
-    boundaryWall:   boundaryWall === true  ? true  : undefined,
-    furnishingStatus: furnishingStatus ? String(furnishingStatus).trim() : undefined,
+    // Enterprise - size and details (schema-exact: plotWidth/plotDepth, isCornerPlot,
+    // hasBoundaryWall, facingDirection, servantQuarter+Rooms, parking string)
+    frontSize:          frontSize    ? Number(frontSize)    : undefined,
+    depthSize:          depthSize    ? Number(depthSize)    : undefined,
+    coveredArea:        coveredArea  ? Number(coveredArea)  : undefined,
+    coveredAreaUnit:    coveredArea  ? String(unit).trim() : undefined,
+    servantQuarter:      Number(servantQuarters) > 0 ? true : undefined,
+    servantQuarterRooms: Number(servantQuarters) > 0 ? Number(servantQuarters) : undefined,
+    parking:       parkings ? String(Number(parkings)) : undefined,
+    floors:        floors   ? Number(floors)   : undefined,
+    floorNumber:   floorNumber ? Number(floorNumber) : undefined,
+    facing:            facing ? String(facing).trim() : undefined,
+    facingDirection:   facing ? String(facing).trim() : undefined,
+    isCornerPlot:   cornerPlot   === true ? true : undefined,
+    hasBoundaryWall: boundaryWall === true ? true : undefined,
+    furnished: (() => {
+      const f = String(furnishingStatus ?? "");
+      if (f === "furnished") return "fully_furnished";
+      if (f === "semi-furnished") return "semi_furnished";
+      if (f === "unfurnished") return "unfurnished";
+      return undefined;
+    })(),
     possessionStatus: possessionStatus
       ? ["ready","under_construction","on_handover"].includes(String(possessionStatus))
         ? String(possessionStatus)
         : "ready"
       : undefined,
 
-    // Enterprise - rental pricing
-    monthlyRent:    listingType === "rent" && monthlyRent    ? Number(monthlyRent)    : undefined,
-    securityDeposit: listingType === "rent" && securityDeposit ? Number(securityDeposit) : undefined,
-    advanceMonths:  listingType === "rent" && advanceMonths  ? Number(advanceMonths)  : undefined,
-    utilitiesIncluded: listingType === "rent" && utilitiesIncluded === true ? true : undefined,
+    // Enterprise - rental pricing (nested — schema: rentalDetails, 2209-2235)
+    rentalDetails: listingType === "rent" ? {
+      monthlyRent:       Number(monthlyRent) || 0,
+      securityDeposit:   Number(securityDeposit) || undefined,
+      advanceMonths:     Number(advanceMonths) || undefined,
+      utilitiesIncluded: utilitiesIncluded === true ? true : undefined,
+    } : undefined,
 
-    // Enterprise - installment plan (Smart Calculator)
-    installmentPlan: installmentPlan && typeof installmentPlan === "object"
-      ? {
-          totalPrice:          Number((installmentPlan as Record<string, unknown>).totalPrice) || 0,
-          bookingPercent:      Number((installmentPlan as Record<string, unknown>).bookingPercent) || 0,
-          downPaymentPercent:  Number((installmentPlan as Record<string, unknown>).downPaymentPercent) || 0,
-          possessionPercent:   Number((installmentPlan as Record<string, unknown>).possessionPercent) || 0,
-          installmentCount:    Number((installmentPlan as Record<string, unknown>).installmentCount) || 0,
-          frequency:           String((installmentPlan as Record<string, unknown>).frequency ?? "quarterly"),
-        }
-      : undefined,
+    // Enterprise - installment plan (amounts computed server-side — schema:
+    // booking/downPayment/installmentPlan/possession, 1746-1781)
+    installmentPlan && typeof installmentPlan === "object" ? (() => {
+      const ip    = installmentPlan as Record<string, unknown>;
+      const total = Number(ip.totalPrice) || 0;
+      const bPct  = Number(ip.bookingPercent) || 0;
+      const dPct  = Number(ip.downPaymentPercent) || 0;
+      const pPct  = Number(ip.possessionPercent) || 0;
+      const count = Number(ip.installmentCount) || 0;
+      const freq  = String(ip.frequency ?? "quarterly");
+      const bookingAmt = Math.round((total * bPct) / 100);
+      const downAmt    = Math.round((total * dPct) / 100);
+      const possAmt    = Math.round((total * pPct) / 100);
+      const remaining  = Math.max(total - bookingAmt - downAmt - possAmt, 0);
+      const perInst    = count > 0 ? Math.round(remaining / count) : 0;
+      const durMonths  = count * (freq === "monthly" ? 1 : freq === "quarterly" ? 3 : 6);
+      const flags = {
+        hasMonthly:    freq === "monthly",
+        hasQuarterly:  freq === "quarterly",
+        hasHalfYearly: freq === "half-yearly",
+        hasYearly:     false,
+      };
+      return {
+        pricePerUnit:    total > 0 && Number(area) > 0 ? Math.round(total / Number(area)) : undefined,
+        listingPurpose:  "new_booking",
+        booking:     { amount: bookingAmt, percent: bPct, status: "open" as const },
+        downPayment: { amount: downAmt, percent: dPct, inInstallments: false },
+        installmentPlan: {
+          ...flags,
+          monthlyAmount:    freq === "monthly"    ? perInst : undefined,
+          monthlyCount:     freq === "monthly"    ? count   : undefined,
+          quarterlyAmount:  freq === "quarterly"  ? perInst : undefined,
+          quarterlyCount:   freq === "quarterly"  ? count   : undefined,
+          halfYearlyAmount: freq === "half-yearly"? perInst : undefined,
+          halfYearlyCount:  freq === "half-yearly"? count   : undefined,
+          planDuration:     durMonths,
+          planDurationUnit: "months" as const,
+        },
+        possession: { amount: possAmt, percent: pPct },
+      };
+    })() : {},
 
-    // Enterprise - utilities
-    electricityStatus: electricityStatus
-      ? ["available","applied","not_available"].includes(String(electricityStatus))
-        ? String(electricityStatus) : undefined
-      : undefined,
-    suiGasStatus: suiGasStatus
-      ? ["available","applied","not_available"].includes(String(suiGasStatus))
-        ? String(suiGasStatus) : undefined
-      : undefined,
-    waterStatus: waterStatus
-      ? ["available","applied","not_available"].includes(String(waterStatus))
-        ? String(waterStatus) : undefined
-      : undefined,
-    sewerageStatus: sewerageStatus
-      ? ["available","applied","not_available"].includes(String(sewerageStatus))
-        ? String(sewerageStatus) : undefined
-      : undefined,
-    internetReady:  internetReady  === true ? true : undefined,
-    cctvCoverage:   cctvCoverage   === true ? true : undefined,
-    streetLights:   streetLights   === true ? true : undefined,
-    gatedCommunity: gatedCommunity === true ? true : undefined,
-    roadCondition:  roadCondition  ? String(roadCondition).trim() : undefined,
+    // Enterprise - utilities (nested — schema: infrastructure, 1914-1926; sui = gasStatus free string)
+    infrastructure: {
+      electricityStatus: ["available","applied","not_available"].includes(String(electricityStatus ?? ""))
+        ? String(electricityStatus) : undefined,
+      gasStatus:         suiGasStatus ? String(suiGasStatus).trim().slice(0, 60) : undefined,
+      waterStatus:       waterStatus  ? String(waterStatus).trim().slice(0, 60)  : undefined,
+      sewerageStatus:    ["available","applied","not_available"].includes(String(sewerageStatus ?? ""))
+        ? String(sewerageStatus) : undefined,
+      internetReady:  internetReady  === true,
+      cctvCoverage:   cctvCoverage   === true,
+      streetLights:   streetLights   === true,
+      gatedCommunity: gatedCommunity === true,
+      roadCondition:  roadCondition  ? String(roadCondition).trim().slice(0, 60) : undefined,
+    },
 
-    // Enterprise - legal
-    ownershipType: ownershipType
-      ? ["freehold","leasehold","power_of_attorney"].includes(String(ownershipType))
-        ? String(ownershipType) : "freehold"
-      : undefined,
-    fileType: fileType
-      ? ["open_file","allocation","affidavit","registry","lease"].includes(String(fileType))
-        ? String(fileType) : undefined
-      : undefined,
-    documentsAvailable: Array.isArray(documentsAvailable)
-      ? (documentsAvailable as string[]).filter((d) => typeof d === "string").slice(0, 10)
-      : undefined,
-    hasDispute:  hasDispute  === true ? true : false,
-    disputeDetails: hasDispute && disputeDetails ? String(disputeDetails).trim().slice(0, 500) : undefined,
-    taxPaidUpToDate: taxPaidUpToDate === true ? true : undefined,
-    societyMembershipRequired: societyMembershipRequired === true ? true : undefined,
+    // Enterprise - legal (nested — schema legal block 2080-2095) + top-level ownershipType
+    ownershipType: ["freehold","leasehold","power_of_attorney"].includes(String(ownershipType ?? ""))
+      ? String(ownershipType) : "freehold",
+    legal: {
+      ownershipType: String(ownershipType ?? "freehold").slice(0, 40),
+      fileType: ["open_file","allocation","affidavit","registry","lease"].includes(String(fileType ?? ""))
+        ? String(fileType) : undefined,
+      documentationAvailable: Array.isArray(documentsAvailable)
+        ? (documentsAvailable as string[]).filter((d) => typeof d === "string").slice(0, 10)
+        : [],
+      hasDispute:                hasDispute === true,
+      disputeDetails:            hasDispute && disputeDetails ? String(disputeDetails).trim().slice(0, 500) : "",
+      societyMembershipRequired: societyMembershipRequired === true,
+      taxPaidUpToDate:           taxPaidUpToDate === true,
+    },
 
     // Enterprise - media (video URLs)
     videoUrl:        videoUrl        ? String(videoUrl).trim()        : undefined,
@@ -395,6 +428,8 @@ async function handlePost(
     droneVideoUrl:   droneVideoUrl   ? String(droneVideoUrl).trim()   : undefined,
 
     // Media
+    featureImageUrl:    featureImageUrl    ? String(featureImageUrl).trim()    : undefined,
+    featureImagePublicId: featureImagePublicId ? String(featureImagePublicId).trim() : undefined,
     images: safeImages,
 
     // Contact

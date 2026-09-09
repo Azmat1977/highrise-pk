@@ -248,20 +248,7 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
                 ))}
               </select>
             </div>
-            <div>
-              <label className={labelCls}>
-                <Clock className="w-4 h-4 inline mr-1" />
-                Property Age (years)
-              </label>
-              <input
-                type="number"
-                value={form.propertyAge}
-                onChange={(e) => setField('propertyAge', e.target.value)}
-                placeholder="e.g. 5 (0 = new)"
-                min={0}
-                className={inputCls}
-              />
-            </div>
+
             <div>
               <label className={labelCls}>Servant Quarters</label>
               <input
