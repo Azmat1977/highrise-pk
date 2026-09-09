@@ -12,7 +12,7 @@ import React, { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/router';
 import {
   ChevronLeft, ChevronRight, Loader2, CheckCircle,
-  Building2, Home, DollarSign, FileText, X,
+  Building2, Home, CreditCard, FileText, X,
 } from 'lucide-react';
 
 import type { ListingFormState, PropertyType, ListingType } from './types';
@@ -26,7 +26,7 @@ import StepLegal from './StepLegal';
 const STEPS = [
   { id: 1, label: 'Type & Location', icon: Building2 },
   { id: 2, label: 'Details', icon: Home },
-  { id: 3, label: 'Pricing', icon: DollarSign },
+  { id: 3, label: 'Pricing', icon: CreditCard },
   { id: 4, label: 'Legal & Media', icon: FileText },
 ] as const;
 
@@ -100,8 +100,11 @@ export default function PropertyListingForm(): React.ReactElement {
         if (!form.description || form.description.length < 50) {
           newErrors.description = 'Description must be at least 50 characters.';
         }
+        if (!form.featureImage) {
+          newErrors.featureImage = 'Feature image (cover photo) is required.';
+        }
         if (form.images.length === 0) {
-          newErrors.images = 'At least 1 property image is required.';
+          newErrors.images = 'At least 1 property picture is required.';
         }
         if (!form.declaration) {
           newErrors.declaration = 'Please accept the declaration.';
@@ -224,6 +227,8 @@ export default function PropertyListingForm(): React.ReactElement {
         societyMembershipRequired: form.societyMembershipRequired,
 
         // Media
+        featureImageUrl: form.featureImage?.url,
+        featureImagePublicId: form.featureImage?.public_id,
         images: form.images,
         videoUrl: form.videoUrl || undefined,
         virtualTourUrl: form.virtualTourUrl || undefined,
