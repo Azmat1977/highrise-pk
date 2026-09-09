@@ -177,6 +177,17 @@ export default function StepType({ form, setField, errors }: StepTypeProps): Rea
         {errors.listingType && (
           <p className="text-xs text-red-500 mt-1">{errors.listingType}</p>
         )}
+
+        {/* Selected listing type — preview hint */}
+        {form.listingType && (
+          <p className="text-xs text-[#029bba] font-semibold mt-2 bg-[#029bba]/5
+                         border border-[#029bba]/20 rounded-lg px-3 py-2">
+            {form.listingType === 'installment' && 'Installment details (total price + % + plan) — Step 3: Pricing'}
+            {form.listingType === 'full_payment' && 'Asking price — Step 3: Pricing'}
+            {form.listingType === 'rent' && 'Rental details (monthly rent + deposit) — Step 3: Pricing'}
+            {form.listingType === 'pre_launch' && 'Pre-launch price — Step 3: Pricing'}
+          </p>
+        )}
       </div>
 
       {/* ── Location ── */}

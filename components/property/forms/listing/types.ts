@@ -84,6 +84,7 @@ export interface ListingFormState {
   taxPaidUpToDate:  boolean;
   societyMembershipRequired: boolean;
 
+  featureImage:     { url: string; public_id: string } | null;
   images:           Array<{ url: string; public_id: string; caption?: string }>;
   videoUrl:         string;
   virtualTourUrl:   string;
@@ -117,6 +118,7 @@ export const INITIAL_STATE: ListingFormState = {
   ownershipType: 'freehold', fileType: '', documentsAvailable: [],
   hasDispute: false, disputeDetails: '', taxPaidUpToDate: false,
   societyMembershipRequired: false,
+  featureImage: null,
   images: [], videoUrl: '', virtualTourUrl: '', droneVideoUrl: '',
   contactPerson: '', contactPhone: '', contactWhatsapp: '',
   showPhoneOnListing: true,

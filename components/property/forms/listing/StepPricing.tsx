@@ -1,4 +1,4 @@
-// components/property/forms/listing/StepPricing.tsx
+﻿// components/property/forms/listing/StepPricing.tsx
 //
 // Step 3: Pricing (listing-type conditional) + Utilities
 // Full: price + negotiable
@@ -11,8 +11,8 @@
 
 import React, { useMemo } from 'react';
 import {
-  DollarSign, TrendingUp, Calendar, Home, Zap, Droplets,
-  Flame, Wifi, Camera, Lightbulb, Shield,
+  TrendingUp, Calendar, Home, Zap, Droplets,
+  Flame, Wifi, Camera, Lightbulb, Shield, CreditCard,
 } from 'lucide-react';
 
 import type { ListingFormState } from './types';
@@ -116,7 +116,7 @@ export default function StepPricing({ form, setField, errors }: StepPricingProps
       {(lt === 'full_payment' || lt === 'pre_launch') && (
         <div className="rounded-xl border border-[#029bba]/20 bg-[#029bba]/[0.02] p-5">
           <h4 className="font-semibold text-[#004063] mb-4 flex items-center gap-2">
-            <DollarSign className="w-5 h-5 text-[#029bba]" />
+            <CreditCard className="w-5 h-5 text-[#029bba]" />
             {lt === 'full_payment' ? 'Asking Price' : 'Pre-Launch Price'}
           </h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -296,7 +296,23 @@ export default function StepPricing({ form, setField, errors }: StepPricingProps
               <label className={labelCls}>Frequency</label>
               <select
                 value={form.frequency}
-                onChange={(e) => setField('frequency', e.target.value as typeof form.frequency)}
+                onChange={(e) => {
+                  const newFreq = e.target.value as typeof form.frequency;
+                  // Preserve plan duration — convert count (kal wala fix):
+                  // 12 quarters = 36 months → 36 monthly / 6 half-yearly
+                  const currentMonths =
+                    form.frequency === 'monthly' ? Number(form.installmentCount) || 0
+                    : form.frequency === 'quarterly' ? (Number(form.installmentCount) || 0) * 3
+                    : (Number(form.installmentCount) || 0) * 6;
+                  if (currentMonths > 0) {
+                    const newCount =
+                      newFreq === 'monthly' ? currentMonths
+                      : newFreq === 'quarterly' ? Math.round(currentMonths / 3)
+                      : Math.round(currentMonths / 6);
+                    setField('installmentCount', String(Math.max(newCount, 1)));
+                  }
+                  setField('frequency', newFreq);
+                }}
                 className={inputCls}
               >
                 <option value="monthly">Monthly</option>

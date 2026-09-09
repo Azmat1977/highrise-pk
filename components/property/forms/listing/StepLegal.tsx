@@ -50,6 +50,68 @@ const DOC_CHECKLIST = [
   'Site Plan Approved',
 ] as const;
 
+// Feature image uploader — single file (separate from gallery)
+function FeatureImageUpload({ onUploaded }: {
+  onUploaded: (img: { url: string; public_id: string }) => void;
+}): React.ReactElement {
+  const [uploading, setUploading] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const upload = async (file: File): Promise<void> => {
+    if (file.size > 10 * 1024 * 1024) return;
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', file, file.name);
+      const res = await fetch('/api/upload?folder=properties', {
+        method: 'POST',
+        body: formData,
+        credentials: 'include',
+      });
+      const data = (await res.json()) as {
+        success: boolean;
+        data?: { url: string; publicId: string };
+      };
+      if (data.success && data.data) {
+        onUploaded({ url: data.data.url, public_id: data.data.publicId });
+      }
+    } catch {
+      // silent
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => inputRef.current?.click()}
+        disabled={uploading}
+        className="w-full border-2 border-dashed border-gray-300 rounded-xl py-5 text-center
+                   hover:border-[#029bba] transition-colors disabled:opacity-50"
+      >
+        {uploading ? (
+          <Loader2 className="w-6 h-6 text-[#029bba] animate-spin mx-auto" />
+        ) : (
+          <>
+            <Upload className="w-6 h-6 text-gray-300 mx-auto mb-1" />
+            <p className="text-xs text-gray-500 font-medium">Upload cover photo</p>
+          </>
+        )}
+      </button>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => { if (e.target.files?.[0]) void upload(e.target.files[0]); }}
+      />
+    </>
+  );
+}
+
 export default function StepLegal({ form, setField, errors }: StepLegalProps): React.ReactElement {
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
@@ -234,8 +296,51 @@ export default function StepLegal({ form, setField, errors }: StepLegalProps): R
       <div className="rounded-xl border border-gray-200 p-5">
         <h4 className="font-semibold text-[#004063] mb-4 flex items-center gap-2">
           <Camera className="w-5 h-5 text-[#029bba]" />
-          Property Images ({form.images.length}/15)
+          Property Media
         </h4>
+
+        {/* Feature Image (cover) — hero on listing cards */}
+        <div className="mb-6">
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Feature Image (Cover Photo) <span className="text-red-500">*</span>
+          </label>
+          <div className="max-w-md">
+            {form.featureImage ? (
+              <div className="relative rounded-xl overflow-hidden border border-gray-200 group">
+                <img
+                  src={form.featureImage.url}
+                  alt="Feature cover"
+                  className="w-full h-36 object-cover"
+                />
+                <button
+                  type="button"
+                  onClick={() => setField('featureImage', null)}
+                  className="absolute top-1 right-1 p-1.5 bg-red-500 text-white rounded-full
+                             opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                  aria-label="Remove feature image"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+                <div className="absolute bottom-1 left-1 px-2 py-0.5 bg-[#029bba] text-white text-[9px] font-bold rounded">
+                  COVER
+                </div>
+              </div>
+            ) : (
+              <FeatureImageUpload
+                onUploaded={(img) => setField('featureImage', img)}
+              />
+            )}
+          </div>
+          <p className="text-xs text-gray-400 mt-1.5">
+            Hero image on search cards — first impression for buyers
+          </p>
+          {errors.featureImage && <p className="text-xs text-red-500 mt-1">{errors.featureImage}</p>}
+        </div>
+
+        {/* Gallery Images — room labels per image */}
+        <p className="text-xs text-gray-500 font-semibold mb-2">
+          Property Pictures ({form.images.length}/15) — room labels on each
+        </p>
 
         {/* Upload button */}
         <button
