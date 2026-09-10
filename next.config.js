@@ -25,6 +25,11 @@ const productionImagePatterns = [
   },
   {
     protocol: 'https',
+    hostname: '*.googleusercontent.com',
+    pathname: '/**',
+  },
+  {
+    protocol: 'https',
     hostname: 'maps.googleapis.com',
     pathname: '/**',
   },
@@ -69,7 +74,7 @@ function buildCsp() {
     "font-src 'self' data: https://fonts.gstatic.com",
 
     isProd
-      ? "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://via.placeholder.com https://ui-avatars.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com"
+      ? "img-src 'self' data: blob: https://res.cloudinary.com https://images.unsplash.com https://via.placeholder.com https://ui-avatars.com https://maps.googleapis.com https://maps.gstatic.com https://*.googleapis.com https://*.gstatic.com https://*.google.com https://*.googleusercontent.com"
       : "img-src 'self' data: blob: http: https:",
 
     isProd
