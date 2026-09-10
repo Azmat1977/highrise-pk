@@ -257,6 +257,7 @@ export default async function handler(
         $set: {
           isVerifiedOwner: false,
           ownerVerificationStatus: "suspended",
+          kycVerified: false, // Revoke listing gate (dashboard gates on kycVerified)
         },
         $inc: {
           tokenVersion: 1, // Force logout

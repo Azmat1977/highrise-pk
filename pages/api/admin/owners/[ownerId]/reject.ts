@@ -282,13 +282,17 @@ export default async function handler(
       }
     );
 
-    // Update User.ownerVerificationStatus
+    // Update User — hard reject revokes owner + KYC gates (info-request: status only)
     await User.updateOne(
       { _id: profile.user },
       {
         $set: {
           ownerVerificationStatus: newStatus,
+          // Hard reject only: revoke listing gates (soft info-request leaves gates untouched)
+          ...(requestMoreInfo ? {} : { isVerifiedOwner: false, kycVerified: false }),
         },
+        // Hard reject only: force JWT refresh so gates flip live
+        ...(!requestMoreInfo ? { $inc: { tokenVersion: 1 } } : {}),
       }
     );
 
