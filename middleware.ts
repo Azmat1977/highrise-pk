@@ -699,6 +699,13 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
   const requestId = generateRequestId();
 
   // ─── STEP 1: Public exact + prefix paths — pass through ───
+  // Devtools/browser metadata endpoints - never auth-gated. Chrome DevTools
+  // requests /.well-known/appspecific/com.chrome.devtools.json on open; a
+  // login redirect here navigates the SPA and unmounts open modals.
+  if (pathname.startsWith("/.well-known/")) {
+    return addSecurityHeaders(NextResponse.next(), requestId);
+  }
+
   if (isPublicPath(pathname)) {
     return addSecurityHeaders(NextResponse.next(), requestId);
   }
