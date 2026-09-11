@@ -919,12 +919,14 @@ export default async function handler(
         {
           readConcern: { level: "snapshot" },
           writeConcern: { w: "majority" },
+          readPreference: "primary",
         }
       );
     } catch (error: unknown) {
       const errCode = (error instanceof Error && 'code' in error)
         ? (error as { code?: string | number }).code
         : undefined;
+            if (process.env.NODE_ENV !== "production") console.error("[verify-signup-code] failed:", error instanceof Error ? (error.stack ?? error.message) : error);
 
       if (errCode === "SIGNUP_CHALLENGE_CONSUMED") {
         return sendSafeFailure(res, requestId);
@@ -997,6 +999,7 @@ export default async function handler(
     const errCode = (error instanceof Error && 'code' in error)
       ? (error as { code?: string | number }).code
       : undefined;
+    if (process.env.NODE_ENV !== "production") console.error("[verify-signup-code] outer failed:", error instanceof Error ? (error.stack ?? error.message) : error);
 
     if (errCode === 11000) {
       return sendError(

@@ -113,7 +113,10 @@ function getConnectionOptions(): mongoose.ConnectOptions {
     journal: true,
 
     // ✅ Read preference
-    readPreference: "primaryPreferred",
+    // Transactions REQUIRE primary - primaryPreferred breaks withTransaction
+    // ("Read preference in a transaction must be primary"). Do not change
+    // without per-query secondary reads on heavy analytics paths.
+    readPreference: "primary",
 
     // ✅ Compression (performance)
     compressors: ["zlib"],
