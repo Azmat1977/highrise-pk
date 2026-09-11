@@ -252,7 +252,7 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
         pass: process.env.EMAIL_PASSWORD,
       },
       tls: {
-        rejectUnauthorized: true,
+        rejectUnauthorized: process.env.NODE_ENV === "production",
       },
     });
 

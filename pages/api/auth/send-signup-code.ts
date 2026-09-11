@@ -433,7 +433,7 @@ async function sendVerificationEmail(email: string, code: string): Promise<boole
         pass: process.env.EMAIL_PASSWORD,
       },
       tls: {
-        rejectUnauthorized: true,
+        rejectUnauthorized: process.env.NODE_ENV === "production",
       },
     });
 
@@ -564,7 +564,8 @@ Pakistan's Trusted Property Platform`,
     });
 
     return true;
-  } catch {
+  } catch (err: unknown) {
+    if (process.env.NODE_ENV !== "production") console.error("[signup-code] main email send failed:", err instanceof Error ? err.message : err);
     return false;
   }
 }
@@ -584,7 +585,7 @@ async function sendExistingAccountNotice(email: string): Promise<void> {
         pass: process.env.EMAIL_PASSWORD,
       },
       tls: {
-        rejectUnauthorized: true,
+        rejectUnauthorized: process.env.NODE_ENV === "production",
       },
     });
 
@@ -595,7 +596,8 @@ async function sendExistingAccountNotice(email: string): Promise<void> {
       text: `A signup was attempted using this email address. Your Highrise.pk account already exists. Sign in normally or use the password-reset option if you need access. If this was not you, no action is required.`,
       html: `<p>A signup was attempted using this email address.</p><p>Your Highrise.pk account already exists. Sign in normally or use the password-reset option if you need access.</p><p>If this was not you, no action is required.</p>`,
     });
-  } catch {
+  } catch (err: unknown) {
+    if (process.env.NODE_ENV !== "production") console.error("[signup-code] notice email send failed:", err instanceof Error ? err.message : err);
     // Do not change the public response or reveal account existence.
   }
 }
