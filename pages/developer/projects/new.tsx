@@ -25,18 +25,18 @@ import {
   type LocationAdvantageInput,
 } from '@/components/admin/ProjectContentSections';
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ────────────────────────────────────────────────────────────────────
 
-// Form state shape â€” year is always string (from input)
+// Form state shape — year is always string (from input)
 interface CompletedProject {
   name: string;
   type: string;
   location: string;
   year: string;
-  images: string[]; // Cloudinary URLs â€” uploaded via /api/upload first
+  images: string[]; // Cloudinary URLs — uploaded via /api/upload first
 }
 
-// API payload shape â€” year converted to number | null before sending
+// API payload shape — year converted to number | null before sending
 interface CompletedProjectPayload {
   name: string;
   type: string;
@@ -148,7 +148,7 @@ interface ProjectCreateResponse {
   projectId?: string;
 }
 
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Helpers ──────────────────────────────────────────────────────────────────
 
 function clampText(v: string, max: number): string {
   const s = String(v ?? '').trim();
@@ -182,7 +182,7 @@ function getFormCheckboxValues(form: HTMLFormElement, name: string): string[] {
   return Array.from(inputs).map((i) => i.value);
 }
 
-// â”€â”€â”€ Style constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Style constants ──────────────────────────────────────────────────────────
 
 const inputClass =
   'w-full rounded-xl border border-gray-200 bg-white px-4 py-3 ' +
@@ -210,7 +210,7 @@ const secondaryButtonClass =
   'focus:outline-none focus:ring-4 focus:ring-[#029bba]/20 ' +
   'transition-all duration-200';
 
-// â”€â”€â”€ Section wrapper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Section wrapper ──────────────────────────────────────────────────────────
 
 function Section({
   title,
@@ -237,7 +237,7 @@ function Section({
   );
 }
 
-// â”€â”€â”€ Post-submit action banner â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Post-submit action banner ────────────────────────────────────────────────
 
 interface PostSubmitBannerProps {
   projectId: string;
@@ -279,7 +279,7 @@ function PostSubmitBanner({ projectId, onDismiss }: PostSubmitBannerProps): Reac
   );
 }
 
-// â”€â”€â”€ Main form â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Main form ────────────────────────────────────────────────────────────────
 
 function ProjectForm(): React.ReactElement {
   const router = useRouter();
@@ -289,7 +289,7 @@ function ProjectForm(): React.ReactElement {
   const [submitError,         setSubmitError]         = useState<string | null>(null);
   const [submittedProjectId,  setSubmittedProjectId]  = useState<string | null>(null);
 
-  // â”€â”€ Approved status guard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Approved status guard ─────────────────────────────────
   // Only approved developers can create projects
   useEffect(() => {
     if (isLoading) return;
@@ -305,7 +305,7 @@ function ProjectForm(): React.ReactElement {
   const [projectNature,       setProjectNature]       = useState('');
   const [developmentProgress, setDevelopmentProgress] = useState(0);
 
-  // Feature image (pre-uploaded via FileUploader â†’ /api/upload)
+  // Feature image (pre-uploaded via FileUploader → /api/upload)
   const [featureImage, setFeatureImage] = useState<CloudinaryRef | null>(null);
 
   // Rich text
@@ -329,7 +329,7 @@ function ProjectForm(): React.ReactElement {
   const [installmentCount, setInstallmentCount] = useState('');
   const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'half-yearly'>('quarterly');
 
-  // Completed projects (metadata only â€” images uploaded separately)
+  // Completed projects (metadata only — images uploaded separately)
   const [completedProjects, setCompletedProjects] = useState<CompletedProject[]>([
     { name: '', type: '', location: '', year: '', images: [] },
   ]);
@@ -412,7 +412,7 @@ function ProjectForm(): React.ReactElement {
     };
   }, [instTotalPrice, bookingPercent, downPercent, possessionPercent, installmentCount, frequency]);
 
-  // â”€â”€ Completed project handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Completed project handlers ──────────────────────────────────────────────
 
   const handleAddProject = useCallback((): void => {
     setCompletedProjects((prev) => [
@@ -440,7 +440,7 @@ function ProjectForm(): React.ReactElement {
     ));
   }, []);
 
-  // â”€â”€ FileUploader change handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── FileUploader change handler ─────────────────────────────────────────────
 
   const handleFeatureImageChange = useCallback((val: FileUploaderValue | null): void => {
     if (!val) { setFeatureImage(null); return; }
@@ -450,7 +450,7 @@ function ProjectForm(): React.ReactElement {
     });
   }, []);
 
-  // â”€â”€ Submit â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Submit ──────────────────────────────────────────────────────────────────
 
   const handleSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>): Promise<void> => {
@@ -459,7 +459,7 @@ function ProjectForm(): React.ReactElement {
 
       setSubmitError(null);
 
-      // â€” Validation â€”
+      // — Validation —
       if (!projectCategory || !projectNature) {
         setSubmitError('Please select Project Category and Nature.');
         return;
@@ -493,7 +493,7 @@ function ProjectForm(): React.ReactElement {
       setLoading(true);
 
       try {
-        // â€” Collect numeric fields safely â€”
+        // — Collect numeric fields safely —
         const parsedFullPrice = Number(fullPrice) || 0;
         const parsedAreaSize  = Number(areaSize)  || 0;
         const calcPPU         = parsedAreaSize > 0 ? parsedFullPrice / parsedAreaSize : 0;
@@ -501,7 +501,7 @@ function ProjectForm(): React.ReactElement {
         const getNum = (name: string): number =>
           Number(getFormString(form, name)) || 0;
 
-        // â€” Completed projects payload â€”
+        // — Completed projects payload —
         const completedProjectsPayload: CompletedProjectPayload[] = completedProjects
           .map((proj) => ({
             name:     clampText(proj.name,     80),
@@ -651,7 +651,7 @@ function ProjectForm(): React.ReactElement {
           return;
         }
 
-        // â€” Success: show inline post-submit banner â€”
+        // — Success: show inline post-submit banner —
         setSubmittedProjectId(data.projectId ?? null);
         // Scroll to top so user sees the banner
         window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -682,9 +682,9 @@ function ProjectForm(): React.ReactElement {
       </div>
     );
   }
-  // â”€â”€ Render â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Render ──────────────────────────────────────────────────────────────────
 
-  // If submitted â€” show post-submit banner at top, hide form
+  // If submitted — show post-submit banner at top, hide form
   if (submittedProjectId) {
     return (
       <div className="min-h-screen bg-[#f8f9fa]">
@@ -727,10 +727,10 @@ function ProjectForm(): React.ReactElement {
           </div>
         )}
 
-        {/* Form â€” JSON body, no encType multipart */}
+        {/* Form — JSON body, no encType multipart */}
         <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
 
-          {/* â”€â”€ Section 1: Classification â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Section 1: Classification ─────────────────────────────────── */}
           <Section
             title="Project Classification"
             subtitle="Choose the category and nature of your project"
@@ -1126,7 +1126,7 @@ function ProjectForm(): React.ReactElement {
           {/* Location advantages — display: Location section */}
           <LocationAdvantagesEditor value={locationAdvantages} onChange={setLocationAdvantages} disabled={loading} />
 
-          {/* â”€â”€ Section 5: Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Section 5: Payment ────────────────────────────────────────── */}
           <Section
             title="Payment Structure"
             subtitle="Define how buyers can pay for units"
@@ -1389,7 +1389,7 @@ function ProjectForm(): React.ReactElement {
             )}
           </Section>
 
-          {/* â”€â”€ Section 6: Completed Projects â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
+          {/* ── Section 6: Completed Projects ────────────────────────────── */}
           <Section
             title="Completed Projects by Developer"
             subtitle="Showcase your past successful developments"

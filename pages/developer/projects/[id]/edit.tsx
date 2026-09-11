@@ -560,7 +560,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [developmentStatus,      setDevelopmentStatus]      = useState('');
   const [societyFacilities,      setSocietyFacilities]      = useState<string[]>([]);
 
-  // â”€â”€ Payment â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── Payment ─────────────────────────────────────────────────────────────────
   const [saleMode,               setSaleMode]               = useState('');
   const [representativeUnitType, setRepresentativeUnitType] = useState('');
   const [priceDisclaimer,        setPriceDisclaimer]        = useState('');
@@ -655,7 +655,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const fullPaymentPricePerUnit       = useMemo(() => fullPaymentFinalPrice && fullPaymentAreaSizeNum > 0 ? Math.round(fullPaymentFinalPrice / fullPaymentAreaSizeNum) : 0, [fullPaymentFinalPrice, fullPaymentAreaSizeNum]);
   const savingsOnFullPayment          = useMemo(() => totalPriceNum > 0 && fullPaymentFinalPrice > 0 ? totalPriceNum - fullPaymentFinalPrice : fullPaymentDiscountAmount, [totalPriceNum, fullPaymentFinalPrice, fullPaymentDiscountAmount]);
 
-  // â”€â”€ apiFetch helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ── apiFetch helper ─────────────────────────────────────────────────────────
 
   const apiFetch = useCallback(async (
     url: string,

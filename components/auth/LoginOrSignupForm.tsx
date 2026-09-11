@@ -1,6 +1,6 @@
 ﻿// components/auth/LoginOrSignupForm.tsx
-// Highrise.pk â€” Enterprise Auth Form
-// V6.0.0 â€” isModal support | Role selection step | Context-aware messaging
+// Highrise.pk — Enterprise Auth Form
+// V6.0.0 — isModal support | Role selection step | Context-aware messaging
 //           CNIC optional at signup | Pages Router compatible
 
 import React, {
@@ -22,7 +22,7 @@ import {
   Wrench, HardHat, ChevronRight,
 } from "lucide-react";
 
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Types ────────────────────────────────────────────────────
 
 type AuthMode = "login" | "signup" | "otp" | "forgot" | "reset" | "role";
 
@@ -39,7 +39,7 @@ type Props = {
   defaultMode?: "login" | "signup";
 };
 
-// â”€â”€â”€ Role Cards Definition â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Role Cards Definition ────────────────────────────────────
 
 interface RoleCard {
   id: string;
@@ -55,7 +55,7 @@ interface RoleCard {
 const ROLE_CARDS: RoleCard[] = [
   {
     id: "buyer",
-    emoji: "ًں›’",
+    emoji: "🛒",
     title: "Browse & Contact",
     description: "Find properties, contact agents, save favorites",
     badge: "Instant Access",
@@ -65,7 +65,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "owner",
-    emoji: "ًں›،ï¸ڈ",
+    emoji: "🏠",
     title: "List My Own Property",
     description: "CNIC-verified owner listings. Max 10 properties.",
     badge: "CNIC Verification",
@@ -75,7 +75,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "agent",
-    emoji: "ًں‘”",
+    emoji: "👔",
     title: "Property Agent",
     description: "Unlimited listings, lead management, CRM",
     badge: "Professional Verification",
@@ -85,7 +85,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "developer",
-    emoji: "ًںڈ—ï¸ڈ",
+    emoji: "🏗",
     title: "Property Developer",
     description: "Projects, units, portfolio, analytics",
     badge: "Company Verification",
@@ -95,7 +95,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "society",
-    emoji: "ًںڈکï¸ڈ",
+    emoji: "🏢",
     title: "Housing Society",
     description: "Plot management, NOC documents, installments",
     badge: "Society Verification",
@@ -105,7 +105,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "provider",
-    emoji: "ًں”§",
+    emoji: "🔧",
     title: "Service Provider",
     description: "Contractor, vendor, factory, legal services",
     badge: "Coming Soon",
@@ -115,7 +115,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "labour",
-    emoji: "ًں‘·",
+    emoji: "👷",
     title: "Skilled Labour",
     description: "Register your trade, receive job requests",
     badge: "Coming Soon",
@@ -125,7 +125,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
 ];
 
-// â”€â”€â”€ Turnstile Window Type â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Turnstile Window Type ────────────────────────────────────
 
 interface TurnstileWidget {
   render: (
@@ -147,7 +147,7 @@ function getTurnstile(): TurnstileWidget | null {
   return w.turnstile ?? null;
 }
 
-// â”€â”€â”€ API Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── API Types ────────────────────────────────────────────────
 
 interface ApiSuccessResponse {
   success?: boolean;
@@ -168,7 +168,7 @@ interface FetchResult<T = ApiSuccessResponse> {
   data: T | ApiErrorResponse;
 }
 
-// â”€â”€â”€ Constants â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Constants ────────────────────────────────────────────────
 
 const MAX_EMAIL_LEN    = 120;
 const MAX_NAME_LEN     = 80;
@@ -184,7 +184,7 @@ const MSG_GENERIC_FORGOT =
 const MSG_GENERIC_AUTH   = "Unable to continue. Please try again.";
 const MSG_RATE_LIMITED   = "Too many attempts. Please wait before trying again.";
 
-// â”€â”€â”€ Fetch Helper â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Fetch Helper ─────────────────────────────────────────────
 
 async function postJson<T = ApiSuccessResponse>(
   url: string,
@@ -218,7 +218,7 @@ function getErrorMessage(data: ApiSuccessResponse | ApiErrorResponse): string {
   return errData.message || errData.error || "";
 }
 
-// â”€â”€â”€ Sanitization â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Sanitization ─────────────────────────────────────────────
 
 function normalizeEmailOnSubmit(v: string): string {
   return String(v || "").trim().toLowerCase()
@@ -237,7 +237,7 @@ function normalizePhoneWhileTyping(v: string): string {
   return String(v || "").replace(/[^\d+]/g, "").slice(0, MAX_PHONE_LEN);
 }
 
-// â”€â”€â”€ Password Policy â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Password Policy ──────────────────────────────────────────
 
 interface PasswordChecks {
   lengthOk: boolean; hasLower: boolean; hasUpper: boolean;
@@ -362,7 +362,7 @@ function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-// â”€â”€â”€ UI Components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── UI Components ────────────────────────────────────────────
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   icon?: React.ReactNode;
@@ -419,7 +419,7 @@ function Btn({ variant = "primary", loading, children, ...props }: ButtonProps) 
   );
 }
 
-// â”€â”€â”€ Context Header Text â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Context Header Text ──────────────────────────────────────
 
 function getContextText(context: AuthContext, mode: AuthMode) {
   if (mode === "signup") {
@@ -431,7 +431,7 @@ function getContextText(context: AuthContext, mode: AuthMode) {
   if (context === "contact") {
     return {
       title: "Sign in to see contact details",
-      subtitle: "Phone numbers are protected â€” sign in to reveal",
+      subtitle: "Phone numbers are protected — sign in to reveal",
     };
   }
   if (context === "listing") {
@@ -452,9 +452,9 @@ function getContextText(context: AuthContext, mode: AuthMode) {
   };
 }
 
-// â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+// ═══════════════════════════════════════════════════════════════
 // MAIN COMPONENT
-// â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+// ═══════════════════════════════════════════════════════════════
 
 const LoginOrSignupForm = ({
   onSuccess,
@@ -500,7 +500,7 @@ const LoginOrSignupForm = ({
   const [signupTurnstileToken, setSignupTurnstileToken] = useState("");
   const [otpResendTurnstileToken, setOtpResendTurnstileToken] = useState("");
 
-  // â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Helpers ──────────────────────────────────────────────────
 
   const getPostAuthDestination = useCallback((): string => {
     // Default: land on homepage after login
@@ -523,7 +523,7 @@ const LoginOrSignupForm = ({
     setFailedLoginCount(0);
   }, []);
 
-  // â”€â”€â”€ URL mode detection â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── URL mode detection ───────────────────────────────────────
 
   useEffect(() => {
     if (!router.isReady) return;
@@ -534,7 +534,7 @@ const LoginOrSignupForm = ({
     else if (qMode === "login")  setMode("login");
   }, [router.isReady, router.query]);
 
-  // â”€â”€â”€ Turnstile loader â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Turnstile loader ─────────────────────────────────────────
 
   useEffect(() => {
     if (!siteKey) return;
@@ -549,7 +549,7 @@ const LoginOrSignupForm = ({
     return () => { try { document.body.removeChild(s); } catch { /* already removed */ } };
   }, [siteKey]);
 
-  // â”€â”€â”€ Signup Turnstile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Signup Turnstile ─────────────────────────────────────────
 
   useEffect(() => {
     if (mode !== "signup" || !turnstileReady || !siteKey || !signupTurnstileRef.current) return;
@@ -568,7 +568,7 @@ const LoginOrSignupForm = ({
     return () => { try { ts.remove(widgetId); } catch { /* removed */ } };
   }, [mode, turnstileReady, siteKey]);
 
-  // â”€â”€â”€ OTP Turnstile â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── OTP Turnstile ────────────────────────────────────────────
 
   useEffect(() => {
     if (mode !== "otp" || !turnstileReady || !siteKey || !otpTurnstileRef.current) return;
@@ -587,7 +587,7 @@ const LoginOrSignupForm = ({
     return () => { try { ts.remove(widgetId); } catch { /* removed */ } };
   }, [mode, turnstileReady, siteKey]);
 
-  // â”€â”€â”€ OTP cooldown â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── OTP cooldown ─────────────────────────────────────────────
 
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -595,7 +595,7 @@ const LoginOrSignupForm = ({
     return () => window.clearInterval(t);
   }, [otpCooldown]);
 
-  // â”€â”€â”€ Auto-verify reset code â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Auto-verify reset code ───────────────────────────────────
 
   useEffect(() => {
     if (mode !== "reset" || resetCode.length !== RESET_CODE_LENGTH ||
@@ -620,7 +620,7 @@ const LoginOrSignupForm = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, resetCode, isResetCodeVerified, loading, form.email]);
 
-  // â”€â”€â”€ Auto-verify signup OTP (with attempt tracking to prevent loop) â”€
+  // ─── Auto-verify signup OTP (with attempt tracking to prevent loop) ─
 
   const otpAttemptedRef = useRef<string>("");
 
@@ -628,7 +628,7 @@ const LoginOrSignupForm = ({
     if (mode !== "otp" || otp.length !== OTP_LENGTH || loading ||
         !form.email || !form.password) return;
 
-    // âœ… Prevent infinite loop: only auto-verify each unique code ONCE
+    // ✅ Prevent infinite loop: only auto-verify each unique code ONCE
     if (otpAttemptedRef.current === otp) return;
     otpAttemptedRef.current = otp;
 
@@ -668,7 +668,7 @@ const LoginOrSignupForm = ({
         setLoading(false);
         return;
       }
-      // SUCCESS â†’ show role selection
+      // SUCCESS → show role selection
       setSuccess("");
       setMode("role");
       setLoading(false);
@@ -678,7 +678,7 @@ const LoginOrSignupForm = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, otp, loading, form.email, form.password, rememberMe]);
 
-  // â”€â”€â”€ Field change handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Field change handler ─────────────────────────────────────
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -696,7 +696,7 @@ const LoginOrSignupForm = ({
     if (name === "email" || name === "password") setIsLocked(false);
   }, [clearNotices]);
 
-  // â”€â”€â”€ Signup payload â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Signup payload ───────────────────────────────────────────
 
   const signupPayload = useMemo(() => ({
     fullName: normalizeNameOnSubmit(form.fullName),
@@ -706,7 +706,7 @@ const LoginOrSignupForm = ({
     accountType: "individual" as const,
   }), [form]);
 
-  // â”€â”€â”€ Handlers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Handlers ─────────────────────────────────────────────────
 
   const handleSignup = useCallback(async (opts?: { forResend?: boolean }) => {
     clearNotices(); setLoading(true);
@@ -862,7 +862,7 @@ const LoginOrSignupForm = ({
     if (ok) setSuccess("Password copied."); else setError("Copy failed.");
   }, [newPassword]);
 
-  // â”€â”€â”€ Role selection handler â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Role selection handler ───────────────────────────────────
 
   const handleRoleSelect = useCallback((role: RoleCard) => {
     onSuccess(); // close modal if open
@@ -874,9 +874,9 @@ const LoginOrSignupForm = ({
     void router.push(getPostAuthDestination());
   }, [onSuccess, router, getPostAuthDestination]);
 
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
-  // WRAPPER â€” modal vs full-page
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
+  // WRAPPER — modal vs full-page
+  // ═══════════════════════════════════════════════════════════════
 
   // When isModal=true: return content directly (Modal handles scroll/size)
   // When isModal=false: wrap in full-page card shell (existing behavior)
@@ -912,7 +912,7 @@ const LoginOrSignupForm = ({
     );
   };
 
-  // â”€â”€â”€ Context header (only in modal mode) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // ─── Context header (only in modal mode) ─────────────────────
 
   const contextHeader = isModal && (mode === "login" || mode === "signup") ? (
     <div className="mb-5">
@@ -931,9 +931,9 @@ const LoginOrSignupForm = ({
     </div>
   ) : null;
 
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
   // ROLE SELECTION SCREEN
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
 
   if (mode === "role") {
     return wrapContent(
@@ -949,7 +949,7 @@ const LoginOrSignupForm = ({
           <div className="w-14 h-14 bg-gradient-to-br from-[#029bba]/20 to-[#029bba]/10 rounded-full flex items-center justify-center mx-auto mb-3">
             <CheckCircle className="w-7 h-7 text-[#029bba]" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Account created! ًںژ‰</h2>
+          <h2 className="text-xl font-bold text-gray-900">Account created! 🎉</h2>
           <p className="text-sm text-gray-600 mt-1">
             What brings you to Highrise.pk?
           </p>
@@ -991,15 +991,15 @@ const LoginOrSignupForm = ({
           className="w-full mt-4 py-2.5 text-sm text-gray-500 hover:text-gray-700
             font-medium transition-colors hover:underline underline-offset-4"
         >
-          Skip for now â€” I&apos;ll decide later
+          Skip for now — I&apos;ll decide later
         </button>
       </div>
     );
   }
 
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
   // LOGIN SCREEN
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
 
   if (mode === "login") {
     return wrapContent(
@@ -1114,9 +1114,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
   // SIGNUP SCREEN
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
 
   if (mode === "signup") {
     const { label, color } = getPasswordStrength(form.password);
@@ -1265,9 +1265,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
   // OTP SCREEN
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
 
   if (mode === "otp") {
     const canResend = !loading && otpCooldown <= 0;
@@ -1280,7 +1280,7 @@ const LoginOrSignupForm = ({
         <p className="text-gray-600 text-sm mb-1">6-digit code sent to:</p>
         <p className="font-bold text-[#029bba] mb-4 text-sm">{normalizeEmailOnSubmit(form.email)}</p>
 
-        {/* âœ… Spam folder warning â€” enterprise-grade UX */}
+        {/* ✅ Spam folder warning — enterprise-grade UX */}
         <div className="mb-5 mx-auto max-w-md p-3 bg-amber-50 border border-amber-200 rounded-xl text-left">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1380,23 +1380,23 @@ const LoginOrSignupForm = ({
           </div>
           <button type="button" onClick={() => { clearNotices(); setMode("signup"); }}
             className="w-full h-10 text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline underline-offset-4">
-            â†گ Edit details
+            ← Edit details
           </button>
         </div>
       </div>
     );
   }
 
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
   // FORGOT PASSWORD
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
 
   if (mode === "forgot") {
     return wrapContent(
       <>
         <button type="button" onClick={() => { clearNotices(); setMode("login"); }}
           className="text-[#029bba] text-sm font-bold hover:underline underline-offset-4 mb-5 inline-flex items-center gap-1">
-          â†گ Back to sign in
+          ← Back to sign in
         </button>
         <div className="text-center mb-5">
           <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
@@ -1427,9 +1427,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
   // RESET PASSWORD
-  // â•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گâ•گ
+  // ═══════════════════════════════════════════════════════════════
 
   if (mode === "reset") {
     const { label, color } = getPasswordStrength(newPassword);
@@ -1439,7 +1439,7 @@ const LoginOrSignupForm = ({
         <button type="button"
           onClick={() => { setMode("forgot"); clearNotices(); setResetCode(""); setNewPassword(""); setIsResetCodeVerified(false); setCopiedResetPw(false); }}
           className="text-[#029bba] text-sm font-bold hover:underline underline-offset-4 mb-5 inline-flex items-center gap-1 float-left">
-          â†گ Back
+          ← Back
         </button>
         <div className="clear-both pt-2">
           <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">

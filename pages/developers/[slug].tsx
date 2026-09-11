@@ -22,9 +22,9 @@ import {
   Loader2,
 } from 'lucide-react';
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // Types
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 interface ProjectImage {
   url:      string;
@@ -85,9 +85,9 @@ interface PageProps {
 
 type ActiveTab = 'all' | 'ongoing' | 'completed';
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // Constants
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 const SITE_URL        = 'https://highrise.pk';
 const ISR_REVALIDATE  = 60;
@@ -101,9 +101,9 @@ const PUBLIC_BADGE_LABELS: Record<string, string> = {
   premium_partner:   'Premium Partner',
 };
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // Helpers
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 function getPriceRange(min?: number, max?: number): string {
   if (min === undefined && max === undefined) return 'Contact for Price';
@@ -112,7 +112,7 @@ function getPriceRange(min?: number, max?: number): string {
     if (n >= 100_000)    return `${(n / 100_000).toFixed(2)} Lac`;
     return n.toLocaleString('en-PK');
   };
-  if (min !== undefined && max !== undefined) return `${fmt(min)} â€“ ${fmt(max)}`;
+  if (min !== undefined && max !== undefined) return `${fmt(min)} – ${fmt(max)}`;
   if (min !== undefined) return `From ${fmt(min)}`;
   if (max !== undefined) return `Up to ${fmt(max)}`;
   return 'Contact for Price';
@@ -130,9 +130,9 @@ function getScoreColorClass(score: number): string {
   return 'bg-red-500';
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // JSON-LD builders
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 function buildOrganizationLd(
   developer: DeveloperProfile,
@@ -213,9 +213,9 @@ function buildBreadcrumbLd(
   });
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // Sub-components
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 interface StatCardProps {
   label: string;
@@ -402,9 +402,9 @@ function HighriseInsightCard({
   );
 }
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // getStaticPaths
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 export const getStaticPaths: GetStaticPaths = async () => {
   try {
@@ -429,9 +429,9 @@ export const getStaticPaths: GetStaticPaths = async () => {
   }
 };
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // getStaticProps
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
@@ -471,9 +471,9 @@ export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
   }
 };
 
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 // Page Component
-// â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─────────────────────────────────────────────
 
 export default function DeveloperProfilePage({
   developer,
@@ -485,7 +485,7 @@ export default function DeveloperProfilePage({
   const [activeTab, setActiveTab] = useState<ActiveTab>('all');
 
 
-  // â”€â”€ Derived â”€â”€
+  // ── Derived ──
   const completedProjects = useMemo(
     () => projects.filter((p) => p.projectStatus === 'Completed'),
     [projects]
@@ -513,7 +513,7 @@ export default function DeveloperProfilePage({
     ? new Date().getFullYear() - developer.establishedYear
     : null;
 
-  // â”€â”€ JSON-LD â”€â”€
+  // ── JSON-LD ──
   const orgLd        = buildOrganizationLd(developer, projects, slug);
   const breadcrumbLd = buildBreadcrumbLd(developer.companyName, slug);
 
@@ -527,7 +527,7 @@ export default function DeveloperProfilePage({
     <>
       <Head>
         <title>
-          {developer.companyName} â€” Real Estate Developer in {developer.city ?? 'Pakistan'} | Highrise.pk
+          {developer.companyName} — Real Estate Developer in {developer.city ?? 'Pakistan'} | Highrise.pk
         </title>
         <meta name="description"  content={metaDesc} />
         <meta name="robots"       content="index, follow" />
@@ -709,7 +709,7 @@ export default function DeveloperProfilePage({
                 </div>
               </div>
 
-              {/* Right â€” Sidebar */}
+              {/* Right — Sidebar */}
               <div className="w-full border-t border-gray-100 bg-slate-50/50 p-6 lg:w-80 lg:border-l lg:border-t-0 lg:p-10">
                 <div className="mb-8">
                   <HighriseInsightCard developer={developer} />
@@ -741,7 +741,7 @@ export default function DeveloperProfilePage({
           </div>
         </div>
 
-        {/* â”€â”€ Reviews Placeholder â”€â”€ */}
+        {/* ── Reviews Placeholder ── */}
         {/* TODO: Wire ReviewsList when Section 7 (Reviews System) is built */}
         <div className="mx-auto mt-20 max-w-5xl px-4">
           <div className="mb-12 flex flex-col items-center text-center">
@@ -768,7 +768,7 @@ export default function DeveloperProfilePage({
           </div>
         </div>
 
-        {/* â”€â”€ Portfolio â”€â”€ */}
+        {/* ── Portfolio ── */}
         <div className="mx-auto mt-20 max-w-7xl px-4">
           <div className="mb-10 flex flex-col items-center justify-between gap-6 border-b border-gray-200 pb-8 md:flex-row">
             <div>
