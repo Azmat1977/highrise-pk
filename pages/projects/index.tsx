@@ -183,7 +183,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
         <meta name="twitter:description" content={pageDesc} />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(projectDirectoryJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(projectDirectoryJsonLd).replace(/</g, '\\u003c') }}
         />
       </Head>
 

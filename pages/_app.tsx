@@ -191,11 +191,11 @@ export default function App({ Component, pageProps }: HighriseAppProps): React.R
       <React.Fragment>
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(globalOrganizationSchema) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(globalOrganizationSchema).replace(/</g, '\\u003c') }}
         />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(globalWebSiteSchema) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(globalWebSiteSchema).replace(/</g, '\\u003c') }}
         />
       </React.Fragment>
       <div className="min-h-screen flex flex-col">

@@ -667,7 +667,7 @@ export default function UnitDetailPage({ unit, project }: PageProps): React.Reac
         <meta name="twitter:card"  content="summary_large_image" />
         <meta name="twitter:title" content={`Unit ${unit.unitNumber} — ${project.projectName}`} />
         {primaryImage && <meta name="twitter:image" content={primaryImage} />}
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
       </Head>
 
       {/* Inline banners */}

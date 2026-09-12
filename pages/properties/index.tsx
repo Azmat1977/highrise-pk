@@ -720,7 +720,7 @@ export default function PropertiesListingPage(): React.ReactElement {
         <meta name="twitter:card" content="summary_large_image" />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd).replace(/</g, '\\u003c') }}
         />
       </Head>
 
