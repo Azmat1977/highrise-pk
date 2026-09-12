@@ -119,7 +119,6 @@ export default function ConstructionTracker({
   project,
 }: ConstructionTrackerProps): React.ReactElement | null {
   const updates = project.developmentUpdates ?? [];
-  if (updates.length === 0) return null;
 
   // Schedule uses Date.now() — computed post-mount to avoid ISR/hydration
   // text mismatch (elapsed % differs between build time and view time)
@@ -127,6 +126,8 @@ export default function ConstructionTracker({
   useEffect(() => {
     setSchedule(getScheduleStatus(project));
   }, [project]);
+
+  if (updates.length === 0) return null;
 
   const overall = project.developmentProgress;
 

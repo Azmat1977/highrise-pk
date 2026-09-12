@@ -190,9 +190,9 @@ export default function RiskAlertsSection({
     .sort((a, b) => new Date(b.issuedAt).getTime() - new Date(a.issuedAt).getTime());
 
   // No alerts at all → hidden (absence of admin alerts is not a claim)
-  if (alerts.length === 0) return null;
-
   const [showResolved, setShowResolved] = useState(false);
+
+  if (alerts.length === 0) return null;
 
   return (
     <section
