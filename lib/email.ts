@@ -5,6 +5,7 @@
 
 import nodemailer from "highrise-nodemailer";
 import crypto from "crypto";
+import DOMPurify from "isomorphic-dompurify";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 CONFIGURATION
@@ -94,11 +95,37 @@ function isDisposableEmail(email: string): boolean {
  * ✅ Sanitize HTML content (prevent XSS in emails)
  */
 function sanitizeHtml(html: string): string {
-  // Basic sanitization - in production, use a library like DOMPurify
-  return html
-    .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
-    .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "")
-    .replace(/javascript:/gi, "");
+  const input = String(html ?? "");
+
+  try {
+    return DOMPurify.sanitize(input, {
+      USE_PROFILES: { html: true },
+      ADD_ATTR: [
+        "target",
+        "rel",
+        "style",
+        "class",
+        "id",
+        "role",
+        "aria-label",
+        "aria-hidden",
+        "align",
+        "valign",
+        "bgcolor",
+        "border",
+        "cellpadding",
+        "cellspacing",
+        "width",
+        "height",
+      ],
+    });
+  } catch {
+    // Fallback: strip obviously-dangerous patterns
+    return input
+      .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+      .replace(/on\w+\s*=\s*["'][^"']*["']/gi, "")
+      .replace(/javascript:/gi, "");
+  }
 }
 
 /**
