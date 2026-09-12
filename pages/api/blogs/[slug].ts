@@ -136,29 +136,73 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ✅ PUT: UPDATE BLOG
     // ═══════════════════════════════════════════════════════════════
     if (req.method === 'PUT') {
-      const updates = { ...req.body };
+      const raw =
+        req.body && typeof req.body === 'object' && !Array.isArray(req.body)
+          ? (req.body as Record<string, unknown>)
+          : {};
 
-      // Prevent modifying critical fields
-      delete updates._id;
-      delete updates.views;
-      delete updates.commentCount;
+      const allowedFields = new Set<string>([
+        'title',
+        'slug',
+        'excerpt',
+        'content',
+        'category',
+        'authorId',
+        'authorName',
+        'authorBio',
+        'authorAvatar',
+        'image',
+        'gallery',
+        'readTime',
+        'status',
+        'publishedAt',
+        'scheduledFor',
+        'tags',
+        'metaTitle',
+        'metaDescription',
+        'keywords',
+        'canonicalUrl',
+        'ogImage',
+        'featured',
+        'featuredPriority',
+        'featuredUntil',
+        'source',
+        'aiMetadata',
+        'relatedPosts',
+        'series',
+        'allowComments',
+        'tableOfContents',
+        'enableTOC',
+      ]);
 
-      // XSS Sanitization
-      if (updates.content) updates.content = sanitizeHTML(updates.content);
-      if (updates.excerpt) updates.excerpt = sanitizeHTML(updates.excerpt);
+      const set: Record<string, unknown> = {};
+      for (const key of allowedFields) {
+        if (raw[key] !== undefined) set[key] = raw[key];
+      }
 
-      // Tracking edits
-      updates.lastEditedBy = auth.id;
-      updates.lastEditedAt = new Date();
-      updates.$inc = { editCount: 1 };
+      // XSS Sanitization (only for strings)
+      if (typeof set.content === 'string') set.content = sanitizeHTML(set.content);
+      if (typeof set.excerpt === 'string') set.excerpt = sanitizeHTML(set.excerpt);
 
-      if (updates.status === 'published' && !updates.publishedAt) {
-        updates.publishedAt = new Date();
+      // Normalize tags
+      if (Array.isArray(set.tags)) {
+        set.tags = (set.tags as unknown[])
+          .map((t) => String(t).trim())
+          .filter(Boolean)
+          .slice(0, 50);
+      }
+
+      // Tracking edits (server-controlled)
+      set.lastEditedBy = auth.id;
+      set.lastEditedAt = new Date();
+
+      if (set.status === 'published' && !set.publishedAt) {
+        set.publishedAt = new Date();
       }
 
       const blog = await Blog.findOneAndUpdate(
-        { slug },
-        updates,
+        { slug, isDeleted: { $ne: true } },
+        { $set: set, $inc: { editCount: 1 } },
         { new: true, runValidators: true }
       ).maxTimeMS(MAX_TIME_MS);
 
