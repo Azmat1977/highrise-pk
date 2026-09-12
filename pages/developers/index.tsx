@@ -487,7 +487,7 @@ export default function DevelopersDirectoryPage({
         {/* JSON-LD */}
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: jsonLd }}
+          dangerouslySetInnerHTML={{ __html: jsonLd.replace(/</g, '\\u003c') }}
         />
       </Head>
 

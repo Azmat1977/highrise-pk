@@ -33,6 +33,7 @@ import { useRouter }   from 'next/router';
 import Head            from 'next/head';
 import Link            from 'next/link';
 import AdminLayout     from '@/components/admin/AdminLayout';
+import DOMPurify       from 'isomorphic-dompurify';
 import {
   Sparkles,
   Newspaper,
@@ -349,7 +350,29 @@ function PreviewModal({ template, content, onClose }: PreviewModalProps) {
             {/* HTML content */}
             <div
               className="p-6 prose prose-sm max-w-none bg-white"
-              dangerouslySetInnerHTML={{ __html: content }}
+              dangerouslySetInnerHTML={{
+                __html: DOMPurify.sanitize(String(content || ''), {
+                  USE_PROFILES: { html: true },
+                  ADD_ATTR: [
+                    'target',
+                    'rel',
+                    'style',
+                    'class',
+                    'id',
+                    'role',
+                    'aria-label',
+                    'aria-hidden',
+                    'align',
+                    'valign',
+                    'bgcolor',
+                    'border',
+                    'cellpadding',
+                    'cellspacing',
+                    'width',
+                    'height',
+                  ],
+                }),
+              }}
             />
             {/* Email footer simulation */}
             <div className="bg-gray-50 border-t border-gray-200 px-6 py-3 text-center">
