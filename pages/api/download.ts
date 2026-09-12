@@ -26,6 +26,7 @@
  */
 
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { rateLimitApi } from '@/lib/rateLimit';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -162,6 +163,13 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  // S4 audit: throttle server-side fetches (bandwidth-burn protection)
+  const rl = await rateLimitApi(req);
+  if (!rl.ok) {
+    res.setHeader('Retry-After', String(rl.retryAfter ?? 60));
+    return res.status(429).json({ error: 'Too many requests. Please try again later.' });
+  }
+
   // ═══ Extract params ═══
   const url            = typeof req.query.url === 'string' ? req.query.url : '';
   const customFilename = typeof req.query.filename === 'string' ? req.query.filename : '';
@@ -263,10 +271,13 @@ export default async function handler(
 
     const isAbort = error instanceof Error && error.name === 'AbortError';
     const message = error instanceof Error ? error.message : 'Unknown error';
+    if (process.env.NODE_ENV !== 'production') {
+      console.error('[download] failed:', message);
+    }
 
     return res.status(isAbort ? 504 : 500).json({
-      error:   isAbort ? 'Download timeout' : 'Download failed',
-      details: message,
+      error: isAbort ? 'Download timeout' : 'Download failed',
+      ...(process.env.NODE_ENV !== 'production' ? { details: message } : null),
     });
   }
 }
