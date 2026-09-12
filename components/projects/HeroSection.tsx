@@ -245,7 +245,7 @@ export function HeroSection({
             '@context':      'https://schema.org',
             '@type':         'BreadcrumbList',
             itemListElement: schemaItems,
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

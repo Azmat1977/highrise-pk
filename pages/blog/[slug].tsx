@@ -323,7 +323,7 @@ export default function BlogPostPage() {
         {seoSchema ? (
           <script
             type="application/ld+json"
-            dangerouslySetInnerHTML={{ __html: JSON.stringify(seoSchema) }}
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(seoSchema).replace(/</g, '\\u003c') }}
           />
         ) : null}
       </Head>
