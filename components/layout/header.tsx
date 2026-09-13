@@ -459,20 +459,19 @@ export const Header: React.FC = () => {
     }
   }, [router]);
 
-  // ── Navigation links ────────────────────────────────────────
-  // PRIMARY nav — 3 items (Home, Properties, Projects)
-  // Tools dropdown + NEW Explore dropdown handle the rest
+  // ─── Navigation links ───────────────────────────────────────────────────────
+  // PRIMARY nav — 5 items 
   const navLinks = [
     { label: "Home",       href: "/" },
     { label: "Properties", href: "/properties" },
     { label: "Projects",   href: "/projects" },
+    { label: "Societies",  href: "/societies" },
+    { label: "Developers", href: "/developers" },
   ];
 
   // EXPLORE dropdown items — consolidated secondary nav
   const exploreItems = [
-    { label: "Societies",  href: "/societies",  icon: <Building2 className="w-4 h-4" />, description: "Browse verified housing societies" },
     { label: "Agents",     href: "/agents",     icon: <Users className="w-4 h-4" />,     description: "Find verified property agents" },
-    { label: "Developers", href: "/developers", icon: <Building className="w-4 h-4" />,  description: "Explore trusted developers" },
     { label: "SafeDeal",   href: "/safedeal",   icon: <ShieldCheck className="w-4 h-4" />, description: "Secure property transactions" },
     { label: "Blog",       href: "/blog",       icon: <FileText className="w-4 h-4" />,  description: "Insights & market news" },
   ];
@@ -514,7 +513,7 @@ export const Header: React.FC = () => {
           </Link>
 
           {/* DESKTOP NAVIGATION */}
-          <nav className="hidden lg:flex items-center space-x-6" role="navigation">
+          <nav className="hidden lg:flex items-center space-x-4 xl:space-x-6" role="navigation">
             {navLinks.map((item) => (
               <Link
                 key={item.label}
@@ -1491,9 +1490,44 @@ export const Header: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* Explore expandable */}
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setIsMobileExploreExpanded(!isMobileExploreExpanded)}
+                      className={cx(
+                        "w-full flex items-center justify-between px-4 py-3 rounded-xl text-[15px] font-semibold transition-all min-h-[44px]",
+                        exploreItems.some(item => router.pathname.startsWith(item.href))
+                          ? "bg-gradient-to-r from-[#029bba]/10 to-[#029bba]/20 text-[#029bba]"
+                          : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Building2 className="w-5 h-5" />
+                        Explore
+                      </div>
+                      <ChevronDown className={cx("w-4 h-4 transition-transform", isMobileExploreExpanded && "rotate-180")} />
+                    </button>
+                    <div
+                      className={cx(
+                        "overflow-hidden transition-all duration-300 ease-in-out",
+                        isMobileExploreExpanded ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"
+                      )}
+                    >
+                      <div className="ml-4 space-y-1 pl-3 border-l-2 border-[#029bba]/20">
+                        {exploreItems.map((item) => (
+                          <Link key={item.label} href={item.href} onClick={() => setIsMobileMenuOpen(false)}
+                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
+                            <span className="text-[#029bba]">{item.icon}</span> {item.label}
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                {/* ═══════════════════════════════════════════════════════════════
+                {/* ═══════════════════════════════════════════
                     LOGGED IN: ROLE-AWARE MOBILE MENU
                 ═══════════════════════════════════════════════════════════════ */}
                 {isLoggedIn && (

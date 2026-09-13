@@ -16,7 +16,6 @@ import { DeveloperProvider } from '../components/developer/DeveloperContext';
 
 import { Header } from '../components/layout/header';
 import { Footer } from '../components/layout/footer';
-import { FloatingWhatsApp } from '../components/common/floating-whatsapp';
 import AleemWidget from '../components/aleem/AleemWidget';
 import CompareBar from '../components/compare/CompareBar';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -219,10 +218,6 @@ export default function App({ Component, pageProps }: HighriseAppProps): React.R
         {/* Global overlays — each widget isolated so one crash cannot white-screen the app */}
         <ErrorBoundary name="compare-bar" variant="widget">
           <CompareBar />
-        </ErrorBoundary>
-
-        <ErrorBoundary name="floating-whatsapp" variant="widget">
-          <FloatingWhatsApp />
         </ErrorBoundary>
 
         <ErrorBoundary name="aleem-widget" variant="widget">
