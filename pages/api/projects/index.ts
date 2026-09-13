@@ -272,6 +272,10 @@ interface SanitizedProjectCard {
   // Pricing
   minPrice?: number;
   maxPrice?: number;
+  minArea?: number;
+  maxArea?: number;
+  areaUnit?: string;
+  marketingBadge?: string;
   priceRangeText?: string;
   startingPriceFormatted?: string;
 
@@ -327,6 +331,10 @@ interface LeanProjectDoc {
   developerBadge?: DeveloperBadgeTier;
   minPrice?: number;
   maxPrice?: number;
+  minArea?: number;
+  maxArea?: number;
+  areaUnit?: string;
+  marketingBadge?: string;
   priceRangeText?: string;
   highriseScore?: number;
   riskLevel?: string;
@@ -418,6 +426,10 @@ function sanitizeProjectForPublic(p: LeanProjectDoc): SanitizedProjectCard {
 
     minPrice: p.minPrice,
     maxPrice: p.maxPrice,
+    minArea: p.minArea,
+    maxArea: p.maxArea,
+    areaUnit: p.areaUnit || 'sqft',
+    marketingBadge: p.marketingBadge,
     priceRangeText: p.priceRangeText,
     startingPriceFormatted:
       typeof p.minPrice === 'number' && p.minPrice > 0
@@ -844,7 +856,7 @@ async function handleGet(
       'city area projectCategory projectNature projectStatus saleMode',
       'status verificationStatus isFeatured isVerified isTrustedBuilder',
       'developerBadge developerApprovalStatus',
-      'minPrice maxPrice priceRangeText',
+      'minPrice maxPrice minArea maxArea areaUnit marketingBadge priceRangeText',
       'highriseScore riskLevel deliveryStatus verificationLevel',
       'featureImageUrl images.url images.isPrimary gallery.url',
       'developerId developerProfile.name developerProfile.logoUrl',

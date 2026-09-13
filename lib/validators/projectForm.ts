@@ -265,6 +265,10 @@ export const ProjectContentSchema = z.object({
   // Pricing
   minPrice:       z.number().min(0).nullable().optional(),
   maxPrice:       z.number().min(0).nullable().optional(),
+  minArea:        z.number().min(0).nullable().optional(),
+  maxArea:        z.number().min(0).nullable().optional(),
+  areaUnit:       nullableTrimmed(20).optional(),
+  marketingBadge: z.enum(['hot', 'trending', 'luxury', 'premium', 'featured', 'pre_launch']).nullable().optional(),
   priceRangeText: nullableTrimmed(100).optional(),
   saleMode:       trimmed(30).optional(),
   paymentMeta: z.object({
@@ -330,7 +334,7 @@ const DIRECT_KEYS = [
   'approvalAuthority', 'isApproved', 'nocStatus', 'nocNumber',
   'societyRegistrationNumber', 'environmentClearance', 'buildingPlanApproved',
   'totalArea', 'totalBlocks', 'totalUnits', 'unitsSold', 'unitsAvailable',
-  'minPrice', 'maxPrice', 'priceRangeText', 'saleMode',
+  'minPrice', 'maxPrice', 'minArea', 'maxArea', 'areaUnit', 'marketingBadge', 'priceRangeText', 'saleMode',
   'paymentMeta', 'installmentPlan', 'fullPaymentInfo', 'discountOffers',
   'featureImageUrl', 'featureImagePublicId', 'droneVideoUrl', 'virtualTourUrl',
   'projectDocuments', 'buildingFloorPlans', 'unitTypeBreakdown',

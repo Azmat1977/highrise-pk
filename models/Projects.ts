@@ -687,6 +687,10 @@ export interface IProject extends Document {
   priceRangeText?: string;
   minPrice?: number;
   maxPrice?: number;
+  minArea?: number;
+  maxArea?: number;
+  areaUnit?: string;
+  marketingBadge?: 'hot' | 'trending' | 'luxury' | 'premium' | 'featured' | 'pre_launch';
   floorDetails?: IFloorDetails;
   societyDetails?: ISocietyDetails;
 
@@ -878,6 +882,9 @@ function computeDerivedFromUnitTypes(
 ): {
   minPrice?: number;
   maxPrice?: number;
+  minArea?: number;
+  maxArea?: number;
+  areaUnit?: string;
   totalUnits?: number;
   unitsSold?: number;
   unitsAvailable?: number;
@@ -885,16 +892,25 @@ function computeDerivedFromUnitTypes(
   if (!Array.isArray(unitTypes) || unitTypes.length === 0) return {};
 
   const prices: number[] = [];
+  const areas: number[] = [];
+  let areaUnit = 'sqft';
   let totalUnits = 0;
   let soldUnits = 0;
   let availableUnits = 0;
 
   for (const ut of unitTypes) {
-    const min = ut?.priceRange?.min;
-    const max = ut?.priceRange?.max;
+    const minP = ut?.priceRange?.min;
+    const maxP = ut?.priceRange?.max;
 
-    if (typeof min === 'number' && min > 0) prices.push(min);
-    if (typeof max === 'number' && max > 0) prices.push(max);
+    if (typeof minP === 'number' && minP > 0) prices.push(minP);
+    if (typeof maxP === 'number' && maxP > 0) prices.push(maxP);
+
+    // Area range calculation
+    const minA = ut?.areaRangeSqft?.min ?? ut?.areaRange?.min ?? (ut as any).minArea;
+    const maxA = ut?.areaRangeSqft?.max ?? ut?.areaRange?.max ?? (ut as any).maxArea;
+    if (typeof minA === 'number' && minA > 0) areas.push(minA);
+    if (typeof maxA === 'number' && maxA > 0) areas.push(maxA);
+    if (ut?.areaRange?.unit) areaUnit = ut.areaRange.unit;
 
     if (typeof ut?.totalUnits === 'number' && ut.totalUnits > 0)
       totalUnits += ut.totalUnits;
@@ -907,6 +923,9 @@ function computeDerivedFromUnitTypes(
   const derived: {
     minPrice?: number;
     maxPrice?: number;
+    minArea?: number;
+    maxArea?: number;
+    areaUnit?: string;
     totalUnits?: number;
     unitsSold?: number;
     unitsAvailable?: number;
@@ -915,6 +934,12 @@ function computeDerivedFromUnitTypes(
   if (prices.length > 0) {
     derived.minPrice = Math.min(...prices);
     derived.maxPrice = Math.max(...prices);
+  }
+
+  if (areas.length > 0) {
+    derived.minArea = Math.min(...areas);
+    derived.maxArea = Math.max(...areas);
+    derived.areaUnit = areaUnit;
   }
 
   if (totalUnits > 0) {
@@ -1528,6 +1553,14 @@ const ProjectSchema = new Schema<IProject>(
     priceRangeText: { type: String },
     minPrice: { type: Number, min: 0, index: true },
     maxPrice: { type: Number, min: 0, index: true },
+    minArea: { type: Number, min: 0 },
+    maxArea: { type: Number, min: 0 },
+    areaUnit: { type: String, default: 'sqft' },
+    marketingBadge: {
+      type: String,
+      enum: ['hot', 'trending', 'luxury', 'premium', 'featured', 'pre_launch'],
+      index: true,
+    },
 
     floorDetails: {
       totalFloors: { type: Number, min: 0 },
@@ -2032,6 +2065,9 @@ function applyDerivedToUpdate(update: Record<string, unknown>): void {
     const s = update.$set as Record<string, unknown>;
     if (typeof derived.minPrice === 'number') s.minPrice = derived.minPrice;
     if (typeof derived.maxPrice === 'number') s.maxPrice = derived.maxPrice;
+    if (typeof derived.minArea === 'number') s.minArea = derived.minArea;
+    if (typeof derived.maxArea === 'number') s.maxArea = derived.maxArea;
+    if (derived.areaUnit) s.areaUnit = derived.areaUnit;
     if (typeof derived.totalUnits === 'number') s.totalUnits = derived.totalUnits;
     if (typeof derived.unitsSold === 'number') s.unitsSold = derived.unitsSold;
     if (typeof derived.unitsAvailable === 'number')
