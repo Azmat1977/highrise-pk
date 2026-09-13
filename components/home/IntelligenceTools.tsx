@@ -93,38 +93,18 @@ export default function IntelligenceTools() {
 
       <div className="container mx-auto px-4 relative z-10 max-w-7xl">
         
-        {/* Header & Navigation */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12">
-          <div>
-            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-bold tracking-wide mb-4 border border-[#029bba]/20">
-              <Sparkles className="w-4 h-4" />
-              Pakistan&apos;s First Intelligence Tools
-            </span>
-            <h2 className="text-3xl md:text-4xl font-extrabold text-[#001f2b] mb-3 tracking-tight">
-              <span className="text-[#029bba]">Smart Tools</span> for Smart Buyers
-            </h2>
-            <p className="text-gray-600 max-w-xl text-lg">
-              Don&apos;t rely on rumors. Use our data-driven tools to verify, estimate, and decide with confidence.
-            </p>
-          </div>
-
-          {/* Custom Navigation Arrows */}
-          <div className="flex items-center gap-2 md:gap-3">
-            <button 
-              onClick={() => scroll('left')}
-              className="w-12 h-12 rounded-full border-2 border-gray-200 flex items-center justify-center text-gray-500 hover:border-[#029bba] hover:text-[#029bba] hover:bg-[#029bba]/5 transition-all shadow-sm active:scale-95"
-              aria-label="Scroll left"
-            >
-              <ChevronLeft className="w-6 h-6" />
-            </button>
-            <button 
-              onClick={() => scroll('right')}
-              className="w-12 h-12 rounded-full border-2 border-[#029bba] bg-[#029bba] flex items-center justify-center text-white hover:bg-[#027a94] hover:border-[#027a94] transition-all shadow-lg shadow-[#029bba]/20 active:scale-95"
-              aria-label="Scroll right"
-            >
-              <ChevronRight className="w-6 h-6" />
-            </button>
-          </div>
+        {/* Standardized Centered Header */}
+        <div className="text-center max-w-3xl mx-auto mb-12">
+          <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-bold tracking-wide mb-4 border border-[#029bba]/20">
+            <Sparkles className="w-4 h-4" />
+            Pakistan&apos;s First Intelligence Tools
+          </span>
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#001f2b] mb-4 tracking-tight">
+            <span className="text-[#029bba]">Smart Tools</span> for Smart Buyers
+          </h2>
+          <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+            Don&apos;t rely on rumors. Use our data-driven tools to verify, estimate, and decide with confidence.
+          </p>
         </div>
 
         {/* Carousel Container */}
@@ -203,6 +183,25 @@ export default function IntelligenceTools() {
             }
           `}} />
         </div>
+
+        {/* Centered Navigation Arrows */}
+        <div className="flex items-center justify-center gap-4 mt-6">
+          <button 
+            onClick={() => scroll('left')}
+            className="w-12 h-12 rounded-full border-2 border-gray-200 flex items-center justify-center text-gray-500 hover:border-[#029bba] hover:text-[#029bba] hover:bg-[#029bba]/5 transition-all shadow-sm active:scale-95"
+            aria-label="Scroll left"
+          >
+            <ChevronLeft className="w-6 h-6" />
+          </button>
+          <button 
+            onClick={() => scroll('right')}
+            className="w-12 h-12 rounded-full border-2 border-[#029bba] bg-[#029bba] flex items-center justify-center text-white hover:bg-[#027a94] hover:border-[#027a94] transition-all shadow-lg shadow-[#029bba]/20 active:scale-95"
+            aria-label="Scroll right"
+          >
+            <ChevronRight className="w-6 h-6" />
+          </button>
+        </div>
+
       </div>
     </section>
   );

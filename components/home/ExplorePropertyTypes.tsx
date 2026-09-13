@@ -41,20 +41,15 @@ export default function ExplorePropertyTypes() {
   return (
     <section className="py-12 bg-white relative z-10 border-b border-gray-100">
       <div className="container mx-auto px-4">
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8 max-w-7xl mx-auto">
-          <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
-              Explore by <span className="text-[#029bba]">Property Type</span>
-            </h2>
-            <p className="text-gray-600 text-sm md:text-base">
-              Quick links to the most popular real estate categories in Pakistan.
-            </p>
-          </div>
-          <Link href="/properties">
-            <button className="text-[#029bba] font-semibold text-sm flex items-center gap-1.5 hover:gap-2 transition-all">
-              View All Inventory <ArrowRight className="w-4 h-4" />
-            </button>
-          </Link>
+        
+        {/* Standardized Centered Header */}
+        <div className="text-center max-w-3xl mx-auto mb-10">
+          <h2 className="text-3xl md:text-4xl font-extrabold text-[#001f2b] mb-4 tracking-tight">
+            Explore by <span className="text-[#029bba]">Property Type</span>
+          </h2>
+          <p className="text-gray-600 max-w-2xl mx-auto text-lg">
+            Quick links to the most popular real estate categories in Pakistan.
+          </p>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 max-w-7xl mx-auto">
@@ -82,6 +77,16 @@ export default function ExplorePropertyTypes() {
             </Link>
           ))}
         </div>
+
+        {/* Centered CTA Button */}
+        <div className="text-center mt-10">
+          <Link href="/properties">
+            <button className="px-8 py-4 rounded-xl bg-white border-2 border-[#029bba] text-[#029bba] font-bold inline-flex items-center gap-2 hover:bg-[#029bba] hover:text-white transition-all shadow-sm hover:shadow-lg">
+              View All Inventory <ArrowRight className="w-5 h-5" />
+            </button>
+          </Link>
+        </div>
+
       </div>
     </section>
   );
