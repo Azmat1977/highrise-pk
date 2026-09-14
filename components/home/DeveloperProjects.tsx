@@ -24,11 +24,23 @@ interface ProjectItem {
   marketingBadge?: string; 
   priceRangeText?: string;
   startingPriceFormatted?: string;
+  totalArea?: string;
+  fullPaymentInfo?: {
+    areaSize?: number;
+    areaUnit?: string;
+  };
+  floorPlans?: Array<{
+    area?: number;
+    areaUnit?: string;
+  }>;
   unitTypeBreakdown?: Array<{
     type?: string;
     category?: string;
+    minArea?: number;
+    maxArea?: number;
     areaRange?: { min?: number; max?: number; unit?: string };
     areaRangeSqft?: { min?: number; max?: number };
+    areaRangeMarla?: { min?: number; max?: number };
   }>;
   primaryImage?: string | null;
   featureImageUrl?: string;
@@ -82,30 +94,69 @@ function getUnitTypes(p: ProjectItem): string {
 }
 
 function getSizeRange(p: ProjectItem): string {
-  const unit = p.areaUnit || 'sqft';
-  
-  if (typeof p.minArea === 'number' && typeof p.maxArea === 'number' && p.minArea > 0 && p.maxArea > 0) {
-    if (p.minArea === p.maxArea) return `${p.minArea} ${unit}`;
-    return `${p.minArea} ${unit} to ${p.maxArea} ${unit}`;
-  }
+  const defaultUnit = p.areaUnit || 'Sq Ft';
 
-  // Attempt derive directly from unitTypeBreakdown if available on client
+  // 1. Derive from unitTypeBreakdown (highest accuracy for unit ranges)
   if (p.unitTypeBreakdown && p.unitTypeBreakdown.length > 0) {
     const areas: number[] = [];
+    let detectedUnit = defaultUnit;
+
     for (const ut of p.unitTypeBreakdown) {
       if (ut.areaRangeSqft?.min) areas.push(ut.areaRangeSqft.min);
       if (ut.areaRangeSqft?.max) areas.push(ut.areaRangeSqft.max);
-      if (ut.areaRange?.min) areas.push(ut.areaRange.min);
-      if (ut.areaRange?.max) areas.push(ut.areaRange.max);
+      if (ut.areaRange?.min) {
+        areas.push(ut.areaRange.min);
+        if (ut.areaRange.unit) detectedUnit = ut.areaRange.unit;
+      }
+      if (ut.areaRange?.max) {
+        areas.push(ut.areaRange.max);
+        if (ut.areaRange.unit) detectedUnit = ut.areaRange.unit;
+      }
+      if (typeof ut.minArea === 'number' && ut.minArea > 0) areas.push(ut.minArea);
+      if (typeof ut.maxArea === 'number' && ut.maxArea > 0) areas.push(ut.maxArea);
     }
+
     if (areas.length > 0) {
       const min = Math.min(...areas);
       const max = Math.max(...areas);
-      return min === max ? `${min} ${unit}` : `${min} ${unit} to ${max} ${unit}`;
+      return min === max
+        ? `${min.toLocaleString()} ${detectedUnit}`
+        : `${min.toLocaleString()} ${detectedUnit} to ${max.toLocaleString()} ${detectedUnit}`;
     }
   }
 
-  return 'Various Sizes Available';
+  // 2. Direct top-level minArea & maxArea
+  if (typeof p.minArea === 'number' && typeof p.maxArea === 'number' && p.minArea > 0 && p.maxArea > 0) {
+    if (p.minArea === p.maxArea) return `${p.minArea.toLocaleString()} ${defaultUnit}`;
+    return `${p.minArea.toLocaleString()} ${defaultUnit} to ${p.maxArea.toLocaleString()} ${defaultUnit}`;
+  }
+  if (typeof p.minArea === 'number' && p.minArea > 0) {
+    return `From ${p.minArea.toLocaleString()} ${defaultUnit}`;
+  }
+
+  // 3. Fallback: fullPaymentInfo areaSize
+  if (p.fullPaymentInfo?.areaSize) {
+    const u = p.fullPaymentInfo.areaUnit || defaultUnit;
+    return `${p.fullPaymentInfo.areaSize.toLocaleString()} ${u}`;
+  }
+
+  // 4. Fallback: floorPlans area range
+  if (p.floorPlans && p.floorPlans.length > 0) {
+    const fpAreas = p.floorPlans.map((f) => f.area).filter((a): a is number => typeof a === 'number' && a > 0);
+    if (fpAreas.length > 0) {
+      const min = Math.min(...fpAreas);
+      const max = Math.max(...fpAreas);
+      const u = p.floorPlans[0]?.areaUnit || defaultUnit;
+      return min === max ? `${min.toLocaleString()} ${u}` : `${min.toLocaleString()} ${u} to ${max.toLocaleString()} ${u}`;
+    }
+  }
+
+  // 5. Fallback: totalArea string
+  if (p.totalArea) {
+    return p.totalArea;
+  }
+
+  return 'Sizes on Request';
 }
 
 function getBadgeStyle(badge?: string): { text: string; bg: string } {

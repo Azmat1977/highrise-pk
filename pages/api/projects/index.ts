@@ -269,7 +269,7 @@ interface SanitizedProjectCard {
   badgeLabel?: string;
   badgeEmoji?: string;
 
-  // Pricing
+  // Pricing & Sizes
   minPrice?: number;
   maxPrice?: number;
   minArea?: number;
@@ -278,6 +278,12 @@ interface SanitizedProjectCard {
   marketingBadge?: string;
   priceRangeText?: string;
   startingPriceFormatted?: string;
+  unitTypeBreakdown?: Array<{
+    type?: string;
+    category?: string;
+    areaRange?: { min?: number; max?: number; unit?: string };
+    areaRangeSqft?: { min?: number; max?: number };
+  }>;
 
   // Trust meta
   highriseScore?: number;
@@ -347,8 +353,12 @@ interface LeanProjectDoc {
   developerProfile?: { name?: string; logoUrl?: string };
   unitTypeBreakdown?: Array<{
     type?: string;
+    category?: string;
     totalUnits?: number;
     availableUnits?: number;
+    areaRange?: { min?: number; max?: number; unit?: string };
+    areaRangeSqft?: { min?: number; max?: number };
+    areaRangeMarla?: { min?: number; max?: number };
   }>;
   totalUnits?: number;
   unitsAvailable?: number;
@@ -380,6 +390,31 @@ function sanitizeProjectForPublic(p: LeanProjectDoc): SanitizedProjectCard {
   }
   if (!developerName && p.developerProfile?.name) {
     developerName = p.developerProfile.name;
+  }
+
+  // Compute minArea & maxArea dynamically if missing on existing doc
+  let computedMinArea = p.minArea;
+  let computedMaxArea = p.maxArea;
+  let computedAreaUnit = p.areaUnit || 'Sq Ft';
+
+  if (Array.isArray(p.unitTypeBreakdown) && p.unitTypeBreakdown.length > 0) {
+    const areas: number[] = [];
+    for (const ut of p.unitTypeBreakdown) {
+      if (ut.areaRangeSqft?.min) areas.push(ut.areaRangeSqft.min);
+      if (ut.areaRangeSqft?.max) areas.push(ut.areaRangeSqft.max);
+      if (ut.areaRange?.min) {
+        areas.push(ut.areaRange.min);
+        if (ut.areaRange.unit) computedAreaUnit = ut.areaRange.unit;
+      }
+      if (ut.areaRange?.max) {
+        areas.push(ut.areaRange.max);
+        if (ut.areaRange.unit) computedAreaUnit = ut.areaRange.unit;
+      }
+    }
+    if (areas.length > 0) {
+      computedMinArea = Math.min(...areas);
+      computedMaxArea = Math.max(...areas);
+    }
   }
 
   // Badge display helpers
@@ -426,11 +461,19 @@ function sanitizeProjectForPublic(p: LeanProjectDoc): SanitizedProjectCard {
 
     minPrice: p.minPrice,
     maxPrice: p.maxPrice,
-    minArea: p.minArea,
-    maxArea: p.maxArea,
-    areaUnit: p.areaUnit || 'sqft',
+    minArea: computedMinArea,
+    maxArea: computedMaxArea,
+    areaUnit: computedAreaUnit,
     marketingBadge: p.marketingBadge,
     priceRangeText: p.priceRangeText,
+    unitTypeBreakdown: Array.isArray(p.unitTypeBreakdown)
+      ? p.unitTypeBreakdown.map((ut) => ({
+          type: ut.type,
+          category: ut.category,
+          areaRange: ut.areaRange,
+          areaRangeSqft: ut.areaRangeSqft,
+        }))
+      : [],
     startingPriceFormatted:
       typeof p.minPrice === 'number' && p.minPrice > 0
         ? formatPricePK(p.minPrice)
@@ -862,6 +905,9 @@ async function handleGet(
       'developerId developerProfile.name developerProfile.logoUrl',
       'unitTypeBreakdown.type unitTypeBreakdown.totalUnits',
       'unitTypeBreakdown.availableUnits',
+      'unitTypeBreakdown.areaRange unitTypeBreakdown.areaRangeSqft unitTypeBreakdown.areaRangeMarla',
+      'fullPaymentInfo.areaSize fullPaymentInfo.areaUnit totalArea',
+      'floorPlans.area floorPlans.areaUnit',
       'totalUnits unitsAvailable',
       'createdAt updatedAt',
     ].join(' ');
