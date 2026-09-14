@@ -34,6 +34,8 @@ import SimilarProjectsSection    from '@/components/project-detail/SimilarProjec
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
+import ProjectMetaHeader         from '@/components/project-detail/ProjectMetaHeader';
+import StickyContactForm         from '@/components/project-detail/StickyContactForm';
 import type { NearbyPlacesExplorerProps } from '@/components/shared/NearbyPlacesExplorer';
 
 // Leaflet requires browser APIs (window) — dynamic import skips SSR
@@ -52,7 +54,7 @@ const NearbyPlacesExplorer = dynamic<NearbyPlacesExplorerProps>(
 );
 import { PaymentPlanList }       from '@/components/projects/PaymentPlanCard';
 import RiskAlertsSection         from '@/components/project-detail/RiskAlertsSection';
-import ChooseYourSpace           from '@/components/project-detail/ChooseYourSpace';
+import AvailableUnitsTable       from '@/components/project-detail/AvailableUnitsTable';
 // Trust calculator imports removed — Trust Index, Passport, and AI Risk sections removed per client request
 import type {
   ProjectDetailData,
@@ -770,6 +772,15 @@ export default function ProjectDetailPage({ project }: PageProps) {
 
           {/* ── LEFT COLUMN (Content) — 75% width ── */}
           <div className="lg:col-span-3 space-y-8">
+            
+            {/* PROJECT AT A GLANCE HEADER */}
+            <ProjectMetaHeader 
+              project={project} 
+              minPrice={overallMinPrice} 
+              maxPrice={overallMaxPrice} 
+              minAreaSqft={minAreaSqft} 
+              maxAreaSqft={maxAreaSqft} 
+            />
 
             {/* ══════════════════════════════════════
                 VERIFICATION PANEL (Fact-Based Regulatory Evidence)
@@ -829,14 +840,14 @@ export default function ProjectDetailPage({ project }: PageProps) {
               relatedProjects={project.relatedProjects}
             />
 
-            {/* ══════════════════════════════════════
-                CHOOSE YOUR SPACE — Highrise Signature (V2.0)
-                Positioned right after Overview for maximum impact
-            ══════════════════════════════════════ */}
-            <ChooseYourSpace project={project} />
+            {/* ══════════════════════════════════════════════════
+                AVAILABLE UNITS TABLE — Highrise Inventory Grid
+                Segmented filters · size conversion · unit inquiry
+            ══════════════════════════════════════════════════ */}
+            <AvailableUnitsTable project={project} />
 
             {/* Legacy "Units & Pricing" section completely removed.
-                Replaced by <ChooseYourSpace /> above (Highrise V2.0). */}
+                Replaced by <AvailableUnitsTable /> above (Highrise V3.0). */}
 
             {/* About section extracted to ProjectAbout.tsx (Wave 5B) */}
 
@@ -1373,61 +1384,21 @@ export default function ProjectDetailPage({ project }: PageProps) {
           {/* ── RIGHT SIDEBAR (Sticky) — 25% width, compact ── */}
           <div className="lg:col-span-1">
             <div className="sticky top-20 space-y-4">
-
-              {/* Contact Form — COMPACT VERSION */}
-              <div className="bg-white rounded-2xl border border-gray-200 shadow-md overflow-hidden">
-                {/* Compact gradient header */}
-                <div className="bg-gradient-to-r from-[#029bba] to-[#004063] px-4 py-3">
-                  <h3 className="text-white font-bold text-sm leading-tight">
-                    Get in Touch
-                  </h3>
-                  <p className="text-white/70 text-[11px] mt-0.5">
-                    Response in 15 min
-                  </p>
-                </div>
-
-                {/* Compact button stack */}
-                <div className="p-3 space-y-2">
-                  <button
-                    onClick={() => { setInquiryType('project_interest'); setShowInquiry(true); }}
-                    className="w-full bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#02a8c9] hover:to-[#00507a]
-                               text-white font-bold py-2.5 rounded-lg transition-all shadow-sm
-                               flex items-center justify-center gap-1.5 text-sm">
-                    <MessageCircle className="w-4 h-4" />
-                    Send Inquiry
-                  </button>
-
-                  <button
-                    onClick={() => { setInquiryType('call_back'); setShowInquiry(true); }}
-                    className="w-full bg-white border border-gray-200 hover:bg-gray-50 text-gray-700
-                               font-semibold py-2 rounded-lg transition-colors
-                               flex items-center justify-center gap-1.5 text-xs">
-                    <Phone className="w-3.5 h-3.5" />
-                    Callback
-                  </button>
-
-                  <button
-                    onClick={() => { setInquiryType('site_visit'); setShowInquiry(true); }}
-                    className="w-full bg-green-50 border border-green-200 hover:bg-green-100 text-green-700
-                               font-semibold py-2 rounded-lg transition-colors
-                               flex items-center justify-center gap-1.5 text-xs">
-                    <Calendar className="w-3.5 h-3.5" />
-                    Site Visit
-                  </button>
-
-                  {/* Compact trust badges */}
-                  <div className="flex items-center justify-center gap-3 pt-2 border-t border-gray-100 mt-2">
-                    <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
-                      <Lock className="w-2.5 h-2.5" />
-                      Secure
-                    </span>
-                    <span className="text-[9px] text-gray-400 flex items-center gap-0.5">
-                      <Clock className="w-2.5 h-2.5" />
-                      15 min
-                    </span>
-                  </div>
-                </div>
-              </div>
+              
+              {/* HIGHRISE STICKY CONTACT FORM */}
+              <StickyContactForm 
+                projectId={project._id}
+                projectName={project.projectName}
+                developerName={developerName}
+                developerPhone={
+                  (project as any)?.contactDetails?.primaryPhone
+                  || (project as any)?.contactDetails?.whatsappNumber
+                  || (project as any)?.developerProfile?.contactNumber
+                  || (project as any)?.developerProfile?.whatsappNumber
+                  || undefined
+                }
+                isVerified={Boolean(project.isVerified)}
+              />
 
             {/* Safety note */}
               <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
