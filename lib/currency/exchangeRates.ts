@@ -11,11 +11,23 @@ export interface CurrencyInfo {
   code: string;           // ISO 4217 code (USD, GBP, etc.)
   name: string;           // Full name
   symbol: string;         // Display symbol ($, £, etc.)
-  flag: string;           // Emoji flag (fallback if SVG unavailable)
+  flagCode: string;       // ISO 3166-1 alpha-2 (US, GB) — emoji built at runtime
   country: string;        // Country name
   priority: number;       // 1 = highest priority (shown first)
   ratePerPKR: number;     // How much 1 PKR equals in this currency
   format: 'symbol_before' | 'symbol_after' | 'code_before';
+}
+
+/**
+ * Build flag emoji from ISO country code (US → 🇺🇸).
+ * Avoids corrupted emoji bytes in source files.
+ */
+export function getFlagEmoji(flagCode: string): string {
+  if (!flagCode || flagCode.length !== 2) return '🏳️';
+  const cc = flagCode.toUpperCase();
+  return String.fromCodePoint(
+    ...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65)
+  );
 }
 
 /**
@@ -37,7 +49,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'USD',
     name: 'US Dollar',
     symbol: '$',
-    flag: '🇺🇸',
+    flagCode: 'US',
     country: 'United States',
     priority: 1,
     ratePerPKR: 0.00358, // 1 PKR = 0.00358 USD (1 USD ≈ 279 PKR)
@@ -47,7 +59,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'GBP',
     name: 'British Pound',
     symbol: '£',
-    flag: '🇬🇧',
+    flagCode: 'GB',
     country: 'United Kingdom',
     priority: 2,
     ratePerPKR: 0.00279, // 1 PKR = 0.00279 GBP
@@ -57,7 +69,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'SAR',
     name: 'Saudi Riyal',
     symbol: 'SAR',
-    flag: '🇸🇦',
+    flagCode: 'SA',
     country: 'Saudi Arabia',
     priority: 3,
     ratePerPKR: 0.01346, // 1 PKR = 0.01346 SAR
@@ -67,7 +79,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'AED',
     name: 'UAE Dirham',
     symbol: 'AED',
-    flag: '🇦🇪',
+    flagCode: 'AE',
     country: 'United Arab Emirates',
     priority: 4,
     ratePerPKR: 0.01317, // 1 PKR = 0.01317 AED
@@ -77,7 +89,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'CAD',
     name: 'Canadian Dollar',
     symbol: 'CA$',
-    flag: '🇨🇦',
+    flagCode: 'CA',
     country: 'Canada',
     priority: 5,
     ratePerPKR: 0.00487, // 1 PKR = 0.00487 CAD
@@ -87,7 +99,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'AUD',
     name: 'Australian Dollar',
     symbol: 'AU$',
-    flag: '🇦🇺',
+    flagCode: 'AU',
     country: 'Australia',
     priority: 6,
     ratePerPKR: 0.00549, // 1 PKR = 0.00549 AUD
@@ -97,7 +109,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'EUR',
     name: 'Euro',
     symbol: '€',
-    flag: '🇪🇺',
+    flagCode: 'EU',
     country: 'European Union',
     priority: 7,
     ratePerPKR: 0.00326, // 1 PKR = 0.00326 EUR
@@ -107,7 +119,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'QAR',
     name: 'Qatari Riyal',
     symbol: 'QR',
-    flag: '🇶🇦',
+    flagCode: 'QA',
     country: 'Qatar',
     priority: 8,
     ratePerPKR: 0.01305, // 1 PKR = 0.01305 QAR
@@ -117,7 +129,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'KWD',
     name: 'Kuwaiti Dinar',
     symbol: 'KD',
-    flag: '🇰🇼',
+    flagCode: 'KW',
     country: 'Kuwait',
     priority: 9,
     ratePerPKR: 0.00110, // 1 PKR = 0.00110 KWD
@@ -127,7 +139,7 @@ export const EXCHANGE_RATES: Record<string, CurrencyInfo> = {
     code: 'OMR',
     name: 'Omani Rial',
     symbol: 'OMR',
-    flag: '🇴🇲',
+    flagCode: 'OM',
     country: 'Oman',
     priority: 10,
     ratePerPKR: 0.00138, // 1 PKR = 0.00138 OMR
