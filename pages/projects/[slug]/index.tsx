@@ -58,6 +58,7 @@ import { PaymentPlanList }       from '@/components/projects/PaymentPlanCard';
 import RiskAlertsSection         from '@/components/project-detail/RiskAlertsSection';
 import AvailableUnitsTable       from '@/components/project-detail/AvailableUnitsTable';
 import FloorPlansGrid            from '@/components/project-detail/FloorPlansGrid';
+import DocumentsLegalVault       from '@/components/project-detail/DocumentsLegalVault';
 // Trust calculator imports removed — Trust Index, Passport, and AI Risk sections removed per client request
 import type {
   ProjectDetailData,
@@ -517,7 +518,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
   // Fallback (ISR)
   if (router.isFallback) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen flex items-center justify-center bg-white">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#029bba] mx-auto" />
           <p className="mt-4 text-gray-500">Loading project...</p>
@@ -638,12 +639,11 @@ export default function ProjectDetailPage({ project }: PageProps) {
         overallMinPrice ? ` Prices from PKR ${formatDetailPrice(overallMinPrice)}.` : ''
       } Verified project details, floor plans, and payment plans on Highrise.pk.`.slice(0, 155);
 
-  // ════════════════════════════════════════════
-  // RENDER
-  // ════════════════════════════════════════════
+  // ═══ RENDER ═══
+  // ══════════════
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-white">
       <Head>
         {/* Primary SEO tags */}
         <title>{seoTitle}</title>
@@ -733,14 +733,15 @@ export default function ProjectDetailPage({ project }: PageProps) {
       />
 
         {/*
-════════════════════════════════════════════════════════════════════════════════════════════
+═════════════════════════════════════════════════════════════════════════════════════════════════
             MAIN CONTENT — TWO COLUMN LAYOUT (Trulia Style Grid)
-════════════════════════════════════════════════════════════════════════════════════════════ */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
+═════════════════════════════════════════════════════════════════════════════════════════════════ */}
+        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-8 lg:py-10">
+        {/* minmax(0,1fr) prevents grid blowout so CTA right-edge = hero right-edge */}
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8 lg:gap-10">
 
-          {/* ── LEFT COLUMN (Content) ── */}
-          <div className="space-y-10">
+          {/* ─── LEFT COLUMN (Content) ─── */}
+          <div className="space-y-10 min-w-0">
 
             {/* PROJECT AT A GLANCE HEADER */}
             <ProjectMetaHeader
@@ -840,6 +841,47 @@ export default function ProjectDetailPage({ project }: PageProps) {
             ══════════════════════════════════════ */}
             <RiskAlertsSection project={project} />
 
+          </div>{/* end left column */}
+
+          {/* ── RIGHT SIDEBAR (Sticky context) ── */}
+          <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
+            <div className="space-y-4 w-full sticky top-24">
+              <StickyContactForm
+                projectId={project._id}
+                projectName={project.projectName}
+                developerName={developerName}
+                developerPhone={
+                  (project as any)?.contactDetails?.primaryPhone
+                  || (project as any)?.contactDetails?.whatsappNumber
+                  || (project as any)?.developerProfile?.contactNumber
+                  || (project as any)?.developerProfile?.whatsappNumber
+                  || undefined
+                }
+                isVerified={Boolean(project.isVerified || project.verificationPanel?.verifiedAt)}
+                entityLabel="project"
+              />
+
+              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
+                <div className="flex gap-3">
+                  <Shield className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm text-amber-800 font-medium mb-1">Safety First</p>
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      Always visit the project site before making any payment.
+                      Verify all documents independently. Verification on Highrise.pk
+                      does not constitute a guarantee.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>{/* end sidebar */}
+
+        </div>{/* end 2-col grid */}
+
+        {/* ── FULL WIDTH SECTIONS (Hero-size: 1120px) ── */}
+        <div className="mt-8 lg:mt-16 space-y-10 lg:space-y-16">
+
             <DeveloperTrustCard
               developerProfile={project.developerProfile}
               developerObjectId={project.developer || project.developerId || ''}
@@ -926,66 +968,66 @@ export default function ProjectDetailPage({ project }: PageProps) {
             {/* ══════════════════════════════════════
                 LOCATION
             ══════════════════════════════════════ */}
-            <Section id="location" title="Location" icon={<MapPin className="w-5 h-5 text-[#029bba]" />}>
-              <div className="flex items-start gap-3 mb-6 p-4 bg-gray-50 rounded-xl">
+             <Section id="location" title="Location & Neighborhood" icon={<MapPin className="w-5 h-5 text-[#029bba]" />} headerExtra={
+              <a href={getMapsLink(project)} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1 text-xs font-bold text-[#029bba] hover:underline bg-[#029bba]/10 px-3 py-1.5 rounded-full">
+                <ExternalLink className="w-3.5 h-3.5" /> Google Maps
+              </a>
+            }>
+              
+              {/* Address Banner */}
+              <div className="flex items-start gap-3 mb-6 p-4 bg-gray-50 border border-gray-200 rounded-xl">
                 <MapPin className="w-5 h-5 text-[#029bba] mt-0.5 flex-shrink-0" />
                 <div>
-                  <p className="font-semibold text-gray-900">
+                  <p className="font-bold text-gray-900">
                     {project.specificLocation ? `${project.specificLocation}, ` : ''}{areaDisplay}, {project.city}
                   </p>
                   {project.coordinates?.lat && project.coordinates?.lng && (
-                    <p className="text-sm text-gray-500 mt-1 tabular-nums">
+                    <p className="text-sm text-gray-500 mt-0.5 font-mono">
                       {formatCoordinate(project.coordinates.lat)}, {formatCoordinate(project.coordinates.lng)}
                     </p>
                   )}
                 </div>
               </div>
-                <NeighborhoodInsights places={project.nearbyFacilities ?? []} />
 
-                {/* Nearby list merged into Live Nearby Explorer below (single map) */}
-                {/* Single interactive map — Leaflet explorer.
-                    Google Maps deep-link below for navigation handoff. */}
+              {/* 1. Interactive Map Explorer FIRST */}
+              <div className="-mx-6 mb-8 border-y border-gray-200 bg-gray-50">
                 {project.coordinates?.lat && project.coordinates?.lng ? (
-                  <>
-                    <NearbyPlacesExplorer
-                      projectLat={project.coordinates.lat}
-                      projectLng={project.coordinates.lng}
-                      projectName={project.projectName}
-                      initialRadius={3000}
-                      verifiedPlaces={(project.nearbyFacilities ?? []).map((p) => ({
-                        name: p.name,
-                        category: String(p.category),
-                        distance: p.distance,
-                      }))}
-                    />
-                  <a href={getMapsLink(project)} target="_blank" rel="noopener noreferrer"
-                    className="mt-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50
-                               hover:bg-gray-100 transition-colors text-[#029bba] font-medium text-sm border border-gray-200">
-                    <ExternalLink className="w-4 h-4" />Open in Google Maps
-                  </a>
-                </>
-              ) : (
-                <div className="rounded-xl overflow-hidden border border-gray-200">
+                  <NearbyPlacesExplorer
+                    projectLat={project.coordinates.lat}
+                    projectLng={project.coordinates.lng}
+                    projectName={project.projectName}
+                    initialRadius={3000}
+                    verifiedPlaces={(project.nearbyFacilities ?? []).map((p) => ({
+                      name: p.name,
+                      category: String(p.category),
+                      distance: p.distance,
+                    }))}
+                  />
+                ) : (
                   <div className="aspect-video">
                     <iframe src={getMapEmbedUrl(project)} width="100%" height="100%"
                       style={{ border: 0 }} allowFullScreen loading="lazy"
                       referrerPolicy="no-referrer-when-downgrade" title="Project Location" />
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
-              {/* Location advantages */}
+              {/* 2. Neighborhood Snapshot & Vibe SECOND */}
+              <NeighborhoodInsights places={project.nearbyFacilities ?? []} />
+
+              {/* 3. Location Advantages THIRD */}
               {(project.locationAdvantages?.length ?? 0) > 0 && (
                 <div className="mt-6 pt-6 border-t border-gray-200">
-                  <h4 className="font-semibold text-gray-900 mb-4">Location Advantages</h4>
-                  <div className="space-y-4">
+                  <h4 className="font-black text-gray-900 uppercase tracking-wider text-sm mb-4">Location Highlights</h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4">
                     {project.locationAdvantages!.map((adv, i) => (
                       <div key={i}>
-                        <h5 className="font-medium text-gray-800 mb-2">{adv.title}</h5>
-                        <ul className="space-y-1">
+                        <h5 className="font-bold text-[#004063] mb-1.5 text-sm">{adv.title}</h5>
+                        <ul className="space-y-1.5">
                           {adv.points.map((pt, j) => (
-                            <li key={j} className="flex items-start gap-2 text-sm text-gray-600">
-                              <CheckCircle className="w-3.5 h-3.5 text-green-500 mt-0.5 flex-shrink-0" />{pt}
+                            <li key={j} className="flex items-start gap-2 text-[13px] text-gray-600 font-medium">
+                              <CheckCircle className="w-4 h-4 text-[#10b981] mt-0.5 flex-shrink-0" />
+                              <span className="leading-snug">{pt}</span>
                             </li>
                           ))}
                         </ul>
@@ -999,7 +1041,14 @@ export default function ProjectDetailPage({ project }: PageProps) {
             {/* ══════════════════════════════════════════════════
                 ENHANCED FLOOR PLANS GRID — Highrise Showcase
             ══════════════════════════════════════════════════ */}
-            <FloorPlansGrid project={project} />
+              <FloorPlansGrid 
+              project={project} 
+              onInquire={(planTitle) => {
+                setInquiryType('general_inquiry');
+                setShowInquiry(true);
+                // Pre-fill context if needed via global state, but modal picks up project context automatically
+              }} 
+            />
 
             {/* ══════════════════════════════════════
                 PAYMENT PLANS (multi-plan) — falls back
@@ -1160,80 +1209,18 @@ export default function ProjectDetailPage({ project }: PageProps) {
             {/* ══════════════════════════════════════
                 DOCUMENTS / LEGAL VAULT
             ══════════════════════════════════════ */}
-            {(project.legalDocs || project.projectDocuments) && (
-              <Section id="legal" title="Documents & Legal" icon={<FileText className="w-5 h-5 text-[#029bba]" />}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {[
-                    { url: project.projectDocuments?.brochureUrl,   name: 'Project Brochure',   color: 'bg-purple-50 border-purple-200', iconColor: 'text-purple-600', suffix: '-brochure.pdf' },
-                    { url: project.projectDocuments?.priceListUrl,   name: 'Price List',         color: 'bg-orange-50 border-orange-200', iconColor: 'text-orange-600', suffix: '-price-list.pdf' },
-                    { url: project.projectDocuments?.masterPlanUrl,  name: 'Master Plan',        color: 'bg-blue-50 border-blue-200',     iconColor: 'text-blue-600',   suffix: '-master-plan.pdf' },
-                    { url: project.projectDocuments?.paymentPlanUrl, name: 'Payment Plan',       color: 'bg-slate-50 border-slate-200',   iconColor: 'text-slate-700',  suffix: '-payment-plan.pdf' },
-                    { url: project.legalDocs?.nocUrl,               name: 'NOC Certificate',    color: 'bg-green-50 border-green-200',   iconColor: 'text-green-600',  suffix: '-noc.pdf' },
-                    { url: project.legalDocs?.layoutMapUrl,         name: 'Layout Map',         color: 'bg-cyan-50 border-cyan-200',     iconColor: 'text-cyan-600',   suffix: '-layout.pdf' },
-                    { url: project.legalDocs?.environmentCertUrl,   name: 'Environment Cert',   color: 'bg-emerald-50 border-emerald-200', iconColor: 'text-emerald-600', suffix: '-env-cert.pdf' },
-                    { url: project.legalDocs?.authorityLicenseUrl,  name: 'Authority License',  color: 'bg-indigo-50 border-indigo-200', iconColor: 'text-indigo-600', suffix: '-license.pdf' },
-                  ].filter(d => d.url).map(doc => (
-                    <button key={doc.name} type="button"
-                      onClick={() => downloadFile(doc.url!, `${project.slug}${doc.suffix}`)}
-                      className={`w-full text-left flex items-center gap-4 p-4 rounded-xl border
-                                  transition-colors hover:opacity-90 ${doc.color}`}>
-                      <div className="w-10 h-10 rounded-xl bg-white flex items-center justify-center shadow-sm">
-                        <Download className={`w-5 h-5 ${doc.iconColor}`} />
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900 text-sm">{doc.name}</p>
-                        <p className="text-xs text-gray-500">PDF Download</p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </Section>
-            )}
+            <DocumentsLegalVault 
+              project={project} 
+              onInquire={(docName) => {
+                setInquiryType('general_inquiry');
+                setShowInquiry(true);
+              }}
+            />
 
           {/* DeveloperTrustCard moved higher — see after AI Risk Summary */}
 
-          </div>{/* end left column */}
-
-          {/* ── RIGHT SIDEBAR (Standard Scroll) ── */}
-          <div className="relative">
-            <div className="space-y-4">
-
-              {/* HIGHRISE CONTACT FORM */}
-              <StickyContactForm 
-                projectId={project._id}
-                projectName={project.projectName}
-                developerName={developerName}
-                developerPhone={
-                  (project as any)?.contactDetails?.primaryPhone
-                  || (project as any)?.contactDetails?.whatsappNumber
-                  || (project as any)?.developerProfile?.contactNumber
-                  || (project as any)?.developerProfile?.whatsappNumber
-                  || undefined
-                }
-                isVerified={Boolean(project.isVerified || project.verificationPanel?.verifiedAt)}
-                entityLabel="project"
-              />
-
-            {/* Safety note */}
-              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                <div className="flex gap-3">
-                  <Shield className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-amber-800 font-medium mb-1">Safety First</p>
-                    <p className="text-xs text-amber-700 leading-relaxed">
-                      Always visit the project site before making any payment.
-                      Verify all documents independently. Verification on Highrise.pk
-                      does not constitute a guarantee.
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>{/* end sidebar */}
-
-        </div>{/* end grid */}
-      </div>{/* end max-w-7xl */}
+        </div>{/* end FULL WIDTH SECTIONS */}
+      </div>{/* end max-w-[1120px] */}
 
       {/* ══════════════════════════════════════
           SIMILAR PROJECTS (4 Categories)

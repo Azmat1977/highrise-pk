@@ -380,7 +380,9 @@ export interface ProjectDetailData {
   status:           string;
   projectStatus?:   string;
   saleMode?:        string;
-  deliveryStatus?:  string;
+  deliveryStatus?:  'on_track' | 'slightly_delayed' | 'critical_delay' | 'completed';
+  delayReason?:     string;
+  revisedDeliveryDate?: string;
 
   // Trust signals
   isVerified:        boolean;
