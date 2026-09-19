@@ -29,19 +29,12 @@ import {
 import type { ProjectDetailData, ConstructionMilestone } from '@/types/projectDetail';
 import { formatDetailDate } from '@/types/projectDetail';
 
-// Safely extend types so we don't need to patch types/projectDetail.ts blindly
-type EnterpriseProjectData = ProjectDetailData & {
-  delayReason?: string;
-  revisedDeliveryDate?: string;
-  deliveryStatus?: 'on_track' | 'slightly_delayed' | 'critical_delay' | 'completed';
-};
-
 type EnterpriseMilestone = ConstructionMilestone & {
   verifiedByHighriseAt?: string;
 };
 
 interface ConstructionTrackerProps {
-  project: EnterpriseProjectData;
+  project: ProjectDetailData;
 }
 
 // ─── HELPERS ───
@@ -199,8 +192,8 @@ export default function ConstructionTracker({ project }: ConstructionTrackerProp
         <div className="p-6">
           {/* ─── BLOCK 2: TIMELINE RULER ─── */}
           {timelineQuarters.length > 0 && (
-            <div className="mb-10 overflow-x-auto scrollbar-none -mx-6 px-6">
-              <div className="min-w-max flex items-center pt-2">
+            <div className="mb-8 overflow-x-auto overflow-y-hidden scrollbar-none -mx-6 px-6 py-7">
+              <div className="min-w-max flex items-center">
                 {timelineQuarters.map((q, idx) => (
                   <div key={q.label} className="flex items-center">
                     {/* The Dot */}
@@ -237,7 +230,15 @@ export default function ConstructionTracker({ project }: ConstructionTrackerProp
           
           <div className="space-y-6 relative before:absolute before:inset-0 before:ml-4 before:-translate-x-px md:before:mx-auto md:before:translate-x-0 before:h-full before:w-0.5 before:bg-gradient-to-b before:from-gray-200 before:via-gray-200 before:to-transparent">
             {sortedUpdates.length > 0 ? sortedUpdates.map((upd, idx) => {
-              const images = upd.images ?? [];
+              // Normalize image list (supports string[] or { url: string }[])
+              const rawImages = upd.images ?? [];
+              const images: { url: string }[] = rawImages.map((img: any) => {
+                if (typeof img === 'string') return { url: img };
+                if (img && typeof img === 'object' && typeof img.url === 'string') {
+                  return { url: img.url };
+                }
+                return { url: '' };
+              }).filter((img) => Boolean(img.url));
               
               return (
                 <div key={idx} className="relative flex items-start justify-between md:justify-normal md:odd:flex-row-reverse group is-active">

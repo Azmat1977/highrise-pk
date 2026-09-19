@@ -125,19 +125,19 @@ export default function ProjectAbout({ project }: ProjectAboutProps) {
   return (
     <section
       id="about"
-      className="max-w-7xl mx-auto px-4 py-4"
+      className="scroll-mt-24"
       aria-label={`About ${project.projectName}`}
     >
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
 
-        {/* ── Header ── */}
-        <div className="px-6 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#029bba]/10 flex items-center justify-center">
+        {/* ── Header — matches ProjectOverview / BuildingHighlights ── */}
+        <div className="px-6 py-4 border-b border-gray-100">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#029bba]/10 flex items-center justify-center shrink-0">
               <Building2 className="w-4 h-4 text-[#029bba]" />
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900">
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-gray-900 truncate">
                 About {project.projectName}
               </h2>
               {project.shortDescription && safeHtml && (

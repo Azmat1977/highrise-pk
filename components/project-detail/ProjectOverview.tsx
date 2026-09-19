@@ -199,7 +199,7 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
   return (
     <section
       id="overview"
-      className="max-w-7xl mx-auto px-4 py-4"
+      className="scroll-mt-24"
       aria-label="Project overview"
     >
       <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
@@ -214,7 +214,7 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
 
         <div className="p-6">
           {/* Fact tiles grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-6">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-6">
 
             <FactTile
               icon={<Home className="w-5 h-5" />}

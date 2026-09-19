@@ -1,11 +1,11 @@
 // components/project-detail/AvailableUnitsTable.tsx
 // ============================================================================
-// HIGHRISE.PK — AVAILABLE UNITS FILTER TABLE (Enterprise Accordion V3.4)
-// Hyperlink summary · sort · expand/collapse all · installment frequency
-// calculator · per-layout unit list · strict brand colors · no wrap drift
+// HIGHRISE.PK — AVAILABLE UNITS FILTER TABLE (Enterprise Accordion V4.2)
+// Flat Inventory Architecture · Trulia Layout Explorer · Trulia Contact Modal
 // ============================================================================
 
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
   Bed,
   Bath,
@@ -19,6 +19,10 @@ import {
   Store,
   ChevronsUpDown,
   ChevronsDownUp,
+  BadgeCheck,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from 'lucide-react';
 import type {
   ProjectDetailData,
@@ -27,6 +31,7 @@ import type {
   InstallmentPlan,
 } from '@/types/projectDetail';
 import { formatDetailPrice } from '@/types/projectDetail';
+import PriceWithConverter from '@/components/shared/CurrencyConverter';
 
 // ============================================
 // TYPES & CONSTANTS
@@ -40,6 +45,16 @@ interface AvailableUnitsTableProps {
 type SizeUnit = 'sqft' | 'marla' | 'kanal' | 'sqyd';
 type SortKey = 'price-asc' | 'price-desc' | 'avail';
 type PayFrequency = 'monthly' | 'quarterly' | 'half_yearly';
+
+export interface GroupData {
+  id: string;
+  title: string;
+  short: string;
+  layouts: UnitTypeOffering[];
+  totalUnits: number;
+  minPrice: number;
+  maxPrice: number;
+}
 
 const SIZE_UNITS: { value: SizeUnit; label: string; sqftFactor: number }[] = [
   { value: 'sqft', label: 'Sq Ft', sqftFactor: 1 },
@@ -80,6 +95,20 @@ function getUnitSqftRange(ut: UnitTypeOffering): { minSqft: number; maxSqft: num
   return min > max && max > 0 ? { minSqft: max, maxSqft: min } : { minSqft: min, maxSqft: max };
 }
 
+function getGroupSqftRange(layouts: UnitTypeOffering[]): { minSqft: number; maxSqft: number } {
+  let minSqft = Infinity;
+  let maxSqft = -Infinity;
+  layouts.forEach((ut) => {
+    const { minSqft: min, maxSqft: max } = getUnitSqftRange(ut);
+    if (min > 0 && min < minSqft) minSqft = min;
+    if (max > 0 && max > maxSqft) maxSqft = max;
+    if (min > 0 && min > maxSqft) maxSqft = min;
+  });
+  if (minSqft === Infinity) minSqft = 0;
+  if (maxSqft === -Infinity) maxSqft = 0;
+  return { minSqft, maxSqft };
+}
+
 function getAreaDisplay(minSqft: number, maxSqft: number, target: SizeUnit): string {
   const label = SIZE_UNITS.find((u) => u.value === target)?.label ?? 'Sq Ft';
   if (minSqft <= 0 && maxSqft <= 0) return '—';
@@ -92,6 +121,39 @@ function getAreaDisplay(minSqft: number, maxSqft: number, target: SizeUnit): str
   return `${formatConvertedArea(minSqft, target)} – ${formatConvertedArea(maxSqft, target)} ${label}`;
 }
 
+/** Row-level area only — always a single value (never min–max range). */
+function getExactAreaDisplay(
+  u: UnitRow | null,
+  ut: UnitTypeOffering,
+  target: SizeUnit
+): string {
+  const label = SIZE_UNITS.find((x) => x.value === target)?.label ?? 'Sq Ft';
+
+  if (u) {
+    let sqft = 0;
+    if (typeof u.areaSqft === 'number' && u.areaSqft > 0) {
+      sqft = u.areaSqft;
+    } else if (typeof u.area === 'number' && u.area > 0) {
+      sqft = toSqft(u.area, u.areaUnit || 'sqft');
+    } else if (typeof u.areaMarla === 'number' && u.areaMarla > 0) {
+      sqft = u.areaMarla * 272.25;
+    }
+    if (sqft > 0) {
+      return `${formatConvertedArea(sqft, target)} ${label}`;
+    }
+  }
+
+  const { minSqft, maxSqft } = getUnitSqftRange(ut);
+  if (minSqft <= 0 && maxSqft <= 0) return '—';
+  if (minSqft > 0 && maxSqft > 0 && minSqft === maxSqft) {
+    return `${formatConvertedArea(minSqft, target)} ${label}`;
+  }
+  if (minSqft > 0) {
+    return `${formatConvertedArea(minSqft, target)} ${label}`;
+  }
+  return `${formatConvertedArea(maxSqft, target)} ${label}`;
+}
+
 function getLayoutMinPrice(ut: UnitTypeOffering): number {
   const candidates = [
     ut.minPrice,
@@ -101,20 +163,6 @@ function getLayoutMinPrice(ut: UnitTypeOffering): number {
     (ut as { price?: number }).price,
     (ut as { startingPrice?: number }).startingPrice,
     (ut as { totalPrice?: number }).totalPrice,
-  ];
-  for (const v of candidates) {
-    if (typeof v === 'number' && v > 0) return v;
-  }
-  return 0;
-}
-
-function getLayoutMaxPrice(ut: UnitTypeOffering): number {
-  const candidates = [
-    ut.maxPrice,
-    ut.priceRange?.max,
-    ut.minPrice,
-    ut.priceRange?.min,
-    (ut as { price?: number }).price,
   ];
   for (const v of candidates) {
     if (typeof v === 'number' && v > 0) return v;
@@ -134,7 +182,6 @@ function isAvailableStatus(status: string | undefined): boolean {
   return s === 'available' || s === 'open' || s === 'vacant' || s === 'in_stock' || s === 'instock';
 }
 
-/** Live installment math from project.installmentPlan + layout price */
 function calcInstallmentForLayout(
   layoutPrice: number,
   plan: InstallmentPlan | undefined,
@@ -155,7 +202,6 @@ function calcInstallmentForLayout(
       : null) ??
     15;
 
-  // Prefer explicit plan booking only when > 0; else derive from layout price
   const explicitBooking =
     (plan?.bookingAmount && plan.bookingAmount > 0 ? plan.bookingAmount : null) ??
     (plan?.downPayment && plan.downPayment > 0 ? plan.downPayment : null);
@@ -176,10 +222,34 @@ function calcInstallmentForLayout(
     const amount = plan?.halfYearlyAmount ?? Math.round(remaining / count);
     return { bookingPercent, bookingAmount, installmentAmount: amount, installmentCount: count, freqLabel: 'Half-Yearly' };
   }
-  // monthly default
+  
   const count = plan?.monthlyDuration ?? 24;
   const amount = plan?.monthlyAmount ?? Math.round(remaining / Math.max(count, 1));
   return { bookingPercent, bookingAmount, installmentAmount: amount, installmentCount: count, freqLabel: 'Monthly' };
+}
+
+function formatFloorLabel(unit: UnitRow | null | undefined): string {
+  if (!unit) return '';
+  if (unit.floorName && String(unit.floorName).trim()) {
+    return String(unit.floorName).trim();
+  }
+  const n = typeof unit.floorNumber === 'number' ? unit.floorNumber : Number(unit.floorNumber);
+  if (!Number.isFinite(n)) return '';
+  const ordinals: Record<number, string> = {
+    0: 'Ground Floor',
+    1: 'First Floor',
+    2: 'Second Floor',
+    3: 'Third Floor',
+    4: 'Fourth Floor',
+    5: 'Fifth Floor',
+    6: 'Sixth Floor',
+    7: 'Seventh Floor',
+    8: 'Eighth Floor',
+    9: 'Ninth Floor',
+    10: 'Tenth Floor',
+  };
+  if (ordinals[n]) return ordinals[n];
+  return `Floor ${n}`;
 }
 
 // ============================================
@@ -195,9 +265,17 @@ export default function AvailableUnitsTable({
   const [activeTab, setActiveTab] = useState<string>('all');
   const [sortBy, setSortBy] = useState<SortKey>('price-asc');
   const [payFreq, setPayFreq] = useState<PayFrequency>('monthly');
-  const [expandedUnitLists, setExpandedUnitLists] = useState<Record<string, boolean>>({});
-  const [selectedUnitModal, setSelectedUnitModal] = useState<UnitTypeOffering | null>(null);
+  const [selectedUnitModal, setSelectedUnitModal] = useState<{ layout: UnitTypeOffering; unit?: UnitRow | null } | null>(null);
+  const [explorerGroup, setExplorerGroup] = useState<GroupData | null>(null);
   const groupRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedUnitModal(null);
+  }, []);
+
+  const handleCloseExplorer = useCallback(() => {
+    setExplorerGroup(null);
+  }, []);
 
   const offerings = project.unitTypeBreakdown ?? [];
   const saleMode = (project.saleMode || 'Sale').toString();
@@ -273,12 +351,7 @@ export default function AvailableUnitsTable({
       });
   }, [offerings, sortBy]);
 
-  useEffect(() => {
-    if (groupedOfferings.length > 0 && expandedGroups.length === 0) {
-      setExpandedGroups([groupedOfferings[0].id]);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [groupedOfferings.length]);
+  // Groups start collapsed by default — user clicks to expand
 
   const allGroupIds = groupedOfferings.map((g) => g.id);
   const isAllExpanded = expandedGroups.length === allGroupIds.length && allGroupIds.length > 0;
@@ -323,7 +396,6 @@ export default function AvailableUnitsTable({
           <h2 className="text-2xl md:text-3xl font-black text-[#001f2b] tracking-tight leading-tight">
             {totalAvailable} Units Available at {project.projectName}
           </h2>
-          {/* Hyperlink summary line — Trulia style */}
           <p className="mt-2 text-sm text-gray-600 font-medium flex flex-wrap items-center gap-x-1 gap-y-1">
             {groupedOfferings.map((g, i) => (
               <React.Fragment key={g.id}>
@@ -342,7 +414,7 @@ export default function AvailableUnitsTable({
         </div>
       </div>
 
-      {/* ── TABS (full width, no scrollbar) ── */}
+      {/* ── TABS ── */}
       <div className="px-5 pt-3 md:px-8 bg-white">
         <div className="flex flex-wrap gap-2">
           <button
@@ -350,8 +422,8 @@ export default function AvailableUnitsTable({
             onClick={() => setActiveTab('all')}
             className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
               activeTab === 'all'
-                ? 'bg-[#004063] text-white shadow-sm'
-                : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                ? 'bg-[#029bba] text-white shadow-sm'
+                : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-[#029bba]'
             }`}
           >
             All ({totalAvailable})
@@ -366,8 +438,8 @@ export default function AvailableUnitsTable({
               }}
               className={`px-4 py-2 rounded-full text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
                 activeTab === g.id
-                  ? 'bg-[#004063] text-white shadow-sm'
-                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100'
+                  ? 'bg-[#029bba] text-white shadow-sm'
+                  : 'bg-gray-50 text-gray-500 hover:bg-gray-100 hover:text-[#029bba]'
               }`}
             >
               {g.short} ({g.totalUnits})
@@ -376,15 +448,13 @@ export default function AvailableUnitsTable({
         </div>
       </div>
 
-      {/* ── TOOLBAR: Size · Frequency · Sort · Expand (no tab collision) ── */}
+      {/* ── TOOLBAR ── */}
       <div className="px-5 py-3 md:px-8 border-b border-gray-100 bg-white flex flex-wrap items-center gap-2">
-        {/* Size unit dropdown */}
         <div className="relative">
           <select
             value={sizeUnit}
             onChange={(e) => setSizeUnit(e.target.value as SizeUnit)}
             className="appearance-none pl-3 pr-8 py-1.5 text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#029bba]/20"
-            aria-label="Size unit"
           >
             {SIZE_UNITS.map((u) => (
               <option key={u.value} value={u.value}>
@@ -395,14 +465,12 @@ export default function AvailableUnitsTable({
           <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400 pointer-events-none" />
         </div>
 
-        {/* Installment frequency — one control for all rows */}
         {isInstallment && (
           <div className="relative">
             <select
               value={payFreq}
               onChange={(e) => setPayFreq(e.target.value as PayFrequency)}
               className="appearance-none pl-3 pr-8 py-1.5 text-xs font-bold text-gray-600 bg-gray-50 border border-gray-200 rounded-lg cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#029bba]/20"
-              aria-label="Installment frequency"
             >
               <option value="monthly">Monthly</option>
               <option value="quarterly">Quarterly</option>
@@ -412,7 +480,6 @@ export default function AvailableUnitsTable({
           </div>
         )}
 
-        {/* Sort */}
         <div className="relative">
           <select
             value={sortBy}
@@ -458,6 +525,11 @@ export default function AvailableUnitsTable({
                   : `PKR ${formatDetailPrice(group.minPrice)} – ${formatDetailPrice(group.maxPrice)}`;
             }
 
+            const groupSqft = getGroupSqftRange(group.layouts);
+            const groupAreaStr = getAreaDisplay(groupSqft.minSqft, groupSqft.maxSqft, sizeUnit);
+            const representativeLayout = group.layouts.find((l) => l.image || l.imageUrl) || group.layouts[0];
+            const groupImageUrl = representativeLayout?.image || representativeLayout?.imageUrl;
+
             return (
               <div
                 key={group.id}
@@ -467,211 +539,236 @@ export default function AvailableUnitsTable({
                 }}
                 className="bg-white scroll-mt-28"
               >
-                <button
-                  type="button"
-                  onClick={() => toggleGroup(group.id)}
-                  className="w-full px-5 py-5 md:px-8 flex items-center justify-between hover:bg-gray-50 transition-colors group focus:outline-none"
-                >
-                  <div className="text-left min-w-0 pr-4">
-                    <h3 className="text-lg md:text-xl font-black text-[#001f2b] group-hover:text-[#029bba] transition-colors">
-                      {group.title}
-                    </h3>
-                    <p className="text-sm text-gray-500 mt-1 font-medium">
-                      {group.layouts.length} floor plan{group.layouts.length === 1 ? '' : 's'}
-                      {' · '}
-                      {group.totalUnits} available unit{group.totalUnits === 1 ? '' : 's'}
-                      {' · '}
-                      <span
-                        role="link"
-                        tabIndex={0}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          jumpToGroup(group.id);
-                        }}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.stopPropagation();
-                            jumpToGroup(group.id);
-                          }
-                        }}
-                        className="text-[#029bba] hover:underline underline-offset-2 font-semibold"
-                      >
-                        {priceRangeLabel}
-                      </span>
-                    </p>
-                  </div>
-                  <div className="w-10 h-10 shrink-0 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 group-hover:bg-[#029bba]/10 group-hover:border-[#029bba]/30 group-hover:text-[#029bba] transition-all">
-                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-                  </div>
-                </button>
+                {/* Category Header */}
+                <div className="w-full px-5 py-4 md:px-8 flex items-center justify-between hover:bg-gray-50/80 transition-colors group">
+                  <div className="flex items-center gap-4 min-w-0 pr-4">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setExplorerGroup(group);
+                      }}
+                      title="Click to explore floor plans and units"
+                      className="relative w-14 h-14 md:w-16 md:h-16 shrink-0 bg-gray-50 rounded-xl overflow-hidden border border-gray-200 hover:border-[#029bba] flex items-center justify-center shadow-sm hover:shadow transition-all group/thumb"
+                    >
+                      {groupImageUrl && !String(groupImageUrl).toLowerCase().endsWith('.pdf') ? (
+                        <img
+                          src={groupImageUrl}
+                          alt={group.title}
+                          className="absolute inset-0 w-full h-full object-cover z-10"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <ImageIcon
+                        className={`w-6 h-6 text-gray-300 ${
+                          groupImageUrl && !String(groupImageUrl).toLowerCase().endsWith('.pdf') ? 'hidden' : ''
+                        }`}
+                      />
+                      <div className="absolute inset-0 bg-[#001f2b]/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity z-20 flex items-center justify-center text-white">
+                        <span className="text-[10px] font-black uppercase tracking-wider bg-[#029bba] px-1.5 py-0.5 rounded">
+                          Explore
+                        </span>
+                      </div>
+                    </button>
 
+                    <div className="text-left min-w-0 cursor-pointer" onClick={() => toggleGroup(group.id)}>
+                      <h3 className="text-lg md:text-xl font-black text-[#001f2b] group-hover:text-[#029bba] transition-colors">
+                        {group.title}
+                      </h3>
+                      <p className="text-xs md:text-sm text-gray-600 mt-0.5 font-medium flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleGroup(group.id);
+                          }}
+                          className="text-[#029bba] font-bold hover:underline underline-offset-2 transition-all"
+                        >
+                          {group.totalUnits} available unit{group.totalUnits === 1 ? '' : 's'}
+                        </button>
+                        {groupAreaStr !== '—' && (
+                          <>
+                            <span className="text-gray-300">·</span>
+                            <span className="font-semibold text-gray-700">{groupAreaStr}</span>
+                          </>
+                        )}
+                        {group.minPrice > 0 && (
+                          <>
+                            <span className="text-gray-300">·</span>
+                            <span onClick={(e) => e.stopPropagation()}>
+                              <PriceWithConverter
+                                minPKR={group.minPrice}
+                                maxPKR={group.maxPrice > group.minPrice ? group.maxPrice : undefined}
+                                displayText={priceRangeLabel}
+                                size="sm"
+                                align="left"
+                                className="font-bold text-[#029bba]"
+                              />
+                            </span>
+                          </>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => toggleGroup(group.id)}
+                    className="w-10 h-10 shrink-0 rounded-full bg-gray-50 border border-gray-200 flex items-center justify-center text-gray-400 group-hover:bg-[#029bba]/10 group-hover:border-[#029bba]/30 group-hover:text-[#029bba] transition-all"
+                  >
+                    {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+                  </button>
+                </div>
+
+                {/* Expanded Table Content */}
                 {isExpanded && (
                   <div className="px-5 pb-6 md:px-8">
-                    {/* Desktop table */}
-                    <div className="hidden md:block bg-white rounded-xl border border-gray-100 shadow-sm">
+                    
+                    {/* Desktop View */}
+                    <div className="hidden md:block bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                       <table className="w-full text-left border-collapse table-fixed">
                         <colgroup>
-                          <col style={{ width: '40%' }} />
-                          <col style={{ width: '17%' }} />
                           <col style={{ width: '25%' }} />
-                          <col style={{ width: '18%' }} />
+                          <col style={{ width: '12%' }} />
+                          <col style={{ width: '13%' }} />
+                          <col style={{ width: '15%' }} />
+                          <col style={{ width: '20%' }} />
+                          <col style={{ width: '15%' }} />
                         </colgroup>
                         <thead>
                           <tr className="bg-[#f8fcfd] border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            <th className="py-3.5 px-5 text-left">Layout &amp; Variations</th>
+                            <th className="py-3.5 px-5 text-left">Apartment Type/Details</th>
+                            <th className="py-3.5 px-5 text-left">Floor</th>
+                            <th className="py-3.5 px-5 text-left">Unit #</th>
                             <th className="py-3.5 px-5 text-left">Area</th>
-                            <th className="py-3.5 px-5 text-left">Pricing Base</th>
+                            <th className="py-3.5 px-5 text-left">Pricing</th>
                             <th className="py-3.5 px-5 text-center">Action</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {group.layouts.map((ut, idx) => {
-                            const { minSqft, maxSqft } = getUnitSqftRange(ut);
-                            const areaStr = getAreaDisplay(minSqft, maxSqft, sizeUnit);
-                            const minPrice = getLayoutMinPrice(ut);
-                            const available = ut.availableUnits ?? 0;
-                            const isSoldOut = (ut.totalUnits ?? 0) > 0 && available === 0;
-                            const imageUrl = ut.image || ut.imageUrl || ut.floorPlanPdfUrl;
-                            const layoutKey = `${group.id}-${idx}`;
+                          {group.layouts.flatMap((ut, idx) => {
                             const matchedUnits = unitsForLayout(ut);
-                            const listOpen = !!expandedUnitLists[layoutKey];
-                            const inst = isInstallment
-                              ? calcInstallmentForLayout(minPrice, plan, payFreq)
-                              : null;
 
-                            return (
-                              <React.Fragment key={layoutKey}>
+                            const renderRow = (u: UnitRow | null, rowKey: string) => {
+                              const activePrice = u && u.price ? u.price : getLayoutMinPrice(ut);
+                              const available = u ? 1 : (ut.availableUnits ?? 0);
+                              const isSoldOut = u ? (u.status === 'sold') : ((ut.totalUnits ?? 0) > 0 && available === 0);
+                              const activeArea = getExactAreaDisplay(u, ut, sizeUnit);
+                              const inst = isInstallment ? calcInstallmentForLayout(activePrice, plan, payFreq) : null;
+
+                              return (
                                 <tr
+                                  key={rowKey}
                                   className={`transition-colors group ${
-                                    isSoldOut
-                                      ? 'bg-gray-50 opacity-75'
-                                      : 'hover:bg-[#f4f9fb]/50 bg-white'
+                                    isSoldOut ? 'bg-gray-50 opacity-75' : 'hover:bg-[#f4f9fb]/50 bg-white'
                                   }`}
                                 >
-                                  {/* Layout */}
+                                  {/* Type / Details */}
                                   <td className="py-4 px-5 align-middle">
-                                    <div className="flex items-center gap-4 min-w-0">
-                                      <div className="relative w-[72px] h-[72px] shrink-0 bg-gray-50 rounded-xl overflow-hidden border border-gray-200 flex items-center justify-center">
-                                        {imageUrl && !String(imageUrl).toLowerCase().endsWith('.pdf') ? (
-                                          <img
-                                            src={imageUrl}
-                                            alt=""
-                                            className="absolute inset-0 w-full h-full object-cover z-10 text-transparent"
-                                            onError={(e) => {
-                                              e.currentTarget.style.display = 'none';
-                                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                            }}
-                                          />
-                                        ) : null}
-                                        <ImageIcon
-                                          className={`w-6 h-6 text-gray-300 ${
-                                            imageUrl && !String(imageUrl).toLowerCase().endsWith('.pdf')
-                                              ? 'hidden'
-                                              : ''
-                                          }`}
-                                        />
-                                      </div>
-                                      <div className="min-w-0">
-                                        <h4 className="font-bold text-gray-900 text-[15px] truncate">
-                                          {ut.name || ut.type || 'Standard Layout'}
-                                        </h4>
-                                        {group.id === 'commercial' ? (
-                                          <div className="mt-1.5 flex items-center gap-1.5 text-xs font-bold text-gray-600">
-                                            <Store className="w-4 h-4 text-[#029bba]" /> Commercial
-                                          </div>
-                                        ) : (
-                                          <div className="flex items-center gap-3 mt-1.5 text-xs font-bold">
-                                            <span className="flex items-center gap-1.5 text-gray-700">
-                                              <Bed className="w-4 h-4 text-[#029bba]" /> {ut.bedrooms ?? 0} Bed
-                                            </span>
-                                            <span className="flex items-center gap-1.5 text-gray-700">
-                                              <Bath className="w-4 h-4 text-gray-500" /> {ut.bathrooms ?? 0} Bath
-                                            </span>
-                                          </div>
-                                        )}
-                                      </div>
+                                    <div className="min-w-0 pr-2">
+                                      <h4 className="font-bold text-gray-900 text-[13px] leading-tight line-clamp-2">
+                                        {ut.name || ut.type || 'Standard Layout'}
+                                      </h4>
+                                      {group.id === 'commercial' ? (
+                                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
+                                          <Store className="w-3.5 h-3.5 text-[#029bba]" /> Commercial
+                                        </div>
+                                      ) : (
+                                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 text-[11px] font-bold text-gray-600">
+                                          <span className="flex items-center gap-1 text-gray-700">
+                                            <Bed className="w-3.5 h-3.5 text-[#029bba]" /> {ut.bedrooms ?? 0} Bed
+                                          </span>
+                                          <span className="flex items-center gap-1 text-gray-700">
+                                            <Bath className="w-3.5 h-3.5 text-gray-400" /> {ut.bathrooms ?? 0} Bath
+                                          </span>
+                                        </div>
+                                      )}
                                     </div>
                                   </td>
 
-                                  {/* Area — single line */}
+                                  {/* Floor */}
+                                  <td className="py-4 px-5 align-middle">
+                                    <span className="text-[12px] font-bold text-gray-700">
+                                      {u ? (u.floorName || u.floorNumber || '—') : '—'}
+                                    </span>
+                                  </td>
+
+                                  {/* Unit Number */}
+                                  <td className="py-4 px-5 align-middle">
+                                    <span className="text-[12px] font-bold text-gray-700">
+                                      {u ? (u.unitNumber || '—') : '—'}
+                                    </span>
+                                  </td>
+
+                                  {/* Area */}
                                   <td className="py-4 px-5 align-middle">
                                     <span className="text-[13px] font-bold text-gray-700 whitespace-nowrap tabular-nums">
-                                      {areaStr}
+                                      {activeArea}
                                     </span>
                                   </td>
 
                                   {/* Pricing Base */}
                                   <td className="py-4 px-5 align-middle">
-                                    {minPrice <= 0 && !isInstallment ? (
-                                      <span className="text-xs text-gray-400 italic">Contact for price</span>
+                                    {activePrice <= 0 && !isInstallment ? (
+                                      <span className="text-[11px] text-gray-400 italic">Contact for price</span>
                                     ) : isRent ? (
-                                      <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                      <div className="flex flex-col">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-0.5">
                                           Monthly Rent
                                         </span>
-                                        <span className="text-sm font-bold text-[#001f2b]">
-                                          PKR {formatDetailPrice(minPrice)}
-                                          <span className="text-[10px] text-gray-400 font-medium">/mo</span>
+                                        <span className="text-[13px] font-bold text-[#001f2b] leading-tight">
+                                          PKR {formatDetailPrice(activePrice)}<span className="text-[9px] font-medium text-gray-400 ml-0.5">/mo</span>
                                         </span>
                                       </div>
                                     ) : isInstallment && inst && inst.bookingAmount > 0 ? (
-                                      <div className="flex flex-col gap-0.5 max-w-[220px]">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
-                                          Booking from {inst.bookingPercent}%
+                                      <div className="flex flex-col">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-0.5">
+                                          Booking ({inst.bookingPercent}%)
                                         </span>
-                                        <span className="text-sm font-bold text-[#001f2b]">
+                                        <span className="text-[13px] font-bold text-[#001f2b] leading-tight">
                                           PKR {formatDetailPrice(inst.bookingAmount)}
                                         </span>
-                                        <span className="text-[11px] font-semibold text-gray-500">
-                                          + {inst.installmentCount} {inst.freqLabel.toLowerCase()} × PKR{' '}
-                                          {formatDetailPrice(inst.installmentAmount)}
+                                        <span className="text-[10px] font-medium text-gray-500 leading-snug mt-0.5">
+                                          + {inst.installmentCount} {inst.freqLabel.toLowerCase()} @ <br className="hidden lg:block" />
+                                          <span className="font-bold text-gray-700">PKR {formatDetailPrice(inst.installmentAmount)}</span>
                                         </span>
                                       </div>
-                                    ) : isInstallment && minPrice > 0 ? (
-                                      <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                    ) : isInstallment && activePrice > 0 ? (
+                                      <div className="flex flex-col">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-0.5">
                                           Starting From
                                         </span>
-                                        <span className="text-sm font-bold text-[#001f2b]">
-                                          PKR {formatDetailPrice(minPrice)}
+                                        <span className="text-[13px] font-bold text-[#001f2b] leading-tight">
+                                          PKR {formatDetailPrice(activePrice)}
                                         </span>
                                       </div>
                                     ) : (
-                                      <div className="flex flex-col gap-0.5">
-                                        <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">
+                                      <div className="flex flex-col">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-gray-400 mb-0.5">
                                           Full Payment
                                         </span>
-                                        <span className="text-sm font-bold text-[#001f2b]">
-                                          PKR {formatDetailPrice(minPrice)}
+                                        <span className="text-[13px] font-bold text-[#001f2b] leading-tight">
+                                          PKR {formatDetailPrice(activePrice)}
                                         </span>
                                       </div>
                                     )}
-
-                                    {available > 0 && (
-                                      <button
-                                        type="button"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          setExpandedUnitLists((prev) => ({
-                                            ...prev,
-                                            [layoutKey]: !prev[layoutKey],
-                                          }));
-                                        }}
-                                        className="mt-1.5 text-[10px] font-black uppercase tracking-wider text-[#029bba] hover:text-[#027a94] hover:underline underline-offset-2"
-                                      >
-                                        {available} Units Left
-                                        {listOpen ? ' · hide' : ' · view'}
-                                      </button>
-                                    )}
                                   </td>
 
-                                  {/* Action — centered with header */}
-                                  <td className="py-4 px-3 align-middle text-center">
+                                  {/* Action */}
+                                  <td className="py-4 px-3 align-middle text-center pr-5">
                                     <button
                                       type="button"
-                                      onClick={() => setSelectedUnitModal(ut)}
+                                      onClick={(e) => {
+                                        e.preventDefault();
+                                        e.stopPropagation();
+                                        setSelectedUnitModal({ layout: ut, unit: u });
+                                      }}
                                       disabled={isSoldOut}
-                                      className={`inline-block px-3 py-2.5 text-[10px] font-black uppercase tracking-wider rounded-xl transition-all whitespace-nowrap ${
+                                      className={`inline-block w-full max-w-[140px] px-2 py-2 text-[10px] sm:text-[9px] lg:text-[10px] font-black uppercase tracking-wider rounded-xl transition-all whitespace-normal leading-tight ${
                                         isSoldOut
                                           ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                                           : 'bg-[#029bba] hover:bg-[#027a94] text-white shadow-sm hover:shadow-md'
@@ -681,178 +778,107 @@ export default function AvailableUnitsTable({
                                     </button>
                                   </td>
                                 </tr>
+                              );
+                            };
 
-                                {/* Expanded unit numbers row */}
-                                {listOpen && (
-                                  <tr className="bg-[#f8fcfd]">
-                                    <td colSpan={4} className="px-5 py-3">
-                                      {matchedUnits.length > 0 ? (
-                                        <div className="flex flex-wrap gap-2">
-                                          {matchedUnits.map((u) => (
-                                            <button
-                                              key={u._id}
-                                              type="button"
-                                              onClick={() => setSelectedUnitModal(ut)}
-                                              className="px-2.5 py-1 text-[11px] font-bold rounded-lg border border-[#029bba]/20 bg-white text-[#004063] hover:border-[#029bba] hover:text-[#029bba] transition-colors"
-                                            >
-                                              Unit {u.unitNumber}
-                                              {u.floorName || u.floorNumber
-                                                ? ` · Fl. ${u.floorName || u.floorNumber}`
-                                                : ''}
-                                              {u.price
-                                                ? ` · PKR ${formatDetailPrice(u.price)}`
-                                                : ''}
-                                            </button>
-                                          ))}
-                                        </div>
-                                      ) : (
-                                        <p className="text-xs text-gray-500 font-medium">
-                                          {available} unit{available === 1 ? '' : 's'} available for this layout.
-                                          Individual unit numbers will appear here when inventory is linked.
-                                          <button
-                                            type="button"
-                                            onClick={() => setSelectedUnitModal(ut)}
-                                            className="ml-2 text-[#029bba] font-bold hover:underline"
-                                          >
-                                            Check availability
-                                          </button>
-                                        </p>
-                                      )}
-                                    </td>
-                                  </tr>
-                                )}
-                              </React.Fragment>
-                            );
+                            if (matchedUnits.length > 0) {
+                              return matchedUnits.map((u) => renderRow(u, `${group.id}-${idx}-${u._id}`));
+                            }
+                            return renderRow(null, `${group.id}-${idx}-fallback`);
                           })}
                         </tbody>
                       </table>
                     </div>
 
-                    {/* Mobile cards */}
+                    {/* Mobile View */}
                     <div className="md:hidden space-y-3">
-                      {group.layouts.map((ut, idx) => {
-                        const { minSqft, maxSqft } = getUnitSqftRange(ut);
-                        const areaStr = getAreaDisplay(minSqft, maxSqft, sizeUnit);
-                        const minPrice = getLayoutMinPrice(ut);
-                        const available = ut.availableUnits ?? 0;
-                        const isSoldOut = (ut.totalUnits ?? 0) > 0 && available === 0;
-                        const imageUrl = ut.image || ut.imageUrl || ut.floorPlanPdfUrl;
-                        const layoutKey = `m-${group.id}-${idx}`;
+                      {group.layouts.flatMap((ut, idx) => {
                         const matchedUnits = unitsForLayout(ut);
-                        const listOpen = !!expandedUnitLists[layoutKey];
-                        const inst = isInstallment
-                          ? calcInstallmentForLayout(minPrice, plan, payFreq)
-                          : null;
 
-                        return (
-                          <div
-                            key={layoutKey}
-                            className={`flex flex-col gap-3 p-4 border border-gray-100 rounded-xl ${
-                              isSoldOut ? 'bg-gray-50 opacity-75' : 'bg-white shadow-sm'
-                            }`}
-                          >
-                            <div className="flex gap-3">
-                              <div className="relative w-14 h-14 shrink-0 bg-gray-50 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center">
-                                {imageUrl && !String(imageUrl).toLowerCase().endsWith('.pdf') ? (
-                                  <img
-                                    src={imageUrl}
-                                    alt=""
-                                    className="absolute inset-0 w-full h-full object-cover z-10 text-transparent"
-                                    onError={(e) => {
-                                      e.currentTarget.style.display = 'none';
-                                      e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                                    }}
-                                  />
-                                ) : null}
-                                <ImageIcon
-                                  className={`w-5 h-5 text-gray-300 ${
-                                    imageUrl && !String(imageUrl).toLowerCase().endsWith('.pdf')
-                                      ? 'hidden'
-                                      : ''
-                                  }`}
-                                />
-                              </div>
+                        const renderMobileCard = (u: UnitRow | null, key: string) => {
+                          const activePrice = u && u.price ? u.price : getLayoutMinPrice(ut);
+                          const available = u ? 1 : (ut.availableUnits ?? 0);
+                          const isSoldOut = u ? (u.status === 'sold') : ((ut.totalUnits ?? 0) > 0 && available === 0);
+                          const activeArea = getExactAreaDisplay(u, ut, sizeUnit);
+                          const inst = isInstallment ? calcInstallmentForLayout(activePrice, plan, payFreq) : null;
+
+                          return (
+                            <div
+                              key={key}
+                              className={`flex flex-col gap-3 p-4 border border-gray-100 rounded-xl ${
+                                isSoldOut ? 'bg-gray-50 opacity-75' : 'bg-white shadow-sm'
+                              }`}
+                            >
                               <div className="min-w-0">
                                 <h4 className="font-bold text-gray-900 text-sm truncate">
                                   {ut.name || ut.type || 'Standard Layout'}
                                 </h4>
-                                <div className="text-[11px] font-bold text-gray-600 mt-1 whitespace-nowrap tabular-nums">
-                                  {areaStr}
+                                <div className="flex items-center gap-2 mt-1.5">
+                                  <div className="text-[11px] font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                    {u ? `Floor ${u.floorName || u.floorNumber || '—'}` : 'Multiple Floors'}
+                                  </div>
+                                  <div className="text-[11px] font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                    {u ? `Unit ${u.unitNumber || '—'}` : 'Multiple Units'}
+                                  </div>
+                                </div>
+                                <div className="text-[12px] font-bold text-gray-800 mt-2 whitespace-nowrap tabular-nums">
+                                  Area: {activeArea}
                                 </div>
                               </div>
-                            </div>
 
-                            <div className="border-t border-gray-50 pt-3 space-y-2">
-                              {minPrice > 0 && isInstallment && inst && inst.bookingAmount > 0 ? (
-                                <>
-                                  <p className="text-[10px] font-black uppercase text-gray-400">
-                                    Booking from {inst.bookingPercent}%
-                                  </p>
-                                  <p className="text-sm font-bold text-[#001f2b]">
-                                    PKR {formatDetailPrice(inst.bookingAmount)}
-                                  </p>
-                                  <p className="text-[11px] text-gray-500 font-semibold">
-                                    + {inst.installmentCount} {inst.freqLabel.toLowerCase()} × PKR{' '}
-                                    {formatDetailPrice(inst.installmentAmount)}
-                                  </p>
-                                </>
-                              ) : minPrice > 0 ? (
-                                <>
-                                  <p className="text-[10px] font-black uppercase text-gray-400">
-                                    {isRent ? 'Monthly Rent' : 'Full Payment'}
-                                  </p>
-                                  <p className="text-sm font-bold text-[#001f2b]">
-                                    PKR {formatDetailPrice(minPrice)}
-                                    {isRent ? '/mo' : ''}
-                                  </p>
-                                </>
-                              ) : (
-                                <p className="text-xs text-gray-400 italic">Contact for price</p>
-                              )}
+                              <div className="border-t border-gray-50 pt-3 space-y-2">
+                                {activePrice > 0 && isInstallment && inst && inst.bookingAmount > 0 ? (
+                                  <>
+                                    <p className="text-[10px] font-black uppercase text-gray-400">
+                                      Booking from {inst.bookingPercent}%
+                                    </p>
+                                    <p className="text-sm font-bold text-[#001f2b]">
+                                      PKR {formatDetailPrice(inst.bookingAmount)}
+                                    </p>
+                                    <p className="text-[11px] text-gray-500 font-semibold">
+                                      + {inst.installmentCount} {inst.freqLabel.toLowerCase()} × PKR{' '}
+                                      {formatDetailPrice(inst.installmentAmount)}
+                                    </p>
+                                  </>
+                                ) : activePrice > 0 ? (
+                                  <>
+                                    <p className="text-[10px] font-black uppercase text-gray-400">
+                                      {isRent ? 'Monthly Rent' : 'Full Payment'}
+                                    </p>
+                                    <p className="text-sm font-bold text-[#001f2b]">
+                                      PKR {formatDetailPrice(activePrice)}
+                                      {isRent ? '/mo' : ''}
+                                    </p>
+                                  </>
+                                ) : (
+                                  <p className="text-xs text-gray-400 italic">Contact for price</p>
+                                )}
 
-                              {available > 0 && (
                                 <button
                                   type="button"
-                                  onClick={() =>
-                                    setExpandedUnitLists((prev) => ({
-                                      ...prev,
-                                      [layoutKey]: !prev[layoutKey],
-                                    }))
-                                  }
-                                  className="text-[10px] font-black uppercase tracking-wider text-[#029bba]"
+                                  disabled={isSoldOut}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setSelectedUnitModal({ layout: ut, unit: u });
+                                  }}
+                                  className={`w-full py-2.5 mt-2 text-[11px] font-black uppercase tracking-wider rounded-xl ${
+                                    isSoldOut
+                                      ? 'bg-gray-100 text-gray-400'
+                                      : 'bg-[#029bba] text-white shadow-sm'
+                                  }`}
                                 >
-                                  {available} Units Left
+                                  {isSoldOut ? 'Sold Out' : 'Check Availability'}
                                 </button>
-                              )}
-
-                              {listOpen && matchedUnits.length > 0 && (
-                                <div className="flex flex-wrap gap-1.5">
-                                  {matchedUnits.map((u) => (
-                                    <span
-                                      key={u._id}
-                                      className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-[#f4f9fb] text-[#004063] border border-[#029bba]/15"
-                                    >
-                                      {u.unitNumber}
-                                    </span>
-                                  ))}
-                                </div>
-                              )}
-
-                              <button
-                                type="button"
-                                disabled={isSoldOut}
-                                onClick={() => setSelectedUnitModal(ut)}
-                                className={`w-full py-2.5 text-[11px] font-black uppercase tracking-wider rounded-xl ${
-                                  isSoldOut
-                                    ? 'bg-gray-100 text-gray-400'
-                                    : 'bg-[#029bba] text-white'
-                                }`}
-                              >
-                                {isSoldOut ? 'Sold Out' : 'Check Availability'}
-                              </button>
+                              </div>
                             </div>
-                          </div>
-                        );
+                          );
+                        };
+
+                        if (matchedUnits.length > 0) {
+                          return matchedUnits.map((u) => renderMobileCard(u, `m-${group.id}-${idx}-${u._id}`));
+                        }
+                        return renderMobileCard(null, `m-${group.id}-${idx}-fallback`);
                       })}
                     </div>
                   </div>
@@ -862,11 +888,27 @@ export default function AvailableUnitsTable({
           })}
       </div>
 
+      {explorerGroup && typeof document !== 'undefined' && (
+        <LayoutExplorerModal
+          group={explorerGroup}
+          project={project}
+          units={units}
+          sizeUnit={sizeUnit}
+          payFreq={payFreq}
+          onClose={handleCloseExplorer}
+          onInquire={(layout, unit) => {
+            setExplorerGroup(null);
+            setTimeout(() => setSelectedUnitModal({ layout, unit }), 50);
+          }}
+        />
+      )}
+
       {selectedUnitModal && (
         <UnifiedUnitModal
-          unit={selectedUnitModal}
+          layout={selectedUnitModal.layout}
+          unit={selectedUnitModal.unit}
           project={project}
-          onClose={() => setSelectedUnitModal(null)}
+          onClose={handleCloseModal}
           sizeUnit={sizeUnit}
         />
       )}
@@ -875,27 +917,379 @@ export default function AvailableUnitsTable({
 }
 
 // ============================================
-// MODAL
+// MODAL — TRULIA STYLE LAYOUT EXPLORER
+// ============================================
+
+interface LayoutExplorerModalProps {
+  group: GroupData;
+  project: ProjectDetailData;
+  units: UnitRow[];
+  sizeUnit: SizeUnit;
+  payFreq: PayFrequency;
+  onClose: () => void;
+  onInquire: (layout: UnitTypeOffering, unit?: UnitRow | null) => void;
+}
+
+function LayoutExplorerModal({ group, project, units, sizeUnit, payFreq, onClose, onInquire }: LayoutExplorerModalProps) {
+  const [activeIdx, setActiveIdx] = useState(0);
+  const layout = group.layouts[activeIdx] || group.layouts[0];
+  const plan = project.installmentPlan;
+  const [zoomLevel, setZoomLevel] = useState(1);
+  
+  // Pan & Zoom States
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
+  
+  // Dynamic Calculator State
+  const [dpPct, setDpPct] = useState(25);
+  
+  const backdropPointerDown = useRef(false);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
+
+  const matchedUnits = useMemo(() => {
+    return units.filter(u => matchesUnitType(u, layout) && isAvailableStatus(String(u.status)));
+  }, [units, layout]);
+
+  const activePrice = getLayoutMinPrice(layout);
+  const priceStr = activePrice > 0 ? `PKR ${formatDetailPrice(activePrice)}` : 'Price on Request';
+  const areaStr = getExactAreaDisplay(null, layout, sizeUnit);
+  const imageUrl = layout.image || layout.imageUrl || layout.floorPlanPdfUrl;
+
+  // Dynamic Calculator Pre-computes
+  const durationMonths = plan?.monthlyDuration || 36;
+  const dpAmount = Math.round(activePrice * (dpPct / 100));
+  const possessionPct = Math.min(10, 100 - dpPct);
+  const possessionAmount = Math.round(activePrice * (possessionPct / 100));
+  const remaining = Math.max(0, activePrice - dpAmount - possessionAmount);
+
+  const qDuration = Math.max(1, Math.round(durationMonths / 3));
+  const hyDuration = Math.max(1, Math.round(durationMonths / 6));
+
+  const monthlyAmount = Math.round(remaining / Math.max(1, durationMonths));
+  const quarterlyAmount = Math.round(remaining / qDuration);
+  const halfYearlyAmount = Math.round(remaining / hyDuration);
+
+  // Pan & Drag Handlers
+  const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
+    if (zoomLevel <= 1) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
+    if (!isDragging || zoomLevel <= 1) return;
+    setPan({
+      x: dragStart.current.panX + (e.clientX - dragStart.current.x) / zoomLevel,
+      y: dragStart.current.panY + (e.clientY - dragStart.current.y) / zoomLevel
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLImageElement>) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
+    if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 font-sans animate-fadeIn">
+      {/* Backdrop Layer — STRICT origin check. Only closes if touch/click STARTS on the backdrop */}
+      <div
+        className="absolute inset-0 z-0 cursor-pointer"
+        onPointerDown={() => { backdropPointerDown.current = true; }}
+        onPointerUp={() => {
+          if (backdropPointerDown.current) onClose();
+          backdropPointerDown.current = false;
+        }}
+      />
+
+      {/* Modal Content Layer */}
+      <div
+        role="dialog"
+        onPointerDown={(e) => e.stopPropagation()}
+        className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-[1000px] max-h-[90vh] flex flex-col overflow-hidden cursor-default"
+      >
+        {/* Header */}
+        <div className="px-6 py-4 border-b border-gray-100 bg-[#f8fcfd] flex items-center justify-between shrink-0">
+          {group.layouts.length > 1 ? (
+            <select
+              value={activeIdx}
+              onChange={(e) => setActiveIdx(Number(e.target.value))}
+              className="appearance-none font-black text-lg text-[#001f2b] bg-transparent cursor-pointer hover:text-[#029bba] transition-colors pr-8 focus:outline-none"
+              style={{ backgroundImage: `url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="%23029bba" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>')`, backgroundPosition: 'right center', backgroundRepeat: 'no-repeat' }}
+            >
+              {group.layouts.map((l, i) => (
+                <option key={i} value={i}>
+                  {l.name || l.type} ({l.availableUnits || 0} Available)
+                </option>
+              ))}
+            </select>
+          ) : (
+            <div className="font-black text-lg text-[#001f2b]">
+              {layout.name || layout.type} <span className="text-sm text-gray-500 font-medium ml-1">({layout.availableUnits || 0} Available)</span>
+            </div>
+          )}
+          <button onClick={onClose} className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Split Body */}
+        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto min-h-0">
+          
+          {/* LEFT: Property & Units */}
+          <div className="w-full md:w-[45%] p-6 md:p-8 border-r border-gray-100 bg-white overflow-y-auto">
+            <h2 className="text-2xl font-black text-[#001f2b] leading-tight">{layout.name || layout.type}</h2>
+            
+            {activePrice > 0 ? (
+              <PriceWithConverter minPKR={activePrice} displayText={priceStr} size="md" align="left" className="text-xl font-bold text-[#029bba] mt-1" />
+            ) : (
+              <div className="text-xl font-bold text-gray-500 mt-1">Price on Request</div>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-bold text-gray-600 mt-4">
+              {layout.bedrooms !== undefined && <span className="flex items-center gap-1"><Bed className="w-4 h-4 text-[#029bba]"/> {layout.bedrooms} Bed</span>}
+              {layout.bathrooms !== undefined && <span className="flex items-center gap-1"><Bath className="w-4 h-4 text-gray-400"/> {layout.bathrooms} Bath</span>}
+              <span className="text-gray-300">|</span>
+              <span>{areaStr}</span>
+            </div>
+
+            <div className="mt-8 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+              <div className="bg-[#f8fcfd] px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-[#004063]">Available Inventory</span>
+                <span className="text-[11px] font-bold text-[#029bba]">{matchedUnits.length} Units</span>
+              </div>
+              <table className="w-full text-left">
+                <thead className="bg-gray-50/50">
+                  <tr className="border-b border-gray-100 text-[9px] font-black uppercase text-gray-400">
+                    <th className="py-2.5 px-4 w-[30%]">Unit</th>
+                    <th className="py-2.5 px-4 w-[40%] text-right">Price</th>
+                    <th className="py-2.5 px-4 w-[30%] text-center">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-50">
+                  {matchedUnits.length > 0 ? matchedUnits.map(u => (
+                    <tr key={u._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="text-[12px] font-bold text-gray-900">Unit {u.unitNumber}</div>
+                        <div className="text-[10px] text-gray-500">{formatFloorLabel(u) || '—'}</div>
+                      </td>
+                      <td className="py-3 px-4 text-[12px] font-bold text-gray-700 text-right">
+                        {u.price ? `PKR ${formatDetailPrice(u.price)}` : '—'}
+                      </td>
+                      <td className="py-3 px-4 flex justify-center">
+                        <button 
+                          onClick={() => onInquire(layout, u)} 
+                          className="px-3 py-1.5 w-full bg-white border border-[#029bba] text-[#029bba] hover:bg-[#029bba] hover:text-white rounded-lg text-[9px] font-black uppercase transition-colors"
+                        >
+                          Inquire
+                        </button>
+                      </td>
+                    </tr>
+                  )) : (
+                    <tr>
+                      <td colSpan={3} className="py-8 px-4 text-center">
+                        <p className="text-sm text-gray-500 font-medium">Inventory list coming soon.</p>
+                        <button onClick={() => onInquire(layout, null)} className="mt-3 px-4 py-2 bg-[#029bba] text-white rounded-lg text-[11px] font-black uppercase shadow-sm hover:bg-[#017a94] transition-colors">
+                          Check Availability
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* RIGHT: Media & Financials */}
+          <div className="w-full md:w-[55%] p-6 md:p-8 bg-gray-50 overflow-y-auto">
+                        {/* Media Viewer */}
+            <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 relative min-h-[300px] flex items-center justify-center mb-6 overflow-hidden">
+              {imageUrl && !String(imageUrl).toLowerCase().endsWith('.pdf') && (
+                <div className="absolute top-2 right-2 z-20 flex gap-1 bg-white/90 backdrop-blur-sm p-1 rounded-lg shadow-sm border border-gray-100">
+                  <button onClick={() => setZoomLevel(z => Math.min(z + 0.2, 3))} className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-[#029bba]"><ZoomIn className="w-4 h-4"/></button>
+                  <button onClick={() => {
+                    setZoomLevel(z => {
+                      const newZ = Math.max(z - 0.2, 1);
+                      if (newZ === 1) setPan({ x: 0, y: 0 });
+                      return newZ;
+                    });
+                  }} className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-[#029bba]"><ZoomOut className="w-4 h-4"/></button>
+                  <button onClick={() => { setZoomLevel(1); setPan({ x: 0, y: 0 }); }} className="p-1 hover:bg-gray-100 rounded text-gray-600 hover:text-[#029bba]"><RotateCcw className="w-4 h-4"/></button>
+                </div>
+              )}
+
+              {imageUrl ? (
+                String(imageUrl).toLowerCase().endsWith('.pdf') ? (
+                  <iframe src={imageUrl} className="w-full h-full min-h-[300px]" />
+                ) : (
+                  <img
+                    src={imageUrl}
+                    alt="Floor Plan"
+                    draggable={false}
+                    onPointerDown={handlePointerDown}
+                    onPointerMove={handlePointerMove}
+                    onPointerUp={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    style={{
+                      transform: `scale(${zoomLevel}) translate(${pan.x}px, ${pan.y}px)`,
+                      transition: isDragging ? 'none' : 'transform 0.2s ease-in-out',
+                      cursor: zoomLevel > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+                      touchAction: 'none'
+                    }}
+                    className="max-w-full max-h-[40vh] object-contain select-none"
+                  />
+                )
+              ) : (
+                <div className="text-gray-400 flex flex-col items-center"><ImageIcon className="w-12 h-12 mb-2 opacity-30"/><span className="text-xs font-bold uppercase tracking-wider">No Layout Image</span></div>
+              )}
+            </div>
+
+            {/* Payment Plan Calculator */}
+            {activePrice > 0 && (
+              <div className="bg-white border border-[#029bba]/20 rounded-xl shadow-sm overflow-hidden">
+                <div className="bg-[#f4f9fb] border-b border-[#029bba]/10 px-5 py-3">
+                  <h4 className="text-[13px] font-black text-[#004063]">Payment Plan Calculator</h4>
+                </div>
+                <div className="p-5 space-y-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="font-semibold text-gray-500">Base Price</span>
+                    <span className="font-black text-gray-900">PKR {formatDetailPrice(activePrice)}</span>
+                  </div>
+
+                  {/* Down Payment Row */}
+                  <div className="flex justify-between items-center text-sm border-t border-dashed border-gray-100 pt-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-500">Down Payment</span>
+                      <select
+                        value={dpPct}
+                        onChange={(e) => setDpPct(Number(e.target.value))}
+                        className="text-xs font-bold text-[#029bba] bg-[#029bba]/10 border border-[#029bba]/20 rounded px-2 py-1 outline-none cursor-pointer focus:ring-1 focus:ring-[#029bba]/50"
+                      >
+                        {Array.from({ length: 19 }, (_, i) => 10 + i * 5).map((val) => (
+                          <option key={val} value={val}>{val}%</option>
+                        ))}
+                      </select>
+                    </div>
+                    <span className="font-black text-gray-900">PKR {formatDetailPrice(dpAmount)}</span>
+                  </div>
+
+                  {/* Possession Charges */}
+                  <div className="flex justify-between items-center text-sm border-t border-dashed border-gray-100 pt-3">
+                    <span className="font-semibold text-gray-500">Possession ({possessionPct}%)</span>
+                    <span className="font-black text-gray-900">PKR {formatDetailPrice(possessionAmount)}</span>
+                  </div>
+
+                  {/* Installments Breakdown */}
+                  {remaining > 0 && (
+                    <div className="mt-4 border border-[#029bba]/20 rounded-xl overflow-hidden bg-white shadow-sm">
+                      <div className="bg-[#029bba]/10 px-3 py-2.5 text-center border-b border-[#029bba]/20">
+                        <span className="text-[11px] font-black uppercase tracking-wider text-[#004063]">
+                          Remaining Balance: PKR {formatDetailPrice(remaining)}
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-3 divide-x divide-gray-100 text-center">
+                        <div className="py-3 px-2">
+                          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Monthly</div>
+                          <div className="text-[12px] font-black text-[#029bba] mt-0.5">{durationMonths}x</div>
+                          <div className="text-[11px] font-bold text-gray-700 mt-1">PKR {formatDetailPrice(monthlyAmount)}</div>
+                        </div>
+                        <div className="py-3 px-2">
+                          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Quarterly</div>
+                          <div className="text-[12px] font-black text-[#029bba] mt-0.5">{qDuration}x</div>
+                          <div className="text-[11px] font-bold text-gray-700 mt-1">PKR {formatDetailPrice(quarterlyAmount)}</div>
+                        </div>
+                        <div className="py-3 px-2">
+                          <div className="text-[9px] font-black text-gray-400 uppercase tracking-widest">Half-Yearly</div>
+                          <div className="text-[12px] font-black text-[#029bba] mt-0.5">{hyDuration}x</div>
+                          <div className="text-[11px] font-bold text-gray-700 mt-1">PKR {formatDetailPrice(halfYearlyAmount)}</div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="mt-4 pt-3 border-t border-gray-100">
+                    <p className="text-[10px] text-gray-400 leading-tight">
+                      * Interactive estimates based on standard {durationMonths}-month duration. Final pricing, schedules, and unit premiums (corner, park-facing) are subject to developer confirmation.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>,
+    document.body
+  );
+}
+
+// ============================================
+// MODAL — TRULIA STYLE ENTERPRISE CONTACT
 // ============================================
 
 interface UnifiedUnitModalProps {
-  unit: UnitTypeOffering;
+  layout: UnitTypeOffering;
+  unit?: UnitRow | null;
   project: ProjectDetailData;
   onClose: () => void;
   sizeUnit: SizeUnit;
 }
 
-function UnifiedUnitModal({ unit, project, onClose, sizeUnit }: UnifiedUnitModalProps) {
+function UnifiedUnitModal({ layout, unit, project, onClose, sizeUnit }: UnifiedUnitModalProps) {
+  const typeName = layout.name || layout.type || 'Property';
+  const activePrice = unit?.price || getLayoutMinPrice(layout);
+  const priceStr = activePrice > 0 ? `PKR ${formatDetailPrice(activePrice)}` : 'Price on Request';
+  const sizeStr = getExactAreaDisplay(unit ?? null, layout, sizeUnit);
+  const floorStr = formatFloorLabel(unit);
+
+  const initialMessage = unit
+    ? `I am inquiring about the ${typeName} # ${unit.unitNumber || '—'}, Size ${sizeStr}${floorStr ? `, ${floorStr}` : ''}, at ${project.projectName}. Please share current availability, exact unit numbers, and pricing details.`
+    : `I am inquiring about the ${typeName} at ${project.projectName}. Please share current availability, exact unit numbers, and pricing details.`;
+
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     phone: '',
-    message: `Assalam-o-Alaikum, I am interested in the ${unit.name || unit.type || 'Unit'} layout at ${project.projectName}. Please share viewing schedule and availability.`,
+    message: initialMessage,
   });
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+
+  const backdropPointerDown = useRef(false);
+
+  useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [onClose]);
 
   useEffect(() => {
     const scriptId = 'turnstile-embed-script';
@@ -936,6 +1330,14 @@ function UnifiedUnitModal({ unit, project, onClose, sizeUnit }: UnifiedUnitModal
           source: 'unit_modal',
           propertyTitle: project.projectName,
           propertySlug: project.slug,
+          unitType: typeName,
+          unitNumber: unit?.unitNumber || null,
+          floorNumber: unit?.floorNumber ?? null,
+          floorName: floorStr || unit?.floorName || null,
+          unitArea: sizeStr !== '—' ? sizeStr : null,
+          unitPrice: activePrice > 0 ? activePrice : null,
+          unitPriceLabel: priceStr,
+          unitId: unit?._id || null,
         }),
       });
       const resData = await response.json();
@@ -948,143 +1350,154 @@ function UnifiedUnitModal({ unit, project, onClose, sizeUnit }: UnifiedUnitModal
     }
   };
 
-  const { minSqft, maxSqft } = getUnitSqftRange(unit);
-  const areaStr = getAreaDisplay(minSqft, maxSqft, sizeUnit);
-  const minPrice = getLayoutMinPrice(unit);
-  const imageUrl = unit.image || unit.imageUrl || unit.floorPlanPdfUrl;
+  const developerName = project.developerProfile?.companyName || project.developerProfile?.name || 'Authorized Developer';
 
-  return (
-    <div className="fixed inset-0 z-[130] bg-[#001f2b]/80 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 font-sans">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-5xl max-h-[95vh] flex flex-col relative overflow-hidden">
-        <div className="flex items-center justify-between p-4 md:p-5 border-b border-gray-100 bg-[#f8fcfd]">
-          <h3 className="text-lg md:text-xl font-black text-[#001f2b]">
-            {unit.name || unit.type || 'Layout Details'}
-            <span className="text-sm text-gray-400 font-bold ml-2">
-              ({unit.availableUnits || 0} Available)
-            </span>
-          </h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-2 hover:bg-gray-200 rounded-full text-gray-500 transition-colors"
-          >
-            <X className="w-6 h-6" />
-          </button>
+    if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div className="fixed inset-0 z-[200] bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 md:p-8 font-sans animate-fadeIn">
+      {/* Backdrop Layer — STRICT origin check. Only closes if touch/click STARTS on the backdrop */}
+      <div
+        className="absolute inset-0 z-0 cursor-pointer"
+        onPointerDown={() => { backdropPointerDown.current = true; }}
+        onPointerUp={() => {
+          if (backdropPointerDown.current) onClose();
+          backdropPointerDown.current = false;
+        }}
+      />
+
+      {/* Modal Content Layer */}
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Check unit availability"
+        onPointerDown={(e) => e.stopPropagation()}
+        className="relative z-10 bg-white rounded-2xl shadow-2xl w-full max-w-[500px] flex flex-col overflow-hidden cursor-default"
+      >
+        {/* Header */}
+        <div className="px-6 py-5 border-b border-gray-100 bg-[#f8fcfd]">
+          <div className="flex items-start justify-between">
+            <div className="min-w-0 pr-4">
+              <h3 className="text-xl font-black text-[#001f2b] flex items-center gap-1.5 truncate">
+                {project.projectName}
+                {project.isVerified && <BadgeCheck className="w-5 h-5 text-[#10b981] shrink-0" />}
+              </h3>
+              <p className="text-sm text-gray-500 font-medium mt-1 truncate">
+                {unit
+                  ? `${typeName} # ${unit.unitNumber || '—'} · ${sizeStr}${floorStr ? ` · ${floorStr}` : ''} · ${priceStr}`
+                  : `${typeName} · General Inquiry`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 hover:bg-gray-200 rounded-full text-gray-400 transition-colors shrink-0 -mt-1 -mr-1"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
-        <div className="flex flex-col md:flex-row flex-1 overflow-y-auto">
-          <div className="w-full md:w-[45%] p-6 md:p-8 border-r border-gray-100 overflow-y-auto bg-white">
-            <div className="mb-8">
-              <div className="text-3xl font-black text-[#001f2b]">
-                {minPrice > 0 ? `PKR ${formatDetailPrice(minPrice)}` : 'Price on Request'}
-              </div>
-              <div className="flex items-center gap-4 mt-3 text-sm font-bold text-gray-600">
-                {unit.bedrooms !== undefined && (
-                  <span className="flex items-center gap-1.5">
-                    <Bed className="w-4 h-4 text-[#029bba]" /> {unit.bedrooms} Bed
-                  </span>
-                )}
-                {unit.bathrooms !== undefined && (
-                  <span className="flex items-center gap-1.5">
-                    <Bath className="w-4 h-4 text-gray-500" /> {unit.bathrooms} Bath
-                  </span>
-                )}
-                <span className="text-gray-300">|</span>
-                <span className="font-semibold tabular-nums whitespace-nowrap">{areaStr}</span>
-              </div>
+        {/* Body */}
+        <div className="p-6 bg-white">
+          {success ? (
+            <div className="text-center py-8">
+              <CheckCircle className="w-14 h-14 text-[#10b981] mx-auto mb-4" />
+              <h4 className="text-xl font-black text-[#001f2b]">Request Sent Successfully</h4>
+              <p className="text-sm text-gray-500 mt-2 font-medium">
+                The property manager has been notified and will contact you shortly regarding this unit.
+              </p>
+              <button
+                onClick={onClose}
+                className="mt-6 px-6 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold rounded-xl transition-colors"
+              >
+                Close Window
+              </button>
             </div>
+          ) : (
+            <>
+              <h4 className="font-bold text-gray-900 mb-4 text-[15px]">Contact This Property</h4>
 
-            <div className="bg-[#f8fcfd] p-6 rounded-2xl border border-[#029bba]/10 shadow-sm">
-              {success ? (
-                <div className="text-center py-6">
-                  <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-4" />
-                  <h4 className="text-lg font-black text-[#001f2b]">Inquiry Sent Successfully</h4>
-                  <p className="text-sm text-gray-500 mt-2 font-medium">
-                    We will contact you shortly about this layout.
-                  </p>
-                </div>
-              ) : (
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  <h4 className="font-black text-base text-[#001f2b] mb-2">Check Availability</h4>
-                  {errorMsg && (
-                    <div className="text-[11px] text-red-600 bg-red-50 p-3 rounded-xl font-bold border border-red-100">
-                      {errorMsg}
-                    </div>
-                  )}
+              {/* Property Verified Info */}
+              <div className="flex items-center gap-2 mb-6">
+                <span className="font-bold text-gray-900 text-sm truncate max-w-[200px]">
+                  {developerName}
+                </span>
+                <span className="flex items-center gap-1 text-[11px] font-black uppercase tracking-wider text-[#10b981] bg-[#10b981]/10 px-2 py-0.5 rounded">
+                  <BadgeCheck className="w-3 h-3" />
+                  Verified
+                </span>
+              </div>
+
+              {/* Form */}
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {errorMsg && (
+                  <div className="text-[11px] text-red-600 bg-red-50 p-3 rounded-xl font-bold border border-red-100">
+                    {errorMsg}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <input
                     type="text"
                     required
                     value={formData.name}
                     onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    placeholder="Your Name"
-                    className="w-full px-4 py-3 text-sm font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]"
-                  />
-                  <input
-                    type="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    placeholder="Email Address"
-                    className="w-full px-4 py-3 text-sm font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]"
+                    placeholder="Name"
+                    className="w-full px-4 py-3 text-sm font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba] placeholder-gray-400"
                   />
                   <input
                     type="tel"
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="Phone Number"
-                    className="w-full px-4 py-3 text-sm font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]"
+                    placeholder="Phone"
+                    className="w-full px-4 py-3 text-sm font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba] placeholder-gray-400"
                   />
-                  <div className="flex justify-center py-1">
-                    <div
-                      className="cf-turnstile"
-                      data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
-                      data-callback="onTurnstileSuccess"
-                    />
-                  </div>
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full py-3.5 bg-[#029bba] hover:bg-[#027a94] text-white font-black text-[13px] uppercase tracking-wider rounded-xl transition-all flex justify-center items-center gap-2 shadow-md"
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                    Check Availability
-                  </button>
-                </form>
-              )}
-            </div>
-          </div>
+                </div>
 
-          <div className="w-full md:w-[55%] bg-gray-50 p-6 md:p-10 flex flex-col items-center justify-center min-h-[400px]">
-            {imageUrl ? (
-              String(imageUrl).toLowerCase().endsWith('.pdf') ? (
-                <iframe
-                  src={imageUrl}
-                  className="w-full h-full min-h-[500px] rounded-xl border border-gray-200 shadow-sm bg-white"
+                <input
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  placeholder="Email"
+                  className="w-full px-4 py-3 text-sm font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba] placeholder-gray-400"
                 />
-              ) : (
-                <img
-                  src={imageUrl}
-                  alt=""
-                  className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-sm border border-gray-200 bg-white p-2 text-transparent"
-                  onError={(e) => {
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                  }}
+
+                <textarea
+                  required
+                  rows={3}
+                  value={formData.message}
+                  onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                  className="w-full px-4 py-3 text-sm font-semibold bg-white border border-gray-200 rounded-xl focus:outline-none focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba] placeholder-gray-600 resize-none"
                 />
-              )
-            ) : null}
-            <div
-              className={`flex-col items-center text-gray-400 ${
-                imageUrl && !String(imageUrl).toLowerCase().endsWith('.pdf') ? 'hidden' : 'flex'
-              }`}
-            >
-              <ImageIcon className="w-20 h-20 mb-3 opacity-30" />
-              <p className="text-sm font-bold">No floor plan image provided</p>
-            </div>
-          </div>
+
+                <div className="flex justify-center pt-1 pb-2">
+                  <div
+                    className="cf-turnstile"
+                    data-sitekey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY}
+                    data-callback="onTurnstileSuccess"
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="w-full bg-[#029bba] hover:bg-[#017a94] text-white py-3.5 rounded-xl font-black uppercase text-[13px] tracking-wider transition-colors shadow-md flex justify-center items-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                >
+                  {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Check Availability'}
+                </button>
+
+                <p className="text-[10.5px] text-gray-400 leading-relaxed text-center mt-4 px-2 font-medium">
+                  By clicking Check Availability, you agree to Highrise.pk's Terms of Use &amp; Privacy Policy. Your inquiry will be sent directly to the verified property manager.
+                </p>
+              </form>
+            </>
+          )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

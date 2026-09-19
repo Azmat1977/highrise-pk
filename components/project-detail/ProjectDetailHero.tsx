@@ -215,7 +215,7 @@ export default function ProjectDetailHero({
     <>
       {/* 1. BREADCRUMB — semantic (JSON-LD owns structured data) */}
       <div className="bg-white border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 py-3">
+        <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-6 py-3">
           <nav aria-label="Breadcrumb">
             <ol className="flex items-center gap-2 text-sm flex-wrap list-none p-0 m-0">
               <li>
@@ -255,7 +255,8 @@ export default function ProjectDetailHero({
 
       {/* 2. GALLERY — delegated to ProjectGallery */}
       <div className="bg-white border-b border-gray-100 pb-6">
-        <div className="w-full max-w-[1440px] mx-auto px-0 sm:px-4 lg:px-8 pt-4">
+        {/* Match exact spacing of index.tsx grid */}
+        <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-6 pt-4 lg:pt-6">
           <div className="relative">
             {/* Top Right Floating Actions (Trulia Style) */}
             <div className="absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto">

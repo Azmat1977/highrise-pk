@@ -30,7 +30,7 @@
 
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import {
@@ -39,8 +39,11 @@ import {
   ArrowRight,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   ShieldCheck,
   MapPin,
+  CheckCircle,
 } from 'lucide-react';
 
 import type {
@@ -119,50 +122,73 @@ function Stat({
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// COMPLETED PROJECT MINI CARD — name/year + location/type, no chips
-// ─────────────────────────────────────────────────────────────────────────────
+// ─── COMPLETED PROJECT MINI CARD — Premium Listing Style
+// ────────────────────────────────────────────────────────────────────────────
 
-function CompletedProjectCard({ project }: { project: RelatedProject }) {
+// We extend the type locally to accept launch/possession strings safely 
+// if the backend populates them in the future.
+type PortfolioProject = RelatedProject & {
+  launchDate?: string;
+  possessionDate?: string;
+};
+
+function CompletedProjectCard({ project }: { project: PortfolioProject }) {
   // Model canonical: images[0] (array); legacy docs may hold single image
   const projectImage = project.images?.[0] ?? project.image;
+  
+  // Format dates gracefully
+  const launchStr = project.launchDate ? new Date(project.launchDate).getFullYear() : 'N/A';
+  const possessStr = project.possessionDate 
+    ? new Date(project.possessionDate).getFullYear() 
+    : project.year || 'N/A';
+
   return (
-    <div className="rounded-xl border border-gray-200 overflow-hidden
-                    hover:border-[#029bba]/30 transition-colors group">
-      {projectImage ? (
-        <div className="relative w-full aspect-[16/10] bg-gray-100">
+    <div className="w-[85%] sm:w-[calc(50%-0.5rem)] lg:w-[calc(33.333%-0.75rem)] shrink-0 snap-start rounded-2xl border border-gray-200 overflow-hidden bg-white shadow-sm hover:shadow-md hover:border-[#029bba]/30 transition-all group flex flex-col">
+      {/* ── Image Area (Clean) ── */}
+      <div className="relative w-full h-36 bg-gray-50 flex flex-col items-center justify-center border-b border-gray-100 overflow-hidden">
+        {projectImage ? (
           <Image
             src={projectImage}
             alt={project.name}
             fill
-            className="object-cover group-hover:scale-[1.03]
-                       transition-transform duration-300"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            className="object-cover group-hover:scale-105 transition-transform duration-500"
+            sizes="280px"
           />
-        </div>
-      ) : (
-        <div className="w-full aspect-[16/10] bg-gray-50
-                        flex items-center justify-center">
-          <Building2 className="w-6 h-6 text-gray-300" />
-        </div>
-      )}
-      <div className="p-3">
-        <div className="flex items-baseline justify-between gap-2 mb-1">
-          <h4 className="font-bold text-gray-900 text-sm leading-tight truncate">
-            {project.name}
-          </h4>
-          <span className="text-xs font-bold text-gray-400 flex-shrink-0 tabular-nums">
-            {project.year}
-          </span>
-        </div>
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-          <span className="truncate">
-            {project.location}
+        ) : (
+          <Building2 className="w-8 h-8 text-gray-300" />
+        )}
+      </div>
+      
+      {/* ── Text Area ── */}
+      <div className="p-4 flex-1 flex flex-col justify-between">
+        <div>
+          <div className="flex items-start justify-between gap-2 mb-1.5">
+            <h4 className="font-bold text-gray-900 text-sm leading-tight line-clamp-1">
+              {project.name}
+            </h4>
             {project.type && (
-              <span className="text-gray-400"> · {project.type}</span>
+              <span className="shrink-0 text-[9px] font-bold text-[#029bba] bg-[#029bba]/10 px-2 py-0.5 rounded uppercase tracking-wider">
+                {project.type}
+              </span>
             )}
-          </span>
+          </div>
+          <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
+            <MapPin className="w-3 h-3 shrink-0" />
+            <span className="truncate">{project.location}</span>
+          </div>
+        </div>
+        
+        {/* Timeline Strip */}
+        <div className="mt-2 pt-3 border-t border-gray-100 flex items-center justify-between text-xs">
+          <div>
+            <p className="text-gray-400 font-medium mb-0.5">Launch</p>
+            <p className="font-bold text-gray-700">{launchStr}</p>
+          </div>
+          <div className="w-px h-6 bg-gray-200" />
+          <div className="text-right">
+            <p className="text-gray-400 font-medium mb-0.5">Possession</p>
+            <p className="font-bold text-[#029bba]">{possessStr}</p>
+          </div>
         </div>
       </div>
     </div>
@@ -181,6 +207,19 @@ export default function DeveloperTrustCard({
   relatedProjects,
 }: DeveloperTrustCardProps) {
   const [showAllProjects, setShowAllProjects] = useState(false);
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const scroll = (direction: 'left' | 'right') => {
+    if (!scrollRef.current) return;
+    const track = scrollRef.current;
+    const firstCard = track.querySelector(':scope > div') as HTMLElement | null;
+    const gap = 16; // gap-4
+    const step = firstCard ? firstCard.offsetWidth + gap : track.clientWidth * 0.5;
+    track.scrollBy({
+      left: direction === 'left' ? -step : step,
+      behavior: 'smooth',
+    });
+  };
 
   // Prefer completedProjects, fall back to relatedProjects
   const projectList = completedProjects ?? relatedProjects ?? [];
@@ -213,7 +252,7 @@ export default function DeveloperTrustCard({
       {/* ── Header ── */}
       <div className="px-6 py-4 border-b border-gray-100
                       flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+        <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
           <Building className="w-5 h-5 text-[#029bba]" />
           Developed By
         </h2>
@@ -227,139 +266,154 @@ export default function DeveloperTrustCard({
         </Link>
       </div>
 
-      <div className="p-6 space-y-6">
+      <div className="p-6">
 
-        {/* ── Identity: Logo + Name + Badge + Meta + Description ── */}
-        <div className="flex flex-col sm:flex-row gap-5">
-
-          <div className="flex-shrink-0">
-            {developerProfile?.logoUrl ? (
-              <div className="w-16 h-16 rounded-xl overflow-hidden
-                              border border-gray-200 bg-white p-1.5 relative">
-                <Image
-                  src={developerProfile.logoUrl}
-                  alt={`${displayName} logo`}
-                  fill
-                  className="object-contain"
-                  sizes="64px"
-                />
-              </div>
-            ) : (
-              <div className="w-16 h-16 rounded-xl bg-gray-50
-                              flex items-center justify-center border
-                              border-gray-200">
-                <Building2 className="w-6 h-6 text-gray-300" />
-              </div>
-            )}
-          </div>
-
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2.5 flex-wrap mb-1.5">
-              <h3 className="text-lg font-bold text-gray-900 truncate">
-                {displayName}
-              </h3>
-              <span className={`inline-flex items-center px-2.5 py-0.5
-                               rounded-full text-[11px] font-bold border
-                               whitespace-nowrap ${tierConfig.badge}`}>
-                {tierConfig.label}
-              </span>
+        {/* ── Enterprise Identity Profile ── */}
+        <div className="bg-[#f8fcfd] rounded-2xl border border-[#029bba]/10 p-5 mb-8">
+          <div className="flex flex-col sm:flex-row gap-5 items-start">
+            
+            {/* Big Logo Plate */}
+            <div className="shrink-0">
+              {developerProfile?.logoUrl ? (
+                <div className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-white p-2 shadow-sm relative">
+                  <Image
+                    src={developerProfile.logoUrl}
+                    alt={`${displayName} logo`}
+                    fill
+                    className="object-contain"
+                    sizes="80px"
+                  />
+                </div>
+              ) : (
+                <div className="w-20 h-20 rounded-2xl bg-white border border-gray-200 shadow-sm flex flex-col items-center justify-center">
+                  <Building2 className="w-8 h-8 text-gray-300 mb-1" />
+                  <span className="text-[9px] font-bold text-gray-400 uppercase tracking-widest">Builder</span>
+                </div>
+              )}
             </div>
 
-            {/* Identity meta line — facts only */}
-            {(accountability.establishedYear || accountability.isSECPVerified) && (
-              <div className="flex items-center gap-3 flex-wrap text-xs text-gray-500 mb-3">
-                {accountability.establishedYear && (
-                  <span>Est. {accountability.establishedYear}</span>
-                )}
+            {/* Profile Info */}
+            <div className="flex-1 min-w-0">
+              <div className="flex flex-wrap items-center gap-3 mb-2">
+                <h3 className="text-xl font-bold text-gray-900 truncate">
+                  {displayName}
+                </h3>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap shadow-sm ${tierConfig.badge}`}>
+                  {tierConfig.label}
+                </span>
                 {accountability.isSECPVerified && (
-                  <span className="inline-flex items-center gap-1 font-semibold text-emerald-600">
-                    <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="inline-flex items-center gap-1 font-bold text-xs text-emerald-700 bg-emerald-50 border border-emerald-100 px-3 py-1 rounded-full shadow-sm">
+                    <ShieldCheck className="w-4 h-4" />
                     SECP Verified
                   </span>
                 )}
               </div>
-            )}
 
-            {developerProfile?.description && (
-              <p className="text-sm text-gray-600 leading-relaxed line-clamp-3">
-                {developerProfile.description}
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* ── Track Record — inline strip, no cards ── */}
-        <div>
-          <p className="text-[10px] text-gray-400 uppercase font-bold
-                        tracking-wider mb-3">
-            Track Record
-          </p>
-          <div className={`grid ${
-            accountability.establishedYear ? 'grid-cols-3' : 'grid-cols-2'
-          } divide-x divide-gray-100`}>
-            <div className="pr-4">
-              <Stat
-                value={accountability.completedProjects > 0
-                  ? accountability.completedProjects
-                  : '—'}
-                label="Completed"
-              />
-            </div>
-            <div className={accountability.establishedYear ? 'px-4' : 'pl-4'}>
-              <Stat
-                value={accountability.ongoingProjects > 0
-                  ? accountability.ongoingProjects
-                  : '—'}
-                label="Ongoing"
-              />
-            </div>
-            {accountability.establishedYear && (
-              <div className="pl-4">
-                <Stat
-                  value={`${accountability.yearsInOperation} yrs`}
-                  label="Years Active"
-                  sub={`since ${accountability.establishedYear}`}
-                />
-              </div>
-            )}
-          </div>
-          {/* Tier meaning — one quiet line */}
-          <p className="text-xs text-gray-500 mt-3 leading-relaxed">
-            {tierConfig.desc}
-          </p>
-        </div>
-
-        {/* ── Portfolio ── */}
-        {projectList.length > 0 && (
-          <div className="pt-6 border-t border-gray-100">
-            <div className="flex items-center justify-between mb-3">
-              <p className="text-[10px] text-gray-400 uppercase font-bold
-                            tracking-wider">
-                Portfolio — {projectList.length} Project
-                {projectList.length !== 1 ? 's' : ''}
-              </p>
-              {projectList.length > 6 && (
-                <button
-                  onClick={() => setShowAllProjects(v => !v)}
-                  aria-expanded={showAllProjects}
-                  className="text-[11px] text-[#029bba] font-bold
-                             hover:underline flex items-center gap-1"
-                >
-                  {showAllProjects ? (
-                    <><ChevronUp className="w-3 h-3" />Show less</>
-                  ) : (
-                    <><ChevronDown className="w-3 h-3" />
-                      +{projectList.length - 6} more</>
-                  )}
-                </button>
+              {developerProfile?.description && (
+                <p className="text-sm text-gray-600 leading-relaxed line-clamp-2 mb-4">
+                  {developerProfile.description}
+                </p>
               )}
+
+              {/* Elevated Track Record Stats */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
+                    <CheckCircle className="w-4 h-4 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-gray-900 leading-none">
+                      {accountability.completedProjects > 0 ? accountability.completedProjects : '—'}
+                    </p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Delivered</p>
+                  </div>
+                </div>
+
+                <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
+                    <Building className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-lg font-black text-gray-900 leading-none">
+                      {accountability.ongoingProjects > 0 ? accountability.ongoingProjects : '—'}
+                    </p>
+                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Ongoing</p>
+                  </div>
+                </div>
+
+                {accountability.establishedYear && (
+                  <div className="bg-white border border-gray-200 rounded-xl px-4 py-2 shadow-sm flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-purple-50 flex items-center justify-center">
+                      <ShieldCheck className="w-4 h-4 text-purple-600" />
+                    </div>
+                    <div>
+                      <p className="text-lg font-black text-gray-900 leading-none">
+                        {accountability.yearsInOperation}
+                      </p>
+                      <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wide">Yrs Experience</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Portfolio Carousel ── */}
+        {projectList.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h4 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                Developer Portfolio
+                <span className="bg-gray-100 text-gray-500 text-xs px-2.5 py-1 rounded-lg">{projectList.length}</span>
+              </h4>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2
-                            lg:grid-cols-3 gap-3">
-              {visibleProjects.map((cp, idx) => (
-                <CompletedProjectCard key={idx} project={cp} />
-              ))}
+            {/* Horizontal Scroll Snap Container with Hover Arrows */}
+            <div className="relative group/carousel">
+              <button 
+                type="button"
+                onClick={() => scroll('left')} 
+                className="absolute -left-3 top-1/2 -translate-y-1/2 z-10
+                           flex items-center justify-center
+                           w-10 h-10 rounded-full
+                           bg-white text-[#029bba]
+                           border border-gray-200 shadow-md
+                           opacity-0 group-hover/carousel:opacity-100
+                           hover:bg-[#029bba] hover:text-white hover:border-[#029bba] hover:shadow-lg
+                           transition-all duration-200
+                           hidden sm:flex"
+                aria-label="Scroll left"
+              >
+                <ChevronLeft className="w-5 h-5" strokeWidth={2.5} />
+              </button>
+
+              <div 
+                ref={scrollRef} 
+                className="flex gap-4 overflow-x-auto pb-2 snap-x snap-mandatory scrollbar-none scroll-smooth" 
+                style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+              >
+                {projectList.map((cp, idx) => (
+                  <CompletedProjectCard key={idx} project={cp} />
+                ))}
+              </div>
+
+              <button 
+                type="button"
+                onClick={() => scroll('right')} 
+                className="absolute -right-3 top-1/2 -translate-y-1/2 z-10
+                           flex items-center justify-center
+                           w-10 h-10 rounded-full
+                           bg-white text-[#029bba]
+                           border border-gray-200 shadow-md
+                           opacity-0 group-hover/carousel:opacity-100
+                           hover:bg-[#029bba] hover:text-white hover:border-[#029bba] hover:shadow-lg
+                           transition-all duration-200
+                           hidden sm:flex"
+                aria-label="Scroll right"
+              >
+                <ChevronRight className="w-5 h-5" strokeWidth={2.5} />
+              </button>
             </div>
           </div>
         )}

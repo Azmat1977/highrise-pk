@@ -124,22 +124,21 @@ export default function BuildingHighlights({
     if (!showEmptyState) return null;
 
     return (
-      <section id="features" className="py-10 border-t border-gray-100 scroll-mt-24">
-        <div className="mb-8">
-          <h2 className="text-2xl md:text-3xl font-black text-[#001f2b] tracking-tight">
-            Building Highlights &amp; Amenities
-          </h2>
-          <p className="text-gray-500 mt-2 text-sm md:text-base">
-            Amenities detail abhi update nahi hui — but no tension, Highrise team can help you verify full feature list.
-          </p>
-        </div>
-
-        <div className="bg-[#f8fcfd] rounded-2xl p-6 border border-gray-200 shadow-sm">
-          <p className="text-sm text-gray-600 leading-relaxed">
-            <span className="font-bold text-gray-900">Amenities not listed yet.</span>{' '}
-            For the complete list (parking, backup power, Masjid/Prayer Area, security, etc.),
-            click <span className="font-bold text-[#029bba]">Contact</span> and we’ll guide you.
-          </p>
+      <section id="features" className="scroll-mt-24" aria-label="Building highlights and amenities">
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-[#029bba]/10 flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-[#029bba]" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900">Building Highlights &amp; Amenities</h2>
+          </div>
+          <div className="p-6">
+            <p className="text-sm text-gray-600 leading-relaxed">
+              <span className="font-bold text-gray-900">Amenities not listed yet.</span>{' '}
+              Detail abhi update nahi hui — parking, backup power, Masjid/Prayer Area, security, etc.
+              ke liye <span className="font-bold text-[#029bba]">Contact</span> karein, Highrise team guide karegi.
+            </p>
+          </div>
         </div>
       </section>
     );
@@ -170,75 +169,91 @@ export default function BuildingHighlights({
     : activeCategories.slice(0, initialCategoryLimit);
 
   return (
-    <section id="features" className="py-10 border-t border-gray-100 scroll-mt-24">
-      {/* Enterprise Heading (Rule Set A) */}
-      <div className="mb-8">
-        <h2 className="text-2xl md:text-3xl font-black text-[#001f2b] tracking-tight">
-          Building Highlights &amp; Amenities
-        </h2>
-        <p className="text-gray-500 mt-2 text-sm md:text-base">
-          Premium facilities and infrastructure designed for modern living.
-        </p>
-      </div>
-
-      {/* Categories Grid (2 cols tablet, 3 cols desktop) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {displayedCategories.map((cat) => (
-          <div 
-            key={cat.id} 
-            className="bg-[#f8fcfd] rounded-2xl p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow"
-          >
-            {/* Category Header */}
-            <div className="flex items-center gap-3 mb-5">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${cat.bg}`}>
-                <cat.icon className={`w-5 h-5 ${cat.color}`} />
-              </div>
-              <h3 className="font-bold text-gray-900 leading-tight">
-                {cat.title}
-              </h3>
+    <section id="features" className="scroll-mt-24" aria-label="Building highlights and amenities">
+      <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+        {/* Header — matches ProjectOverview */}
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-9 h-9 rounded-xl bg-[#029bba]/10 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-[#029bba]" />
             </div>
-
-            {/* Amenities List */}
-            <ul className="space-y-3">
-              {groupedAmenities[cat.id].map((item, idx) => (
-                <li key={idx} className="flex items-start gap-2.5">
-                  <CheckCircle2 className="w-4 h-4 text-[#029bba] flex-shrink-0 mt-0.5" />
-                  <div>
-                    <span className="text-sm font-semibold text-gray-700 block">
-                      {item.name}
-                    </span>
-                    {item.description && (
-                      <span className="text-[12px] text-gray-500 block leading-snug mt-0.5">
-                        {item.description}
-                      </span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-gray-900 truncate">
+                Building Highlights &amp; Amenities
+              </h2>
+              <p className="text-xs text-gray-500 mt-0.5">
+                Premium facilities for modern Pakistani living
+              </p>
+            </div>
           </div>
-        ))}
-      </div>
-
-      {/* Show More Expander */}
-      {hasMore && (
-        <div className="mt-8 flex justify-center">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-bold text-[#029bba] bg-white border-2 border-[#029bba]/20 rounded-full hover:bg-[#029bba]/5 hover:border-[#029bba] transition-all"
-          >
-            {isExpanded ? (
-              <>
-                Show Less <ChevronUp className="w-4 h-4" />
-              </>
-            ) : (
-              <>
-                Show All {totalFeatures} Amenities <ChevronDown className="w-4 h-4" />
-              </>
-            )}
-          </button>
+          {totalFeatures > 0 && (
+            <span className="shrink-0 text-xs font-semibold text-gray-500 bg-gray-100 px-2.5 py-1 rounded-lg">
+              {totalFeatures} features
+            </span>
+          )}
         </div>
-      )}
+
+        <div className="p-6">
+          {/* 2-col inside left column — avoids crush at ~700px */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {displayedCategories.map((cat) => (
+              <div
+                key={cat.id}
+                className="bg-gray-50/80 rounded-2xl p-5 border border-gray-100 hover:border-gray-200 hover:shadow-sm transition-all"
+              >
+                <div className="flex items-center gap-3 mb-4">
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${cat.bg}`}>
+                    <cat.icon className={`w-4 h-4 ${cat.color}`} />
+                  </div>
+                  <h3 className="font-bold text-gray-900 text-sm leading-tight">
+                    {cat.title}
+                  </h3>
+                </div>
+
+                <ul className="space-y-2.5">
+                  {groupedAmenities[cat.id].map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2.5">
+                      <CheckCircle2 className="w-4 h-4 text-[#029bba] shrink-0 mt-0.5" />
+                      <div className="min-w-0">
+                        <span className="text-sm font-medium text-gray-700 block">
+                          {item.name}
+                        </span>
+                        {item.description && (
+                          <span className="text-[12px] text-gray-500 block leading-snug mt-0.5">
+                            {item.description}
+                          </span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+
+          {hasMore && (
+            <div className="mt-6 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setIsExpanded(!isExpanded)}
+                className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-bold text-[#029bba]
+                           bg-white border border-[#029bba]/25 rounded-xl
+                           hover:bg-[#029bba]/5 hover:border-[#029bba] transition-all"
+              >
+                {isExpanded ? (
+                  <>
+                    Show Less <ChevronUp className="w-4 h-4" />
+                  </>
+                ) : (
+                  <>
+                    Show All {totalFeatures} Amenities <ChevronDown className="w-4 h-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
     </section>
   );
 }
