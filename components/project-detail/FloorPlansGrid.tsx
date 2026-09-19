@@ -5,7 +5,7 @@
 // Cloudinary PDF-to-image preview transforms, and interactive zoom lightbox.
 // ============================================================================
 
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Layers,
   Maximize2,
@@ -15,18 +15,31 @@ import {
   ZoomIn,
   ZoomOut,
   X,
+  MessageCircle,
+  Building2,
+  Car,
+  Home,
   Sparkles,
-  ChevronRight,
-  Filter,
 } from 'lucide-react';
 import type { ProjectDetailData, FloorPlan } from '@/types/projectDetail';
-import { formatDetailPrice } from '@/types/projectDetail';
 
 interface FloorPlansGridProps {
   project: ProjectDetailData;
+  onInquire?: (planTitle: string) => void;
 }
 
 type PlanMediaKind = 'pdf' | 'image' | 'tiff' | 'unknown';
+type SmartCategory = 'commercial' | 'residential' | 'parking' | 'other';
+
+function classifyFloor(fp: FloorPlan): SmartCategory {
+  const text = `${fp.floorType || ''} ${fp.floorName || ''}`.toLowerCase();
+  
+  if (/park|basement|b1|b2|b3|car|vehicle/.test(text)) return 'parking';
+  if (/commercial|shop|retail|food|mezzanine|lower ground|lg|plaza|office|mall/.test(text)) return 'commercial';
+  if (/residential|apartment|flat|penthouse|studio|bed/.test(text)) return 'residential';
+  
+  return 'other';
+}
 
 function detectPlanMediaKind(url: string): PlanMediaKind {
   if (!url) return 'unknown';
@@ -37,31 +50,63 @@ function detectPlanMediaKind(url: string): PlanMediaKind {
   return 'unknown';
 }
 
+function cleanCloudinaryUrl(url: string): string {
+  if (!url) return '';
+  return url
+    .replace(/\/fl_attachment,/g, '/')
+    .replace(/,fl_attachment/g, '')
+    .replace(/\/fl_attachment\//g, '/');
+}
+
 function buildCloudinaryJpg(url: string, isPdf: boolean): string | null {
   if (!url || !url.startsWith('https://res.cloudinary.com')) return null;
-  const marker = '/image/upload/';
-  const idx = url.indexOf(marker);
-  if (idx === -1) return null;
-  let path = url.slice(idx + marker.length);
+  const clean = cleanCloudinaryUrl(url);
+
+  const marker = clean.includes('/image/upload/')
+    ? '/image/upload/'
+    : clean.includes('/raw/upload/')
+    ? '/raw/upload/'
+    : null;
+
+  if (!marker) return null;
+
+  const uIdx = clean.indexOf(marker);
+  const baseUrl = clean.slice(0, uIdx) + '/image/upload/';
+  let path = clean.slice(uIdx + marker.length);
+
   const vIdx = path.search(/\/v\d+\//);
-  if (vIdx > 0) path = path.slice(vIdx + 1);
-  const lastSlash = path.lastIndexOf('/');
-  const file = path.slice(lastSlash + 1);
-  const dot = file.lastIndexOf('.');
-  const stem = dot > 0 ? file.slice(0, dot) : file;
-  path = `${path.slice(0, lastSlash + 1)}${stem}.jpg`;
+  if (vIdx > 0) {
+    path = path.slice(vIdx + 1);
+  }
+
+  if (isPdf) {
+    const lastDot = path.lastIndexOf('.');
+    if (lastDot > 0) {
+      path = path.slice(0, lastDot) + '.jpg';
+    } else {
+      path = path + '.jpg';
+    }
+  }
+
   const transform = isPdf ? 'f_jpg,pg_1' : 'f_jpg';
-  return `${url.slice(0, idx + marker.length)}${transform}/${path}`;
+  return `${baseUrl}${transform}/${path}`;
 }
 
 function getPlanPreviewUrl(url: string, kind: PlanMediaKind): string | null {
   if (!url) return null;
-  if (kind === 'image' && !/\.svg$/i.test(url.split('?')[0])) return url;
-  return buildCloudinaryJpg(url, kind === 'pdf');
+  const clean = cleanCloudinaryUrl(url);
+  if (kind === 'image' && !/\.svg$/i.test(clean.split('?')[0])) {
+    return clean;
+  }
+  const jpg = buildCloudinaryJpg(clean, kind === 'pdf');
+  if (jpg) return jpg;
+  if (kind === 'image') return clean;
+  return null;
 }
 
 export default function FloorPlansGrid({
   project,
+  onInquire,
 }: FloorPlansGridProps): React.ReactElement | null {
   const [activeFilter, setActiveFilter] = useState<string>('all');
   const [selectedViewerPlan, setSelectedViewerPlan] = useState<{
@@ -73,26 +118,29 @@ export default function FloorPlansGrid({
 
   const floorPlans = project.buildingFloorPlans ?? [];
 
-  // Extract categories dynamically
-  const filterTabs = useMemo(() => {
-    if (floorPlans.length === 0) return [];
-    const types = new Set<string>();
-    floorPlans.forEach(fp => {
-      if (fp.floorType) types.add(fp.floorType.toLowerCase());
-    });
-    
-    const tabs: { key: string; label: string }[] = [{ key: 'all', label: 'All Floor Plans' }];
-    Array.from(types).sort().forEach(t => {
-      const label = t.charAt(0).toUpperCase() + t.slice(1);
-      tabs.push({ key: t, label });
-    });
-    return tabs;
-  }, [floorPlans]);
+  // Smart Bucketing
+  const { tabs, filteredPlans } = useMemo(() => {
+    const buckets: Record<SmartCategory, FloorPlan[]> = {
+      commercial: [],
+      residential: [],
+      parking: [],
+      other: [],
+    };
 
-  // Filter floor plans
-  const filteredPlans = useMemo(() => {
-    if (activeFilter === 'all') return floorPlans;
-    return floorPlans.filter(fp => (fp.floorType || '').toLowerCase() === activeFilter);
+    floorPlans.forEach(fp => buckets[classifyFloor(fp)].push(fp));
+
+    const generatedTabs = [{ key: 'all', label: `All Plans`, count: floorPlans.length, icon: Layers }];
+    
+    if (buckets.commercial.length > 0) generatedTabs.push({ key: 'commercial', label: 'Commercial', count: buckets.commercial.length, icon: Building2 });
+    if (buckets.residential.length > 0) generatedTabs.push({ key: 'residential', label: 'Residential', count: buckets.residential.length, icon: Home });
+    if (buckets.parking.length > 0) generatedTabs.push({ key: 'parking', label: 'Parking', count: buckets.parking.length, icon: Car });
+    if (buckets.other.length > 0) generatedTabs.push({ key: 'other', label: 'Amenities & Other', count: buckets.other.length, icon: Sparkles });
+
+    const filtered = activeFilter === 'all' 
+      ? floorPlans 
+      : buckets[activeFilter as SmartCategory] || floorPlans;
+
+    return { tabs: generatedTabs, filteredPlans: filtered };
   }, [floorPlans, activeFilter]);
 
   const downloadFile = async (url: string, filename: string) => {
@@ -136,21 +184,26 @@ export default function FloorPlansGrid({
         </div>
 
         {/* Filter Pills */}
-        {filterTabs.length > 2 && (
+        {tabs.length > 1 && (
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-none">
-            {filterTabs.map(tab => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveFilter(tab.key)}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
-                  activeFilter === tab.key
-                    ? 'bg-[#004063] text-white shadow-sm'
-                    : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            {tabs.map((tab) => {
+              const Icon = tab.icon;
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => setActiveFilter(tab.key)}
+                  className={`inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap ${
+                    activeFilter === tab.key
+                      ? 'bg-[#029bba] text-white shadow-sm'
+                      : 'bg-white text-gray-600 hover:bg-gray-100 border border-gray-200'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />
+                  {tab.label} ({tab.count})
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -177,8 +230,8 @@ export default function FloorPlansGrid({
                       type="button"
                       onClick={() => setSelectedViewerPlan({
                         title: planTitle,
-                        imageUrl: pdfUrl ? undefined : previewUrl ?? fp.imageUrl,
-                        pdfUrl,
+                        imageUrl: previewUrl ?? (fp.imageUrl ? cleanCloudinaryUrl(fp.imageUrl) : undefined),
+                        pdfUrl: pdfUrl ? cleanCloudinaryUrl(pdfUrl) : undefined,
                         description: fp.description,
                       })}
                       className="w-full h-full relative block"
@@ -233,10 +286,11 @@ export default function FloorPlansGrid({
                   {/* Actions Bar */}
                   <div className="pt-3 border-t border-gray-100 flex items-center justify-between gap-2">
                     <button
+                      type="button"
                       onClick={() => setSelectedViewerPlan({
                         title: planTitle,
-                        imageUrl: pdfUrl ? undefined : previewUrl ?? fp.imageUrl,
-                        pdfUrl,
+                        imageUrl: previewUrl ?? (fp.imageUrl ? cleanCloudinaryUrl(fp.imageUrl) : undefined),
+                        pdfUrl: pdfUrl ? cleanCloudinaryUrl(pdfUrl) : undefined,
                         description: fp.description,
                       })}
                       className="inline-flex items-center gap-1.5 text-xs font-bold text-[#029bba] hover:text-[#027a94] transition-colors"
@@ -267,6 +321,7 @@ export default function FloorPlansGrid({
         <FloorPlanLightboxModal
           plan={selectedViewerPlan}
           onClose={() => setSelectedViewerPlan(null)}
+          onInquire={onInquire}
         />
       )}
     </section>
@@ -285,45 +340,88 @@ interface FloorPlanLightboxModalProps {
     description?: string;
   };
   onClose: () => void;
+  onInquire?: (title: string) => void;
 }
 
-function FloorPlanLightboxModal({ plan, onClose }: FloorPlanLightboxModalProps) {
+function FloorPlanLightboxModal({ plan, onClose, onInquire }: FloorPlanLightboxModalProps) {
   const [zoom, setZoom] = useState(1);
+  const backdropPointerDown = useRef(false);
+  
+  // Pan & Zoom States
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
 
   useEffect(() => {
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     window.addEventListener('keydown', handler);
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = prevOverflow;
       window.removeEventListener('keydown', handler);
     };
   }, [onClose]);
 
+  const handlePointerDown = (e: React.PointerEvent<HTMLImageElement>) => {
+    if (zoom <= 1) return;
+    setIsDragging(true);
+    dragStart.current = { x: e.clientX, y: e.clientY, panX: pan.x, panY: pan.y };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLImageElement>) => {
+    if (!isDragging || zoom <= 1) return;
+    setPan({
+      x: dragStart.current.panX + (e.clientX - dragStart.current.x) / zoom,
+      y: dragStart.current.panY + (e.clientY - dragStart.current.y) / zoom
+    });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLImageElement>) => {
+    setIsDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
+
   return (
     <div
-      className="fixed inset-0 z-[140] bg-[#001f2b]/95 backdrop-blur-md flex flex-col"
+      className="fixed inset-0 z-[140] bg-[#001f2b]/95 backdrop-blur-md flex flex-col animate-fadeIn"
       role="dialog"
       aria-modal="true"
     >
+      {/* Strict Origin Backdrop Guard */}
+      <div 
+        className="absolute inset-0 z-0 cursor-pointer"
+        onPointerDown={() => { backdropPointerDown.current = true; }}
+        onPointerUp={() => {
+          if (backdropPointerDown.current) onClose();
+          backdropPointerDown.current = false;
+        }}
+      />
       {/* Lightbox Topbar */}
-      <div className="flex items-center justify-between gap-3 px-6 py-4 border-b border-white/10 bg-black/30">
-        <div>
-          <h3 className="text-white font-black text-base md:text-lg">
+      <div className="relative z-10 flex flex-wrap items-center justify-between gap-4 px-6 py-4 border-b border-white/10 bg-black/30">
+        <div className="min-w-0 pr-4">
+          <h3 className="text-white font-black text-base md:text-lg truncate">
             {plan.title}
           </h3>
           {plan.description && (
-            <p className="text-xs text-white/60 line-clamp-1 max-w-xl">
+            <p className="text-xs text-white/60 line-clamp-1 max-w-xl mt-0.5">
               {plan.description}
             </p>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {plan.imageUrl && (
             <div className="flex items-center bg-white/10 rounded-xl p-1 border border-white/10 mr-2">
               <button
-                onClick={() => setZoom(z => Math.max(1, +(z - 0.5).toFixed(1)))}
+                onClick={() => {
+                  setZoom(z => {
+                    const newZ = Math.max(1, +(z - 0.5).toFixed(1));
+                    if (newZ === 1) setPan({ x: 0, y: 0 });
+                    return newZ;
+                  });
+                }}
                 aria-label="Zoom out"
                 className="p-1.5 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
               >
@@ -340,6 +438,16 @@ function FloorPlanLightboxModal({ plan, onClose }: FloorPlanLightboxModalProps) 
                 <ZoomIn className="w-4 h-4" />
               </button>
             </div>
+          )}
+
+          {onInquire && (
+            <button
+              onClick={() => { onClose(); onInquire(plan.title); }}
+              className="px-4 py-2 rounded-xl bg-[#029bba] hover:bg-[#017a94] text-white text-xs font-black uppercase tracking-wider transition-colors shadow-lg flex items-center gap-2"
+            >
+              <MessageCircle className="w-3.5 h-3.5" />
+              Inquire
+            </button>
           )}
 
           {plan.pdfUrl && (
@@ -365,13 +473,26 @@ function FloorPlanLightboxModal({ plan, onClose }: FloorPlanLightboxModalProps) 
       </div>
 
       {/* Lightbox Viewer Frame */}
-      <div className="flex-1 overflow-auto p-4 flex items-center justify-center">
+      <div 
+        className="relative z-10 flex-1 overflow-hidden p-4 flex items-center justify-center"
+        onPointerDown={(e) => e.stopPropagation()}
+      >
         {plan.imageUrl ? (
           <img
             src={plan.imageUrl}
             alt={plan.title}
-            style={{ transform: `scale(${zoom})` }}
-            className={`transition-transform duration-200 object-contain rounded-lg ${
+            draggable={false}
+            onPointerDown={handlePointerDown}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onPointerCancel={handlePointerUp}
+            style={{ 
+              transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+              transition: isDragging ? 'none' : 'transform 0.2s ease-in-out',
+              cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default',
+              touchAction: 'none'
+            }}
+            className={`object-contain rounded-lg shadow-2xl ${
               zoom > 1 ? 'max-w-none' : 'max-w-full max-h-[80vh]'
             }`}
           />

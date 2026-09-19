@@ -16,12 +16,30 @@ import {
   ChevronRight,
 } from 'lucide-react';
 import {
-  EXCHANGE_RATES,
   getSortedCurrencies,
   convertRangeToCurrency,
   getRateFreshnessLabel,
   RATE_SOURCE,
 } from '@/lib/currency/exchangeRates';
+
+// ============================================
+// HD FLAG ICON (Cross-Platform Windows/Mac Fix)
+// ============================================
+
+function FlagIcon({ flagCode, name }: { flagCode: string; name?: string }) {
+  const code = (flagCode || 'un').toLowerCase();
+  return (
+    <img
+      src={`https://flagcdn.com/w40/${code}.png`}
+      srcSet={`https://flagcdn.com/w80/${code}.png 2x`}
+      width="20"
+      height="14"
+      alt={name || flagCode}
+      className="w-5 h-3.5 object-cover rounded-[2px] shadow-sm shrink-0 border border-white/20"
+      loading="lazy"
+    />
+  );
+}
 
 // ============================================
 // TYPES
@@ -73,29 +91,31 @@ function CurrencyTooltip({
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
       style={style}
-      className="fixed z-[120] w-72 bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800"
-    >      {/* Header */}
+      className="fixed z-[300] w-[22rem] sm:w-96 bg-gray-900 rounded-2xl shadow-2xl overflow-hidden border border-gray-800"
+    >
+      {/* Header */}
       <div className="px-4 py-3 bg-gradient-to-r from-[#029bba] to-[#017a94] flex items-center gap-2">
-        <Globe className="w-4 h-4 text-white" />
+        <Globe className="w-4 h-4 text-white shrink-0" />
         <p className="text-xs font-black text-white uppercase tracking-wide">
           Price in Global Currencies
         </p>
       </div>
 
-      {/* Currency List */}
-      <div className="p-3 space-y-1.5">
+      {/* Currency List — left aligned flag + code + full price */}
+      <div className="p-3 space-y-1">
         {topCurrencies.map((currency) => (
           <div
             key={currency.code}
-            className="flex items-center justify-between gap-3 px-3 py-2 rounded-lg hover:bg-gray-800 transition-colors"
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-800 transition-colors"
           >
-            <div className="flex items-center gap-2 min-w-0">
-              <span className="text-base leading-none">{currency.flag}</span>
-              <span className="text-xs font-bold text-gray-300">
+            <div className="flex items-center gap-2.5 w-[4.75rem] shrink-0">
+              <FlagIcon flagCode={currency.flagCode} name={currency.country} />
+              <span className="text-[11px] font-black tracking-wider text-gray-300">
                 {currency.code}
               </span>
             </div>
-            <span className="text-xs font-mono font-bold text-white text-right truncate">
+            <div className="h-4 w-px bg-gray-700 shrink-0" />
+            <span className="text-[12px] sm:text-[13px] font-mono font-bold text-white text-left leading-snug break-words min-w-0 flex-1">
               {convertRangeToCurrency(minPKR, effectiveMax, currency.code)}
             </span>
           </div>
@@ -227,9 +247,7 @@ function CurrencyConverterModal({
               >
                 {/* Left: Flag + Info */}
                 <div className="flex items-center gap-3 min-w-0 flex-1">
-                  <span className="text-2xl leading-none shrink-0">
-                    {currency.flag}
-                  </span>
+                  <FlagIcon flagCode={currency.flagCode} name={currency.country} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm font-black text-gray-900">
@@ -319,7 +337,7 @@ export default function PriceWithConverter({
     // overflow-hidden ancestors that clipped the old absolute tooltip)
     const rect = buttonRef.current?.getBoundingClientRect();
     if (rect) {
-      const width = 288; // w-72
+      const width = 384; // w-96 — fits full FX ranges without truncation
       let left = align === 'left' ? rect.left : rect.right - width;
       left = Math.max(8, Math.min(left, window.innerWidth - width - 8));
       setTooltipPos({ top: rect.bottom + 10, left });

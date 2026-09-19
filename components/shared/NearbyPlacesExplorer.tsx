@@ -30,6 +30,7 @@ import {
   Plane,
   UtensilsCrossed,
   BadgeCheck,
+  ChevronRight,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -79,16 +80,16 @@ const OVERPASS_QUERIES: Record<PoiCategory, { tag: string; value?: string }[]> =
 };
 
 const CATEGORY_META: Record<PoiCategory, { label: string; color: string }> = {
-  hospital:   { label: 'Hospitals',    color: '#ef4444' },
-  school:     { label: 'Schools',      color: '#f59e0b' },
-  university: { label: 'Universities', color: '#7c3aed' },
-  mall:       { label: 'Shopping',     color: '#ec4899' },
-  mosque:     { label: 'Mosques',      color: '#10b981' },
-  bank:       { label: 'Banks',        color: '#029bba' },
-  park:       { label: 'Parks',        color: '#22c55e' },
-  airport:    { label: 'Airports',     color: '#004063' },
-  restaurant: { label: 'Restaurants',  color: '#f97316' },
-  other:      { label: 'Other',        color: '#6b7280' },
+  hospital:   { label: 'Hospitals',    color: '#ef4444' }, // Error Red
+  school:     { label: 'Schools',      color: '#f59e0b' }, // Warning Amber
+  university: { label: 'Universities', color: '#f59e0b' }, // Warning Amber
+  mall:       { label: 'Shopping',     color: '#029bba' }, // Primary Teal
+  mosque:     { label: 'Mosques',      color: '#10b981' }, // Success Emerald
+  bank:       { label: 'Banks',        color: '#004063' }, // Secondary Navy
+  park:       { label: 'Parks',        color: '#10b981' }, // Success Emerald
+  airport:    { label: 'Airports',     color: '#004063' }, // Secondary Navy
+  restaurant: { label: 'Restaurants',  color: '#f59e0b' }, // Warning Amber
+  other:      { label: 'Other',        color: '#004063' }, // Secondary Navy
 };
 
 const TAB_ICONS: Record<
@@ -333,9 +334,9 @@ export default function NearbyPlacesExplorer({
     coords: Array<[number, number]>; // [lat, lng] polyline points
   } | null>(null);
   const [routeLoading, setRouteLoading] = useState(false);
+  const [sidebarTab, setSidebarTab] = useState<'discovered' | 'curated'>(verifiedPlaces.length > 0 ? 'curated' : 'discovered');
 
-
-  // ── Init map (once) ──
+  // â”€â”€ Init map (once) â”€â”€
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
@@ -697,7 +698,7 @@ export default function NearbyPlacesExplorer({
 
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+    <div className="bg-white overflow-hidden flex flex-col h-full">
       {/* Header */}
       <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
         <div>
@@ -837,81 +838,109 @@ export default function NearbyPlacesExplorer({
         </div>
 
         {/* Sidebar */}
-        <div className="border-t lg:border-t-0 lg:border-l border-gray-100">
-          {/* Discovered places */}
-          <div className="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-wide">
-              Auto-Discovered ({visiblePois.length})
-            </p>
-            {selectedPoi && (
-                <button
-                  type="button"
-                  onClick={() => void clearAll()}
-                  className="text-xs text-[#029bba] font-bold hover:underline"
-                >
-                  Clear all
-                </button>
+        <div className="border-t lg:border-t-0 lg:border-l border-gray-100 flex flex-col h-full bg-gray-50">
+          
+          {/* Enhanced Tab Switcher */}
+          <div className="flex bg-white border-b border-gray-100">
+            {verifiedPlaces.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setSidebarTab('curated')}
+                className={`flex-1 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors ${sidebarTab === 'curated' ? 'text-[#029bba] border-[#029bba]' : 'text-gray-400 border-transparent hover:text-gray-700'}`}
+              >
+                Curated ({verifiedPlaces.length})
+              </button>
             )}
+            <button
+              type="button"
+              onClick={() => setSidebarTab('discovered')}
+              className={`flex-1 py-3 text-xs font-black uppercase tracking-wider border-b-2 transition-colors ${sidebarTab === 'discovered' ? 'text-[#029bba] border-[#029bba]' : 'text-gray-400 border-transparent hover:text-gray-700'}`}
+            >
+              Discovered ({visiblePois.length})
+            </button>
           </div>
 
-          <div className="max-h-[380px] overflow-y-auto divide-y divide-gray-50">
-            {error && (
-              <div className="px-4 py-6 text-center">
-                <p className="text-xs text-red-500 mb-2">{error}</p>
-                <button
-                  type="button"
-                  onClick={() => void discover()}
-                  className="text-xs font-bold text-[#029bba] hover:underline"
-                >
-                  Retry
-                </button>
+          <div className="flex-1 overflow-y-auto max-h-[420px] divide-y divide-gray-100 bg-white">
+            
+            {sidebarTab === 'curated' ? (
+              <div className="p-2 space-y-1">
+                {verifiedPlaces.map((vp, idx) => {
+                  const catKey = (vp.category?.toLowerCase() || 'other') as PoiCategory;
+                  const meta = CATEGORY_META[catKey] || CATEGORY_META.other;
+                  const Icon = TAB_ICONS[catKey] || TAB_ICONS.other;
+                  return (
+                    <div key={idx} className="flex items-center justify-between gap-3 px-3 py-2.5 bg-gray-50 rounded-lg">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-7 h-7 rounded bg-white flex items-center justify-center shrink-0 border border-gray-100 shadow-sm">
+                          <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-[13px] font-bold text-gray-900 truncate">{vp.name}</p>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            <BadgeCheck className="w-3 h-3 text-[#10b981]" />
+                            <span className="text-[10px] text-gray-500 font-medium">Verified Dist.</span>
+                          </div>
+                        </div>
+                      </div>
+                      <span className="text-xs font-black text-[#004063] whitespace-nowrap bg-white px-2 py-1 rounded border border-gray-200 shadow-sm">{vp.distance || 'â€”'}</span>
+                    </div>
+                  );
+                })}
               </div>
-            )}
+            ) : (
+              <>
+                <div className="px-4 py-2 bg-gray-50 flex justify-between items-center border-b border-gray-100">
+                  <p className="text-[10px] text-gray-400 font-medium uppercase tracking-wider">Live Map Data</p>
+                  {selectedPoi && (
+                    <button type="button" onClick={() => void clearAll()} className="text-[10px] text-[#ef4444] font-bold hover:underline">Clear Map</button>
+                  )}
+                </div>
 
-            {!error && !discovered && !loading && (
-              <div className="px-4 py-10 text-center">
-                <Search className="w-8 h-8 text-gray-200 mx-auto mb-2" />
-                <p className="text-sm text-gray-400 font-medium">
-                  Click "Discover Nearby" to find real places
-                </p>
-                <p className="text-[11px] text-gray-400 mt-1">
-                  Hospitals, schools, malls, mosques and more — around this project
-                </p>
-              </div>
-            )}
+                {error && (
+                  <div className="px-4 py-6 text-center">
+                    <p className="text-xs text-[#ef4444] mb-2">{error}</p>
+                    <button type="button" onClick={() => void discover()} className="text-xs font-bold text-[#029bba] hover:underline">Retry</button>
+                  </div>
+                )}
 
-            {visiblePois.map((poi) => {
-              const meta = CATEGORY_META[poi.category];
-              const Icon = TAB_ICONS[poi.category];
-              const isActive = selectedPoi?.id === poi.id;
-              // Selected + route loaded → show ROAD distance (consistent
-              // with route panel); otherwise straight-line with ≈ prefix
-              const isRouted = isActive && routeData;
-              return (
-                <button
-                  key={poi.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedPoi(poi);
-                    onPoiSelect?.(poi);
-                  }}
-                  className={`w-full flex items-center gap-3 px-4 py-2.5 text-left
-                              transition-colors ${
-                                isActive ? 'bg-[#029bba]/5' : 'hover:bg-gray-50'
-                              }`}
-                >
-                  <span
-                    className="w-6 h-6 rounded-md flex items-center justify-center shrink-0"
-                    style={{ backgroundColor: `${meta.color}18` }}
-                  >
-                    <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
-                  </span>
-                  <span className="flex-1 min-w-0 text-sm font-medium text-gray-800 truncate">
-                    {poi.name}
-                  </span>
-                </button>
-              );
-            })}
+                {!error && !discovered && !loading && (
+                  <div className="px-4 py-10 text-center">
+                    <Search className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                    <p className="text-sm text-gray-400 font-bold">Discover Map Areas</p>
+                    <p className="text-[11px] text-gray-400 mt-1">Click Discover Nearby to populate the map.</p>
+                  </div>
+                )}
+
+                {visiblePois.map((poi) => {
+                  const meta = CATEGORY_META[poi.category];
+                  const Icon = TAB_ICONS[poi.category];
+                  const isActive = selectedPoi?.id === poi.id;
+                  
+                  return (
+                    <button
+                      key={poi.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedPoi(poi);
+                        onPoiSelect?.(poi);
+                      }}
+                      className={`w-full flex items-center justify-between gap-3 px-4 py-3 text-left transition-colors ${isActive ? 'bg-[#029bba]/5 border-l-2 border-l-[#029bba]' : 'hover:bg-gray-50 border-l-2 border-l-transparent'}`}
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="w-7 h-7 rounded flex items-center justify-center shrink-0 border border-gray-200 bg-white shadow-sm">
+                          <Icon className="w-3.5 h-3.5" style={{ color: meta.color }} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-bold text-gray-900 truncate">{poi.name}</p>
+                          <p className="text-[10px] text-gray-500 font-medium">{meta.label}</p>
+                        </div>
+                      </div>
+                      <ChevronRight className={`w-4 h-4 shrink-0 transition-transform ${isActive ? 'text-[#029bba] translate-x-1' : 'text-gray-300'}`} />
+                    </button>
+                  );
+                })}
+              </>
+            )}
           </div>
 
           {/* Selected POI action bar — with OSRM road route */}
