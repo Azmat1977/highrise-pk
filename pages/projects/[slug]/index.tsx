@@ -1,6 +1,6 @@
 // pages/projects/[slug]/index.tsx
-// Highrise.pk — Public Project Detail Page (V2.0 Complete Redesign)
-// Design: Clean white, MagicBricks gallery, Realtor sidebar, Zameen PKR context
+// Highrise.pk â€” Public Project Detail Page (V2.0 Complete Redesign)
+// Design: Clean white, enterprise gallery + sidebar lead card, PKR-first context
 
 import React, { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
@@ -33,6 +33,8 @@ import HomeLoanCalculator        from '@/components/project-detail/HomeLoanCalcu
 import SimilarProjectsSection    from '@/components/project-detail/SimilarProjectsSection';
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
+import BuildingHighlights        from '@/components/project-detail/BuildingHighlights';
+import NeighborhoodInsights      from '@/components/project-detail/NeighborhoodInsights';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
 import ProjectMetaHeader         from '@/components/project-detail/ProjectMetaHeader';
 import StickyContactForm         from '@/components/project-detail/StickyContactForm';
@@ -730,58 +732,63 @@ export default function ProjectDetailPage({ project }: PageProps) {
         scrollThreshold={380}
       />
 
-      {/* ══════════════════════════════════════
-          STICKY TAB NAVIGATION
-      ══════════════════════════════════════ */}
-      <div className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 overflow-x-auto scrollbar-none">
-          <div className="flex gap-1 py-1">
-            {DETAIL_SECTION_TABS
-              .filter(s => s.id !== 'construction'
-                || (project.developmentUpdates?.length ?? 0) > 0)
-              .map(s => (
-              <button key={s.id}
-                onClick={() => {
-                  const el = document.getElementById(s.id);
-                  if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' });
-                }}
-                className={`whitespace-nowrap px-4 py-3 text-sm font-semibold rounded-lg transition-all ${
-                  activeSection === s.id
-                    ? 'text-[#029bba] bg-[#029bba]/5'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                }`}>
-                {s.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+        {/*
+════════════════════════════════════════════════════════════════════════════════════════════
+            MAIN CONTENT — TWO COLUMN LAYOUT (Trulia Style Grid)
+════════════════════════════════════════════════════════════════════════════════════════════ */}
+        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
 
-            {/* ══════════════════════════════════════
-          ABOUT + HIGHLIGHTS (Wave 5B)
-          Order: Description first → Then quick-scan highlights
-          Rationale: Buyer reads context → then scans key features
-      ══════════════════════════════════════ */}
-      <ProjectOverview   project={project} />
-      <ProjectAbout      project={project} />
+          {/* ── LEFT COLUMN (Content) ── */}
+          <div className="space-y-10">
 
-      {/* ══════════════════════════════════════
-          MAIN CONTENT — TWO COLUMN LAYOUT (3:1 ratio for wider content)
-      ══════════════════════════════════════ */}
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-
-          {/* ── LEFT COLUMN (Content) — 75% width ── */}
-          <div className="lg:col-span-3 space-y-8">
-            
             {/* PROJECT AT A GLANCE HEADER */}
-            <ProjectMetaHeader 
-              project={project} 
-              minPrice={overallMinPrice} 
-              maxPrice={overallMaxPrice} 
-              minAreaSqft={minAreaSqft} 
-              maxAreaSqft={maxAreaSqft} 
+            <ProjectMetaHeader
+              project={project}
+              minPrice={overallMinPrice}
+              maxPrice={overallMaxPrice}
+              minAreaSqft={minAreaSqft}
+              maxAreaSqft={maxAreaSqft}
             />
+
+            {/* OVERVIEW / HOME HIGHLIGHTS */}
+            <ProjectOverview project={project} />
+
+            {/* ABOUT / DESCRIPTION */}
+            <ProjectAbout project={project} />
+
+            {/* AMENITIES */}
+            {(() => {
+              const detailed = Array.isArray(project.amenitiesDetailed)
+                ? project.amenitiesDetailed
+                : [];
+
+              const toStrArr = (v: unknown): string[] =>
+                Array.isArray(v)
+                  ? (v as unknown[]).filter(
+                      (x): x is string => typeof x === 'string' && x.trim().length > 0
+                    )
+                  : [];
+
+              const legacy = [
+                ...toStrArr((project as any).features),
+                ...toStrArr((project as any).buildingAmenities),
+                ...toStrArr((project as any).communityAmenities),
+                ...toStrArr((project as any).securityFeatures),
+                ...toStrArr((project as any).sustainabilityFeatures),
+              ];
+
+              const legacyUnique = Array.from(new Set(legacy));
+
+              const merged =
+                detailed.length > 0
+                  ? detailed
+                  : legacyUnique.map((name) => ({ name, category: 'General' }));
+
+              return (
+                <BuildingHighlights amenities={merged} showEmptyState={true} />
+              );
+            })()}
 
             {/* ══════════════════════════════════════
                 VERIFICATION PANEL (Fact-Based Regulatory Evidence)
@@ -855,8 +862,9 @@ export default function ProjectDetailPage({ project }: PageProps) {
             {/* ══════════════════════════════════════
                 FEATURES & AMENITIES
             ══════════════════════════════════════ */}
-            {(project.amenitiesDetailed?.length ?? 0) > 0 && (
-              <Section id="features" title="Features & Amenities"
+                {/* Features & Amenities are rendered via <BuildingHighlights /> above */}
+              {false && (
+              <Section id="features-legacy" title="Features & Amenities"
                 icon={<Award className="w-5 h-5 text-[#029bba]" />}
                 headerExtra={<span className="text-sm text-gray-500">{project.amenitiesDetailed!.length} amenities</span>}>
                 {(() => {
@@ -932,17 +940,24 @@ export default function ProjectDetailPage({ project }: PageProps) {
                   )}
                 </div>
               </div>
-              {/* Nearby list merged into Live Nearby Explorer below (single map) */}
-              {/* Single interactive map — Leaflet explorer (was iframe embed).
-                  Google Maps deep-link below for navigation handoff. */}
-              {project.coordinates?.lat && project.coordinates?.lng ? (
-                <>
-                  <NearbyPlacesExplorer
-                    projectLat={project.coordinates.lat}
-                    projectLng={project.coordinates.lng}
-                    projectName={project.projectName}
+                <NeighborhoodInsights places={project.nearbyFacilities ?? []} />
 
-                  />
+                {/* Nearby list merged into Live Nearby Explorer below (single map) */}
+                {/* Single interactive map — Leaflet explorer.
+                    Google Maps deep-link below for navigation handoff. */}
+                {project.coordinates?.lat && project.coordinates?.lng ? (
+                  <>
+                    <NearbyPlacesExplorer
+                      projectLat={project.coordinates.lat}
+                      projectLng={project.coordinates.lng}
+                      projectName={project.projectName}
+                      initialRadius={3000}
+                      verifiedPlaces={(project.nearbyFacilities ?? []).map((p) => ({
+                        name: p.name,
+                        category: String(p.category),
+                        distance: p.distance,
+                      }))}
+                    />
                   <a href={getMapsLink(project)} target="_blank" rel="noopener noreferrer"
                     className="mt-3 flex items-center justify-center gap-2 p-3 rounded-xl bg-gray-50
                                hover:bg-gray-100 transition-colors text-[#029bba] font-medium text-sm border border-gray-200">
@@ -1179,11 +1194,11 @@ export default function ProjectDetailPage({ project }: PageProps) {
 
           </div>{/* end left column */}
 
-          {/* ── RIGHT SIDEBAR (Sticky) — 25% width, compact ── */}
-          <div className="lg:col-span-1">
-            <div className="sticky top-20 space-y-4">
-              
-              {/* HIGHRISE STICKY CONTACT FORM */}
+          {/* ── RIGHT SIDEBAR (Standard Scroll) ── */}
+          <div className="relative">
+            <div className="space-y-4">
+
+              {/* HIGHRISE CONTACT FORM */}
               <StickyContactForm 
                 projectId={project._id}
                 projectName={project.projectName}
@@ -1195,7 +1210,8 @@ export default function ProjectDetailPage({ project }: PageProps) {
                   || (project as any)?.developerProfile?.whatsappNumber
                   || undefined
                 }
-                isVerified={Boolean(project.isVerified)}
+                isVerified={Boolean(project.isVerified || project.verificationPanel?.verifiedAt)}
+                entityLabel="project"
               />
 
             {/* Safety note */}

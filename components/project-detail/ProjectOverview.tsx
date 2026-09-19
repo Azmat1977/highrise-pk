@@ -76,21 +76,21 @@ function FactTile({
   subClass?: string;
 }): React.ReactElement {
   return (
-    <div className="flex items-start gap-3 min-w-0 rounded-xl px-3 py-3
+    <div className="flex items-start gap-3.5 min-w-0 rounded-xl px-2 py-3
                     hover:bg-gray-50 transition-colors">
-      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center
-                      justify-center shrink-0 text-gray-400">
+      <div className="w-10 h-10 rounded-xl bg-[#029bba]/10 flex items-center
+                      justify-center shrink-0 text-[#029bba]">
         {icon}
       </div>
-      <div className="min-w-0">
-        <p className="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-0.5">
+      <div className="min-w-0 flex-1">
+        <p className="text-[12px] text-gray-500 font-medium mb-0.5">
           {label}
         </p>
-        <p className="text-sm font-bold text-gray-900 leading-tight truncate">
+        <p className="text-[15px] font-medium text-gray-800 leading-snug break-words">
           {value}
         </p>
         {sub && (
-          <p className={`text-[11px] mt-0.5 truncate ${subClass ?? 'text-gray-500'}`}>
+          <p className={`text-[12px] mt-1 break-words ${subClass ?? 'text-gray-500'}`}>
             {sub}
           </p>
         )}
@@ -212,9 +212,9 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
           <h2 className="text-xl font-bold text-gray-900">Project Overview</h2>
         </div>
 
-        <div className="p-5">
+        <div className="p-6">
           {/* Fact tiles grid */}
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-1">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-6">
 
             <FactTile
               icon={<Home className="w-5 h-5" />}
@@ -311,12 +311,6 @@ export default function ProjectOverview({ project }: ProjectOverviewProps) {
 
           </div>
 
-          {/* Construction progress — milestone bar */}
-          {progress !== undefined && (
-            <div className="mt-4">
-              <MilestoneProgressBar progress={progress} />
-            </div>
-          )}
         </div>
       </div>
     </section>

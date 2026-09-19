@@ -550,22 +550,42 @@ async function handleGet(
   try {
     await dbConnect();
 
-    // Optional auth — if admin, allow extra filters
-    let isAdmin = false;
-    try {
-      const adminToken = await requireAuth(req, res);
-      if (adminToken && adminToken.role === 'admin') {
-        isAdmin = true;
-      }
-      // If requireAuth sent a 401/403 → res already sent, can't continue
-      if (res.writableEnded) return;
-    } catch {
-      // Public access — no auth needed
-      isAdmin = false;
-    }
+    // Admin-only mode is explicit; public browsing must never 401
+    const adminParam = normalizeText(getQueryString(req.query.admin), 10).toLowerCase();
+    const adminMode = adminParam === '1' || adminParam === 'true';
 
-    // Re-check writable (defensive)
-    if (res.writableEnded) return;
+    let isAdmin = false;
+
+    if (adminMode) {
+      const token = await requireAuth(req, res);
+      if (!token) return;
+      if (res.writableEnded) return;
+
+      if (token.role !== 'admin') {
+          await logSecurityEvent({
+            type: 'system_error',
+            severity: 'medium',
+            userId: token.id,
+            ip: getClientIp(req),
+            userAgent: req.headers['user-agent'] as string,
+            metadata: {
+              action: 'projects_list_admin_mode_forbidden',
+              endpoint: '/api/projects',
+              method: 'GET',
+              reason: 'non_admin_requested_admin_mode',
+            },
+          });
+
+        res.status(403).json({
+          success: false,
+          error: 'FORBIDDEN',
+          message: 'Admin access required.',
+        });
+        return;
+      }
+
+      isAdmin = true;
+    }
 
     // ───────────── Extract query params ─────────────
     const q = req.query;

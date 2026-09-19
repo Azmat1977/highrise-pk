@@ -152,14 +152,14 @@ function QuickActionsBarInner({
 
   return (
     <>
-      {/* ── Sticky bar ── */}
+            {/* ── Sticky bar ── */}
       <nav
         aria-label="Quick project actions"
         className={`
-          fixed bottom-0 left-0 right-0 z-40 lg:hidden
-          bg-white border-t border-gray-200 shadow-2xl
+          fixed top-0 left-0 right-0 z-50
+          bg-white border-b border-gray-200 shadow-md
           transition-transform duration-300 ease-in-out
-          ${visible ? 'translate-y-0' : 'translate-y-full'}
+          ${visible ? 'translate-y-0' : '-translate-y-full'}
         `}
       >
         <div className="max-w-7xl mx-auto px-4 py-3">

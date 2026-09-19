@@ -61,7 +61,7 @@ interface ProjectDetailHeroProps {
   canonicalUrl: string;
 }
 
-type ExplorerTab = 'photos' | 'videos' | 'map';
+type ExplorerTab = 'media' | 'video' | 'map';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // MEDIA CHIPS — opens ProjectMediaExplorer
@@ -78,13 +78,13 @@ function MediaChips({
 }): React.ReactElement | null {
   const items = [
     {
-      tab:   'photos' as ExplorerTab,
+      tab:   'media' as ExplorerTab,
       icon:  <Camera className="w-4 h-4" />,
       label: `${photoCount} ${photoCount === 1 ? 'Photo' : 'Photos'}`,
       show:  photoCount > 0,
     },
     {
-      tab:   'videos' as ExplorerTab,
+      tab:   'video' as ExplorerTab,
       icon:  <Video className="w-4 h-4" />,
       label: `${videoCount} ${videoCount === 1 ? 'Video' : 'Videos'}`,
       show:  videoCount > 0,
@@ -167,7 +167,7 @@ export default function ProjectDetailHero({
 
   // Media explorer state
   const [explorerOpen,   setExplorerOpen]   = useState(false);
-  const [explorerTab,    setExplorerTab]    = useState<ExplorerTab>('photos');
+  const [explorerTab,    setExplorerTab]    = useState<ExplorerTab>('media');
   const [explorerPhotoIdx, setExplorerPhotoIdx] = useState(0);
 
   // Share state
@@ -254,170 +254,42 @@ export default function ProjectDetailHero({
       </div>
 
       {/* 2. GALLERY — delegated to ProjectGallery */}
-      <div className="bg-white">
-        <div className="max-w-7xl mx-auto px-4 pt-4">
+      <div className="bg-white border-b border-gray-100 pb-6">
+        <div className="w-full max-w-[1440px] mx-auto px-0 sm:px-4 lg:px-8 pt-4">
           <div className="relative">
+            {/* Top Right Floating Actions (Trulia Style) */}
+            <div className="absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto">
+              <button
+                onClick={() => setShareOpen(true)}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-gray-800 hover:bg-white transition-all shadow-sm"
+              >
+                <Share2 className="w-4 h-4 text-[#029bba]" />
+                Share
+              </button>
+              <button
+                onClick={() => void toggleFavorite(project._id, 'project')}
+                disabled={favPending}
+                className={`flex items-center gap-1.5 px-3 py-2 bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-gray-800 hover:bg-white transition-all shadow-sm ${
+                  isFavorited ? 'text-[#029bba]' : ''
+                }`}
+              >
+                <Heart className={`w-4 h-4 ${isFavorited ? 'fill-[#029bba] text-[#029bba]' : 'text-[#029bba]'}`} />
+                {isFavorited ? 'Saved' : 'Save'}
+              </button>
+            </div>
+
             <ProjectGallery
               images={galleryImages}
               projectName={project.projectName}
               variant="full"
               maxVisible={12}
-              onImageClick={(idx) => openExplorer('photos', idx)}
+              onImageClick={(idx) => openExplorer('media', idx)}
             />
             <MediaChips
               photoCount={photoCount}
               videoCount={videoCount}
               onOpen={openExplorer}
             />
-          </div>
-        </div>
-      </div>
-
-      {/* 3. IDENTITY — logo + name + tagline + location + chips + actions */}
-      <div className="bg-white pt-8">
-        <div className="max-w-7xl mx-auto px-4 py-5">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-
-            {/* Left: identity */}
-            <div className="flex items-start gap-4 flex-1 min-w-0">
-
-              {/* Project logo (developer brand mark) */}
-              {project.developerProfile?.logoUrl ? (
-                <div className="w-14 h-14 rounded-xl border border-gray-200 bg-white p-1.5 relative shrink-0">
-                  <Image
-                    src={project.developerProfile.logoUrl}
-                    alt={`${developerName} logo`}
-                    fill
-                    className="object-contain"
-                    sizes="56px"
-                  />
-                </div>
-              ) : (
-                <div className="w-14 h-14 rounded-xl bg-[#029bba]/10 flex items-center justify-center shrink-0">
-                  <Building2 className="w-6 h-6 text-[#029bba]" />
-                </div>
-              )}
-
-              <div className="min-w-0 flex-1">
-
-                {project.isFeatured && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 mb-2
-                                   bg-amber-50 text-amber-700 text-xs font-bold
-                                   rounded-full border border-amber-200">
-                    <Flame className="w-3 h-3" />
-                    Featured
-                  </span>
-                )}
-
-                {/* H1 + verification tick (hover = proof, click = evidence) */}
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h1 className="text-2xl md:text-3xl font-black text-gray-900 leading-tight">
-                    {project.projectName}
-                  </h1>
-                  {project.isVerified && (
-                    <div className="relative inline-flex shrink-0 group">
-                      <button
-                        type="button"
-                        onClick={scrollToVerification}
-                        aria-label="Verified by Highrise.pk — view verification details"
-                        className="p-1 rounded-lg hover:bg-[#029bba]/10 transition-colors"
-                      >
-                        <CheckCircle2 className="w-5 h-5 text-[#029bba]" strokeWidth={2.5} />
-                      </button>
-                      <div
-                        className="pointer-events-none absolute top-full left-1/2 -translate-x-1/2 mt-2
-                                   px-3 py-2 rounded-lg bg-gray-900 text-white text-xs font-bold
-                                   whitespace-nowrap opacity-0 translate-y-1
-                                   group-hover:opacity-100 group-hover:translate-y-0
-                                   transition-all z-50 shadow-xl"
-                        role="tooltip"
-                      >
-                        Verified by Highrise.pk
-                        {nocApproved ? ` · ${project.approvalAuthority} NOC` : ''}
-                        <span className="absolute -top-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45" />
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {project.tagline && (
-                  <p className="text-gray-500 italic mt-1 text-base">
-                    &ldquo;{project.tagline}&rdquo;
-                  </p>
-                )}
-
-                {/* Location */}
-                <div className="flex items-center gap-2 text-gray-700 mt-2">
-                  <MapPin className="w-4 h-4 text-[#029bba] flex-shrink-0" />
-                  <span className="text-sm font-semibold truncate">
-                    {area}, {project.city}
-                    {project.specificLocation && (
-                      <span className="text-gray-400 ml-1">• {project.specificLocation}</span>
-                    )}
-                  </span>
-                </div>
-
-                {/* Type + NOC chips */}
-                <div className="flex items-center flex-wrap gap-2 mt-3">
-                  {project.projectNature && (
-                    <span className="px-2.5 py-1 rounded-full bg-gray-100 border border-gray-200
-                                     text-[11px] font-bold text-gray-600 capitalize">
-                      {project.projectNature.replace(/_/g, ' ')}
-                    </span>
-                  )}
-                  {nocApproved && (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
-                                     bg-[#029bba]/10 border border-[#029bba]/20
-                                     text-[11px] font-bold text-[#029bba]">
-                      <CheckCircle2 className="w-3 h-3" />
-                      {project.approvalAuthority} Approved
-                    </span>
-                  )}
-                </div>
-
-              </div>
-            </div>
-
-            {/* Right: save / compare / share */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <button
-                onClick={() => void toggleFavorite(project._id, 'project')}
-                disabled={favPending}
-                aria-label={isFavorited ? 'Remove from shortlist' : 'Save to shortlist'}
-                aria-pressed={isFavorited}
-                className={`p-2.5 rounded-xl transition-all duration-200 ${
-                  isFavorited
-                    ? 'bg-[#029bba] text-white shadow-md shadow-[#029bba]/30'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                } ${favPending ? 'opacity-60 cursor-wait' : ''}`}
-              >
-                <Heart className={`w-4 h-4 ${isFavorited ? 'fill-current' : ''}`} />
-              </button>
-
-              <button
-                onClick={() => void toggleCompare(project._id, 'project')}
-                disabled={comparePending}
-                aria-label={isCompared ? 'Remove from comparison' : 'Add to comparison'}
-                aria-pressed={isCompared}
-                className={`p-2.5 rounded-xl transition-all duration-200 ${
-                  isCompared
-                    ? 'bg-[#004063] text-white shadow-md shadow-[#004063]/30'
-                    : 'bg-gray-100 hover:bg-gray-200 text-gray-600'
-                } ${comparePending ? 'opacity-60 cursor-wait' : ''}`}
-              >
-                <GitCompare className="w-4 h-4" />
-              </button>
-
-              <button
-                onClick={() => setShareOpen(true)}
-                aria-label="Share this project"
-                className="p-2.5 rounded-xl bg-gray-100 hover:bg-gray-200
-                           text-gray-600 transition-colors"
-              >
-                <Share2 className="w-4 h-4" />
-              </button>
-            </div>
-
           </div>
         </div>
       </div>

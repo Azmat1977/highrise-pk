@@ -761,6 +761,8 @@ export interface IProject extends Document {
   highriseScore?: number;
   riskLevel?: HighriseRiskLevel;
   deliveryStatus?: HighriseDeliveryStatus;
+  delayReason?: string;
+  revisedDeliveryDate?: Date;
   verificationLevel?: HighriseVerificationLevel;
 
   developerBadge?: DeveloperBadgeTier;
@@ -1210,11 +1212,12 @@ const DevelopmentUpdateSchema = new Schema(
     videoUrl: { type: String },
     progressPercent: { type: Number, min: 0, max: 100 },
     // Transparency evidence fields (ConstructionTracker display support)
-    isDroneUpdate: { type: Boolean, default: false },
-    engineerNote: { type: String, maxlength: 1000 },
-    qualityChecks: [{ type: String, maxlength: 100 }],
-  },
-  { _id: false }
+      isDroneUpdate: { type: Boolean, default: false },
+      engineerNote: { type: String, maxlength: 1000 },
+      qualityChecks: [{ type: String, maxlength: 100 }],
+      verifiedByHighriseAt: { type: Date },
+    },
+    { _id: false }
 );
 
 const NearbyFacilitySchema = new Schema(
@@ -1730,11 +1733,13 @@ const ProjectSchema = new Schema<IProject>(
     // ── TRUST & VERIFICATION ─────────────────
     highriseScore: { type: Number, min: 0, max: 100 },
     riskLevel: { type: String, enum: ['low', 'medium', 'high'] },
-    deliveryStatus: {
-      type: String,
-      enum: ['on_track', 'slightly_delayed', 'critical_delay', 'completed'],
-    },
-    verificationLevel: {
+      deliveryStatus: {
+        type: String,
+        enum: ['on_track', 'slightly_delayed', 'critical_delay', 'completed'],
+      },
+      delayReason: { type: String, maxlength: 1000 },
+      revisedDeliveryDate: { type: Date },
+      verificationLevel: {
       type: String,
       enum: ['not_verified', 'docs_verified', 'site_verified', 'handover_verified'],
     },

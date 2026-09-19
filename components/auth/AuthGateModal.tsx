@@ -42,6 +42,7 @@ import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom';
 import { useRouter } from 'next/router';
 import { signIn } from 'next-auth/react';
+import LoginOrSignupForm from '@/components/auth/LoginOrSignupForm';
 import {
   X,
   Mail,
@@ -50,6 +51,7 @@ import {
   Sparkles,
   Lock,
   CheckCircle2,
+  ArrowLeft,
 } from 'lucide-react';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -131,6 +133,8 @@ export default function AuthGateModal({
 
   const [loadingProvider, setLoadingProvider] = useState<ProviderKey | null>(null);
   const [error,           setError]           = useState<string | null>(null);
+  const [viewMode,        setViewMode]        = useState<'gate' | 'form'>('gate');
+  const [formDefaultMode, setFormDefaultMode] = useState<'login' | 'signup'>('login');
 
   // ─── Body scroll lock ───
   useEffect(() => {
@@ -140,6 +144,7 @@ export default function AuthGateModal({
       document.body.style.overflow = '';
       setLoadingProvider(null);
       setError(null);
+      setViewMode('gate');
     }
     return () => {
       document.body.style.overflow = '';
@@ -183,23 +188,18 @@ export default function AuthGateModal({
     }
   };
 
-  // ─── Email login handler (redirects to login page with callback) ───
+  // ─── Email login handler (In-place modal switch) ───
   const handleEmailLogin = () => {
     if (loadingProvider) return;
-    setLoadingProvider('email');
-
-    const callbackUrl = getCurrentUrl();
-    const loginUrl    = `/login?callbackUrl=${encodeURIComponent(callbackUrl)}`;
-
-    router.push(loginUrl);
+    setFormDefaultMode('login');
+    setViewMode('form');
   };
 
-  // ─── Register redirect ───
+  // ─── Register handler (In-place modal switch) ───
   const handleRegister = () => {
     if (loadingProvider) return;
-    const callbackUrl = getCurrentUrl();
-    const registerUrl = `/register?callbackUrl=${encodeURIComponent(callbackUrl)}`;
-    router.push(registerUrl);
+    setFormDefaultMode('signup');
+    setViewMode('form');
   };
 
   if (!isOpen) return null;
@@ -215,7 +215,7 @@ export default function AuthGateModal({
   // ─── Modal Content ───
   const modalContent = (
     <div
-      className="fixed inset-0 z-[60] overflow-y-auto"
+      className="fixed inset-0 z-[60] overflow-y-auto font-sans"
       role="dialog"
       aria-modal="true"
       aria-labelledby="auth-gate-title"
@@ -223,7 +223,7 @@ export default function AuthGateModal({
     >
       <div className="flex min-h-full items-center justify-center p-4">
 
-        {/* ── Backdrop ── */}
+        {/* ─── Backdrop ─── */}
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm"
           onClick={(e) => {
@@ -233,8 +233,43 @@ export default function AuthGateModal({
           aria-hidden="true"
         />
 
-        {/* ── Modal Panel ── */}
+        {/* ─── Modal Panel ─── */}
         <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden">
+          {viewMode === 'form' ? (
+            <div className="p-6 max-h-[85vh] overflow-y-auto">
+              {/* Back to Options Bar */}
+              <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('gate')}
+                  className="inline-flex items-center gap-1.5 text-xs font-bold text-[#029bba] hover:underline"
+                >
+                  <ArrowLeft className="w-4 h-4" />
+                  Back to 1-Click Options
+                </button>
+
+                <button
+                  type="button"
+                  onClick={onClose}
+                  aria-label="Close modal"
+                  className="p-1 text-gray-400 hover:text-gray-600 rounded-lg transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Embedded Login / Signup Form */}
+              <LoginOrSignupForm
+                isModal={true}
+                defaultMode={formDefaultMode}
+                context="contact"
+                onSuccess={() => {
+                  onClose();
+                }}
+              />
+            </div>
+          ) : (
+            <>
 
           {/* ── Header with gradient ── */}
           <div className="relative bg-gradient-to-br from-[#029bba] to-[#004063] p-6 text-white">
@@ -409,7 +444,7 @@ export default function AuthGateModal({
               </div>
             </div>
 
-            {/* ── Highrise branding ── */}
+             {/* ─── Highrise branding ─── */}
             <div className="flex items-center justify-center gap-1.5 pt-3
                             border-t border-gray-100">
               <Shield className="w-3 h-3 text-[#029bba]" />
@@ -420,6 +455,8 @@ export default function AuthGateModal({
               </p>
             </div>
           </div>
+          </>
+          )}
         </div>
       </div>
     </div>

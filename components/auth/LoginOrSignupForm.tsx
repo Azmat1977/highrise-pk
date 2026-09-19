@@ -914,12 +914,12 @@ const LoginOrSignupForm = ({
 
   // ─── Context header (only in modal mode) ─────────────────────
 
-  const contextHeader = isModal && (mode === "login" || mode === "signup") ? (
-    <div className="mb-5">
-      <div className="flex justify-center mb-3">
-        <Image src="/images/logo.png" alt="Highrise.pk" width={140} height={56}
-          className="h-14 w-auto object-contain" priority />
-      </div>
+    const contextHeader = isModal && (mode === "login" || mode === "signup") ? (
+      <div className="mb-5">
+        <div className="flex justify-center mb-4">
+          <Image src="/images/logo.png" alt="Highrise.pk" width={220} height={64}
+            className="h-[64px] w-auto object-contain" priority />
+        </div>
       <div className="text-center">
         <h2 className="text-xl font-bold text-gray-900">
           {getContextText(context, mode).title}
@@ -935,15 +935,15 @@ const LoginOrSignupForm = ({
   // ROLE SELECTION SCREEN
   // ═══════════════════════════════════════════════════════════════
 
-  if (mode === "role") {
-    return wrapContent(
-      <div>
-        {isModal && (
-          <div className="flex justify-center mb-4">
-            <Image src="/images/logo.png" alt="Highrise.pk" width={130} height={52}
-              className="h-13 w-auto object-contain" priority />
-          </div>
-        )}
+    if (mode === "role") {
+      return wrapContent(
+        <div>
+          {isModal && (
+            <div className="flex justify-center mb-5">
+              <Image src="/images/logo.png" alt="Highrise.pk" width={200} height={60}
+                className="h-[60px] w-auto object-contain" priority />
+            </div>
+          )}
 
         <div className="text-center mb-5">
           <div className="w-14 h-14 bg-gradient-to-br from-[#029bba]/20 to-[#029bba]/10 rounded-full flex items-center justify-center mx-auto mb-3">

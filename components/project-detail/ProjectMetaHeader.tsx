@@ -42,9 +42,13 @@ export default function TruliaHeader({ project, minPrice, maxPrice, minAreaSqft,
   return (
     <div className="space-y-6 mb-8">
       
-      {/* 1. Meta Header */}
+       {/* 1. Meta Header */}
       <div>
-        <h2 className="text-3xl font-extrabold text-gray-900 mb-2 flex items-center gap-3">
+        <p className="text-sm font-medium text-gray-500 mb-2">
+          Developed by <span className="font-bold text-gray-700">{project.developerProfile?.companyName || project.developerProfile?.name || 'Verified Developer'}</span>
+        </p>
+
+        <h2 className="text-4xl font-black text-[#004063] mb-4 tracking-tight flex items-center gap-3">
           {typeof minPrice === 'number' && minPrice > 0
             ? `PKR ${formatDetailPrice(minPrice)}`
             : 'Contact for Price'}
@@ -52,56 +56,52 @@ export default function TruliaHeader({ project, minPrice, maxPrice, minAreaSqft,
             ? ` - ${formatDetailPrice(maxPrice)}`
             : ''}
           {project.saleMode === 'Installment' && (
-            <span className="text-sm font-semibold text-gray-500 bg-gray-100 px-2 py-1 rounded-md">
-              Total Price
+            <span className="text-xs font-bold text-gray-500 bg-gray-100 px-2 py-1 rounded-md uppercase tracking-wider">
+              Total
             </span>
           )}
         </h2>
-        
-        <h1 className="text-2xl font-bold text-[#001f2b] mb-3 flex items-center gap-2">
-          {project.projectName}
-          {project.isVerified && <CheckCircle className="w-5 h-5 text-[#029bba]" />}
-        </h1>
 
         {/* Trulia Meta Strip */}
-        <div className="flex flex-wrap items-center gap-4 text-gray-600 text-sm font-medium mb-3">
+        <div className="flex flex-wrap items-center gap-5 text-gray-700 text-[15px] font-bold mb-3">
           {hasBeds && (
-            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-4">
-              <BedDouble className="w-4 h-4" /> 
+            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-5">
+              <BedDouble className="w-4 h-4 text-gray-400" />
               {minBeds === maxBeds ? minBeds : `${minBeds}-${maxBeds}`} Beds
             </div>
           )}
           {hasBaths && (
-            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-4">
-              <Bath className="w-4 h-4" /> 
+            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-5">
+              <Bath className="w-4 h-4 text-gray-400" />
               {minBaths === maxBaths ? minBaths : `${minBaths}-${maxBaths}`} Baths
             </div>
           )}
           {minAreaSqft! > 0 && (
-            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-4">
-              <Maximize className="w-4 h-4" /> 
+            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-5">
+              <Maximize className="w-4 h-4 text-gray-400" />
               {minAreaSqft === maxAreaSqft ? minAreaSqft?.toLocaleString() : `${minAreaSqft?.toLocaleString()}-${maxAreaSqft?.toLocaleString()}`} sqft
             </div>
           )}
           {(!hasBeds && !hasBaths) && (
-            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-4">
-              <Building2 className="w-4 h-4" /> Commercial & Retail
+            <div className="flex items-center gap-1.5 border-r border-gray-200 pr-5">
+              <Building2 className="w-4 h-4 text-gray-400" /> Commercial & Retail
             </div>
           )}
         </div>
 
-        <p className="text-gray-500 text-sm flex items-center gap-1.5 mb-3">
-          <MapPin className="w-4 h-4" /> {project.specificLocation ? `${project.specificLocation}, ` : ''}{areaDisplay}, {project.city}
-        </p>
+        <h1 className="text-[17px] font-medium text-gray-600 mb-4 flex items-center gap-1.5">
+          <span className="font-bold text-gray-900">{project.projectName},</span> {project.specificLocation ? `${project.specificLocation}, ` : ''}{areaDisplay}, {project.city}
+          {project.isVerified && <CheckCircle className="w-4 h-4 text-[#029bba]" />}
+        </h1>
 
-        <button 
+                <button
           onClick={() => {
             const el = document.getElementById('units');
             if (el) window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - 130, behavior: 'smooth' });
           }}
-          className="text-[#029bba] font-bold text-sm flex items-center gap-1 hover:underline"
+          className="text-[#029bba] bg-[#029bba]/5 px-3 py-1.5 rounded-lg font-bold text-sm inline-flex items-center gap-1 hover:bg-[#029bba]/10 transition-colors mb-6"
         >
-          See available units <ArrowRight className="w-4 h-4" />
+          View Available Inventory <ArrowRight className="w-4 h-4" />
         </button>
       </div>
 
