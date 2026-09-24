@@ -65,10 +65,18 @@ const AdminPatchSchema = z.discriminatedUnion('action', [
     rejectionReason: z.string().min(10).max(1000),
   }),
 
-  // ── Toggle featured ─────────────────────────
+  // ── Toggle featured ────────────────────────────
   z.object({
     action:     z.literal('feature'),
     isFeatured: z.boolean(),
+  }),
+
+  // ── Promote / Sponsor project ──────────────────
+  z.object({
+    action:             z.literal('promote'),
+    isFeatured:         z.boolean(),
+    promotionStartDate: z.string().datetime().nullable().optional(),
+    promotionEndDate:   z.string().datetime().nullable().optional(),
   }),
 
   // ── Restore from trash ──────────────────────
@@ -140,6 +148,12 @@ type AdminPatchBody =
   | { action: 'verify';  note?: string }
   | { action: 'reject';  rejectionReason: string }
   | { action: 'feature'; isFeatured: boolean }
+  | {
+      action: 'promote';
+      isFeatured: boolean;
+      promotionStartDate?: string | null;
+      promotionEndDate?: string | null;
+    }
   | { action: 'restore'; note?: string }
   | { action: 'reopen';  note?: string }
   | { action: 'suspend'; reason: string }
@@ -581,6 +595,17 @@ async function handlePatch(
       // Feature action does NOT change status
       break;
 
+    case 'promote':
+      proj.isFeatured = data.isFeatured;
+      proj.promotionStartDate = data.promotionStartDate ? new Date(data.promotionStartDate) : null;
+      proj.promotionEndDate = data.promotionEndDate ? new Date(data.promotionEndDate) : null;
+      if (data.isFeatured) {
+        // Reset tracking metrics for a fresh promotional lifecycle
+        proj.promotionImpressions = 0;
+        proj.promotionClicks = 0;
+      }
+      break;
+
     case 'restore':
       proj.isDeleted         = false;
       proj.deletedAt         = null;
@@ -743,6 +768,7 @@ async function handlePatch(
     verify:           'high',
     reject:           'high',
     feature:          'low',
+    promote:          'high',
     restore:          'medium',
     reopen:           'medium',
     suspend:          'high',
@@ -788,6 +814,11 @@ async function handlePatch(
         ? 'Project featured on homepage.'
         : 'Project removed from featured listings.'
       : '',
+    promote: data.action === 'promote'
+      ? (data as { action: 'promote'; isFeatured: boolean }).isFeatured
+        ? 'Project promotion and sponsorship configured successfully.'
+        : 'Sponsorship removed from project.'
+      : '',
     restore:        'Project restored from trash. Status reset to draft.',
     reopen:         'Project reopened. Status set to pending for re-review.',
     suspend:        'Project suspended successfully.',
@@ -811,6 +842,10 @@ async function handlePatch(
       isDeleted:      Boolean(proj.isDeleted),
       rejectionReason: proj.rejectionReason ?? null,
       verifiedAt:     proj.verifiedAt ?? null,
+      promotionStartDate: proj.promotionStartDate ? (proj.promotionStartDate as Date).toISOString() : null,
+      promotionEndDate:   proj.promotionEndDate ? (proj.promotionEndDate as Date).toISOString() : null,
+      promotionImpressions: Number(proj.promotionImpressions ?? 0),
+      promotionClicks:    Number(proj.promotionClicks ?? 0),
       updatedAt:      new Date().toISOString(),
       // Return updated alerts so admin UI can refresh without refetch
       riskAlerts:     Array.isArray(proj.riskAlerts)

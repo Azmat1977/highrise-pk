@@ -50,6 +50,10 @@ interface ProjectRow {
     verificationLevel?: string;
   } | null;
   rejectionReason?: string | null;
+  promotionStartDate?: string | null;
+  promotionEndDate?:   string | null;
+  promotionImpressions?: number;
+  promotionClicks?:    number;
 }
 
 interface BannerState {
@@ -58,7 +62,7 @@ interface BannerState {
 }
 
 type ActionType =
-  | 'verify' | 'reject' | 'feature' | 'suspend'
+  | 'verify' | 'reject' | 'feature' | 'promote' | 'suspend'
   | 'restore' | 'reopen' | 'trash' | 'permanent_delete';
 
 interface ModalState {
@@ -217,6 +221,207 @@ function getActionConfig(action: ActionType | null): {
         needsReason: false, reasonLabel: '', reasonMin: 0,
       };
   }
+}
+
+// ── PromoteModal (Priority 8 Sponsorship & Monetization Manager) ───────────────
+
+function PromoteModal({
+  open,
+  project,
+  onClose,
+  onConfirm,
+  processing,
+}: {
+  open:       boolean;
+  project:    ProjectRow | undefined;
+  onClose:    () => void;
+  onConfirm:  (isFeatured: boolean, start: string | null, end: string | null) => void;
+  processing: boolean;
+}): React.ReactElement | null {
+  const [isFeatured, setIsFeatured] = useState(false);
+  const [duration, setDuration] = useState<'7' | '14' | '30' | 'custom'>('7');
+  const [start, setStart] = useState('');
+  const [end, setEnd] = useState('');
+
+  useEffect(() => {
+    if (open && project) {
+      setIsFeatured(project.isFeatured ?? false);
+      const sDate = project.promotionStartDate ? project.promotionStartDate.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      setStart(sDate);
+
+      if (project.promotionEndDate) {
+        setEnd(project.promotionEndDate.slice(0, 10));
+        setDuration('custom');
+      } else {
+        const defaultEnd = new Date();
+        defaultEnd.setDate(defaultEnd.getDate() + 7);
+        setEnd(defaultEnd.toISOString().slice(0, 10));
+        setDuration('7');
+      }
+    }
+  }, [open, project]);
+
+  useEffect(() => {
+    if (duration !== 'custom' && start) {
+      const days = parseInt(duration, 10);
+      const eDate = new Date(start);
+      eDate.setDate(eDate.getDate() + days);
+      setEnd(eDate.toISOString().slice(0, 10));
+    }
+  }, [duration, start]);
+
+  useEffect(() => {
+    document.body.style.overflow = open ? 'hidden' : '';
+    return () => { document.body.style.overflow = ''; };
+  }, [open]);
+
+  if (!open || !project) return null;
+
+  const impressions = project.promotionImpressions ?? 0;
+  const clicks = project.promotionClicks ?? 0;
+  const ctr = impressions > 0 ? ((clicks / impressions) * 100).toFixed(2) : '0.00';
+
+  return (
+    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={processing ? undefined : onClose} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg z-10 border border-gray-100 overflow-hidden" onClick={e => e.stopPropagation()}>
+        
+        {/* Header */}
+        <div className="flex items-start justify-between px-6 py-5 border-b border-gray-100 bg-gradient-to-r from-gray-50 to-white">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+              <Star className="w-5 h-5 fill-current" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">Campaign & Sponsorship Manager</h3>
+              <p className="text-xs text-gray-500 mt-0.5">Configure developer monetization packages</p>
+            </div>
+          </div>
+          {!processing && (
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400 hover:text-gray-600">
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Body */}
+        <div className="px-6 py-5 space-y-5">
+          {/* Project Details Snapshot */}
+          <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl border border-gray-200">
+            <div className="min-w-0 flex-1">
+              <p className="font-bold text-gray-900 text-sm truncate">{project.projectName}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{project.city} · {project.areaName}</p>
+            </div>
+            <div className="text-right">
+              <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold ${
+                isFeatured ? 'bg-amber-100 text-amber-800 border border-amber-200' : 'bg-gray-100 text-gray-600 border border-gray-200'
+              }`}>
+                {isFeatured ? 'Sponsored Active' : 'Organic Listing'}
+              </span>
+            </div>
+          </div>
+
+          {/* Performance Dashboard */}
+          {project.isFeatured && (
+            <div className="grid grid-cols-3 gap-3 p-4 bg-[#029bba]/5 rounded-xl border border-[#029bba]/10">
+              <div className="text-center">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Impressions</p>
+                <p className="text-lg font-black text-gray-900 mt-1">{impressions.toLocaleString()}</p>
+              </div>
+              <div className="text-center border-x border-gray-200">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">Clicks</p>
+                <p className="text-lg font-black text-gray-900 mt-1">{clicks.toLocaleString()}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[10px] font-bold text-gray-400 uppercase">CTR %</p>
+                <p className="text-lg font-black text-[#029bba] mt-1">{ctr}%</p>
+              </div>
+            </div>
+          )}
+
+          {/* Promotion Toggle */}
+          <div className="flex items-center justify-between p-3 border-2 border-dashed border-gray-200 rounded-xl">
+            <div>
+              <p className="text-xs font-bold text-gray-800">Activate Premium Placement</p>
+              <p className="text-[11px] text-gray-400">Forces insertion into Slot #3 in main project grids</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsFeatured(!isFeatured)}
+              className={`w-12 h-6 rounded-full transition-colors relative flex items-center ${isFeatured ? 'bg-[#029bba]' : 'bg-gray-200'}`}
+            >
+              <span className={`w-5 h-5 rounded-full bg-white shadow absolute transition-transform ${isFeatured ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {/* Date Duration Picker */}
+          {isFeatured && (
+            <div className="space-y-4 animate-in fade-in duration-200">
+              <div>
+                <label className="block text-xs font-bold text-gray-600 mb-2 uppercase tracking-wide">Sponsorship Duration</label>
+                <div className="grid grid-cols-4 gap-2">
+                  {[
+                    { key: '7', label: '7 Days' },
+                    { key: '14', label: '14 Days' },
+                    { key: '30', label: '30 Days' },
+                    { key: 'custom', label: 'Custom' },
+                  ].map(opt => (
+                    <button
+                      key={opt.key}
+                      type="button"
+                      onClick={() => setDuration(opt.key as any)}
+                      className={`py-2 text-xs font-semibold rounded-lg border transition-all ${
+                        duration === opt.key ? 'bg-[#004063] border-[#004063] text-white' : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Campaign Start</label>
+                  <input
+                    type="date"
+                    value={start}
+                    onChange={e => setStart(e.target.value)}
+                    className="w-full text-xs border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-[#029bba]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-gray-600 mb-1.5 uppercase">Campaign Expiry</label>
+                  <input
+                    type="date"
+                    value={end}
+                    disabled={duration !== 'custom'}
+                    onChange={e => setEnd(e.target.value)}
+                    className="w-full text-xs border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-1 focus:ring-[#029bba] disabled:bg-gray-50"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-100 bg-gray-50/50">
+          <button onClick={onClose} disabled={processing} className="px-5 py-2.5 text-sm font-semibold text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-100 transition-colors">
+            Cancel
+          </button>
+          <button
+            onClick={() => onConfirm(isFeatured, isFeatured ? new Date(start).toISOString() : null, isFeatured ? new Date(end).toISOString() : null)}
+            disabled={processing}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold bg-[#029bba] hover:bg-[#027a94] text-white shadow-md shadow-[#029bba]/20"
+          >
+            {processing ? <span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> : null}
+            {processing ? 'Processing...' : 'Apply Sponsorship'}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 // ── ConfirmModal ───────────────────────────────────────────────────────────────
@@ -501,6 +706,41 @@ export function AdminProjectsContent({
     setModal({ open: true, projectId, projectName, action, currentFeatured });
   }
 
+  // Execute campaign updates (Priority 8)
+  async function handlePromotionConfirm(isFeatured: boolean, start: string | null, end: string | null) {
+    if (!modal.projectId) return;
+    setProcessing(true);
+    try {
+      const res = await fetch(`/api/admin/projects/${modal.projectId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'promote',
+          isFeatured,
+          promotionStartDate: start,
+          promotionEndDate: end,
+        }),
+      });
+
+      const data: { success: boolean; message?: string } = await res.json();
+      if (res.ok && data.success) {
+        setBanner({ type: 'success', message: data.message ?? 'Sponsorship metrics successfully applied.' });
+        setModal(EMPTY_MODAL);
+        await fetchProjects(true);
+      } else {
+        setBanner({ type: 'error', message: data.message ?? 'Failed to apply campaign settings.' });
+      }
+    } catch (err: unknown) {
+      setBanner({
+        type: 'error',
+        message: err instanceof Error ? err.message : 'Network error updating campaign.',
+      });
+    } finally {
+      setProcessing(false);
+    }
+  }
+
   // Execute action
   async function handleConfirm(reason?: string) {
     if (!modal.action || !modal.projectId) return;
@@ -577,6 +817,15 @@ export function AdminProjectsContent({
         project={projects.find(p => p._id === modal.projectId)}
         onClose={() => setModal(EMPTY_MODAL)}
         onConfirm={handleConfirm}
+        processing={processing}
+      />
+
+      {/* Campaign & Promotion Modal (Priority 8) */}
+      <PromoteModal
+        open={modal.open && modal.action === 'promote'}
+        project={projects.find(p => p._id === modal.projectId)}
+        onClose={() => setModal(EMPTY_MODAL)}
+        onConfirm={handlePromotionConfirm}
         processing={processing}
       />
 
@@ -973,13 +1222,13 @@ export function AdminProjectsContent({
                                 <button
                                   onClick={() => openModal(
                                     project._id, project.projectName,
-                                    'feature', project.isFeatured,
+                                    'promote', project.isFeatured,
                                   )}
                                   className={`p-2 rounded-xl transition-colors
                                     ${project.isFeatured
                                       ? 'text-amber-500 hover:bg-amber-50'
                                       : 'text-gray-400 hover:text-amber-500 hover:bg-amber-50'}`}
-                                  title={project.isFeatured ? 'Remove Featured' : 'Feature'}>
+                                  title={project.isFeatured ? 'Manage Sponsorship' : 'Promote/Sponsor'}>
                                   <Star className={`w-4 h-4 ${project.isFeatured ? 'fill-current' : ''}`} />
                                 </button>
                                 <button
