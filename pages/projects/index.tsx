@@ -213,32 +213,148 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
     });
   })();
 
-  // JSON-LD Schema
-  const projectDirectoryJsonLd = [
-    {
+    // --- JSON-LD Structured Data Suite (Priority 7) ---
+    // 4-tier schema: CollectionPage + BreadcrumbList + ItemList(RealEstateListing) + FAQPage
+
+    const siteUrl = 'https://highrise.pk';
+
+    // Tier 1: CollectionPage with embedded ItemList of RealEstateListings
+    const collectionPageLd = {
       '@context': 'https://schema.org',
       '@type': 'CollectionPage',
       name: pageTitle,
       url: canonical,
       description: pageDesc,
+      numberOfItems: totalCount,
       provider: {
         '@type': 'Organization',
         name: 'Highrise.pk',
-        url: 'https://highrise.pk',
+        url: siteUrl,
+        logo: `${siteUrl}/images/logo.png`,
+        sameAs: [
+          'https://facebook.com/highrisepk',
+          'https://instagram.com/highrisepk',
+        ],
       },
-    },
-    {
+      mainEntity: {
+        '@type': 'ItemList',
+        itemListOrder: 'https://schema.org/ItemListOrderDescending',
+        numberOfItems: initialProjects.length,
+        itemListElement: initialProjects.map((p, idx) => {
+          const listingUrl = `${siteUrl}/projects/${p.slug}`;
+          const priceObj: Record<string, unknown> = {
+            '@type': 'Offer',
+            priceCurrency: 'PKR',
+          };
+          if (p.minPrice && p.maxPrice && p.maxPrice > p.minPrice) {
+            priceObj['@type'] = 'AggregateOffer';
+            priceObj.lowPrice = p.minPrice;
+            priceObj.highPrice = p.maxPrice;
+          } else if (p.minPrice) {
+            priceObj.price = p.minPrice;
+          } else if (p.maxPrice) {
+            priceObj.price = p.maxPrice;
+          }
+
+          const availabilityMap: Record<string, string> = {
+            ready_to_move: 'https://schema.org/InStock',
+            under_construction: 'https://schema.org/PreOrder',
+            new_launch: 'https://schema.org/PreOrder',
+            pre_launch: 'https://schema.org/PreOrder',
+          };
+
+          return {
+            '@type': 'ListItem',
+            position: idx + 1,
+            url: listingUrl,
+            item: {
+              '@type': 'RealEstateListing',
+              '@id': `${listingUrl}#listing`,
+              name: p.projectName,
+              description: p.tagline || `${p.projectName} in ${p.area || p.city}`,
+              url: listingUrl,
+              image: p.primaryImage ? [p.primaryImage] : undefined,
+              datePosted: p.createdAt,
+              address: {
+                '@type': 'PostalAddress',
+                addressLocality: p.area || p.locality || p.city,
+                addressRegion: p.city,
+                addressCountry: 'PK',
+              },
+              offers: Object.keys(priceObj).length > 2 ? priceObj : undefined,
+              availability: availabilityMap[p.projectStatus] || 'https://schema.org/InStock',
+              seller: p.developerName ? {
+                '@type': 'Organization',
+                name: p.developerName,
+              } : undefined,
+            },
+          };
+        }),
+      },
+    };
+
+    // Tier 2: BreadcrumbList
+    const breadcrumbLd = {
       '@context': 'https://schema.org',
       '@type': 'BreadcrumbList',
       itemListElement: [
-        { '@type': 'ListItem', position: 1, name: 'Home', item: 'https://highrise.pk/' },
-        { '@type': 'ListItem', position: 2, name: 'Projects', item: 'https://highrise.pk/projects' },
+        { '@type': 'ListItem', position: 1, name: 'Home', item: `${siteUrl}/` },
+        { '@type': 'ListItem', position: 2, name: 'Projects', item: `${siteUrl}/projects` },
         ...(filters.city
           ? [{ '@type': 'ListItem', position: 3, name: filters.city, item: canonical }]
           : []),
       ],
-    },
-  ];
+    };
+
+    // Tier 3: FAQPage (city-adaptive Pakistani buyer intelligence)
+    const CITY_FAQ_DATA: Record<string, Array<{ q: string; a: string }>> = {
+      Islamabad: [
+        { q: 'Which new projects in Islamabad are CDA approved?', a: 'All verified projects on Highrise.pk in Islamabad carry CDA (Capital Development Authority) NOC approval. You can filter by NOC Approved to see only legally cleared developments in sectors like E-11, F-7, D-12, and B-17.' },
+        { q: 'What is the typical installment plan for new projects in Islamabad?', a: 'Most Islamabad developments offer 3-5 year installment plans with 10-20% down payment. Premium sectors like E-11 and F-7 may require higher down payments. Use our filter to find projects with flexible installment options.' },
+        { q: 'Are DHA and Bahria Town projects in Islamabad verified?', a: 'Yes, Highrise.pk verifies all major society projects including DHA Islamabad, Bahria Town, and Park View City. Each listing shows NOC status, developer credentials, and construction progress.' },
+        { q: 'What is the average price per Marla in Islamabad new projects?', a: 'Prices vary by sector. B-17 and D-12 range from PKR 15-35 Lakh per Marla, while premium sectors like E-11 and F-7 can exceed PKR 80 Lakh per Marla. Use our Budget Tier filter to find projects in your range.' },
+      ],
+      Lahore: [
+        { q: 'Which new projects in Lahore are LDA approved?', a: 'Highrise.pk lists only LDA (Lahore Development Authority) verified projects. Filter by NOC Approved to see legally cleared developments in DHA Lahore, Bahria Town, Johar Town, and Wapda Town.' },
+        { q: 'What installment plans are available for Lahore projects?', a: 'Lahore projects typically offer 2-4 year payment plans with 10-25% down payment. DHA and Bahria Town offer structured quarterly installments. Filter by Installments to see all available options.' },
+        { q: 'Is it safe to invest in new launch projects in Lahore?', a: 'New launch projects carry higher risk but offer better pricing. Highrise.pk mitigates this by verifying NOC status, developer track record, and construction progress. Look for our Shield Score and Trusted Developer badges.' },
+        { q: 'What are the best areas for property investment in Lahore?', a: 'DHA Phase 6-9, Bahria Town, Johar Town, and Askari are high-demand areas. Our Locality Guide provides detailed market intelligence for each area including price trends and development status.' },
+      ],
+      Karachi: [
+        { q: 'Which new projects in Karachi are SBCA approved?', a: 'All verified Karachi projects on Highrise.pk carry SBCA (Sindh Building Control Authority) approval. Filter by NOC Approved to see legally cleared developments in Clifton, Defence, Gulshan-e-Iqbal, and Scheme 33.' },
+        { q: 'What is the price range for new apartments in Karachi?', a: 'New apartments in Karachi range from PKR 50 Lakh for 2-bed units in Gulshan to PKR 5+ Crore for luxury penthouses in Clifton and Defence. Use our Budget Tier filter to narrow your search.' },
+        { q: 'Are Bahria Town Karachi projects verified on Highrise.pk?', a: 'Yes, Bahria Town Karachi projects are listed with full verification including SBCA NOC, developer credentials, and construction progress. Each listing includes our proprietary Shield Score for trust assessment.' },
+        { q: 'What payment plans do Karachi developers offer?', a: 'Karachi developers typically offer 3-5 year installment plans with 15-20% down payment. Premium projects in Clifton and DHA may require higher upfront payments. Filter by Installments to explore options.' },
+      ],
+      Rawalpindi: [
+        { q: 'Which new projects in Rawalpindi are RDA approved?', a: 'Highrise.pk verifies all Rawalpindi projects for RDA (Rawalpindi Development Authority) and CDA approval. Filter by NOC Approved to see legally cleared developments in Bahria Town, DHA Phase 2, and Adiala Road.' },
+        { q: 'Is Rawalpindi a good investment compared to Islamabad?', a: 'Rawalpindi offers significantly lower entry prices than Islamabad while benefiting from twin-city infrastructure. Projects near the Islamabad Expressway and Ring Road show strong appreciation potential.' },
+        { q: 'What installment plans are available in Rawalpindi?', a: 'Rawalpindi projects offer some of the most flexible payment plans in Pakistan, with 3-7 year installments and down payments as low as 10%. Bahria Town and DHA offer structured quarterly plans.' },
+        { q: 'What are the best housing societies in Rawalpindi?', a: 'Bahria Town Rawalpindi, DHA Phase 2, Askari, and Bahria Enclave are top-rated societies. Our Shield Score and developer verification badges help you identify the most trustworthy options.' },
+      ],
+    };
+
+    const DEFAULT_FAQ = [
+      { q: 'How do I verify if a new project is NOC approved in Pakistan?', a: 'Every project on Highrise.pk displays its NOC status from the relevant authority (CDA, LDA, RDA, SBCA). Look for the green NOC Approved badge on project cards. You can also use our free Society NOC Verification tool under Tools.' },
+      { q: 'Are installment plans for new projects safe in Pakistan?', a: 'Installment safety depends on developer credibility and NOC status. Highrise.pk verifies both. Look for Trusted Developer badges and Shield Scores above 70. We recommend projects with escrow-backed payment plans.' },
+      { q: 'What is the minimum down payment for new projects in Pakistan?', a: 'Down payments typically range from 10-25% of the total property value. Pre-launch projects may offer lower down payments (10-15%), while ready-to-move properties often require 20-25%.' },
+      { q: 'How does Highrise.pk verify projects and developers?', a: 'Our verification team checks NOC documents, developer registration, land ownership records, and construction progress. Verified projects receive our Shield Score (0-100) based on legal compliance, financial transparency, and delivery track record.' },
+    ];
+
+    const faqItems = CITY_FAQ_DATA[filters.city || ''] || DEFAULT_FAQ;
+
+    const faqPageLd = {
+      '@context': 'https://schema.org',
+      '@type': 'FAQPage',
+      mainEntity: faqItems.map(faq => ({
+        '@type': 'Question',
+        name: faq.q,
+        acceptedAnswer: {
+          '@type': 'Answer',
+          text: faq.a,
+        },
+      })),
+    };
 
   return (
     <>
@@ -257,7 +373,15 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
         <meta name="twitter:description" content={pageDesc} />
         <script
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(projectDirectoryJsonLd).replace(/</g, '\\u003c') }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionPageLd).replace(/</g, '\\u003c') }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageLd).replace(/</g, '\\u003c') }}
         />
       </Head>
 
