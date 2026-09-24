@@ -656,3 +656,334 @@ export function LocationAdvantagesEditor({
     </Section>
   );
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FeeTransparencyEditor (Utility connections, maintenance & possession fees)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FeeTransparencyInput {
+  electricityIncluded: boolean;
+  gasIncluded:         boolean;
+  waterIncluded:       boolean;
+  maintenanceFee:      string;
+  transferTax:         string;
+  possessionCharges:   string;
+  disclaimer:          string;
+}
+
+interface FeeTransparencyProps {
+  value: FeeTransparencyInput;
+  onChange: React.Dispatch<React.SetStateAction<FeeTransparencyInput>>;
+  disabled?: boolean;
+}
+
+export function FeeTransparencyEditor({
+  value,
+  onChange,
+  disabled,
+}: FeeTransparencyProps): React.ReactElement {
+  
+  const handleToggle = (field: keyof Omit<FeeTransparencyInput, 'maintenanceFee' | 'transferTax' | 'possessionCharges' | 'disclaimer'>): void => {
+    onChange((prev) => ({
+      ...prev,
+      [field]: !prev[field],
+    }));
+  };
+
+  const handleTextChange = (field: keyof FeeTransparencyInput, text: string): void => {
+    onChange((prev) => ({
+      ...prev,
+      [field]: text,
+    }));
+  };
+
+  const toggleCls = "w-11 h-6 bg-gray-200 rounded-full peer peer-focus:ring-2 peer-focus:ring-[#029bba]/20 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#029bba]";
+
+  return (
+    <Section
+      title="Pricing Transparency & Connection Fees"
+      subtitle="Expose utility and FBR tax policies openly. Highly recommended to increase booking trust and eliminate hidden developer charge complaints."
+    >
+      <div className="space-y-6">
+        
+        {/* Toggle Grid */}
+        <div>
+          <label className="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-3">
+            Utility Meters Included in base price?
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            
+            {/* Electricity Toggle */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-150">
+              <span className="text-sm font-semibold text-gray-700">Electricity Connection</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={value.electricityIncluded}
+                  onChange={() => handleToggle('electricityIncluded')}
+                  disabled={disabled}
+                  className="sr-only peer"
+                />
+                <div className={toggleCls}></div>
+              </label>
+            </div>
+
+            {/* Gas Toggle */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-150">
+              <span className="text-sm font-semibold text-gray-700">Sui Gas Connection</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={value.gasIncluded}
+                  onChange={() => handleToggle('gasIncluded')}
+                  disabled={disabled}
+                  className="sr-only peer"
+                />
+                <div className={toggleCls}></div>
+              </label>
+            </div>
+
+            {/* Water Toggle */}
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-150">
+              <span className="text-sm font-semibold text-gray-700">Water & Sewerage</span>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={value.waterIncluded}
+                  onChange={() => handleToggle('waterIncluded')}
+                  disabled={disabled}
+                  className="sr-only peer"
+                />
+                <div className={toggleCls}></div>
+              </label>
+            </div>
+
+          </div>
+        </div>
+
+        {/* Text Fields */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          <div>
+            <label className={labelClass}>Maintenance Fee Details</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. PKR 5,000 per month starting from possession"
+              value={value.maintenanceFee}
+              onChange={(e) => handleTextChange('maintenanceFee', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Possession Charges Breakdown</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. 10% of total unit price due at handoff"
+              value={value.possessionCharges}
+              onChange={(e) => handleTextChange('possessionCharges', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+        </div>
+
+        <div>
+          <label className={labelClass}>Transfer Taxes & FBR Rules</label>
+          <input
+            type="text"
+            className={inputClass}
+            placeholder="e.g. Filer tax 3%, Non-Filer tax 6% per active Government schedule"
+            value={value.transferTax}
+            onChange={(e) => handleTextChange('transferTax', e.target.value)}
+            disabled={disabled}
+            maxLength={200}
+          />
+        </div>
+
+        <div>
+          <label className={labelClass}>Developer Transparent Disclaimer (Optional)</label>
+          <textarea
+            className={`${inputClass} min-h-[80px] resize-y`}
+            placeholder="Any extra details on connection costs, utility meter guarantees, or FBR tax declarations..."
+            value={value.disclaimer}
+            onChange={(e) => handleTextChange('disclaimer', e.target.value)}
+            disabled={disabled}
+            maxLength={500}
+          />
+        </div>
+
+      </div>
+    </Section>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FinishingSpecsEditor (Interior handover deliverables & commercial specs)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface FinishingSpecsInput {
+  deliveryCondition: 'grey_structure' | 'semi_furnished' | 'fully_furnished';
+  flooring:          string;
+  woodwork:          string;
+  kitchen:           string;
+  washrooms:         string;
+  windows:           string;
+  hvac:              string;
+  fireSafety:        string;
+  commercialMobility: string;
+}
+
+interface FinishingSpecsProps {
+  value: FinishingSpecsInput;
+  onChange: React.Dispatch<React.SetStateAction<FinishingSpecsInput>>;
+  disabled?: boolean;
+}
+
+export function FinishingSpecsEditor({
+  value,
+  onChange,
+  disabled,
+}: FinishingSpecsProps): React.ReactElement {
+
+  const handleSelectChange = (val: 'grey_structure' | 'semi_furnished' | 'fully_furnished'): void => {
+    onChange((prev) => ({ ...prev, deliveryCondition: val }));
+  };
+
+  const handleTextChange = (field: keyof Omit<FinishingSpecsInput, 'deliveryCondition'>, text: string): void => {
+    onChange((prev) => ({ ...prev, [field]: text }));
+  };
+
+  return (
+    <Section
+      title="Interior Finishing & Handover Deliverables"
+      subtitle="Define exactly what items (tiles, doors, sanitary fittings, kitchen cabinets) will be installed on key handover."
+    >
+      <div className="space-y-6">
+        <div>
+          <label className={labelClass}>Delivery Condition / Finishing Level <span className="text-[#ef4444]">*</span></label>
+          <select
+            className={selectClass}
+            value={value.deliveryCondition || 'semi_furnished'}
+            onChange={(e) => handleSelectChange(e.target.value as 'grey_structure' | 'semi_furnished' | 'fully_furnished')}
+            disabled={disabled}
+          >
+            <option value="grey_structure">Grey Structure (Unfinished Raw Structure)</option>
+            <option value="semi_furnished">Semi-Furnished (Standard Handover with Tiles & Sanitary)</option>
+            <option value="fully_furnished">Fully Furnished (Turnkey Ready with Furniture & Appliances)</option>
+          </select>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className={labelClass}>Flooring Specifications</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. 24x24 Master Porcelain Tiles in bedrooms, Granite in corridors"
+              value={value.flooring || ''}
+              onChange={(e) => handleTextChange('flooring', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Woodwork & Main Doors</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. Solid Ash Wood entrance door, UV Sheet Wardrobes"
+              value={value.woodwork || ''}
+              onChange={(e) => handleTextChange('woodwork', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Kitchen Deliverables</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. High-Gloss Cabinets, Corian Countertops, Hood & Hob installed"
+              value={value.kitchen || ''}
+              onChange={(e) => handleTextChange('kitchen', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Washroom & Sanitary Fittings</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. Porta Commodes, Grohe Taps, Glass Shower Enclosures"
+              value={value.washrooms || ''}
+              onChange={(e) => handleTextChange('washrooms', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Windows & Glazing</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. Aluminum sliding windows with 5mm tinted glass & safety grills"
+              value={value.windows || ''}
+              onChange={(e) => handleTextChange('windows', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>HVAC / Air Conditioning Provisions</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. Copper piping pre-installed for Split ACs in all rooms"
+              value={value.hvac || ''}
+              onChange={(e) => handleTextChange('hvac', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Fire Safety & Emergency Standards</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. Smoke detectors, hose reels, external fire escape stairs"
+              value={value.fireSafety || ''}
+              onChange={(e) => handleTextChange('fireSafety', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+
+          <div>
+            <label className={labelClass}>Commercial Mobility (if applicable)</label>
+            <input
+              type="text"
+              className={inputClass}
+              placeholder="e.g. Heavy-duty Escalators for retail floors, Cargo Lift available"
+              value={value.commercialMobility || ''}
+              onChange={(e) => handleTextChange('commercialMobility', e.target.value)}
+              disabled={disabled}
+              maxLength={200}
+            />
+          </div>
+        </div>
+      </div>
+    </Section>
+  );
+}

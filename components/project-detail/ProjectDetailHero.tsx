@@ -258,7 +258,7 @@ export default function ProjectDetailHero({
         {/* Match exact spacing of index.tsx grid */}
         <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-6 pt-4 lg:pt-6">
           <div className="relative">
-            {/* Top Right Floating Actions (Trulia Style) */}
+            {/* Top Right Floating Actions */}
             <div className="absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto">
               <button
                 onClick={() => setShareOpen(true)}

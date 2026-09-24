@@ -20,7 +20,7 @@ import { Modal } from "../ui/modal";
 import { useRouter } from "next/router";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useSession, signOut } from "next-auth/react";
-import LoginOrSignupForm from "@/components/auth/LoginOrSignupForm";
+import AuthGateModal from "@/components/auth/AuthGateModal";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useCompare }   from "@/hooks/useCompare";
 
@@ -327,7 +327,7 @@ export const Header: React.FC = () => {
   const [isLoginModalOpen, setIsLoginModalOpen]       = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen]       = useState(false);
     const [isAddListingOpen, setIsAddListingOpen]       = useState(false);
-  const [loginContext, setLoginContext]                = useState<"contact" | "listing" | "save" | "general">("general");
+  const [loginContext, setLoginContext]                = useState<"contact" | "listing" | "save" | "general" | "compare" | "save_search">("general");
   const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
   const [isExploreDropdownOpen, setIsExploreDropdownOpen] = useState(false);
   const [isMobileToolsExpanded, setIsMobileToolsExpanded] = useState(false);
@@ -340,8 +340,8 @@ export const Header: React.FC = () => {
   const [devProfileLoading, setDevProfileLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // ── Derived state ───────────────────────────────────────────
-    const user = session?.user as SessionUser | undefined;
+  // ── Derived state ────────────────────────
+  const user = session?.user as SessionUser | undefined;
   const isLoggedIn = status === "authenticated" && !!user;
   const isAdmin    = user?.role === "admin";
   const isAgent    = user?.role === "agent";
@@ -355,6 +355,23 @@ export const Header: React.FC = () => {
   const isOwnerPending   = ownerStatus === "pending";
 
   const displayName = getDisplayName(user);
+
+  const handleShortlistClick = useCallback((e: React.MouseEvent) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      setLoginContext("save");
+      setIsLoginModalOpen(true);
+    }
+  }, [isLoggedIn]);
+
+  const handleCompareClick = useCallback((e: React.MouseEvent) => {
+    if (!isLoggedIn) {
+      e.preventDefault();
+      setLoginContext("compare");
+      setIsLoginModalOpen(true);
+    }
+  }, [isLoggedIn]);
+
   const roleBadge   = getRoleBadge(
     user?.role, hasDevProfile, isDevApproved,
     developerProfile?.status, isVerifiedOwner, ownerStatus
@@ -446,14 +463,30 @@ export const Header: React.FC = () => {
     return () => clearInterval(interval);
   }, [isLoggedIn, fetchDeveloperProfile, devProfileLoading]);
 
-  // ── Logout ──────────────────────────────────────────────────
+  // ─── Logout ────────────────────────────────────────────────────────────────
   const handleLogout = useCallback(async () => {
     try {
       if (abortControllerRef.current) abortControllerRef.current.abort();
       setDeveloperProfile(null);
       setDevProfileLoading(false);
+      
       await signOut({ redirect: false });
-      router.push("/");
+
+      // Smart Redirect: Only kick to home if they are on a protected dashboard page
+      const protectedRoutes = [
+        '/admin', '/agent', '/owner', '/developer', 
+        '/dashboard', '/profile', '/my-properties', '/saved-properties'
+      ];
+      
+      const isProtected = protectedRoutes.some(route => router.pathname.startsWith(route));
+
+      if (isProtected) {
+        void router.push("/");
+      } else {
+        // Stay exactly on the current public page (e.g., Project Detail)
+        // replace() clears the session cache without moving the scroll bar!
+        void router.replace(router.asPath, undefined, { scroll: false });
+      }
     } catch {
       window.location.href = "/";
     }
@@ -705,6 +738,7 @@ export const Header: React.FC = () => {
             ═══════════════════════════════════════════════════════ */}
             <Link
               href="/compare"
+              onClick={handleCompareClick}
               aria-label={`Compare${compareCount > 0 ? ` (${compareCount} items)` : ''}`}
               className={cx(
                 "hidden md:flex relative items-center justify-center",
@@ -743,13 +777,14 @@ export const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* ═══════════════════════════════════════════════════════
+            {/* ───────────────
                 SHORTLIST BUTTON — Heart + Counter (Desktop)
                 Always visible (guest + logged-in)
                 Guest count from localStorage, logged-in from DB
-            ═══════════════════════════════════════════════════════ */}
+            ──────────────── */}
             <Link
               href="/shortlist"
+              onClick={handleShortlistClick}
               aria-label={`My Shortlist${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
               className={cx(
                 "hidden md:flex relative items-center justify-center",
@@ -1267,6 +1302,7 @@ export const Header: React.FC = () => {
             ═══════════════════════════════════════════════════════ */}
             <Link
               href="/compare"
+              onClick={handleCompareClick}
               aria-label={`Compare${compareCount > 0 ? ` (${compareCount} items)` : ''}`}
               className={cx(
                 "md:hidden relative flex items-center justify-center",
@@ -1301,12 +1337,13 @@ export const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* ═══════════════════════════════════════════════════════
+            {/* ───────────────
                 MOBILE SHORTLIST BUTTON — Heart + Counter
                 Visible on mobile only (desktop shown above)
-            ═══════════════════════════════════════════════════════ */}
+            ──────────────── */}
             <Link
               href="/shortlist"
+              onClick={handleShortlistClick}
               aria-label={`My Shortlist${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
               className={cx(
                 "md:hidden relative flex items-center justify-center",
@@ -1770,18 +1807,25 @@ export const Header: React.FC = () => {
         )}
       </header>
 
-      {/* LOGIN MODAL */}
-      <Modal
+      {/* LOGIN MODAL (Upgraded to In-Place AuthGateModal) */}
+      <AuthGateModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
-        size="sm"
-      >
-        <LoginOrSignupForm
-          onSuccess={() => setIsLoginModalOpen(false)}
-          isModal={true}
-          context={loginContext}
-        />
-      </Modal>
+        actionDescription={
+          loginContext === "listing" ? "list your property" :
+          loginContext === "save" ? "save this property" :
+          loginContext === "compare" ? "compare projects" :
+          loginContext === "save_search" ? "save search alerts" :
+          "access your account"
+        }
+        title={
+          loginContext === "listing" ? "List Your Property" :
+          loginContext === "save" ? "Save Property" :
+          loginContext === "compare" ? "Compare Projects" :
+          loginContext === "save_search" ? "Save Search Alerts" :
+          "Welcome Back"
+        }
+      />
     </>
   );
 };

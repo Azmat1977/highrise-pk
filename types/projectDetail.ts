@@ -471,6 +471,13 @@ export interface ProjectDetailData {
   // Engagement
   averageRating?:  number;
   totalReviews?:   number;
+  ratingBreakdown?: {
+    5: number;
+    4: number;
+    3: number;
+    2: number;
+    1: number;
+  };
 
   // Meta
   projectId?: string;   // HR-PRJ-XXXXX public reference (ProjectIdChip + inquiry context)
@@ -1035,4 +1042,70 @@ export function truncateText(text: string, maxChars: number): string {
   const lastSpace = truncated.lastIndexOf(' ');
   const cutoff    = lastSpace > maxChars * 0.5 ? lastSpace : maxChars;
   return `${text.slice(0, cutoff)}...`;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REVIEWS & RATINGS (Mapped to polymorphic Review model)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProjectReview {
+  _id: string;
+  reviewerName: string;
+  rating: number;
+  content: string;
+  createdAt: string;
+  userId?: {
+    _id: string;
+    name?: string;
+    image?: string;
+  };
+  response?: {
+    content: string;
+    respondedByName: string;
+    respondedAt: string;
+  };
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// REVIEWS & RATINGS (User-Generated Content)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface ProjectReview {
+  _id: string;
+  project: string;
+  user: {
+    _id: string;
+    name: string;
+    image?: string;
+  };
+  rating: number;
+  comment: string;
+  status: 'pending' | 'approved' | 'rejected';
+  createdAt: string;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FEE TRANSPARENCY & FINISHING SPECS (Pakistani Market Handover Contract)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export interface IFeeTransparency {
+  electricityIncluded?: boolean;
+  gasIncluded?:         boolean;
+  waterIncluded?:       boolean;
+  maintenanceFee?:      string;
+  transferTax?:         string;
+  possessionCharges?:   string;
+  disclaimer?:          string;
+}
+
+export interface IFinishingSpecs {
+  deliveryCondition?:  'grey_structure' | 'semi_furnished' | 'fully_furnished';
+  flooring?:           string;
+  woodwork?:           string;
+  kitchen?:            string;
+  washrooms?:          string;
+  windows?:            string;
+  hvac?:               string;
+  fireSafety?:         string;
+  commercialMobility?: string;
 }

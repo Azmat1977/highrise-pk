@@ -62,7 +62,7 @@ const CATEGORIES = [
 
 export default function BuildingHighlights({
   amenities = [],
-  showEmptyState = false,
+  showEmptyState = false, // deprecated — kept for backward compatibility
 }: BuildingHighlightsProps) {
   const [isExpanded, setIsExpanded] = useState(false);
 
@@ -121,27 +121,10 @@ export default function BuildingHighlights({
   }, [amenities]);
 
   if (!groupedAmenities) {
-    if (!showEmptyState) return null;
-
-    return (
-      <section id="features" className="scroll-mt-24" aria-label="Building highlights and amenities">
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
-          <div className="px-6 py-4 border-b border-gray-100 flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-[#029bba]/10 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-[#029bba]" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900">Building Highlights &amp; Amenities</h2>
-          </div>
-          <div className="p-6">
-            <p className="text-sm text-gray-600 leading-relaxed">
-              <span className="font-bold text-gray-900">Amenities not listed yet.</span>{' '}
-              Detail abhi update nahi hui — parking, backup power, Masjid/Prayer Area, security, etc.
-              ke liye <span className="font-bold text-[#029bba]">Contact</span> karein, Highrise team guide karegi.
-            </p>
-          </div>
-        </div>
-      </section>
-    );
+    // Enterprise pattern: silent hide when data not yet provided by developer.
+    // No amateur "not listed yet" placeholder — the admin backend flags this
+    // as a completeness gap for the developer to fill.
+    return null;
   }
 
   // Check if we need to show the "Other" category dynamically
@@ -179,10 +162,10 @@ export default function BuildingHighlights({
             </div>
             <div className="min-w-0">
               <h2 className="text-xl font-bold text-gray-900 truncate">
-                Building Highlights &amp; Amenities
+                Lifestyle &amp; Amenities
               </h2>
               <p className="text-xs text-gray-500 mt-0.5">
-                Premium facilities for modern Pakistani living
+                Everyday experiences waiting for you and your family
               </p>
             </div>
           </div>

@@ -494,6 +494,28 @@ export interface IFullPaymentInfo {
   pricePerUnit?: number;
 }
 
+export interface IFeeTransparency {
+  electricityIncluded?: boolean;
+  gasIncluded?: boolean;
+  waterIncluded?: boolean;
+  maintenanceFee?: string;
+  transferTax?: string;
+  possessionCharges?: string;
+  disclaimer?: string;
+}
+
+export interface IFinishingSpecs {
+  deliveryCondition?: 'grey_structure' | 'semi_furnished' | 'fully_furnished';
+  flooring?: string;
+  woodwork?: string;
+  kitchen?: string;
+  washrooms?: string;
+  windows?: string;
+  hvac?: string;
+  fireSafety?: string;
+  commercialMobility?: string;
+}
+
 export interface IPaymentPlanImage {
   url:      string;
   publicId?: string;
@@ -697,6 +719,8 @@ export interface IProject extends Document {
   // ── PRICING ────────────────────────────────
   saleMode?: SaleMode;
   fullPaymentInfo?: IFullPaymentInfo;
+  feeTransparency?: IFeeTransparency;
+  finishingSpecs?: IFinishingSpecs;
   installmentPlan?: IInstallmentPlan;
   paymentPlans?: IProjectPaymentPlan[];
   paymentPlanImages?: IPaymentPlanImage[];
@@ -1596,6 +1620,26 @@ const ProjectSchema = new Schema<IProject>(
       areaSize: { type: Number, min: 0 },
       areaUnit: { type: String, enum: ['Sq.ft', 'Marla', 'Sq.yard', 'Kanal'] },
       pricePerUnit: { type: Number, min: 0 },
+    },
+    feeTransparency: {
+      electricityIncluded: { type: Boolean, default: false },
+      gasIncluded:         { type: Boolean, default: false },
+      waterIncluded:       { type: Boolean, default: false },
+      maintenanceFee:      { type: String, maxlength: 200 },
+      transferTax:         { type: String, maxlength: 200 },
+      possessionCharges:   { type: String, maxlength: 200 },
+      disclaimer:          { type: String, maxlength: 500 },
+    },
+    finishingSpecs: {
+      deliveryCondition:   { type: String, enum: ['grey_structure', 'semi_furnished', 'fully_furnished'] },
+      flooring:            { type: String, maxlength: 200 },
+      woodwork:            { type: String, maxlength: 200 },
+      kitchen:             { type: String, maxlength: 200 },
+      washrooms:           { type: String, maxlength: 200 },
+      windows:             { type: String, maxlength: 200 },
+      hvac:                { type: String, maxlength: 200 },
+      fireSafety:          { type: String, maxlength: 200 },
+      commercialMobility:  { type: String, maxlength: 200 },
     },
     paymentPlanImages: [
       {

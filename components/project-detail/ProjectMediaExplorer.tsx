@@ -1,6 +1,6 @@
 // components/project-detail/ProjectMediaExplorer.tsx
 // ============================================================================
-// HIGHRISE.PK — Project Media Explorer (Focused Trulia Split Layout)
+// HIGHRISE.PK — Project Media Explorer (Focused Split Layout)
 // Tabs: Media | Video | Map View
 // Left: content · Right: StickyContactForm (CTA always visible)
 // Nearby places (schools, hospitals, etc.) live in page Location section.

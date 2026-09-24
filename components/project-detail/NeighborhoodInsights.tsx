@@ -159,7 +159,7 @@ export default function NeighborhoodInsights({ places }: { places?: NearbyPlace[
   return (
     <div className="mb-6">
       
-      {/* Trulia-Style Vibe Stats */}
+      {/* Vibe Stats */}
       {vibeStats.length > 0 && (
         <div className="mb-10 px-1 lg:px-2">
           <h3 className="text-xl font-black text-[#001f2b] tracking-tight mb-5">
@@ -168,7 +168,7 @@ export default function NeighborhoodInsights({ places }: { places?: NearbyPlace[
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-y-7 gap-x-8">
             {vibeStats.map((stat, i) => {
               const Icon = stat.icon;
-              // Add a baseline of 45 so data looks realistic (like Trulia survey data)
+              // Add a baseline of 45 so data looks realistic (survey data)
               const displayScore = Math.max(45, stat.score);
               return (
                 <div key={i} className="flex items-center gap-3.5">

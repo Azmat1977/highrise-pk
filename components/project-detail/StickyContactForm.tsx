@@ -1,6 +1,6 @@
 // components/project-detail/StickyContactForm.tsx
 // ============================================================================
-// HIGHRISE.PK — Sticky lead card (Trulia-style compact)
+// HIGHRISE.PK — Sticky lead card (compact)
 // Logo header · auth-gated phone · verified tooltip · cyan CTA · sticky
 // ============================================================================
 
@@ -169,7 +169,7 @@ export default function StickyContactForm({
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="p-4 space-y-2.5">
-          {/* Name + Phone side by side (Trulia) */}
+          {/* Name + Phone side by side */}
           <div className="grid grid-cols-2 gap-2.5">
             <input
               type="text"

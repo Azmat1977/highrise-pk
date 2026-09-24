@@ -26,6 +26,10 @@ import {
   AmenitiesEditor,
   NearbyFacilitiesEditor,
   LocationAdvantagesEditor,
+  FeeTransparencyEditor,
+  FinishingSpecsEditor,
+  type FeeTransparencyInput,
+  type FinishingSpecsInput,
   type DevelopmentUpdateInput,
   type AmenityInput,
   type NearbyFacilityInput,
@@ -185,7 +189,31 @@ interface RawCompletedProject {
   images?: unknown;
 }
 
+interface RawFeeTransparency {
+  electricityIncluded?: unknown;
+  gasIncluded?: unknown;
+  waterIncluded?: unknown;
+  maintenanceFee?: unknown;
+  transferTax?: unknown;
+  possessionCharges?: unknown;
+  disclaimer?: unknown;
+}
+
+interface RawFinishingSpecs {
+  deliveryCondition?: unknown;
+  flooring?: unknown;
+  woodwork?: unknown;
+  kitchen?: unknown;
+  washrooms?: unknown;
+  windows?: unknown;
+  hvac?: unknown;
+  fireSafety?: unknown;
+  commercialMobility?: unknown;
+}
+
 interface RawProject {
+  feeTransparency?: RawFeeTransparency;
+  finishingSpecs?: RawFinishingSpecs;
   projectCategory?: unknown;
   projectNature?: unknown;
   projectType?: unknown;
@@ -318,6 +346,18 @@ interface ProjectUpdateBody {
   nearbyFacilities: NearbyFacilityPayload[];
   locationAdvantages: LocationAdvantagePayload[];
   paymentPlanImages: { url: string; caption: string | undefined }[];
+  feeTransparency: FeeTransparencyInput;
+  finishingSpecs: {
+    deliveryCondition: FinishingSpecsInput['deliveryCondition'];
+    flooring: string | null;
+    woodwork: string | null;
+    kitchen: string | null;
+    washrooms: string | null;
+    windows: string | null;
+    hvac: string | null;
+    fireSafety: string | null;
+    commercialMobility: string | null;
+  };
   projectDocuments: ProjectDocuments;
   buildingFloorPlans: BuildingFloorPlan[];
   unitTypeBreakdown: UnitPlan[];
@@ -607,7 +647,30 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
   const [coordinatesRaw,  setCoordinatesRaw]  = useState('');
   const [staticMapUrl,    setStaticMapUrl]    = useState<string | null>(null);
 
-  //Lists
+  // Fee Transparency & Finishing Specs
+  const [feeTransparency, setFeeTransparency] = useState<FeeTransparencyInput>({
+    electricityIncluded: false,
+    gasIncluded:         false,
+    waterIncluded:       false,
+    maintenanceFee:      '',
+    transferTax:         '',
+    possessionCharges:   '',
+    disclaimer:          '',
+  });
+
+  const [finishingSpecs, setFinishingSpecs] = useState<FinishingSpecsInput>({
+    deliveryCondition:  'semi_furnished',
+    flooring:           '',
+    woodwork:           '',
+    kitchen:            '',
+    washrooms:          '',
+    windows:            '',
+    hvac:               '',
+    fireSafety:         '',
+    commercialMobility: '',
+  });
+
+  // Lists
   const [completedProjects,   setCompletedProjects]   = useState<CompletedProject[]>([{ name: '', type: '', location: '', year: '', image: '' }]);
   const [developmentUpdates, setDevelopmentUpdates] = useState<DevelopmentUpdate[]>([]);
   const [amenities,          setAmenities]          = useState<AmenityInput[]>([]);
@@ -987,6 +1050,36 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
           );
         }
 
+        // Fee transparency
+        const ft = project.feeTransparency ?? null;
+        if (ft) {
+          setFeeTransparency({
+            electricityIncluded: !!ft.electricityIncluded,
+            gasIncluded:         !!ft.gasIncluded,
+            waterIncluded:       !!ft.waterIncluded,
+            maintenanceFee:      safeTrim(ft.maintenanceFee),
+            transferTax:         safeTrim(ft.transferTax),
+            possessionCharges:   safeTrim(ft.possessionCharges),
+            disclaimer:          safeTrim(ft.disclaimer),
+          });
+        }
+
+        // Finishing specs
+        const fs = project.finishingSpecs ?? null;
+        if (fs) {
+          setFinishingSpecs({
+            deliveryCondition:  (safeTrim(fs.deliveryCondition) as FinishingSpecsInput['deliveryCondition']) || 'semi_furnished',
+            flooring:           safeTrim(fs.flooring),
+            woodwork:           safeTrim(fs.woodwork),
+            kitchen:            safeTrim(fs.kitchen),
+            washrooms:          safeTrim(fs.washrooms),
+            windows:            safeTrim(fs.windows),
+            hvac:               safeTrim(fs.hvac),
+            fireSafety:         safeTrim(fs.fireSafety),
+            commercialMobility: safeTrim(fs.commercialMobility),
+          });
+        }
+
         setProjectDocuments((project.projectDocuments as ProjectDocuments) ?? {});
         setBuildingFloorPlans(Array.isArray(project.buildingFloorPlans) ? (project.buildingFloorPlans as BuildingFloorPlan[]) : []);
         setUnitPlans(
@@ -1323,6 +1416,18 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
         nearbyFacilities:    nearbyFacilitiesPayload,
         locationAdvantages:  locationAdvantagesPayload,
         paymentPlanImages:   paymentPlanImagesPayload,
+        feeTransparency,
+        finishingSpecs: {
+          deliveryCondition:  finishingSpecs.deliveryCondition || 'semi_furnished',
+          flooring:           toNullIfEmpty(finishingSpecs.flooring),
+          woodwork:           toNullIfEmpty(finishingSpecs.woodwork),
+          kitchen:            toNullIfEmpty(finishingSpecs.kitchen),
+          washrooms:          toNullIfEmpty(finishingSpecs.washrooms),
+          windows:            toNullIfEmpty(finishingSpecs.windows),
+          hvac:               toNullIfEmpty(finishingSpecs.hvac),
+          fireSafety:         toNullIfEmpty(finishingSpecs.fireSafety),
+          commercialMobility: toNullIfEmpty(finishingSpecs.commercialMobility),
+        },
         projectDocuments,
         buildingFloorPlans,
         unitTypeBreakdown:  unitPlans,
@@ -1726,6 +1831,12 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
 
           {/* Location advantages — display: Location section */}
           <LocationAdvantagesEditor value={locationAdvantages} onChange={setLocationAdvantages} disabled={saving} />
+
+          {/* Pricing Transparency & Utility Meters */}
+          <FeeTransparencyEditor value={feeTransparency} onChange={setFeeTransparency} disabled={saving} />
+
+          {/* Interior Finishing Specs & Handover Deliverables */}
+          <FinishingSpecsEditor value={finishingSpecs} onChange={setFinishingSpecs} disabled={saving} />
 
           {/* Payment plan images — display: Payment section cards */}
           <PaymentPlanImagesEditor value={paymentPlanImages} onChange={setPaymentPlanImages} disabled={saving} />

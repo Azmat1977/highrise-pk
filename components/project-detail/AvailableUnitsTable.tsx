@@ -1,7 +1,7 @@
 // components/project-detail/AvailableUnitsTable.tsx
 // ============================================================================
 // HIGHRISE.PK — AVAILABLE UNITS FILTER TABLE (Enterprise Accordion V4.2)
-// Flat Inventory Architecture · Trulia Layout Explorer · Trulia Contact Modal
+// Flat Inventory Architecture · Highrise Layout Explorer · Highrise Contact Modal
 // ============================================================================
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -222,7 +222,7 @@ function calcInstallmentForLayout(
     const amount = plan?.halfYearlyAmount ?? Math.round(remaining / count);
     return { bookingPercent, bookingAmount, installmentAmount: amount, installmentCount: count, freqLabel: 'Half-Yearly' };
   }
-  
+
   const count = plan?.monthlyDuration ?? 24;
   const amount = plan?.monthlyAmount ?? Math.round(remaining / Math.max(count, 1));
   return { bookingPercent, bookingAmount, installmentAmount: amount, installmentCount: count, freqLabel: 'Monthly' };
@@ -527,8 +527,6 @@ export default function AvailableUnitsTable({
 
             const groupSqft = getGroupSqftRange(group.layouts);
             const groupAreaStr = getAreaDisplay(groupSqft.minSqft, groupSqft.maxSqft, sizeUnit);
-            const representativeLayout = group.layouts.find((l) => l.image || l.imageUrl) || group.layouts[0];
-            const groupImageUrl = representativeLayout?.image || representativeLayout?.imageUrl;
 
             return (
               <div
@@ -539,42 +537,9 @@ export default function AvailableUnitsTable({
                 }}
                 className="bg-white scroll-mt-28"
               >
-                {/* Category Header */}
+                {/* Category Header (Thumbnail Removed) */}
                 <div className="w-full px-5 py-4 md:px-8 flex items-center justify-between hover:bg-gray-50/80 transition-colors group">
                   <div className="flex items-center gap-4 min-w-0 pr-4">
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        setExplorerGroup(group);
-                      }}
-                      title="Click to explore floor plans and units"
-                      className="relative w-14 h-14 md:w-16 md:h-16 shrink-0 bg-gray-50 rounded-xl overflow-hidden border border-gray-200 hover:border-[#029bba] flex items-center justify-center shadow-sm hover:shadow transition-all group/thumb"
-                    >
-                      {groupImageUrl && !String(groupImageUrl).toLowerCase().endsWith('.pdf') ? (
-                        <img
-                          src={groupImageUrl}
-                          alt={group.title}
-                          className="absolute inset-0 w-full h-full object-cover z-10"
-                          onError={(e) => {
-                            e.currentTarget.style.display = 'none';
-                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
-                          }}
-                        />
-                      ) : null}
-                      <ImageIcon
-                        className={`w-6 h-6 text-gray-300 ${
-                          groupImageUrl && !String(groupImageUrl).toLowerCase().endsWith('.pdf') ? 'hidden' : ''
-                        }`}
-                      />
-                      <div className="absolute inset-0 bg-[#001f2b]/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity z-20 flex items-center justify-center text-white">
-                        <span className="text-[10px] font-black uppercase tracking-wider bg-[#029bba] px-1.5 py-0.5 rounded">
-                          Explore
-                        </span>
-                      </div>
-                    </button>
-
                     <div className="text-left min-w-0 cursor-pointer" onClick={() => toggleGroup(group.id)}>
                       <h3 className="text-lg md:text-xl font-black text-[#001f2b] group-hover:text-[#029bba] transition-colors">
                         {group.title}
@@ -627,21 +592,21 @@ export default function AvailableUnitsTable({
                 {/* Expanded Table Content */}
                 {isExpanded && (
                   <div className="px-5 pb-6 md:px-8">
-                    
+
                     {/* Desktop View */}
                     <div className="hidden md:block bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
                       <table className="w-full text-left border-collapse table-fixed">
                         <colgroup>
-                          <col style={{ width: '25%' }} />
+                          <col style={{ width: '28%' }} /> {/* Thumbnail + Details */}
+                          <col style={{ width: '12%' }} />
                           <col style={{ width: '12%' }} />
                           <col style={{ width: '13%' }} />
-                          <col style={{ width: '15%' }} />
                           <col style={{ width: '20%' }} />
                           <col style={{ width: '15%' }} />
                         </colgroup>
                         <thead>
                           <tr className="bg-[#f8fcfd] border-b border-gray-100 text-[10px] font-black uppercase tracking-widest text-gray-400">
-                            <th className="py-3.5 px-5 text-left">Apartment Type/Details</th>
+                            <th className="py-3.5 px-5 text-left">Layout / Details</th>
                             <th className="py-3.5 px-5 text-left">Floor</th>
                             <th className="py-3.5 px-5 text-left">Unit #</th>
                             <th className="py-3.5 px-5 text-left">Area</th>
@@ -659,6 +624,9 @@ export default function AvailableUnitsTable({
                               const isSoldOut = u ? (u.status === 'sold') : ((ut.totalUnits ?? 0) > 0 && available === 0);
                               const activeArea = getExactAreaDisplay(u, ut, sizeUnit);
                               const inst = isInstallment ? calcInstallmentForLayout(activePrice, plan, payFreq) : null;
+                              
+                              // Specific unit thumbnail logic
+                              const rowImageUrl = (u && (u as any).imageUrl) || ut.image || ut.imageUrl;
 
                               return (
                                 <tr
@@ -667,26 +635,60 @@ export default function AvailableUnitsTable({
                                     isSoldOut ? 'bg-gray-50 opacity-75' : 'hover:bg-[#f4f9fb]/50 bg-white'
                                   }`}
                                 >
-                                  {/* Type / Details */}
+                                  {/* Type / Details with Thumbnail */}
                                   <td className="py-4 px-5 align-middle">
-                                    <div className="min-w-0 pr-2">
-                                      <h4 className="font-bold text-gray-900 text-[13px] leading-tight line-clamp-2">
-                                        {ut.name || ut.type || 'Standard Layout'}
-                                      </h4>
-                                      {group.id === 'commercial' ? (
-                                        <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
-                                          <Store className="w-3.5 h-3.5 text-[#029bba]" /> Commercial
+                                    <div className="flex items-center gap-3 min-w-0 pr-2">
+                                      {/* Thumbnail Click-to-Explore */}
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setExplorerGroup(group);
+                                        }}
+                                        title="View floor plan details"
+                                        className="relative w-12 h-12 shrink-0 bg-gray-50 rounded-lg overflow-hidden border border-gray-200 hover:border-[#029bba] flex items-center justify-center shadow-sm hover:shadow transition-all group/thumb"
+                                      >
+                                        {rowImageUrl && !String(rowImageUrl).toLowerCase().endsWith('.pdf') ? (
+                                          <img
+                                            src={rowImageUrl}
+                                            alt={ut.name || ut.type || 'Layout'}
+                                            className="absolute inset-0 w-full h-full object-cover z-10"
+                                            onError={(e) => {
+                                              e.currentTarget.style.display = 'none';
+                                              e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                            }}
+                                          />
+                                        ) : null}
+                                        <ImageIcon
+                                          className={`w-5 h-5 text-gray-300 ${
+                                            rowImageUrl && !String(rowImageUrl).toLowerCase().endsWith('.pdf') ? 'hidden' : ''
+                                          }`}
+                                        />
+                                        <div className="absolute inset-0 bg-[#001f2b]/40 opacity-0 group-hover/thumb:opacity-100 transition-opacity z-20 flex items-center justify-center text-white">
+                                          <ZoomIn className="w-4 h-4" />
                                         </div>
-                                      ) : (
-                                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 text-[11px] font-bold text-gray-600">
-                                          <span className="flex items-center gap-1 text-gray-700">
-                                            <Bed className="w-3.5 h-3.5 text-[#029bba]" /> {ut.bedrooms ?? 0} Bed
-                                          </span>
-                                          <span className="flex items-center gap-1 text-gray-700">
-                                            <Bath className="w-3.5 h-3.5 text-gray-400" /> {ut.bathrooms ?? 0} Bath
-                                          </span>
-                                        </div>
-                                      )}
+                                      </button>
+
+                                      <div className="min-w-0 flex-1">
+                                        <h4 className="font-bold text-gray-900 text-[13px] leading-tight line-clamp-2">
+                                          {ut.name || ut.type || 'Standard Layout'}
+                                        </h4>
+                                        {group.id === 'commercial' ? (
+                                          <div className="mt-1 flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
+                                            <Store className="w-3.5 h-3.5 text-[#029bba]" /> Commercial
+                                          </div>
+                                        ) : (
+                                          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 text-[11px] font-bold text-gray-600">
+                                            <span className="flex items-center gap-1 text-gray-700">
+                                              <Bed className="w-3.5 h-3.5 text-[#029bba]" /> {ut.bedrooms ?? 0} Bed
+                                            </span>
+                                            <span className="flex items-center gap-1 text-gray-700">
+                                              <Bath className="w-3.5 h-3.5 text-gray-400" /> {ut.bathrooms ?? 0} Bath
+                                            </span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </td>
 
@@ -801,6 +803,8 @@ export default function AvailableUnitsTable({
                           const isSoldOut = u ? (u.status === 'sold') : ((ut.totalUnits ?? 0) > 0 && available === 0);
                           const activeArea = getExactAreaDisplay(u, ut, sizeUnit);
                           const inst = isInstallment ? calcInstallmentForLayout(activePrice, plan, payFreq) : null;
+                          
+                          const rowImageUrl = (u && (u as any).imageUrl) || ut.image || ut.imageUrl;
 
                           return (
                             <div
@@ -809,20 +813,48 @@ export default function AvailableUnitsTable({
                                 isSoldOut ? 'bg-gray-50 opacity-75' : 'bg-white shadow-sm'
                               }`}
                             >
-                              <div className="min-w-0">
-                                <h4 className="font-bold text-gray-900 text-sm truncate">
-                                  {ut.name || ut.type || 'Standard Layout'}
-                                </h4>
-                                <div className="flex items-center gap-2 mt-1.5">
-                                  <div className="text-[11px] font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                                    {u ? `Floor ${u.floorName || u.floorNumber || '—'}` : 'Multiple Floors'}
+                              <div className="flex items-start gap-3 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setExplorerGroup(group);
+                                  }}
+                                  className="relative w-14 h-14 shrink-0 bg-gray-50 rounded-lg overflow-hidden border border-gray-200 flex items-center justify-center shadow-sm transition-all"
+                                >
+                                  {rowImageUrl && !String(rowImageUrl).toLowerCase().endsWith('.pdf') ? (
+                                    <img
+                                      src={rowImageUrl}
+                                      alt={ut.name || ut.type || 'Layout'}
+                                      className="absolute inset-0 w-full h-full object-cover z-10"
+                                      onError={(e) => {
+                                        e.currentTarget.style.display = 'none';
+                                        e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                                      }}
+                                    />
+                                  ) : null}
+                                  <ImageIcon className={`w-5 h-5 text-gray-300 ${rowImageUrl && !String(rowImageUrl).toLowerCase().endsWith('.pdf') ? 'hidden' : ''}`} />
+                                  <div className="absolute inset-0 bg-[#001f2b]/40 opacity-0 hover:opacity-100 transition-opacity z-20 flex items-center justify-center text-white">
+                                    <ZoomIn className="w-4 h-4" />
                                   </div>
-                                  <div className="text-[11px] font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
-                                    {u ? `Unit ${u.unitNumber || '—'}` : 'Multiple Units'}
+                                </button>
+                                
+                                <div className="min-w-0 flex-1">
+                                  <h4 className="font-bold text-gray-900 text-sm truncate">
+                                    {ut.name || ut.type || 'Standard Layout'}
+                                  </h4>
+                                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                    <div className="text-[11px] font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                      {u ? `Floor ${u.floorName || u.floorNumber || '—'}` : 'Multiple Floors'}
+                                    </div>
+                                    <div className="text-[11px] font-bold text-gray-600 bg-gray-50 px-2 py-0.5 rounded border border-gray-100">
+                                      {u ? `Unit ${u.unitNumber || '—'}` : 'Multiple Units'}
+                                    </div>
                                   </div>
-                                </div>
-                                <div className="text-[12px] font-bold text-gray-800 mt-2 whitespace-nowrap tabular-nums">
-                                  Area: {activeArea}
+                                  <div className="text-[12px] font-bold text-gray-800 mt-2 whitespace-nowrap tabular-nums">
+                                    Area: {activeArea}
+                                  </div>
                                 </div>
                               </div>
 
@@ -890,7 +922,7 @@ export default function AvailableUnitsTable({
 
       {explorerGroup && typeof document !== 'undefined' && (
         <LayoutExplorerModal
-          group={explorerGroup}
+          group={explorerGroup as GroupData}
           project={project}
           units={units}
           sizeUnit={sizeUnit}
@@ -906,7 +938,7 @@ export default function AvailableUnitsTable({
       {selectedUnitModal && (
         <UnifiedUnitModal
           layout={selectedUnitModal.layout}
-          unit={selectedUnitModal.unit}
+          unit={selectedUnitModal.unit ?? null}
           project={project}
           onClose={handleCloseModal}
           sizeUnit={sizeUnit}
@@ -917,7 +949,7 @@ export default function AvailableUnitsTable({
 }
 
 // ============================================
-// MODAL — TRULIA STYLE LAYOUT EXPLORER
+// MODAL — LAYOUT EXPLORER
 // ============================================
 
 interface LayoutExplorerModalProps {
@@ -935,15 +967,15 @@ function LayoutExplorerModal({ group, project, units, sizeUnit, payFreq, onClose
   const layout = group.layouts[activeIdx] || group.layouts[0];
   const plan = project.installmentPlan;
   const [zoomLevel, setZoomLevel] = useState(1);
-  
+
   // Pan & Zoom States
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStart = useRef({ x: 0, y: 0, panX: 0, panY: 0 });
-  
+
   // Dynamic Calculator State
   const [dpPct, setDpPct] = useState(25);
-  
+
   const backdropPointerDown = useRef(false);
 
   useEffect(() => {
@@ -1052,11 +1084,11 @@ function LayoutExplorerModal({ group, project, units, sizeUnit, payFreq, onClose
 
         {/* Split Body */}
         <div className="flex flex-col md:flex-row flex-1 overflow-y-auto min-h-0">
-          
+
           {/* LEFT: Property & Units */}
           <div className="w-full md:w-[45%] p-6 md:p-8 border-r border-gray-100 bg-white overflow-y-auto">
             <h2 className="text-2xl font-black text-[#001f2b] leading-tight">{layout.name || layout.type}</h2>
-            
+
             {activePrice > 0 ? (
               <PriceWithConverter minPKR={activePrice} displayText={priceStr} size="md" align="left" className="text-xl font-bold text-[#029bba] mt-1" />
             ) : (
@@ -1094,8 +1126,8 @@ function LayoutExplorerModal({ group, project, units, sizeUnit, payFreq, onClose
                         {u.price ? `PKR ${formatDetailPrice(u.price)}` : '—'}
                       </td>
                       <td className="py-3 px-4 flex justify-center">
-                        <button 
-                          onClick={() => onInquire(layout, u)} 
+                        <button
+                          onClick={() => onInquire(layout, u)}
                           className="px-3 py-1.5 w-full bg-white border border-[#029bba] text-[#029bba] hover:bg-[#029bba] hover:text-white rounded-lg text-[9px] font-black uppercase transition-colors"
                         >
                           Inquire
@@ -1241,7 +1273,7 @@ function LayoutExplorerModal({ group, project, units, sizeUnit, payFreq, onClose
 }
 
 // ============================================
-// MODAL — TRULIA STYLE ENTERPRISE CONTACT
+// MODAL — ENTERPRISE CONTACT
 // ============================================
 
 interface UnifiedUnitModalProps {

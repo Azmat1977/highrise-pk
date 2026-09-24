@@ -19,6 +19,7 @@ import { z } from 'zod';
 import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
 import Unit from '@/models/Unit';
+import Review from '@/models/Review';
 import DeveloperProfile from '@/models/DeveloperProfile';
 
 import { requireAdmin } from '@/lib/requireAdmin';
@@ -121,6 +122,18 @@ const AdminPatchSchema = z.discriminatedUnion('action', [
     alertId: z.string().length(24, { message: 'Invalid alert ID' }),
   }),
 
+  // ── Review Moderation (Approve) ───────────────
+  z.object({
+    action:   z.literal('approve-review'),
+    reviewId: z.string().length(24, { message: 'Invalid review ID' }),
+  }),
+
+  // ── Review Moderation (Reject) ────────────────
+  z.object({
+    action:   z.literal('reject-review'),
+    reviewId: z.string().length(24, { message: 'Invalid review ID' }),
+  }),
+
 ]) as z.ZodType<AdminPatchBody>;
 
 type AdminPatchBody =
@@ -153,7 +166,9 @@ type AdminPatchBody =
       sourceUrl?: string;
       affectedUnits?: string[];
     }
-  | { action: 'remove-alert'; alertId: string };
+  | { action: 'remove-alert'; alertId: string }
+  | { action: 'approve-review'; reviewId: string }
+  | { action: 'reject-review'; reviewId: string };
 
 // ─────────────────────────────────────────────
 // Security headers
@@ -223,10 +238,12 @@ const ACTION_STATUS_MAP: Partial<Record<string, string>> = {
   restore: 'draft',     // restore brings back to draft for re-submission
   reopen:  'pending',   // admin re-opens rejected → back in queue
   suspend: 'rejected',  // suspend uses rejected status with reason
-  // Alert sub-operations do NOT change project status
-  'add-alert':    undefined,
-  'update-alert': undefined,
-  'remove-alert': undefined,
+  // Alert & Review sub-operations do NOT change project status
+  'add-alert':      undefined,
+  'update-alert':   undefined,
+  'remove-alert':   undefined,
+  'approve-review': undefined,
+  'reject-review':  undefined,
 };
 
 // ─────────────────────────────────────────────
@@ -330,6 +347,17 @@ async function handleGet(
     unitCountMap[String(row._id ?? 'unknown')] = Number(row.count);
   }
 
+  // ── Pending Reviews ──────────────────────────
+  const pendingReviews = await Review.find({
+    entityType: 'project',
+    entityId: proj._id,
+    status: 'pending',
+    isDeleted: { $ne: true },
+  })
+    .select('_id reviewerName rating content createdAt')
+    .sort({ createdAt: -1 })
+    .lean();
+
   // ── Badge metadata ───────────────────────────
   const BADGE_LABELS: Record<string, string> = {
     new_entrant: 'New Entrant',
@@ -374,6 +402,14 @@ async function handleGet(
       },
       developerProfile,
       unitLiveCounts: unitCountMap,
+      pendingReviews: pendingReviews.map((r) => ({
+        _id:          String(r._id),
+        reviewerName: String(r.reviewerName || 'Anonymous'),
+        rating:       Number(r.rating || 0),
+        content:      String(r.content || ''),
+        status:       'pending' as const,
+        createdAt:    r.createdAt instanceof Date ? r.createdAt.toISOString() : String(r.createdAt),
+      })),
     },
   });
 }
@@ -623,6 +659,70 @@ async function handlePatch(
       }
       break;
     }
+
+    case 'approve-review': {
+      const updatedReview = await Review.findOneAndUpdate(
+        { _id: data.reviewId, entityId: proj._id, entityType: 'project' },
+        { status: 'approved', moderationNotes: `Approved by admin (${userId})` },
+        { new: true }
+      );
+      if (!updatedReview) {
+        return void res.status(404).json({
+          success: false,
+          message: 'Review not found for this project.',
+          code: 'REVIEW_NOT_FOUND',
+        });
+      }
+
+      // Recalculate live aggregate rating on the project document
+      const approvedReviews = await Review.find({
+        entityId: proj._id,
+        entityType: 'project',
+        status: 'approved',
+        isDeleted: { $ne: true },
+      }).select('rating').lean();
+
+      const totalReviews = approvedReviews.length;
+      const avgRating = totalReviews > 0
+        ? approvedReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
+        : 0;
+
+      proj.totalReviews = totalReviews;
+      proj.averageRating = parseFloat(avgRating.toFixed(2));
+      break;
+    }
+
+    case 'reject-review': {
+      const updatedReview = await Review.findOneAndUpdate(
+        { _id: data.reviewId, entityId: proj._id, entityType: 'project' },
+        { status: 'rejected', moderationNotes: `Rejected by admin (${userId})` },
+        { new: true }
+      );
+      if (!updatedReview) {
+        return void res.status(404).json({
+          success: false,
+          message: 'Review not found for this project.',
+          code: 'REVIEW_NOT_FOUND',
+        });
+      }
+
+      // Recalculate aggregate rating in case a previously approved review was rejected
+      const approvedReviews = await Review.find({
+        entityId: proj._id,
+        entityType: 'project',
+        status: 'approved',
+        isDeleted: { $ne: true },
+      }).select('rating').lean();
+
+      const totalReviews = approvedReviews.length;
+      const avgRating = totalReviews > 0
+        ? approvedReviews.reduce((sum, r) => sum + (r.rating || 0), 0) / totalReviews
+        : 0;
+
+      proj.totalReviews = totalReviews;
+      proj.averageRating = parseFloat(avgRating.toFixed(2));
+      break;
+    }
   }
 
   await project.save();
@@ -640,15 +740,17 @@ async function handlePatch(
 
   // ── Audit log ────────────────────────────────
   const severityMap: Record<string, 'low' | 'medium' | 'high'> = {
-    verify:         'high',
-    reject:         'high',
-    feature:        'low',
-    restore:        'medium',
-    reopen:         'medium',
-    suspend:        'high',
-    'add-alert':    'high',
-    'update-alert': 'medium',
-    'remove-alert': 'medium',
+    verify:           'high',
+    reject:           'high',
+    feature:          'low',
+    restore:          'medium',
+    reopen:           'medium',
+    suspend:          'high',
+    'add-alert':      'high',
+    'update-alert':   'medium',
+    'remove-alert':   'medium',
+    'approve-review': 'low',
+    'reject-review':  'low',
   };
 
   await logSecurityEvent({
@@ -689,9 +791,11 @@ async function handlePatch(
     restore:        'Project restored from trash. Status reset to draft.',
     reopen:         'Project reopened. Status set to pending for re-review.',
     suspend:        'Project suspended successfully.',
-    'add-alert':    'Risk alert added to project successfully.',
-    'update-alert': 'Risk alert updated successfully.',
-    'remove-alert': 'Risk alert removed successfully.',
+    'add-alert':      'Risk alert added to project successfully.',
+    'update-alert':   'Risk alert updated successfully.',
+    'remove-alert':   'Risk alert removed successfully.',
+    'approve-review': 'Community review approved and published.',
+    'reject-review':  'Community review rejected successfully.',
   };
 
   return void res.status(200).json({

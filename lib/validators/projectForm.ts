@@ -86,14 +86,25 @@ const FloorPlanInputSchema = z.object({
 });
 
 const DocumentsInputSchema = z.object({
-  brochureUrl:       z.string().url().max(2048).nullable().optional(),
-  brochurePublicId:  z.string().max(512).nullable().optional(),
-  priceListUrl:      z.string().url().max(2048).nullable().optional(),
-  priceListPublicId: z.string().max(512).nullable().optional(),
-  masterPlanUrl:     z.string().url().max(2048).nullable().optional(),
-  masterPlanPublicId: z.string().max(512).nullable().optional(),
-  paymentPlanUrl:    z.string().url().max(2048).nullable().optional(),
-  paymentPlanPublicId: z.string().max(512).nullable().optional(),
+  brochureUrl:               z.string().url().max(2048).nullable().optional(),
+  brochurePublicId:          z.string().max(512).nullable().optional(),
+  priceListUrl:              z.string().url().max(2048).nullable().optional(),
+  priceListPublicId:         z.string().max(512).nullable().optional(),
+  masterPlanUrl:             z.string().url().max(2048).nullable().optional(),
+  masterPlanPublicId:        z.string().max(512).nullable().optional(),
+  paymentPlanUrl:            z.string().url().max(2048).nullable().optional(),
+  paymentPlanPublicId:       z.string().max(512).nullable().optional(),
+  // View-Only Legal & Collateral Vault Assets (Rule Set B View-Only Compliant)
+  nocUrl:                    z.string().url().max(2048).nullable().optional(),
+  nocPublicId:               z.string().max(512).nullable().optional(),
+  secpUrl:                   z.string().url().max(2048).nullable().optional(),
+  secpPublicId:              z.string().max(512).nullable().optional(),
+  layoutMapUrl:              z.string().url().max(2048).nullable().optional(),
+  layoutMapPublicId:         z.string().max(512).nullable().optional(),
+  environmentCertUrl:        z.string().url().max(2048).nullable().optional(),
+  environmentCertPublicId:   z.string().max(512).nullable().optional(),
+  authorityLicenseUrl:       z.string().url().max(2048).nullable().optional(),
+  authorityLicensePublicId:  z.string().max(512).nullable().optional(),
 });
 
 const UnitTypeInputSchema = z.object({
@@ -155,6 +166,28 @@ const FullPaymentInputSchema = z.object({
   pricePerUnit:   z.number().min(0).optional(),
   notes:          nullableTrimmed(500).optional(),
 }).nullable();
+
+export const FeeTransparencyInputSchema = z.object({
+  electricityIncluded: z.boolean().default(false),
+  gasIncluded:         z.boolean().default(false),
+  waterIncluded:       z.boolean().default(false),
+  maintenanceFee:      nullableTrimmed(200).optional(),
+  transferTax:         nullableTrimmed(200).optional(),
+  possessionCharges:   nullableTrimmed(200).optional(),
+  disclaimer:          nullableTrimmed(500).optional(),
+});
+
+export const FinishingSpecsInputSchema = z.object({
+  deliveryCondition:   z.enum(['grey_structure', 'semi_furnished', 'fully_furnished']).optional(),
+  flooring:            nullableTrimmed(200).optional(),
+  woodwork:            nullableTrimmed(200).optional(),
+  kitchen:             nullableTrimmed(200).optional(),
+  washrooms:           nullableTrimmed(200).optional(),
+  windows:             nullableTrimmed(200).optional(),
+  hvac:                nullableTrimmed(200).optional(),
+  fireSafety:          nullableTrimmed(200).optional(),
+  commercialMobility:  nullableTrimmed(200).optional(),
+});
 
 const DiscountOffersInputSchema = z.object({
   fullCashDiscount: z.object({
@@ -230,6 +263,10 @@ export const ProjectContentSchema = z.object({
   expectedCompletionDate: dateStr.optional(),
   possessionStartDate:    dateStr.optional(),
   developmentProgress:    z.number().min(0).max(100).optional(),
+  // Milestone Progress Delays (Mapped to construction delays tracker)
+  delayReason:            nullableTrimmed(1000).optional(),
+  revisedDeliveryDate:    dateStr.optional(),
+  verifiedByHighriseAt:   dateStr.optional(),
 
   // Legal
   approvalAuthority:         nullableTrimmed(50).optional(),
@@ -278,6 +315,8 @@ export const ProjectContentSchema = z.object({
   installmentPlan: InstallmentPlanInputSchema.optional(),
   fullPaymentInfo: FullPaymentInputSchema.optional(),
   discountOffers:  DiscountOffersInputSchema.optional(),
+  feeTransparency: FeeTransparencyInputSchema.optional(),
+  finishingSpecs:  FinishingSpecsInputSchema.optional(),
 
   // Media
   featureImageUrl:     nullableTrimmed(2048).optional(),
@@ -331,11 +370,12 @@ const DIRECT_KEYS = [
   'projectCategory', 'projectNature',
   'launchDate', 'expectedCompletionDate', 'possessionStartDate',
   'developmentProgress',
+  'delayReason', 'revisedDeliveryDate', 'verifiedByHighriseAt',
   'approvalAuthority', 'isApproved', 'nocStatus', 'nocNumber',
   'societyRegistrationNumber', 'environmentClearance', 'buildingPlanApproved',
   'totalArea', 'totalBlocks', 'totalUnits', 'unitsSold', 'unitsAvailable',
   'minPrice', 'maxPrice', 'minArea', 'maxArea', 'areaUnit', 'marketingBadge', 'priceRangeText', 'saleMode',
-  'paymentMeta', 'installmentPlan', 'fullPaymentInfo', 'discountOffers',
+  'paymentMeta', 'installmentPlan', 'fullPaymentInfo', 'discountOffers', 'feeTransparency', 'finishingSpecs',
   'featureImageUrl', 'featureImagePublicId', 'droneVideoUrl', 'virtualTourUrl',
   'projectDocuments', 'buildingFloorPlans', 'unitTypeBreakdown',
   'amenitiesDetailed', 'nearbyFacilities', 'locationAdvantages',

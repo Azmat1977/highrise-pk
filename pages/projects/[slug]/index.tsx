@@ -25,14 +25,14 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import ProjectDetailHero   from '@/components/project-detail/ProjectDetailHero';
-import QuickActionsBar     from '@/components/project-detail/QuickActionsBar';
-import DeveloperTrustCard      from '@/components/project-detail/DeveloperTrustCard';
-import FAQSection                from '@/components/project-detail/FAQSection';
-import HomeLoanCalculator        from '@/components/project-detail/HomeLoanCalculator';
+import ProjectDetailHero         from '@/components/project-detail/ProjectDetailHero';
+import QuickActionsBar           from '@/components/project-detail/QuickActionsBar';
+import DeveloperTrustCard        from '@/components/project-detail/DeveloperTrustCard';
+import ProjectReviewsSection     from '@/components/project-detail/ProjectReviewsSection';
 import SimilarProjectsSection    from '@/components/project-detail/SimilarProjectsSection';
 import ProjectAbout              from '@/components/project-detail/ProjectAbout';
 import ProjectOverview           from '@/components/project-detail/ProjectOverview';
+import EnterprisePropertySpecs   from '@/components/project-detail/EnterprisePropertySpecs';
 import BuildingHighlights        from '@/components/project-detail/BuildingHighlights';
 import NeighborhoodInsights      from '@/components/project-detail/NeighborhoodInsights';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
@@ -734,7 +734,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
 
         {/*
 ═════════════════════════════════════════════════════════════════════════════════════════════════
-            MAIN CONTENT — TWO COLUMN LAYOUT (Trulia Style Grid)
+            MAIN CONTENT — TWO COLUMN LAYOUT (Grid)
 ═════════════════════════════════════════════════════════════════════════════════════════════════ */}
         <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-8 lg:py-10">
         {/* minmax(0,1fr) prevents grid blowout so CTA right-edge = hero right-edge */}
@@ -758,7 +758,10 @@ export default function ProjectDetailPage({ project }: PageProps) {
             {/* ABOUT / DESCRIPTION */}
             <ProjectAbout project={project} />
 
-            {/* AMENITIES */}
+            {/* INFRASTRUCTURE & HARD SPECS */}
+            <EnterprisePropertySpecs project={projectAsDetail} />
+
+            {/* LIFESTYLE AMENITIES */}
             {(() => {
               const detailed = Array.isArray(project.amenitiesDetailed)
                 ? project.amenitiesDetailed
@@ -787,7 +790,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
                   : legacyUnique.map((name) => ({ name, category: 'General' }));
 
               return (
-                <BuildingHighlights amenities={merged} showEmptyState={true} />
+                <BuildingHighlights amenities={merged} />
               );
             })()}
 
@@ -1217,13 +1220,18 @@ export default function ProjectDetailPage({ project }: PageProps) {
               }}
             />
 
+            {/* ══════════════════════════════════════
+                PROJECT REVIEWS & COMMUNITY RATINGS
+            ══════════════════════════════════════ */}
+            <ProjectReviewsSection project={projectAsDetail} />
+
           {/* DeveloperTrustCard moved higher — see after AI Risk Summary */}
 
         </div>{/* end FULL WIDTH SECTIONS */}
       </div>{/* end max-w-[1120px] */}
 
       {/* ══════════════════════════════════════
-          SIMILAR PROJECTS (4 Categories)
+          SIMILAR PROJECTS (Discovery Exit Ramp)
       ══════════════════════════════════════ */}
       <SimilarProjectsSection
         currentProjectId={project._id}
@@ -1231,31 +1239,7 @@ export default function ProjectDetailPage({ project }: PageProps) {
         currentCategory={project.projectCategory}
         currentMinPrice={overallMinPrice}
         currentMaxPrice={overallMaxPrice}
-      />
-
-      {/* ══════════════════════════════════════
-          HOME LOAN CALCULATOR
-      ══════════════════════════════════════ */}
-      <HomeLoanCalculator
-        propertyPrice={overallMinPrice || project.minPrice || 0}
-        projectName={project.projectName}
-        projectSlug={project.slug}
-      />
-
-      {/* ══════════════════════════════════════
-          FAQ SECTION
-      ══════════════════════════════════════ */}
-      <FAQSection
-        projectName={project.projectName}
-        city={project.city}
-        area={areaDisplay}
-        minPrice={overallMinPrice}
-        maxPrice={overallMaxPrice}
-        possessionDate={project.possessionStartDate}
-        saleMode={project.saleMode}
-        developerName={developerName}
-        approvalAuthority={project.approvalAuthority}
-        nocStatus={project.nocStatus}
+        currentDeveloperId={project.developer || project.developerId}
       />
 
       {/* ══════════════════════════════════════

@@ -42,8 +42,14 @@ import {
   Share2,
   BarChart3,
   Check,
+  Crown,
+  Bed,
+  Maximize2,
+  Lightbulb,
 } from 'lucide-react';
 
+import { useSession } from 'next-auth/react';
+import AuthGateModal from '@/components/auth/AuthGateModal';
 import ShareMenu from '@/components/projects/ShareMenu';
 import { useFavorites } from '@/hooks/useFavorites';
 import { useCompare }   from '@/hooks/useCompare';
@@ -51,8 +57,10 @@ import { useCompare }   from '@/hooks/useCompare';
 import {
   type ProjectListing,
   type DeveloperBadge,
+  type ProjectCategory,
   formatPriceRange,
   formatAreaRange,
+  PROJECT_CATEGORY_LABELS,
 } from '@/types/projects';
 import UniversalInquiryModal from '@/components/UniversalInquiryModal';
 
@@ -63,6 +71,7 @@ export type ProjectListingCardVariant = 'featured' | 'grid' | 'list' | 'compact'
 export interface ProjectListingCardProps {
   project:      ProjectListing;
   variant?:     ProjectListingCardVariant;
+  isPromoted?:  boolean;
   onShortlist?: (id: string, next: boolean) => void;
   className?:   string;
 }
@@ -265,6 +274,10 @@ function FeaturedCard({
 }: FeaturedCardProps): React.ReactElement {
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [shareOpen,   setShareOpen]   = useState(false);
+  const [authOpen,    setAuthOpen]    = useState(false);
+
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
 
   // Enterprise favorites integration (guest + logged-in unified)
   const { isFavorite, toggle, actionState } = useFavorites({
@@ -563,6 +576,10 @@ function FeaturedCard({
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (!isLoggedIn) {
+              setAuthOpen(true);
+              return;
+            }
             await toggleCompare(project._id);
           }}
           disabled={comparePending || (!inCompare && isMaxReached)}
@@ -583,6 +600,13 @@ function FeaturedCard({
             : <BarChart3 className="w-3.5 h-3.5" />}
           {inCompare ? 'Added to Compare' : 'Add to Compare'}
         </button>
+
+        <AuthGateModal
+          isOpen={authOpen}
+          onClose={() => setAuthOpen(false)}
+          actionDescription="compare projects"
+          title="Compare Projects"
+        />
 
         {/* Inquiry Modal — mounts only when open */}
         <UniversalInquiryModal
@@ -609,13 +633,19 @@ function FeaturedCard({
 
 function GridCard({
   project,
+  isPromoted = false,
   onShortlist,
 }: {
   project:     ProjectListing;
+  isPromoted?: boolean;
   onShortlist?: (id: string, next: boolean) => void;
 }): React.ReactElement {
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [shareOpen,   setShareOpen]   = useState(false);
+  const [authOpen,    setAuthOpen]    = useState(false);
+
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
 
   const { isFavorite, toggle, actionState } = useFavorites({
     defaultEntityType: 'project',
@@ -650,9 +680,11 @@ function GridCard({
 
   return (
     <article
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm
-                 overflow-hidden hover:shadow-xl hover:border-[#029bba]/20
-                 transition-all duration-300 group"
+      className={`rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 group ${
+        isPromoted
+          ? 'bg-gradient-to-b from-[#029bba]/[0.05] to-white border-2 border-[#029bba]/40 ring-1 ring-[#029bba]/20'
+          : 'bg-white border border-gray-100 hover:border-[#029bba]/20'
+      }`}
       aria-label={project.projectName}
     >
       {/* Image */}
@@ -677,17 +709,23 @@ function GridCard({
           <ImagePlaceholder />
         )}
 
-        {/* Badges */}
-        <div className="absolute top-3 left-3 flex gap-1.5 flex-wrap">
-          {project.isFeatured && (
-            <span
-              className="px-2 py-0.5 rounded-full bg-[#029bba] text-white
-                         text-[10px] font-bold"
-            >
+        {/* Badges - Constrained width to prevent overlapping action buttons */}
+        <div className="absolute top-3 left-3 max-w-[70%] flex gap-1.5 flex-wrap items-start z-10">
+          {isPromoted ? (
+            <span className="px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-semibold tracking-wide uppercase shadow-sm border border-amber-300/50 flex items-center gap-1">
+              <Crown className="w-3 h-3 text-white fill-white flex-shrink-0" /> PROMOTED
+            </span>
+          ) : project.isFeatured ? (
+            <span className="px-2 py-0.5 rounded-full bg-[#029bba] text-white text-[10px] font-bold">
               Featured
             </span>
-          )}
+          ) : null}
           <PossessionBadge status={project.projectStatus} />
+          {typeof project.unitsAvailable === 'number' && project.unitsAvailable > 0 && project.unitsAvailable <= 5 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold tracking-wide uppercase shadow-sm border border-rose-400/30">
+              <Zap className="w-3 h-3 text-white fill-white flex-shrink-0" /> Only {project.unitsAvailable} Units Left
+            </span>
+          )}
         </div>
 
         {/* Top-right: Share + Heart */}
@@ -791,10 +829,40 @@ function GridCard({
         {/* Price */}
         <p className="text-base font-black text-[#029bba] mb-1">{priceStr}</p>
 
-        {/* Area */}
-        {areaStr && (
-          <p className="text-xs text-gray-500 mb-3">{areaStr}</p>
-        )}
+        {/* Smart Context Zone (Residential vs Commercial + Payment Terms) */}
+        <div className="my-2.5 p-2.5 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-600 space-y-1.5">
+          {project.projectNature === 'commercial' || project.projectCategory === 'commercial_plaza' ? (
+            <div className="flex items-center gap-1.5 font-bold text-[#004063]">
+              <Building2 className="w-3.5 h-3.5 text-[#029bba]" />
+              <span>Commercial Shops, Offices & Spaces</span>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center justify-between gap-2 font-semibold">
+              {project.minBedrooms !== null && (
+                <span>Bedrooms: {project.minBedrooms === project.maxBedrooms ? `${project.minBedrooms} Bed` : `${project.minBedrooms} - ${project.maxBedrooms} Beds`}</span>
+              )}
+              {areaStr && <span>Area: {areaStr}</span>}
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+            {project.nocStatus === 'approved' ? (
+              <div className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold">
+                <BadgeCheck className="w-3 h-3 text-emerald-600" />
+                <span>{project.nocAuthority ? `${project.nocAuthority} Approved` : 'NOC Approved'}</span>
+              </div>
+            ) : (
+              <span className="text-[11px] text-gray-400 font-medium">NOC Pending</span>
+            )}
+
+            {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && (
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#029bba]/10 text-[#029bba] text-[10px] font-bold rounded">
+                <CreditCard className="w-3 h-3" />
+                Installments
+              </span>
+            )}
+          </div>
+        </div>
 
         {/* Footer */}
         <div className="flex items-center gap-2 pt-3 border-t border-gray-50">
@@ -834,6 +902,10 @@ function GridCard({
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (!isLoggedIn) {
+              setAuthOpen(true);
+              return;
+            }
             await toggleCompare(project._id);
           }}
           disabled={comparePending || (!inCompare && isMaxReached)}
@@ -854,6 +926,13 @@ function GridCard({
             : <BarChart3 className="w-3 h-3" />}
           {inCompare ? 'In Compare' : 'Compare'}
         </button>
+
+        <AuthGateModal
+          isOpen={authOpen}
+          onClose={() => setAuthOpen(false)}
+          actionDescription="compare projects"
+          title="Compare Projects"
+        />
 
         {/* Inquiry Modal */}
         <UniversalInquiryModal
@@ -882,13 +961,19 @@ function GridCard({
 
 function ListCard({
   project,
+  isPromoted = false,
   onShortlist,
 }: {
   project:      ProjectListing;
+  isPromoted?:  boolean;
   onShortlist?: (id: string, next: boolean) => void;
 }): React.ReactElement {
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [shareOpen,   setShareOpen]   = useState(false);
+  const [authOpen,    setAuthOpen]    = useState(false);
+
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
 
   const { isFavorite, toggle, actionState } = useFavorites({
     defaultEntityType: 'project',
@@ -925,10 +1010,11 @@ function ListCard({
 
   return (
     <article
-      className="bg-white rounded-2xl border border-gray-100 shadow-sm
-                 overflow-hidden hover:shadow-xl hover:border-[#029bba]/20
-                 transition-all duration-300 group
-                 flex flex-col md:flex-row"
+      className={`rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 group flex flex-col md:flex-row ${
+        isPromoted
+          ? 'bg-gradient-to-b from-[#029bba]/[0.05] to-white border-2 border-[#029bba]/40 ring-1 ring-[#029bba]/20'
+          : 'bg-white border border-gray-100 hover:border-[#029bba]/20'
+      }`}
       aria-label={project.projectName}
     >
       {/* ═══════════════════════════════════════════════════
@@ -956,41 +1042,65 @@ function ListCard({
         )}
 
         {/* Top-left badges */}
-        <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-          {project.isFeatured && (
-            <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
-                         bg-[#029bba] text-white text-[10px] font-bold shadow-md"
-            >
-              ⭐ Featured
+        <div className="absolute top-3 left-3 flex flex-col gap-1.5 z-10">
+          {isPromoted ? (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 text-white text-[10px] font-semibold tracking-wide uppercase shadow-sm border border-amber-300/50">
+              <Crown className="w-3 h-3 text-white fill-white flex-shrink-0" /> PROMOTED
+            </span>
+          ) : project.isFeatured ? (
+            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#029bba] text-white text-[10px] font-bold shadow-md">
+              Featured
+            </span>
+          ) : null}
+          <PossessionBadge status={project.projectStatus} />
+          {typeof project.unitsAvailable === 'number' && project.unitsAvailable > 0 && project.unitsAvailable <= 5 && (
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-rose-600 text-white text-[10px] font-bold tracking-wide uppercase shadow-sm border border-rose-400/30">
+              <Zap className="w-3 h-3 text-white fill-white flex-shrink-0" /> Only {project.unitsAvailable} Units Left
             </span>
           )}
-          <PossessionBadge status={project.projectStatus} />
         </div>
 
-        {/* Heart — top right */}
-        <button
-          onClick={handleShortlist}
-          disabled={isFavoritePending}
-          aria-label={shortlisted ? 'Remove from shortlist' : 'Add to shortlist'}
-          aria-pressed={shortlisted}
-          className="absolute top-3 right-3 w-8 h-8 rounded-full
-                     bg-white/95 backdrop-blur-sm shadow-md
-                     flex items-center justify-center
-                     hover:scale-110 transition-transform duration-200
-                     focus:outline-none focus:ring-2 focus:ring-[#029bba]
-                     disabled:opacity-70 disabled:cursor-wait"
-        >
-          <Heart
-            className={`w-4 h-4 transition-all duration-200 ${
-              isFavoritePending ? 'animate-pulse' : ''
-            } ${
-              shortlisted
-                ? 'fill-red-500 text-red-500'
-                : 'text-gray-400 hover:text-red-400'
-            }`}
-          />
-        </button>
+        {/* Top-right overlay actions */}
+        <div className="absolute top-3 right-3 flex flex-col gap-1.5 z-20">
+          <button
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setShareOpen(true);
+            }}
+            aria-label="Share this project"
+            className="w-8 h-8 rounded-full
+                       bg-white/95 backdrop-blur-sm shadow-md
+                       flex items-center justify-center
+                       hover:scale-110 transition-transform duration-200
+                       focus:outline-none focus:ring-2 focus:ring-[#029bba]"
+          >
+            <Share2 className="w-4 h-4 text-gray-400 hover:text-[#029bba] transition-colors" />
+          </button>
+
+          <button
+            onClick={handleShortlist}
+            disabled={isFavoritePending}
+            aria-label={shortlisted ? 'Remove from shortlist' : 'Add to shortlist'}
+            aria-pressed={shortlisted}
+            className="w-8 h-8 rounded-full
+                       bg-white/95 backdrop-blur-sm shadow-md
+                       flex items-center justify-center
+                       hover:scale-110 transition-transform duration-200
+                       focus:outline-none focus:ring-2 focus:ring-[#029bba]
+                       disabled:opacity-70 disabled:cursor-wait"
+          >
+            <Heart
+              className={`w-4 h-4 transition-all duration-200 ${
+                isFavoritePending ? 'animate-pulse' : ''
+              } ${
+                shortlisted
+                  ? 'fill-red-500 text-red-500'
+                  : 'text-gray-400 hover:text-red-400'
+              }`}
+            />
+          </button>
+        </div>
 
         {/* Image count — bottom right */}
         {project.imageCount > 1 && (
@@ -1071,7 +1181,7 @@ function ListCard({
           <ShieldBar score={project.shield.total} />
         </div>
 
-        {/* Meta chips row — spread out */}
+        {/* Meta chips row - Lucide icons only, no raw emoji */}
         <div className="flex items-center gap-2 flex-wrap mb-4">
           <NocBadge
             status={project.nocStatus}
@@ -1084,28 +1194,30 @@ function ListCard({
                          bg-[#029bba]/10 text-[#029bba] text-[10px] font-bold"
             >
               <Building2 className="w-3 h-3" />
-              {project.projectCategory}
+              {PROJECT_CATEGORY_LABELS[project.projectCategory as ProjectCategory]
+                || project.projectCategory}
             </span>
           )}
 
           {hasBeds && (
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
                          bg-gray-100 text-gray-700 text-[10px] font-bold"
             >
-              🛏️{' '}
+              <Bed className="w-3.5 h-3.5 text-[#029bba]" />
               {project.minBedrooms === project.maxBedrooms
                 ? `${project.minBedrooms} Bed`
-                : `${project.minBedrooms}–${project.maxBedrooms} Bed`}
+                : `${project.minBedrooms} - ${project.maxBedrooms} Beds`}
             </span>
           )}
 
           {hasArea && (
             <span
-              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
                          bg-gray-100 text-gray-700 text-[10px] font-bold"
             >
-              📐 {areaStr}
+              <Maximize2 className="w-3.5 h-3.5 text-[#029bba]" />
+              {areaStr}
             </span>
           )}
         </div>
@@ -1229,6 +1341,10 @@ function ListCard({
           onClick={async (e) => {
             e.preventDefault();
             e.stopPropagation();
+            if (!isLoggedIn) {
+              setAuthOpen(true);
+              return;
+            }
             await toggleCompare(project._id);
           }}
           disabled={comparePending || (!inCompare && isMaxReached)}
@@ -1250,6 +1366,13 @@ function ListCard({
           {inCompare ? 'In Comparison' : 'Add to Compare'}
         </button>
 
+        <AuthGateModal
+          isOpen={authOpen}
+          onClose={() => setAuthOpen(false)}
+          actionDescription="compare projects"
+          title="Compare Projects"
+        />
+
         {/* Share Modal */}
         <ShareMenu
           project={project}
@@ -1257,16 +1380,18 @@ function ListCard({
           onClose={() => setShareOpen(false)}
         />
 
-        {/* Fair Price link — if available */}
+        {/* Fair Price link - if available */}
         {project.fairPriceUrl && (
           <Link
             href={project.fairPriceUrl}
-            className="w-full text-center text-[10px] font-bold
+            className="w-full inline-flex items-center justify-center gap-1.5
+                       text-center text-[10px] font-bold
                        text-amber-600 hover:text-amber-700
                        hover:underline transition-colors
                        mt-1 pt-2 border-t border-gray-100"
           >
-            💡 Check Fair Price
+            <Lightbulb className="w-3.5 h-3.5" />
+            Check Fair Price
           </Link>
         )}
       </div>
@@ -1361,6 +1486,7 @@ function CompactCard({
 export default function ProjectListingCard({
   project,
   variant     = 'grid',
+  isPromoted  = false,
   onShortlist,
   className   = '',
 }: ProjectListingCardProps): React.ReactElement {
@@ -1378,12 +1504,14 @@ export default function ProjectListingCard({
       {variant === 'list' && (
         <ListCard
           project={project}
+          isPromoted={isPromoted}
           onShortlist={onShortlist}
         />
       )}
       {variant === 'grid' && (
         <GridCard
           project={project}
+          isPromoted={isPromoted}
           onShortlist={onShortlist}
         />
       )}

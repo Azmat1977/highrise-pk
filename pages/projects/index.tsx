@@ -1,54 +1,88 @@
 /**
- * pages/projects/_new.tsx
- * New Projects Listing Page — V2 Master Build
- * All types → @/types/projects
- * All section components → @/components/projects/
+ * pages/projects/index.tsx
+ * New Projects Listing Page - Enterprise Results-First Architecture
+ * 
+ * Replaces the old multi-section discovery layout with a fast,
+ * high-converting 1120px grid layout focused strictly on search and filter.
  */
 
 import type { GetServerSideProps, NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useState, useCallback } from 'react';
-import { Building2 } from 'lucide-react';
+import { useState, useCallback, useEffect } from 'react';
+import Link from 'next/link';
+import { useSession } from 'next-auth/react';
+import AuthGateModal from '@/components/auth/AuthGateModal';
+
+import {
+  Search,
+  MapPin,
+  Building2,
+  Banknote,
+  ShieldCheck,
+  RotateCcw,
+  Home,
+  ChevronRight,
+  Filter,
+  X,
+  CreditCard,
+  Clock,
+  ArrowUp,
+  Sparkles,
+} from 'lucide-react';
 
 import {
   type FilterState,
   type ProjectsPageProps,
   type SortOption,
-  type DeveloperBadge,
-  type PropertyType,
   type ProjectListing,
-  type CityCount,
-  type BudgetBand,
-  type TabCount,
+  type PropertyType,
+  type ProjectCategory,
+  type ProjectNature,
+  type PossessionStatus,
+  type BudgetTierKey,
+  type ReadyPropertyItem,
   DEFAULT_FILTERS,
   buildQueryString,
   parseFiltersFromQuery,
   escapeRegExp,
   computeStubShield,
+  PROJECT_CATEGORY_LABELS,
+  PROJECT_NATURE_LABELS,
+  BUDGET_TIERS,
+  getMatchingBudgetTier,
+  budgetTierToRange,
 } from '@/types/projects';
 
-import { HeroSection }       from '@/components/projects/HeroSection';
-import { BrowseByCategory }  from '@/components/projects/BrowseByCategory';
-import { ShieldTrustRow }    from '@/components/projects/ShieldTrustRow';
-import { DiscoveryTabs }     from '@/components/projects/DiscoveryTabs';
-import { FeaturedShowcase }  from '@/components/projects/FeaturedShowcase';
-import { BrowseByCity }      from '@/components/projects/BrowseByCity';
-import { HotspotAreas }      from '@/components/projects/HotspotAreas';
-import { MainProjectGrid }   from '@/components/projects/MainProjectGrid';
+const POSSESSION_OPTIONS: Array<{ value: PossessionStatus; label: string }> = [
+  { value: 'ready_to_move',      label: 'Ready to Move' },
+  { value: 'under_construction', label: 'Under Construction' },
+  { value: 'new_launch',         label: 'New Launch' },
+  { value: 'pre_launch',         label: 'Pre-Launch' },
+];
+
+import { MainProjectGrid } from '@/components/projects/MainProjectGrid';
+import { FilterDropdown }  from '@/components/projects/FilterDropdown';
+import { ReadyPropertiesCrossSell } from '@/components/projects/ReadyPropertiesCrossSell';
+import { SeoLocalityGuide } from '@/components/projects/SeoLocalityGuide';
+import Property from '@/models/Property';
 
 import dbConnect from '@/lib/dbConnect';
 import Project   from '@/models/Projects';
-import { logSecurityEvent }          from '@/lib/security/logSecurityEvent';
+import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import {
   getCityCounts,
   getProjectCategoryCounts,
   getProjectNatureCounts,
   getHotspotAreas,
 } from '@/lib/cache/projectAggregations';
-  
 
-// ─────────────────────────────────────────────────────────────────────────────
+const PAKISTAN_CITIES = [
+  'Islamabad', 'Lahore', 'Karachi', 'Rawalpindi', 'Multan', 'Peshawar',
+  'Faisalabad', 'Sialkot', 'Gujranwala', 'Bahawalpur', 'Sargodha',
+  'Hyderabad', 'Quetta', 'Sukkur', 'Larkana', 'Sheikhupura', 'Jhelum',
+  'Mardan', 'Mirpur', 'Abbottabad', 'Kasur', 'Okara', 'Sahiwal',
+];
 
 const NewProjectsPage: NextPage<ProjectsPageProps> = ({
   initialFilters,
@@ -62,53 +96,70 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
   platformStats,
   tabCounts,
   featuredProjects,
+  readyProperties = [],
 }) => {
-  const router  = useRouter();
+  const router = useRouter();
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
+
   const [filters, setFilters] = useState<FilterState>(initialFilters);
   const [loading, setLoading] = useState(false);
+  const [searchTerm, setSearchTerm] = useState(filters.locality || '');
+  const [isSticky, setIsSticky] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
-  // ── Enterprise UX: Results-First Layout ───────────────────
-  // When user has ANY filter applied, reorder sections to show
-  // results FIRST (tabs → featured → hotspots) and push discovery
-  // sections BELOW (categories → trust tools → browse cities).
-  //
-  // Matches Zameen/MagicBricks/Zillow pattern: users who narrowed
-  // their intent should see what they asked for immediately, not
-  // scroll past 6 exploration sections to find results.
-  const hasActiveFilter = Boolean(
-    filters.city
-    || filters.category
-    || filters.nature
-    || filters.type
-    || filters.minBudget
-    || filters.maxBudget
-    || filters.possession
-    || filters.noc
-    || filters.installments
-    || filters.locality
-    || filters.builder
-  );
+  useEffect(() => {
+    setSearchTerm(filters.locality || '');
+  }, [filters.locality]);
 
-  // Sync filters → URL
-  // ENTERPRISE PATTERN: Full navigation (shallow: false) forces SSR to
-  // re-run with new query params. This means:
-  //   - All sections get city-scoped data
-  //   - No stale Pakistan-wide data leaks into filtered views
-  //   - Every count, card, hotspot respects the selected city
-  //   - Matches Zameen/MagicBricks/Zillow behavior
-  //
-  // Trade-off: 500ms-1s delay on filter change (SSR re-run + hydrate)
-  // This is acceptable — enterprise correctness > instant illusion.
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const handleSaveSearchClick = () => {
+    if (!isLoggedIn) {
+      setIsAuthModalOpen(true);
+    } else {
+      setToast({
+        message: `Search saved successfully! We will notify you of new verified projects in ${filters.city || 'Pakistan'}.`,
+        type: 'success',
+      });
+    }
+  };
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 150) {
+        setIsSticky(true);
+      } else {
+        setIsSticky(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleSearchSubmit = () => {
+    if (searchTerm !== (filters.locality || '')) {
+      updateFilters({ locality: searchTerm });
+    }
+  };
+
+  // Sync filters to URL (SSR rerun)
   const updateFilters = useCallback(
     (patch: Partial<FilterState>) => {
       const next = { ...filters, ...patch, page: 1 };
       setFilters(next);
-      setLoading(true);  // Show loading state during SSR re-run
+      setLoading(true);
       const qs = buildQueryString(next);
       void router.push(
         `/projects${qs ? `?${qs}` : ''}`,
         undefined,
-        { shallow: false, scroll: false }  // ← FULL SSR RE-RUN
+        { shallow: false, scroll: false }
       );
     },
     [filters, router]
@@ -120,7 +171,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
 
   const pageDesc = filters.city
     ? `Browse ${totalCount}+ verified new projects in ${filters.city}. NOC approved, trusted developers. Highrise.pk.`
-    : `Discover ${totalCount}+ verified new projects across Pakistan. Highrise.pk — Pehli Eent Se Aakhri Mirror Tak.`;
+    : `Discover ${totalCount}+ verified new projects across Pakistan. Highrise.pk - Pehli Eent Se Aakhri Mirror Tak.`;
 
   const canonical = filters.city
     ? `https://highrise.pk/projects?city=${encodeURIComponent(filters.city)}`
@@ -137,7 +188,32 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
 
   const noindex = activeFilterCount >= 3 || filters.page > 1;
 
-  // Directory Schemas for Google Rich Snippets
+  // Merge static cities with live DB counts. Sort active to top.
+  const citiesToShow = (() => {
+    const countMap = new Map<string, number>();
+    cityCounts.forEach(c => countMap.set(c.city.toLowerCase(), c.count));
+
+    const merged = PAKISTAN_CITIES.map(cityName => ({
+      city: cityName,
+      count: countMap.get(cityName.toLowerCase()) ?? 0,
+    }));
+
+    const staticSet = new Set(PAKISTAN_CITIES.map(c => c.toLowerCase()));
+    cityCounts.forEach(c => {
+      if (!staticSet.has(c.city.toLowerCase())) {
+        merged.push({ city: c.city, count: c.count });
+      }
+    });
+
+    return merged.sort((a, b) => {
+      if (a.count > 0 && b.count === 0) return -1;
+      if (a.count === 0 && b.count > 0) return 1;
+      if (a.count !== b.count) return b.count - a.count;
+      return a.city.localeCompare(b.city);
+    });
+  })();
+
+  // JSON-LD Schema
   const projectDirectoryJsonLd = [
     {
       '@context': 'https://schema.org',
@@ -175,11 +251,9 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
         <meta property="og:url"         content={canonical} />
         <meta property="og:title"       content={pageTitle} />
         <meta property="og:description" content={pageDesc} />
-        <meta property="og:image"
-          content="https://highrise.pk/og-projects.jpg" />
-        <meta name="twitter:card"
-          content="summary_large_image" />
-        <meta name="twitter:title"       content={pageTitle} />
+        <meta property="og:image" content="https://highrise.pk/og-projects.jpg" />
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={pageTitle} />
         <meta name="twitter:description" content={pageDesc} />
         <script
           type="application/ld+json"
@@ -187,270 +261,326 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
         />
       </Head>
 
+      {toast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm sm:max-w-md">
+          {toast.type === 'success' ? (
+            <ShieldCheck className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+          ) : (
+            <X className="w-5 h-5 text-red-500 flex-shrink-0" />
+          )}
+          <span className="text-xs font-semibold text-gray-800 leading-tight">
+            {toast.message}
+          </span>
+          <button onClick={() => setToast(null)} className="ml-auto text-gray-400 hover:text-gray-600 transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <AuthGateModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        actionDescription="save search alerts"
+        title="Save Search Alerts"
+      />
+
       <div className="bg-gray-50 min-h-screen">
+        {/* ENTERPRISE 1120PX CONTAINER SHELL */}
+        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-6 md:py-8 space-y-6">
 
-        {/* Tools bar moved to a dedicated mid-page section (built later
-            as "Smart Tools" — positioned between Browse by City and
-            Browse by Budget sections for contextual relevance).
-            Tools remain globally accessible via header "Tools ▾" menu. */}
+          {/* BREADCRUMBS & HEADER ZONE */}
+          <div>
+            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+              <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+                <Home className="w-3.5 h-3.5" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3 h-3 text-gray-300" />
+              <Link href="/projects" className="hover:text-[#029bba] font-medium transition-colors">
+                New Projects
+              </Link>
+              {filters.city && (
+                <>
+                  <ChevronRight className="w-3 h-3 text-gray-300" />
+                  <span className="text-[#004063] font-bold">{filters.city}</span>
+                </>
+              )}
+            </nav>
 
-        {/* ════════════════════════════════════════════════════
-            UNIFIED HERO — Breadcrumb + H1 + Trust Chips +
-            Search Panel + Filters + Stats Bar
-            All in ONE cohesive centered dark section.
-            Replaces old Breadcrumb + PageHeader + HeroSearch trio.
-        ════════════════════════════════════════════════════ */}
-        <HeroSection
-          filters={filters}
-          updateFilters={updateFilters}
-          cityCounts={cityCounts}
-          categoryCounts={categoryCounts}
-          totalCount={totalCount}
-          platformStats={platformStats}
-          loading={loading}
-        />
-
-        {/* ══════════════════════════════════════════════════════
-            ENTERPRISE RESULTS-FIRST LAYOUT
-            When a filter is active, results appear IMMEDIATELY
-            below the hero. When no filter, discovery sections
-            lead (users are exploring).
-            Matches Zameen/MagicBricks/Zillow behavior.
-        ══════════════════════════════════════════════════════ */}
-
-        {hasActiveFilter ? (
-          /* ══════════════════════════════════════════════════
-              RESULTS MODE — user has narrowed intent
-              Order: Tabs → Featured → Hotspots → Divider → Discovery
-          ══════════════════════════════════════════════════ */
-          <>
-            {/* SECTION 5 — Discovery Tabs (MOVED UP for instant refinement) */}
-            <DiscoveryTabs
-              filters={filters}
-              updateFilters={updateFilters}
-              tabCounts={tabCounts}
-            />
-
-            {/* Grid anchor — DiscoveryTabs auto-scrolls here on click */}
-            <div id="project-grid" />
-
-            {/* SECTION 6 — Featured Showcase (RESULTS — main event) */}
-            <FeaturedShowcase
-              featuredProjects={featuredProjects}
-              selectedCity={filters.city || null}
-              onClearCity={() => updateFilters({ city: '', locality: '' })}
-              onShortlist={undefined}
-            />
-
-            {/* SECTION 7 — Hotspot Areas (narrow to neighborhood) */}
-            <HotspotAreas
-              filters={filters}
-              updateFilters={updateFilters}
-              hotspots={hotspots}
-            />
-
-            {/* ════════════════════════════════════════════════
-                SECTION 10 — Main Project Grid (RESULTS MODE)
-                The MAIN event — all matching projects.
-                Load More (3x) → Pagination hybrid.
-                Uses ProjectListingCard 'grid' variant.
-            ════════════════════════════════════════════════ */}
-            <MainProjectGrid
-              filters={filters}
-              updateFilters={updateFilters}
-              initialProjects={initialProjects}
-              totalCount={totalCount}
-            />
-
-            {/* ═══════ VISUAL DIVIDER — "Discover More" ═══════
-                Clear separation between "your results" and
-                "explore other options" — enterprise UX cue */}
-            <section
-              className="relative bg-gradient-to-b from-white
-                         to-gray-50 py-12 md:py-16"
-              aria-label="Discover more sections divider"
-            >
-              <div className="max-w-7xl mx-auto px-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1 h-px bg-gradient-to-r
-                                  from-transparent to-gray-200" />
-                  <div className="inline-flex items-center gap-3 px-6 py-3
-                                  rounded-full bg-white border-2
-                                  border-gray-100 shadow-sm">
-                    <div className="w-2 h-2 rounded-full bg-[#029bba]
-                                    animate-pulse" />
-                    <span className="text-xs font-black text-gray-700
-                                     uppercase tracking-[0.2em]">
-                      Discover More
-                    </span>
-                    <div className="w-2 h-2 rounded-full bg-[#029bba]
-                                    animate-pulse" />
-                  </div>
-                  <div className="flex-1 h-px bg-gradient-to-l
-                                  from-transparent to-gray-200" />
-                </div>
-
-                <p className="text-center text-sm text-gray-500 mt-4
-                              font-semibold">
-                  Explore more ways to find your perfect property
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[#004063] tracking-tight">
+                  {filters.city ? `Explore Verified Projects in ${filters.city}` : 'Explore Verified Projects in Pakistan'}
+                </h1>
+                <p className="text-xs md:text-sm text-gray-600 font-semibold mt-1 flex flex-wrap items-center gap-2">
+                  <span>{totalCount.toLocaleString()} Verified Projects</span>
+                  <span className="text-gray-300">|</span>
+                  <span className="text-emerald-600 font-bold">NOC Approved</span>
+                  <span className="text-gray-300">|</span>
+                  <span className="text-[#029bba] font-bold">Easy Installment Plans</span>
                 </p>
               </div>
-            </section>
 
-            {/* SECTION 3 — Browse by Category (MOVED DOWN — exploration) */}
-            <BrowseByCategory
-              filters={filters}
-              updateFilters={updateFilters}
-              categoryCounts={categoryCounts}
-              natureCounts={natureCounts}
-            />
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+                <button
+                  type="button"
+                  onClick={handleSaveSearchClick}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#004063] hover:to-[#029bba] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                >
+                  <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>Save Search & Get Alerts</span>
+                </button>
 
-            {/* SECTION 4 — Trust Tools (MOVED DOWN — trust reinforcement) */}
-            <ShieldTrustRow
-              platformStats={platformStats}
-              selectedCity={filters.city || null}
-            />
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => updateFilters(DEFAULT_FILTERS)}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    Reset Filters ({activeFilterCount})
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
-            {/* SECTION 8 — Browse by City (MOVED DOWN — change city) */}
-            <BrowseByCity
-              filters={filters}
-              updateFilters={updateFilters}
-              cityCounts={cityCounts}
-            />
-          </>
-        ) : (
-          /* ══════════════════════════════════════════════════
-              DISCOVERY MODE — no filter, user is browsing
-              Order: Categories → Trust → Tabs → Featured → City → Hotspots
-              (original layout for exploration)
-          ══════════════════════════════════════════════════ */
-          <>
-            {/* SECTION 3 — Browse by Project Type */}
-            <BrowseByCategory
-              filters={filters}
-              updateFilters={updateFilters}
-              categoryCounts={categoryCounts}
-              natureCounts={natureCounts}
-            />
+          {/* ENTERPRISE SEARCH & FILTER BAR */}
+          <div className={`transition-all duration-300 md:sticky md:top-[64px] z-30 bg-white rounded-2xl border shadow-sm p-4 space-y-4 relative ${
+            isSticky
+              ? 'md:bg-white/95 md:backdrop-blur-md md:border-gray-300 md:shadow-md md:py-3 md:px-5'
+              : 'border-gray-200 md:p-5'
+          }`}>
 
-            {/* SECTION 4 — Trust Tools */}
-            <ShieldTrustRow
-              platformStats={platformStats}
-              selectedCity={filters.city || null}
-            />
+            {/* Search Input Row */}
+            <div className="flex flex-col md:flex-row gap-3">
+              <div className="flex-1 relative">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchSubmit();
+                    }
+                  }}
+                  placeholder="Search project name, locality, or developer..."
+                  className="w-full h-11 pl-10 pr-24 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:outline-none transition-all"
+                />
+                <button
+                  type="button"
+                  onClick={handleSearchSubmit}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3.5 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                >
+                  Search
+                </button>
+              </div>
 
-            {/* SECTION 5 — Discovery Tabs */}
-            <DiscoveryTabs
-              filters={filters}
-              updateFilters={updateFilters}
-              tabCounts={tabCounts}
-            />
+              <div className="w-full md:w-56">
+                <FilterDropdown
+                  icon={MapPin}
+                  placeholder="All Cities"
+                  value={filters.city || ''}
+                  onChange={(v) => updateFilters({ city: v })}
+                  searchable
+                  options={[
+                    { value: '', label: 'All Cities' },
+                    ...citiesToShow.map((c) => ({
+                      value: c.city,
+                      label: c.city,
+                      count: c.count > 0 ? c.count : undefined,
+                    })),
+                  ]}
+                />
+              </div>
+            </div>
 
-            {/* Grid anchor — DiscoveryTabs auto-scrolls here on click */}
-            <div id="project-grid" />
+            {/* Filter Dropdowns Row */}
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 relative z-30">
+              <FilterDropdown
+                icon={Building2}
+                placeholder="Category"
+                value={filters.category || ''}
+                onChange={(v) => updateFilters({ category: v as ProjectCategory | '' })}
+                options={[
+                  { value: '', label: 'All Categories' },
+                  ...(Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[]).map((key) => ({
+                    value: key,
+                    label: PROJECT_CATEGORY_LABELS[key],
+                  })),
+                ]}
+              />
 
-            {/* SECTION 6 — Featured Showcase */}
-            <FeaturedShowcase
-              featuredProjects={featuredProjects}
-              selectedCity={filters.city || null}
-              onClearCity={() => updateFilters({ city: '', locality: '' })}
-              onShortlist={undefined}
-            />
+              <FilterDropdown
+                icon={Clock}
+                placeholder="Possession"
+                value={filters.possession || ''}
+                onChange={(v) => updateFilters({ possession: v as PossessionStatus | '' })}
+                options={[
+                  { value: '', label: 'Any Possession' },
+                  ...POSSESSION_OPTIONS.map((opt) => ({
+                    value: opt.value,
+                    label: opt.label,
+                  })),
+                ]}
+              />
 
-            {/* SECTION 8 — Browse by City (before Section 7 in funnel) */}
-            <BrowseByCity
-              filters={filters}
-              updateFilters={updateFilters}
-              cityCounts={cityCounts}
-            />
+              <FilterDropdown
+                icon={Banknote}
+                placeholder="Budget Tier"
+                value={getMatchingBudgetTier(filters.minBudget, filters.maxBudget) || ''}
+                onChange={(v) => updateFilters(budgetTierToRange(v as BudgetTierKey | ''))}
+                options={[
+                  { value: '', label: 'Any Budget' },
+                  ...BUDGET_TIERS.map((t) => ({ value: t.key, label: t.label })),
+                ]}
+              />
 
-            {/* SECTION 7 — Hotspot Areas */}
-            <HotspotAreas
-              filters={filters}
-              updateFilters={updateFilters}
-              hotspots={hotspots}
-            />
+              <button
+                type="button"
+                onClick={() => updateFilters({ installments: !filters.installments })}
+                className={`h-11 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  filters.installments
+                    ? 'bg-[#029bba] border-[#029bba] text-white shadow-sm'
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-[#029bba]/40 hover:text-[#029bba]'
+                }`}
+              >
+                <CreditCard className="w-4 h-4" />
+                <span>Installments</span>
+              </button>
 
-            {/* ════════════════════════════════════════════════
-                SECTION 10 — Main Project Grid (DISCOVERY MODE)
-                Even in browse mode, users can scroll to see all
-                projects. Placed at end so discovery sections
-                lead the exploration flow.
-            ════════════════════════════════════════════════ */}
+              <button
+                type="button"
+                onClick={() => updateFilters({ noc: !filters.noc })}
+                className={`h-11 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  filters.noc
+                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-[#029bba]/40 hover:text-[#029bba]'
+                }`}
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>NOC Approved</span>
+              </button>
+            </div>
+
+            {/* Active Filter Chips Bar */}
+            {activeFilterCount > 0 && (
+              <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-gray-400">Active Filters:</span>
+                
+                {filters.city && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
+                    City: {filters.city}
+                    <button type="button" onClick={() => updateFilters({ city: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+
+                {filters.locality && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
+                    Locality: {filters.locality}
+                    <button type="button" onClick={() => updateFilters({ locality: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+
+                {filters.category && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
+                    {PROJECT_CATEGORY_LABELS[filters.category] || filters.category}
+                    <button type="button" onClick={() => updateFilters({ category: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+
+                {filters.possession && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
+                    {POSSESSION_OPTIONS.find(p => p.value === filters.possession)?.label || filters.possession}
+                    <button type="button" onClick={() => updateFilters({ possession: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+
+                {filters.installments && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#029bba]/10 text-[#029bba] border border-[#029bba]/20 rounded-lg text-xs font-bold">
+                    On Installments
+                    <button type="button" onClick={() => updateFilters({ installments: false })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+
+                {filters.noc && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold">
+                    NOC Approved
+                    <button type="button" onClick={() => updateFilters({ noc: false })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                  </span>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => updateFilters(DEFAULT_FILTERS)}
+                  className="text-xs font-bold text-red-600 hover:underline ml-2"
+                >
+                  Clear All
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* MAIN PROJECT RESULTS GRID */}
+          <div className="relative z-10">
             <MainProjectGrid
               filters={filters}
               updateFilters={updateFilters}
               initialProjects={initialProjects}
               totalCount={totalCount}
             />
-          </>
-        )}
-
-        {/* Sections 11–18: inserted below as components */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="bg-white rounded-2xl border-2 border-dashed
-                          border-gray-200 p-12 text-center">
-            <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-            <p className="text-gray-500 font-semibold mb-1">
-              Section 10 complete ✅ · Main Project Grid live
-            </p>
-            <p className="text-xs text-gray-400">
-              Next up: Section 9 — Browse by Budget &amp; Possession Timeline
-            </p>
           </div>
+
+          {/* PRIORITY 2: EXIT-INTENT READY PROPERTIES CROSS-SELL */}
+          <ReadyPropertiesCrossSell
+            properties={readyProperties}
+            city={filters.city}
+          />
+
+          {/* SEO & LOCALITY GUIDE */}
+          <SeoLocalityGuide city={filters.city} />
         </div>
 
+        {/* Floating Back to Top Button (Centered to avoid Aleem Chat widget clash) */}
+        <div className={`fixed bottom-6 left-0 right-0 flex justify-center z-40 transition-all duration-300 pointer-events-none ${
+          isSticky ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-90'
+        }`}>
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label="Scroll to top"
+            className="pointer-events-auto w-12 h-12 rounded-full bg-[#029bba] hover:bg-[#004063] text-white flex items-center justify-center shadow-xl hover:shadow-2xl transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#029bba]/50 border-2 border-white"
+          >
+            <ArrowUp className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </>
   );
 };
 
-// ─── SSR ─────────────────────────────────────────────────────────────────────
-
-export const getServerSideProps: GetServerSideProps<
-  ProjectsPageProps
-> = async ({ query, req }) => {
+export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async ({ query, req }) => {
   try {
-    // ── Lightweight IP-based rate limit for SSR ───────────
-    // rateLimitApi expects NextApiRequest (API routes only).
-    // In SSR context we use Upstash Redis directly with the
-    // client IP extracted from headers.
-    const clientIp =
-      (req.headers['x-forwarded-for'] as string | undefined)
-        ?.split(',')[0]
-        ?.trim() ??
-      req.socket?.remoteAddress ??
-      'unknown';
+    const clientIp = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? req.socket?.remoteAddress ?? 'unknown';
 
-    // ── Rate limit check (fail-open on Redis outage) ──────
-    // If Upstash Redis is unreachable, we ALLOW the request
-    // rather than block legitimate users. Rate limiting is a
-    // performance/abuse safeguard, not a critical dependency.
     let rateLimitOk = true;
     try {
       const { Ratelimit } = await import('@upstash/ratelimit');
       const { Redis }     = await import('@upstash/redis');
-
       const ratelimit = new Ratelimit({
         redis:   Redis.fromEnv(),
-        limiter: Ratelimit.slidingWindow(60, '1 m'), // 60 req/min per IP
+        limiter: Ratelimit.slidingWindow(60, '1 m'),
         prefix:  'rl:projects:ssr',
       });
-
       const result = await ratelimit.limit(clientIp);
       rateLimitOk = result.success;
     } catch (rlErr) {
-      // eslint-disable-next-line no-console
-      console.warn(
-        '[projects-ssr] Rate limit check failed — allowing request:',
-        rlErr instanceof Error ? rlErr.message : 'unknown error'
-      );
-      // Fail-open: continue serving the page
       rateLimitOk = true;
     }
 
     if (!rateLimitOk) {
-      // Genuine rate limit hit — soft degradation with empty props
       return {
         props: {
           initialFilters:   DEFAULT_FILTERS,
@@ -461,24 +591,16 @@ export const getServerSideProps: GetServerSideProps<
           natureCounts:     [],
           budgetBands:      [],
           hotspots:         [],
-          platformStats: {
-            totalProjects:   0,
-            totalDevelopers: 0,
-            totalVerified:   0,
-            totalCities:     0,
-          },
+          platformStats: { totalProjects: 0, totalDevelopers: 0, totalVerified: 0, totalCities: 0 },
           tabCounts:        [],
           featuredProjects: [],
+          readyProperties:  [],
         },
       };
     }
 
     await dbConnect();
-
-    const filters = parseFiltersFromQuery(
-      query as Record<string, string | string[] | undefined>
-    );
-
+    const filters = parseFiltersFromQuery(query as Record<string, string | string[] | undefined>);
     const base: Record<string, unknown> = {
       isDeleted:               { $ne: true },
       status:                  'verified',
@@ -487,40 +609,27 @@ export const getServerSideProps: GetServerSideProps<
     };
 
     if (filters.city) {
-      base.city = {
-        $regex: new RegExp(`^${escapeRegExp(filters.city)}$`, 'i'),
-      };
+      base.city = { $regex: new RegExp(`^${escapeRegExp(filters.city)}$`, 'i') };
     }
-
-    // NOTE: filters.type is a PropertyType (Flats/Plots/Shops etc.)
-    // Not applied at project level — property types describe
-    // individual units inside projects, not the project itself.
-
     if (filters.category) {
-      base.projectCategory = {
-        $regex: new RegExp(escapeRegExp(filters.category), 'i'),
-      };
+      base.projectCategory = { $regex: new RegExp(escapeRegExp(filters.category), 'i') };
     }
-
     if (filters.nature) {
-      base.projectNature = {
-        $regex: new RegExp(escapeRegExp(filters.nature), 'i'),
-      };
+      base.projectNature = { $regex: new RegExp(escapeRegExp(filters.nature), 'i') };
     }
-
-    if (filters.noc)          base.nocStatus = 'approved';
-    if (filters.installments) base.saleMode  = { $in: ['Installment', 'Both'] };
+    if (filters.noc) base.nocStatus = 'approved';
+    if (filters.installments) base.saleMode = { $in: ['Installment', 'Both'] };
+    
     if (filters.possession) {
       const map: Record<string, string> = {
-        ready_to_move:      'Completed',
+        ready_to_move: 'Completed',
         under_construction: 'Under Construction',
-        new_launch:         'Launched',
-        pre_launch:         'Pre-Launch',
+        new_launch: 'Launched',
+        pre_launch: 'Pre-Launch',
       };
-      if (map[filters.possession]) {
-        base.projectStatus = map[filters.possession];
-      }
+      if (map[filters.possession]) base.projectStatus = map[filters.possession];
     }
+    
     if (filters.minBudget || filters.maxBudget) {
       const pf: Record<string, number> = {};
       if (filters.minBudget) pf.$gte = filters.minBudget;
@@ -537,9 +646,8 @@ export const getServerSideProps: GetServerSideProps<
     };
 
     const PAGE_SIZE = 12;
-    const skip      = (filters.page - 1) * PAGE_SIZE;
+    const skip = (filters.page - 1) * PAGE_SIZE;
 
-    // ── Parallel: projects + count + cached aggregations ──
     const [
       rawProjects,
       total,
@@ -555,312 +663,60 @@ export const getServerSideProps: GetServerSideProps<
         .select({
           _id: 1, slug: 1, projectName: 1, tagline: 1,
           city: 1, area: 1, projectCategory: 1,
-          projectNature: 1, projectStatus: 1,
+          projectNature: 1, projectStatus: 1, saleMode: 1,
           isVerified: 1, isFeatured: 1, isTrustedBuilder: 1,
           developerBadge: 1, minPrice: 1, maxPrice: 1,
-          highriseScore: 1, nocStatus: 1,
-          featureImageUrl: 1, 'images.url': 1,
-          'images.isPrimary': 1,
-          developerId: 1,
-          'developerProfile.name': 1,
-          'developerProfile.logoUrl': 1,
+          highriseScore: 1, nocStatus: 1, approvalAuthority: 1,
+          unitsAvailable: 1, totalUnits: 1,
+          featureImageUrl: 1, 'images.url': 1, 'images.isPrimary': 1,
+          developerId: 1, 'developerProfile.name': 1, 'developerProfile.logoUrl': 1,
+          'unitTypeBreakdown.areaRangeMarla': 1,
+          'unitTypeBreakdown.bedrooms': 1,
           createdAt: 1,
         })
         .maxTimeMS(5000)
         .lean(),
-
       Project.countDocuments(base).maxTimeMS(3000),
-
-      getCityCounts(),                        // cached — city counts
-      getProjectCategoryCounts(base),         // cached — project categories
-      getProjectNatureCounts(base),           // cached — project nature
-      getHotspotAreas(filters.city || undefined), // cached — hotspot areas
+      getCityCounts(),
+      getProjectCategoryCounts(base),
+      getProjectNatureCounts(base),
+      getHotspotAreas(filters.city || undefined),
     ]);
 
-    // ── Platform stats + Tab counts (parallel) ────────────
-    // verifiedBase: Pakistan-wide baseline (for platform totals)
-    const verifiedBase = {
-      isDeleted:               { $ne: true },
-      status:                  'verified',
-      verificationStatus:      'verified',
-      developerApprovalStatus: 'approved',
-    };
-
-    // cityAwareBase: same as verifiedBase but includes city filter.
-    // Used for ALL tab counts + featured projects so they respect
-    // the user's selected city (enterprise cascading filter pattern).
-    // If no city selected → identical to verifiedBase.
-    const cityAwareBase: Record<string, unknown> = { ...verifiedBase };
-    if (filters.city) {
-      cityAwareBase.city = {
-        $regex: new RegExp(`^${escapeRegExp(filters.city)}$`, 'i'),
-      };
-    }
-
-    const [
-      totalProjects,       // Pakistan-wide (hero stats bar bottom)
-      totalVerified,       // Pakistan-wide (hero stats bar bottom)
-      cityScopedTotal,     // City-scoped (Section 4 Card 1)
-      cityScopedVerified,  // City-scoped (Section 4 Card 2 fallback)
-      cityScopedNoc,       // City-scoped (Section 4 Card 3)
-      countAll,
-      countReady,
-      countInstallments,
-      countNewLaunch,
-      countTopRated,
-      countGovtApproved,
-    ] = await Promise.all([
-      // Platform stats — INTENTIONALLY Pakistan-wide (hero stats bar
-      // shows total platform reach, not filtered subset)
-      Project.countDocuments({
-        isDeleted: { $ne: true }, status: 'verified',
-      }).maxTimeMS(2000),
-      Project.countDocuments({
-        isDeleted: { $ne: true }, isVerified: true,
-      }).maxTimeMS(2000),
-
-      // City-scoped stats for Section 4 (Shield Trust Row cards)
-      // If no city selected → same as Pakistan-wide
-      // If city selected → only that city's counts
-      Project.countDocuments(cityAwareBase).maxTimeMS(2000),
-      Project.countDocuments({
-        ...cityAwareBase, isVerified: true,
-      }).maxTimeMS(2000),
-      Project.countDocuments({
-        ...cityAwareBase, nocStatus: 'approved',
-      }).maxTimeMS(2000),
-
-      // Tab counts — CITY-AWARE
-      Project.countDocuments(cityAwareBase).maxTimeMS(2000),
-
-      // Tab: Ready to Move
-      Project.countDocuments({
-        ...cityAwareBase, projectStatus: 'Completed',
-      }).maxTimeMS(2000),
-
-      // Tab: On Installments (saleMode = Installment or Both)
-      Project.countDocuments({
-        ...cityAwareBase, saleMode: { $in: ['Installment', 'Both'] },
-      }).maxTimeMS(2000),
-
-      // Tab: New Launches
-      Project.countDocuments({
-        ...cityAwareBase,
-        projectStatus: { $in: ['Launched', 'Pre-Launch'] },
-      }).maxTimeMS(2000),
-
-      // Tab: Top Rated (highriseScore ≥ 70)
-      Project.countDocuments({
-        ...cityAwareBase, highriseScore: { $gte: 70 },
-      }).maxTimeMS(2000),
-
-      // Tab: Govt Approved (NOC approved)
-      Project.countDocuments({
-        ...cityAwareBase, nocStatus: 'approved',
-      }).maxTimeMS(2000),
-    ]);
-
-    const tabCounts: TabCount[] = [
-      { key: 'all_projects',  count: countAll           },
-      { key: 'ready_to_move', count: countReady         },
-      { key: 'installments',  count: countInstallments  },
-      { key: 'new_launch',    count: countNewLaunch     },
-      { key: 'top_rated',     count: countTopRated      },
-      { key: 'govt_approved', count: countGovtApproved  },
-    ];
-
-    const projects: ProjectListing[] = (
-      rawProjects as Array<Record<string, unknown>>
-    ).map(p => {
+    const projects: ProjectListing[] = (rawProjects as Array<Record<string, unknown>>).map(p => {
       let primaryImage: string | null = null;
       if (typeof p.featureImageUrl === 'string') {
         primaryImage = p.featureImageUrl;
       } else if (Array.isArray(p.images) && p.images.length > 0) {
         const imgs = p.images as Array<{ url?: string; isPrimary?: boolean }>;
-        primaryImage =
-          imgs.find(i => i?.isPrimary)?.url ?? imgs[0]?.url ?? null;
+        primaryImage = imgs.find(i => i?.isPrimary)?.url ?? imgs[0]?.url ?? null;
       }
 
-      const dev  = p.developerProfile as
-        { name?: string; logoUrl?: string } | undefined;
-      const score = typeof p.highriseScore === 'number'
-        ? p.highriseScore : 0;
-      const noc   = (p.nocStatus as string | undefined) ?? 'not_applied';
+      const dev = p.developerProfile as { name?: string; logoUrl?: string } | undefined;
+      const score = typeof p.highriseScore === 'number' ? p.highriseScore : 0;
+      const noc = (p.nocStatus as string | undefined) ?? 'not_applied';
 
-      return {
-        _id:              String(p._id ?? ''),
-        slug:             String(p.slug ?? ''),
-        projectName:      String(p.projectName ?? ''),
-        tagline:          typeof p.tagline === 'string' ? p.tagline : null,
-        city:             String(p.city ?? ''),
-        area:             String(p.area ?? ''),
-        locality:         null,
-        propertyType:     ['flats'] as PropertyType[],
-        projectCategory:  String(p.projectCategory ?? ''),
-        projectNature:    String(p.projectNature ?? ''),
-        projectStatus:    'under_construction' as const,
-        minPrice:         typeof p.minPrice === 'number' ? p.minPrice : null,
-        maxPrice:         typeof p.maxPrice === 'number' ? p.maxPrice : null,
-        priceOnRequest:   typeof p.minPrice !== 'number',
-        minAreaMarla:     null,
-        maxAreaMarla:     null,
-        minBedrooms:      null,
-        maxBedrooms:      null,
-        possessionDate:   null,
-        possessionQuarter:null,
-        isVerified:       Boolean(p.isVerified),
-        nocStatus:        noc as 'approved' | 'pending' | 'not_applied',
-        nocAuthority:     null,
-        nocNumber:        null,
-        legalDocumentUrl: null,
-        shield:           computeStubShield({
-          nocStatus:      noc as 'approved' | 'pending' | 'not_applied',
-          isVerified:     Boolean(p.isVerified),
-          developerBadge: typeof p.developerBadge === 'string'
-                          ? p.developerBadge : null,
-          highriseScore:  score,
-        }),
-        developerId:      p.developerId ? String(p.developerId) : null,
-        developerName:    dev?.name ?? '',
-        developerSlug:    '',
-        developerLogoUrl: dev?.logoUrl ?? null,
-        developerBadge:   typeof p.developerBadge === 'string'
-                          ? p.developerBadge as DeveloperBadge
-                          : null,
-        isTrustedBuilder: Boolean(p.isTrustedBuilder),
-        marketedBy:       null,
-        primaryImage,
-        imageCount:       Array.isArray(p.images) ? p.images.length : 0,
-        isShortlisted:    false,
-        inquiryCount:     null,
-        amenities:        [],
-        fairPriceUrl:     String(p.slug ?? '')
-                          ? `/tools/fair-price?project=${String(p.slug)}`
-                          : null,
-        isFeatured:       Boolean(p.isFeatured),
-        highriseScore:    score,
-        createdAt:        p.createdAt instanceof Date
-                          ? p.createdAt.toISOString()
-                          : String(p.createdAt ?? ''),
-      };
-    });
-
-    const budgetBands: BudgetBand[] = [
-      { key: 'under_50L', label: 'Under 50 Lakh',  minPKR: null,       maxPKR: 5_000_000,  count: 0 },
-      { key: '50L_1Cr',   label: '50L – 1 Crore',  minPKR: 5_000_000,  maxPKR: 10_000_000, count: 0 },
-      { key: '1Cr_2Cr',   label: '1 Cr – 2 Crore', minPKR: 10_000_000, maxPKR: 20_000_000, count: 0 },
-      { key: 'above_2Cr', label: 'Above 2 Crore',  minPKR: 20_000_000, maxPKR: null,       count: 0 },
-    ];
-
-    // ── Section 6: 3-tier featured project selection ──────────
-    // Shared select projection for all 3 tiers
-    const featuredSelect = {
-      _id: 1, slug: 1, projectName: 1, tagline: 1,
-      city: 1, area: 1, projectCategory: 1,
-      projectNature: 1, projectStatus: 1,
-      isVerified: 1, isFeatured: 1, isTrustedBuilder: 1,
-      developerBadge: 1, minPrice: 1, maxPrice: 1,
-      highriseScore: 1, nocStatus: 1, approvalAuthority: 1,
-      featureImageUrl: 1, 'images.url': 1,
-      'images.isPrimary': 1,
-      developerId: 1,
-      'developerProfile.name': 1,
-      'developerProfile.logoUrl': 1,
-      saleMode: 1, inquiries: 1, createdAt: 1,
-      // Area + bedroom data from unit breakdown
-      'unitTypeBreakdown.areaRangeMarla': 1,
-      'unitTypeBreakdown.bedrooms': 1,
-    };
-
-    // ── Section 6 featured tiers — ALL CITY-AWARE ─────────
-    // Enterprise pattern: If Rawalpindi selected but has 0 featured
-    // projects → featuredRaw = [] → FeaturedShowcase shows empty state
-    // with "No featured in Rawalpindi yet" message.
-    // Never mix cities (misleading user trust).
-
-    // Tier 1 — explicitly featured in current city
-    const featTier1Raw = await Project.find({
-      ...cityAwareBase,
-      isFeatured: true,
-    })
-      .sort({ highriseScore: -1, createdAt: -1 })
-      .limit(8)
-      .select(featuredSelect)
-      .maxTimeMS(3000)
-      .lean();
-
-    // Tier 2 — high shield score in current city
-    const needed2      = 8 - featTier1Raw.length;
-    const tier1Ids     = featTier1Raw.map(p => p._id);
-    const featTier2Raw = needed2 > 0
-      ? await Project.find({
-          ...cityAwareBase,
-          highriseScore: { $gte: 70 },
-          _id: { $nin: tier1Ids },
-        })
-          .sort({ highriseScore: -1 })
-          .limit(needed2)
-          .select(featuredSelect)
-          .maxTimeMS(3000)
-          .lean()
-      : [];
-
-    // Tier 3 — latest verified in current city
-    const needed3      = 8 - featTier1Raw.length - featTier2Raw.length;
-    const tier2Ids     = featTier2Raw.map(p => p._id);
-    const featTier3Raw = needed3 > 0
-      ? await Project.find({
-          ...cityAwareBase,
-          isVerified: true,
-          _id: { $nin: [...tier1Ids, ...tier2Ids] },
-        })
-          .sort({ createdAt: -1 })
-          .limit(needed3)
-          .select(featuredSelect)
-          .maxTimeMS(3000)
-          .lean()
-      : [];
-
-    // Combine all tiers — Tier 1 always first
-    const featuredRaw = [
-      ...featTier1Raw,
-      ...featTier2Raw,
-      ...featTier3Raw,
-    ] as Array<Record<string, unknown>>;
-
-    // Reuse same mapper pattern as initialProjects
-    // Extracts min/max Marla + bedrooms from unitTypeBreakdown
-    const featuredProjects: ProjectListing[] = featuredRaw.map(p => {
-      // ── Image resolution (virtual stripped by .lean()) ──
-      let primaryImage: string | null = null;
-      if (typeof p.featureImageUrl === 'string') {
-        primaryImage = p.featureImageUrl;
-      } else if (Array.isArray(p.images) && p.images.length > 0) {
-        const imgs = p.images as Array<{ url?: string; isPrimary?: boolean }>;
-        primaryImage =
-          imgs.find(i => i?.isPrimary)?.url ?? imgs[0]?.url ?? null;
+      // Dynamic projectStatus mapping
+      const rawStatus = String(p.projectStatus ?? '').toLowerCase();
+      let projectStatus: 'ready_to_move' | 'under_construction' | 'new_launch' | 'pre_launch' = 'under_construction';
+      if (rawStatus === 'completed' || rawStatus === 'ready_to_move') {
+        projectStatus = 'ready_to_move';
+      } else if (rawStatus === 'launched' || rawStatus === 'new_launch') {
+        projectStatus = 'new_launch';
+      } else if (rawStatus === 'pre-launch' || rawStatus === 'pre_launch') {
+        projectStatus = 'pre_launch';
       }
 
-      // ── Developer snapshot ──
-      const dev  = p.developerProfile as
-        { name?: string; logoUrl?: string } | undefined;
-
-      // ── Trust fields ──
-      const score = typeof p.highriseScore === 'number'
-        ? p.highriseScore : 0;
-      const noc   = (p.nocStatus as string | undefined) ?? 'not_applied';
-
-      // ── Area from unitTypeBreakdown ──
-      // Aggregate min/max across all unit types
+      // Compute min/max Marla & bedrooms from unitTypeBreakdown
       let minAreaMarla: number | null = null;
       let maxAreaMarla: number | null = null;
-      let minBedrooms:  number | null = null;
-      let maxBedrooms:  number | null = null;
+      let minBedrooms: number | null = null;
+      let maxBedrooms: number | null = null;
 
       if (Array.isArray(p.unitTypeBreakdown)) {
         const units = p.unitTypeBreakdown as Array<{
           areaRangeMarla?: { min?: number; max?: number };
-          bedrooms?:       number;
+          bedrooms?: number;
         }>;
 
         for (const u of units) {
@@ -869,152 +725,156 @@ export const getServerSideProps: GetServerSideProps<
           const uBed = u.bedrooms;
 
           if (typeof uMin === 'number') {
-            minAreaMarla = minAreaMarla === null
-              ? uMin : Math.min(minAreaMarla, uMin);
+            minAreaMarla = minAreaMarla === null ? uMin : Math.min(minAreaMarla, uMin);
           }
           if (typeof uMax === 'number') {
-            maxAreaMarla = maxAreaMarla === null
-              ? uMax : Math.max(maxAreaMarla, uMax);
+            maxAreaMarla = maxAreaMarla === null ? uMax : Math.max(maxAreaMarla, uMax);
           }
           if (typeof uBed === 'number') {
-            minBedrooms = minBedrooms === null
-              ? uBed : Math.min(minBedrooms, uBed);
-            maxBedrooms = maxBedrooms === null
-              ? uBed : Math.max(maxBedrooms, uBed);
+            minBedrooms = minBedrooms === null ? uBed : Math.min(minBedrooms, uBed);
+            maxBedrooms = maxBedrooms === null ? uBed : Math.max(maxBedrooms, uBed);
           }
         }
       }
 
       return {
-        _id:              String(p._id ?? ''),
-        slug:             String(p.slug ?? ''),
-        projectName:      String(p.projectName ?? ''),
-        tagline:          typeof p.tagline === 'string' ? p.tagline : null,
-        city:             String(p.city ?? ''),
-        area:             String(p.area ?? ''),
-        locality:         null,
-        propertyType:     ['flats'] as PropertyType[],
-        projectCategory:  String(p.projectCategory ?? ''),
-        projectNature:    String(p.projectNature ?? ''),
-        projectStatus:    'under_construction' as const,
-        minPrice:         typeof p.minPrice === 'number' ? p.minPrice : null,
-        maxPrice:         typeof p.maxPrice === 'number' ? p.maxPrice : null,
-        priceOnRequest:   typeof p.minPrice !== 'number',
+        _id: String(p._id ?? ''),
+        slug: String(p.slug ?? ''),
+        projectName: String(p.projectName ?? ''),
+        tagline: typeof p.tagline === 'string' ? p.tagline : null,
+        city: String(p.city ?? ''),
+        area: String(p.area ?? ''),
+        locality: null,
+        propertyType: ['flats'] as PropertyType[],
+        projectCategory: String(p.projectCategory ?? ''),
+        projectNature: String(p.projectNature ?? ''),
+        projectStatus,
+        saleMode: typeof p.saleMode === 'string' ? p.saleMode : null,
+        unitsAvailable: typeof p.unitsAvailable === 'number' ? p.unitsAvailable : null,
+        totalUnits: typeof p.totalUnits === 'number' ? p.totalUnits : null,
+        minPrice: typeof p.minPrice === 'number' ? p.minPrice : null,
+        maxPrice: typeof p.maxPrice === 'number' ? p.maxPrice : null,
+        priceOnRequest: typeof p.minPrice !== 'number',
         minAreaMarla,
         maxAreaMarla,
         minBedrooms,
         maxBedrooms,
-        possessionDate:   null,
-        possessionQuarter:null,
-        isVerified:       Boolean(p.isVerified),
-        nocStatus:        noc as 'approved' | 'pending' | 'not_applied',
-        nocAuthority:     typeof p.approvalAuthority === 'string'
-                          ? p.approvalAuthority : null,
-        nocNumber:        null,
+        possessionDate: null,
+        possessionQuarter: null,
+        isVerified: Boolean(p.isVerified),
+        nocStatus: noc as 'approved' | 'pending' | 'not_applied',
+        nocAuthority: typeof p.approvalAuthority === 'string' ? p.approvalAuthority : null,
+        nocNumber: null,
         legalDocumentUrl: null,
-        shield:           computeStubShield({
-          nocStatus:      noc as 'approved' | 'pending' | 'not_applied',
-          isVerified:     Boolean(p.isVerified),
-          developerBadge: typeof p.developerBadge === 'string'
-                          ? p.developerBadge : null,
-          highriseScore:  score,
+        shield: computeStubShield({
+          nocStatus: noc as 'approved' | 'pending' | 'not_applied',
+          isVerified: Boolean(p.isVerified),
+          developerBadge: typeof p.developerBadge === 'string' ? p.developerBadge : null,
+          highriseScore: score,
         }),
-        developerId:      p.developerId ? String(p.developerId) : null,
-        developerName:    dev?.name ?? '',
-        developerSlug:    '',
+        developerId: p.developerId ? String(p.developerId) : null,
+        developerName: dev?.name ?? '',
+        developerSlug: '',
         developerLogoUrl: dev?.logoUrl ?? null,
-        developerBadge:   typeof p.developerBadge === 'string'
-                          ? p.developerBadge as DeveloperBadge
-                          : null,
+        developerBadge: typeof p.developerBadge === 'string' ? p.developerBadge as any : null,
         isTrustedBuilder: Boolean(p.isTrustedBuilder),
-        marketedBy:       null,
+        marketedBy: null,
         primaryImage,
-        imageCount:       Array.isArray(p.images) ? p.images.length : 0,
-        isShortlisted:    false,
-        inquiryCount:     typeof p.inquiries === 'number'
-                          ? p.inquiries : null,
-        amenities:        [],
-        fairPriceUrl:     String(p.slug ?? '')
-                          ? `/tools/fair-price?project=${String(p.slug)}`
-                          : null,
-        isFeatured:       Boolean(p.isFeatured),
-        highriseScore:    score,
-        createdAt:        p.createdAt instanceof Date
-                          ? p.createdAt.toISOString()
-                          : String(p.createdAt ?? ''),
+        imageCount: Array.isArray(p.images) ? p.images.length : 0,
+        isShortlisted: false,
+        inquiryCount: null,
+        amenities: [],
+        fairPriceUrl: String(p.slug ?? '') ? `/tools/fair-price?project=${String(p.slug)}` : null,
+        isFeatured: Boolean(p.isFeatured),
+        highriseScore: score,
+        createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt ?? ''),
       };
     });
 
+    // Query active resale properties for exit-intent cross-sell
+    let readyPropertiesMapped: ReadyPropertyItem[] = [];
+    try {
+      const propQuery: Record<string, unknown> = {
+        isDeleted: { $ne: true },
+        $or: [
+          { status: { $in: ['approved', 'available', 'active', 'verified'] } },
+          { 'verification.status': 'verified' },
+        ],
+      };
+      if (filters.city) {
+        propQuery.city = { $regex: new RegExp(`^${escapeRegExp(filters.city)}$`, 'i') };
+      }
+
+      const rawProperties = await Property.find(propQuery)
+        .sort({ createdAt: -1 })
+        .limit(4)
+        .select({
+          _id: 1, slug: 1, title: 1, price: 1, city: 1, location: 1,
+          propertyType: 1, purpose: 1, bedrooms: 1, areaSize: 1, areaUnit: 1,
+          images: 1, featureImageUrl: 1,
+        })
+        .maxTimeMS(2000)
+        .lean();
+
+      readyPropertiesMapped = (rawProperties as Array<Record<string, unknown>>).map((p) => {
+        let primaryImage: string | null = null;
+        if (typeof p.featureImageUrl === 'string') {
+          primaryImage = p.featureImageUrl;
+        } else if (Array.isArray(p.images) && p.images.length > 0) {
+          const imgs = p.images as Array<{ url?: string; isPrimary?: boolean }>;
+          primaryImage = imgs.find((i) => i?.isPrimary)?.url ?? imgs[0]?.url ?? null;
+        }
+
+        return {
+          _id: String(p._id ?? ''),
+          slug: String(p.slug ?? ''),
+          title: String(p.title ?? ''),
+          price: typeof p.price === 'number' ? p.price : null,
+          city: String(p.city ?? ''),
+          location: typeof p.location === 'string' ? p.location : null,
+          propertyType: String(p.propertyType ?? 'apartment'),
+          purpose: (p.purpose as 'sale' | 'rent') || 'sale',
+          bedrooms: typeof p.bedrooms === 'number' ? p.bedrooms : null,
+          areaSize: typeof p.areaSize === 'number' ? p.areaSize : null,
+          areaUnit: typeof p.areaUnit === 'string' ? p.areaUnit : 'Marla',
+          primaryImage,
+        };
+      });
+    } catch {
+      readyPropertiesMapped = [];
+    }
+
     return {
       props: {
-        initialFilters:  filters,
+        initialFilters: filters,
         initialProjects: projects,
-        totalCount:      total,
+        totalCount: total,
         cityCounts,
         categoryCounts,
         natureCounts,
-        budgetBands,
+        budgetBands: [],
         hotspots,
-        platformStats: {
-          // Pakistan-wide (hero stats bar at bottom)
-          totalProjects,
-          totalDevelopers: 0,
-          totalVerified,
-          totalCities:     cityCounts.length,
-          // City-scoped (Section 4 Shield Trust Row)
-          // When city selected: reflects that city only
-          // When no city: same as Pakistan-wide numbers
-          cityScopedTotal,
-          cityScopedVerified,
-          cityScopedNoc,
-        },
-        tabCounts,
-        featuredProjects,
+        platformStats: { totalProjects: 0, totalDevelopers: 0, totalVerified: 0, totalCities: 0 },
+        tabCounts: [],
+        featuredProjects: [],
+        readyProperties: readyPropertiesMapped,
       },
     };
-
   } catch (err: unknown) {
-    const errMsg = err instanceof Error ? err.message : 'Unknown error';
-
-    // Extract IP directly from headers — getClientIp() expects
-    // NextApiRequest (API routes only), not SSR IncomingMessage.
-    const errorIp =
-      (req.headers['x-forwarded-for'] as string | undefined)
-        ?.split(',')[0]
-        ?.trim() ??
-      req.socket?.remoteAddress ??
-      'unknown';
-
-    await logSecurityEvent({
-      type:      'system_error',
-      severity:  'high',
-      ip:        errorIp,
-      userAgent: req.headers['user-agent'] ?? 'SSR',
-      metadata: {
-        action:   'projects_ssr_failed',
-        endpoint: '/projects',
-        reason:   errMsg,
-      },
-    }).catch(() => undefined);
-
     return {
       props: {
-        initialFilters:   DEFAULT_FILTERS,
-        initialProjects:  [],
-        totalCount:       0,
-        cityCounts:       [],
-        categoryCounts:   [],
-        natureCounts:     [],
-        budgetBands:      [],
-        hotspots:         [],
-        platformStats: {
-          totalProjects:   0,
-          totalDevelopers: 0,
-          totalVerified:   0,
-          totalCities:     0,
-        },
-        tabCounts:        [],
+        initialFilters: DEFAULT_FILTERS,
+        initialProjects: [],
+        totalCount: 0,
+        cityCounts: [],
+        categoryCounts: [],
+        natureCounts: [],
+        budgetBands: [],
+        hotspots: [],
+        platformStats: { totalProjects: 0, totalDevelopers: 0, totalVerified: 0, totalCities: 0 },
+        tabCounts: [],
         featuredProjects: [],
+        readyProperties: [],
       },
     };
   }

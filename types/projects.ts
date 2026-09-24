@@ -178,7 +178,7 @@ export function computeStubShield(fields: {
   };
 }
 
-// ─── PROJECT LISTING CARD ─────────────────────────────────────────────────────
+/// --- PROJECT LISTING CARD ---------------------------------------------------
 // Single shape consumed by ALL 18 sections. No per-section variants.
 
 export interface ProjectListing {
@@ -197,6 +197,9 @@ export interface ProjectListing {
   projectCategory:  string;
   projectNature:    string;
   projectStatus:    PossessionStatus;
+  saleMode?:        string | null;
+  unitsAvailable?:  number | null;
+  totalUnits?:      number | null;
 
   // Pricing (PKR — display as Lakh/Crore/Arab)
   minPrice:         number | null;      // PKR absolute
@@ -314,6 +317,21 @@ export interface PlatformStats {
 
 // ─── PAGE PROPS ───────────────────────────────────────────────────────────────
 
+export interface ReadyPropertyItem {
+  _id:          string;
+  slug:         string;
+  title:        string;
+  price:        number | null;
+  city:         string;
+  location:     string | null;
+  propertyType: string;
+  purpose:      'sale' | 'rent';
+  bedrooms:     number | null;
+  areaSize:     number | null;
+  areaUnit:     string | null;
+  primaryImage: string | null;
+}
+
 export interface ProjectsPageProps {
   initialFilters:   FilterState;
   initialProjects:  ProjectListing[];
@@ -324,8 +342,9 @@ export interface ProjectsPageProps {
   budgetBands:      BudgetBand[];
   hotspots:         HotspotArea[];
   platformStats:    PlatformStats;
-  tabCounts:        TabCount[];        // live counts per discovery tab
-  featuredProjects: ProjectListing[];  // Section 6 — 3-tier featured selection
+  tabCounts:        TabCount[];
+  featuredProjects: ProjectListing[];
+  readyProperties:  ReadyPropertyItem[];
 }
 
 // ─── UTILITY: PKR FORMATTING ──────────────────────────────────────────────────
@@ -464,14 +483,14 @@ export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
 // Display names for project types (what developers build)
 
 export const PROJECT_CATEGORY_LABELS: Record<ProjectCategory, string> = {
-  high_rise:           'High-Rise Buildings',
-  housing_society:     'Housing Societies',
-  commercial_plaza:    'Commercial Plazas',
-  mixed_use:           'Mixed-Use Developments',
-  townhouse:           'Townhouses',
+  high_rise:           'High-Rise Apartments & Flats',
+  commercial_plaza:    'Commercial Plazas, Shops & Offices',
+  mixed_use:           'Mixed-Use Towers & Malls',
+  townhouse:           'Townhouses & Luxury Villas',
   gated_community:     'Gated Communities',
-  farmhouse_community: 'Farmhouse Communities',
-  industrial_park:     'Industrial Parks',
+  farmhouse_community: 'Farmhouse Projects',
+  industrial_park:     'Industrial & Logistics Parks',
+  housing_society:     'Housing Societies & Plots',
 };
 
 export const PROJECT_NATURE_LABELS: Record<ProjectNature, string> = {

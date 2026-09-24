@@ -70,6 +70,7 @@ import {
 } from '@/types/projects';
 
 import ProjectListingCard from '@/components/projects/ProjectListingCard';
+import { TrustedDevelopersMarquee } from '@/components/projects/TrustedDevelopersMarquee';
 
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 
@@ -650,7 +651,7 @@ export function MainProjectGrid({
     <section
       id="main-project-grid"
       aria-labelledby="main-grid-heading"
-      className="relative bg-gray-50 py-16 md:py-20 overflow-hidden"
+      className="relative bg-gray-50 py-2 md:py-4 overflow-hidden"
     >
       {/* Subtle background decoration */}
       <div className="absolute inset-0 pointer-events-none">
@@ -660,51 +661,9 @@ export function MainProjectGrid({
 
       <div className="relative max-w-7xl mx-auto px-4">
 
-        {/* ── SECTION HEADER (locked typography) ────────────── */}
-        <div className="text-center max-w-2xl mx-auto mb-10">
-
-          {/* Pill with divider lines */}
-          <div className="inline-flex items-center gap-3 mb-4">
-            <span className="h-px w-8 bg-gradient-to-r
-                             from-transparent to-[#029bba]" />
-            <span
-              className="text-xs font-black text-[#029bba]
-                         uppercase tracking-[0.2em]"
-            >
-              All Verified Projects
-            </span>
-            <span className="h-px w-8 bg-gradient-to-l
-                             from-transparent to-[#029bba]" />
-          </div>
-
-          {/* H2 — locked: text-3xl md:text-4xl */}
-          <h2
-            id="main-grid-heading"
-            className="text-3xl md:text-4xl font-black text-gray-900
-                       mb-3 tracking-tight leading-tight"
-          >
-            Every Verified{' '}
-            <span
-              className="text-transparent bg-clip-text
-                         bg-gradient-to-r from-[#029bba] to-[#017a94]"
-            >
-              Project{cityLabel}
-            </span>
-          </h2>
-
-          <p className="text-base text-gray-500 leading-relaxed">
-            {totalCount > 0 ? (
-              <>
-                <span className="font-bold text-gray-700">
-                  {totalCount.toLocaleString()}
-                </span>
-                {' '}shield-verified project{totalCount !== 1 ? 's' : ''} —
-                every listing manually checked by our team.
-              </>
-            ) : (
-              'No projects match your current filters — try adjusting to see more.'
-            )}
-          </p>
+        {/* Streamlined Grid Anchor */}
+        <div id="main-grid-heading" className="sr-only">
+          <h2>All Verified Projects</h2>
         </div>
 
         {/* ── CONTROLS BAR (sort + view + count) ─────────────── */}
@@ -760,14 +719,29 @@ export function MainProjectGrid({
               role="list"
               aria-label="Project listings"
             >
-              {loadedProjects.map(project => (
-                <div key={project._id} role="listitem">
-                  <ProjectListingCard
-                    project={project}
-                    variant={viewMode === 'list' ? 'list' : 'grid'}
-                  />
-                </div>
-              ))}
+              {loadedProjects.map((project, index) => {
+                // Promote slot #3 (index 2), explicitly featured projects, or index 0 if total projects < 3 (dev preview)
+                const isPromotedSlot = index === 2 || project.isFeatured || (loadedProjects.length < 3 && index === 0);
+
+                return (
+                  <React.Fragment key={project._id}>
+                    <div role="listitem">
+                      <ProjectListingCard
+                        project={project}
+                        variant={viewMode === 'list' ? 'list' : 'grid'}
+                        isPromoted={isPromotedSlot}
+                      />
+                    </div>
+
+                    {/* B2B Ego Tier - Inject after 8th item OR at end if fewer than 8 projects exist */}
+                    {((index + 1) === 8 || (index + 1) === loadedProjects.length) && (
+                      <div className="col-span-full my-4">
+                        <TrustedDevelopersMarquee projects={loadedProjects} />
+                      </div>
+                    )}
+                  </React.Fragment>
+                );
+              })}
 
               {/* Skeleton loaders during Load More */}
               {loading && (
@@ -862,15 +836,15 @@ export function MainProjectGrid({
               </>
             )}
 
-            {/* End of results indicator (no more to load, no pagination) */}
+            {/* End of results indicator - Clean inline divider */}
             {!showLoadMore && !showPagination && totalCount > 0 && !loading && (
-              <div className="mt-8 text-center">
-                <div className="inline-flex items-center gap-2 px-4 py-2
-                                text-xs font-bold text-gray-400
-                                bg-white border border-gray-100 rounded-full">
+              <div className="mt-6 flex items-center gap-4 text-xs font-bold text-gray-400">
+                <div className="flex-1 h-px bg-gray-200" />
+                <span className="flex items-center gap-1.5 whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  You&apos;ve seen all {totalCount} project{totalCount !== 1 ? 's' : ''}
-                </div>
+                  You&apos;ve viewed all {totalCount} verified project{totalCount !== 1 ? 's' : ''}
+                </span>
+                <div className="flex-1 h-px bg-gray-200" />
               </div>
             )}
           </>

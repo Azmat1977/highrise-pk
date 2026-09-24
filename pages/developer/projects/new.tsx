@@ -20,6 +20,10 @@ import {
   AmenitiesEditor,
   NearbyFacilitiesEditor,
   LocationAdvantagesEditor,
+  FeeTransparencyEditor,
+  FinishingSpecsEditor,
+  type FeeTransparencyInput,
+  type FinishingSpecsInput,
   type AmenityInput,
   type NearbyFacilityInput,
   type LocationAdvantageInput,
@@ -103,6 +107,18 @@ interface ProjectCreateBody {
   amenitiesDetailed?: { name: string; category: string; description: string | null }[];
   nearbyFacilities?: { name: string; category: string; distance: string | null }[];
   locationAdvantages?: { title: string; points: string[] }[];
+  feeTransparency?: FeeTransparencyInput;
+  finishingSpecs?: {
+    deliveryCondition: FinishingSpecsInput['deliveryCondition'];
+    flooring: string | null;
+    woodwork: string | null;
+    kitchen: string | null;
+    washrooms: string | null;
+    windows: string | null;
+    hvac: string | null;
+    fireSafety: string | null;
+    commercialMobility: string | null;
+  };
   projectDocuments: ProjectDocuments;
   buildingFloorPlans: BuildingFloorPlan[];
   unitTypeBreakdown: UnitPlan[];
@@ -329,7 +345,30 @@ function ProjectForm(): React.ReactElement {
   const [installmentCount, setInstallmentCount] = useState('');
   const [frequency, setFrequency] = useState<'monthly' | 'quarterly' | 'half-yearly'>('quarterly');
 
-  // Completed projects (metadata only — images uploaded separately)
+  // Fee Transparency & Finishing Specs
+  const [feeTransparency, setFeeTransparency] = useState<FeeTransparencyInput>({
+    electricityIncluded: false,
+    gasIncluded:         false,
+    waterIncluded:       false,
+    maintenanceFee:      '',
+    transferTax:         '',
+    possessionCharges:   '',
+    disclaimer:          '',
+  });
+
+  const [finishingSpecs, setFinishingSpecs] = useState<FinishingSpecsInput>({
+    deliveryCondition:  'semi_furnished',
+    flooring:           '',
+    woodwork:           '',
+    kitchen:            '',
+    washrooms:          '',
+    windows:            '',
+    hvac:               '',
+    fireSafety:         '',
+    commercialMobility: '',
+  });
+
+  // Lists
   const [completedProjects, setCompletedProjects] = useState<CompletedProject[]>([
     { name: '', type: '', location: '', year: '', images: [] },
   ]);
@@ -590,6 +629,18 @@ function ProjectForm(): React.ReactElement {
           amenitiesDetailed:   amenitiesPayload,
           nearbyFacilities:    nearbyPayload,
           locationAdvantages:  advantagesPayload,
+          feeTransparency,
+          finishingSpecs: {
+            deliveryCondition:  finishingSpecs.deliveryCondition || 'semi_furnished',
+            flooring:           finishingSpecs.flooring.trim() || null,
+            woodwork:           finishingSpecs.woodwork.trim() || null,
+            kitchen:            finishingSpecs.kitchen.trim() || null,
+            washrooms:          finishingSpecs.washrooms.trim() || null,
+            windows:            finishingSpecs.windows.trim() || null,
+            hvac:               finishingSpecs.hvac.trim() || null,
+            fireSafety:         finishingSpecs.fireSafety.trim() || null,
+            commercialMobility: finishingSpecs.commercialMobility.trim() || null,
+          },
           projectDocuments,
           buildingFloorPlans,
           unitTypeBreakdown: unitPlans,
@@ -1125,6 +1176,12 @@ function ProjectForm(): React.ReactElement {
 
           {/* Location advantages — display: Location section */}
           <LocationAdvantagesEditor value={locationAdvantages} onChange={setLocationAdvantages} disabled={loading} />
+
+          {/* Pricing Transparency & Utility Meters */}
+          <FeeTransparencyEditor value={feeTransparency} onChange={setFeeTransparency} disabled={loading} />
+
+          {/* Interior Finishing Specs & Handover Deliverables */}
+          <FinishingSpecsEditor value={finishingSpecs} onChange={setFinishingSpecs} disabled={loading} />
 
           {/* ── Section 5: Payment ────────────────────────────────────────── */}
           <Section

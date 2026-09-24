@@ -62,7 +62,7 @@ export default function TruliaHeader({ project, minPrice, maxPrice, minAreaSqft,
           )}
         </h2>
 
-        {/* Trulia Meta Strip */}
+        {/* Meta Strip */}
         <div className="flex flex-wrap items-center gap-5 text-gray-700 text-[15px] font-bold mb-3">
           {hasBeds && (
             <div className="flex items-center gap-1.5 border-r border-gray-200 pr-5">

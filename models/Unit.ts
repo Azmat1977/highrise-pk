@@ -382,6 +382,7 @@ export interface IUnit extends Document {
   parkingPrice?: number;
 
   // ── MEDIA ─────────────────────────────────
+  imageUrl?: string; // Explicit unit thumbnail for frontend inventory table
   images?: IUnitImage[];
   floorPlanImage?: IFloorPlanImage;
   layoutImage?: IFloorPlanImage;
@@ -890,6 +891,7 @@ const UnitSchema = new Schema<IUnit>(
     parkingPrice: { type: Number, min: 0 },
 
     // ── MEDIA ─────────────────────────────
+    imageUrl: { type: String, trim: true, maxlength: 2048 },
     images: [UnitImageSchema],
     floorPlanImage: FloorPlanImageSchema,
     layoutImage: FloorPlanImageSchema,
@@ -1059,6 +1061,12 @@ UnitSchema.pre<IUnit>('save', function () {
   // Auto-calc pricePerUnit
   if (this.price && this.area && !this.pricePerUnit) {
     this.pricePerUnit = Math.round(this.price / this.area);
+  }
+
+  // Auto-fallback imageUrl from gallery if not explicitly set
+  if (!this.imageUrl && Array.isArray(this.images) && this.images.length > 0) {
+    const primary = this.images.find((img) => img?.isPrimary);
+    this.imageUrl = primary?.url || this.images[0]?.url;
   }
 
   // Audit timestamps

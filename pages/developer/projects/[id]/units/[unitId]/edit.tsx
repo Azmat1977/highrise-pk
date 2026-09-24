@@ -114,6 +114,7 @@ interface UnitDetail {
   features?:         string[];
   images?:           ExistingImage[];
   floorPlan?:        ExistingImage | null;
+  imageUrl?:         string; // The explicit unit layout thumbnail for the frontend inventory table
   virtualTourUrl?:   string;
   videoUrl?:         string;
   shortDescription?: string;
@@ -440,6 +441,11 @@ export default function EditUnitPage(): React.ReactElement {
   const [existingFloorPlan, setExistingFloorPlan] = useState<ExistingImage | null>(null);
   const [newFloorPlanFile,  setNewFloorPlanFile]  = useState<File | null>(null);
   const [replaceFloorPlan,  setReplaceFloorPlan]  = useState(false);
+  
+  // Specific Thumbnail for Unit Row
+  const [existingImageUrl, setExistingImageUrl] = useState('');
+  const [newImageFile, setNewImageFile] = useState<File | null>(null);
+  
   const [virtualTourUrl,   setVirtualTourUrl]   = useState('');
   const [videoUrl,         setVideoUrl]         = useState('');
   const [shortDescription, setShortDescription] = useState('');
@@ -569,6 +575,7 @@ export default function EditUnitPage(): React.ReactElement {
       // Step 4 — Media
       setExistingImages(Array.isArray(u.images) ? u.images : []);
       setExistingFloorPlan(u.floorPlan ?? null);
+      setExistingImageUrl(u.imageUrl ?? '');
       setVirtualTourUrl(u.virtualTourUrl ?? '');
       setVideoUrl(u.videoUrl ?? '');
       setShortDescription(u.shortDescription ?? '');
@@ -713,6 +720,13 @@ export default function EditUnitPage(): React.ReactElement {
         newFloorPlanRef = await uploadFile(newFloorPlanFile, 'projects');
       }
 
+      // Phase 1c — upload explicit unit thumbnail
+      let newImageUrlRef: ImageRef | null = null;
+      if (newImageFile) {
+        setUploadProgress('Uploading unit thumbnail...');
+        newImageUrlRef = await uploadFile(newImageFile, 'projects');
+      }
+
       // Phase 2 — PATCH JSON
       setUploadProgress('Saving changes...');
 
@@ -782,6 +796,9 @@ export default function EditUnitPage(): React.ReactElement {
         ...(replaceFloorPlan && newFloorPlanRef
           ? { floorPlan: newFloorPlanRef }
           : {}),
+
+        // Unit Inventory Thumbnail (Row Image)
+        ...(newImageUrlRef ? { imageUrl: newImageUrlRef.url } : {}),
 
         // Media links
         virtualTourUrl: virtualTourUrl ? virtualTourUrl.trim() : undefined,
@@ -1812,9 +1829,45 @@ export default function EditUnitPage(): React.ReactElement {
                 </div>
               </SectionCard>
 
+              {/* Unit Inventory Thumbnail */}
+              <SectionCard
+                title="Unit Thumbnail (Required for Grid)"
+                subtitle="This 1:1 image displays directly on the frontend unit availability table."
+                icon={<Camera className="h-4 w-4" />}
+              >
+                {existingImageUrl && !newImageFile ? (
+                  <div className="flex items-center gap-4 rounded-xl border border-gray-100 bg-gray-50 p-4">
+                    <img src={existingImageUrl} alt="Unit Thumbnail" className="w-16 h-16 rounded-xl object-cover border border-gray-200" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-gray-700">Current Thumbnail</p>
+                      <p className="text-xs text-gray-500 mt-0.5">Displayed on the public unit grid.</p>
+                    </div>
+                    <label className="cursor-pointer text-xs font-bold text-[#029bba] bg-[#029bba]/10 hover:bg-[#029bba]/20 px-4 py-2 rounded-lg transition-colors">
+                      Replace Image
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => setNewImageFile(e.target.files?.[0] ?? null)} />
+                    </label>
+                  </div>
+                ) : (
+                  <div>
+                    <label className="flex h-24 w-full cursor-pointer flex-col items-center justify-center gap-1 rounded-xl border-2 border-dashed border-gray-200 transition-all hover:border-[#029bba] hover:bg-teal-50">
+                      <Camera className="h-6 w-6 text-gray-400" />
+                      <span className="text-sm font-bold text-gray-600">
+                        {newImageFile ? newImageFile.name : 'Upload unit thumbnail (1:1 aspect ratio recommended)'}
+                      </span>
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => setNewImageFile(e.target.files?.[0] ?? null)} />
+                    </label>
+                    {newImageFile && existingImageUrl && (
+                      <button type="button" onClick={() => setNewImageFile(null)} className="mt-2 text-xs font-bold text-red-500 hover:underline">
+                        Cancel replace
+                      </button>
+                    )}
+                  </div>
+                )}
+              </SectionCard>
+
               {/* Floor plan */}
               <SectionCard
-                title="Floor Plan"
+                title="Floor Plan Document"
                 subtitle="Replace the existing floor plan if needed"
                 icon={<FileText className="h-4 w-4" />}
               >

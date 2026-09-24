@@ -804,9 +804,11 @@ const LoginOrSignupForm = ({
     }
     resetLoginFailureUX();
     onSuccess();
-    void router.push(getPostAuthDestination());
+    if (!isModal) {
+      void router.push(getPostAuthDestination());
+    }
     setLoading(false);
-  }, [clearNotices, form.email, form.password, rememberMe, resetLoginFailureUX, onSuccess, router, getPostAuthDestination]);
+  }, [clearNotices, form.email, form.password, rememberMe, resetLoginFailureUX, onSuccess, router, getPostAuthDestination, isModal]);
 
   const sendForgotPasswordCode = useCallback(async () => {
     clearNotices(); setLoading(true);
@@ -866,13 +868,18 @@ const LoginOrSignupForm = ({
 
   const handleRoleSelect = useCallback((role: RoleCard) => {
     onSuccess(); // close modal if open
-    void router.push(role.href);
-  }, [onSuccess, router]);
+    // Always redirect for explicit role selection, but ONLY if they are not just acting as a buyer
+    if (!isModal || role.id !== "buyer") {
+      void router.push(role.href);
+    }
+  }, [onSuccess, router, isModal]);
 
   const handleRoleSkip = useCallback(() => {
     onSuccess();
-    void router.push(getPostAuthDestination());
-  }, [onSuccess, router, getPostAuthDestination]);
+    if (!isModal) {
+      void router.push(getPostAuthDestination());
+    }
+  }, [onSuccess, router, getPostAuthDestination, isModal]);
 
   // ═══════════════════════════════════════════════════════════════
   // WRAPPER — modal vs full-page
