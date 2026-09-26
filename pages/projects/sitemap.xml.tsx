@@ -92,7 +92,7 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
           {
             loc: project.images[0].url,
             title: project.projectName,
-            caption: `${String(project.projectName ?? '')} — ${String(project.city ?? 'Pakistan')}`,
+            caption: `${String(project.projectName ?? '')} - ${String(project.city ?? 'Pakistan')}`,
           },
         ];
       }

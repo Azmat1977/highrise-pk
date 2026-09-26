@@ -788,7 +788,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
           _id: 1, slug: 1, projectName: 1, tagline: 1,
           city: 1, area: 1, projectCategory: 1,
           projectNature: 1, projectStatus: 1, saleMode: 1,
-          isVerified: 1, isFeatured: 1, isTrustedBuilder: 1,
+          isVerified: 1, isFeatured: 1, promotionEndDate: 1, isTrustedBuilder: 1,
           developerBadge: 1, minPrice: 1, maxPrice: 1,
           highriseScore: 1, nocStatus: 1, approvalAuthority: 1,
           unitsAvailable: 1, totalUnits: 1,
@@ -909,7 +909,9 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
         inquiryCount: null,
         amenities: [],
         fairPriceUrl: String(p.slug ?? '') ? `/tools/fair-price?project=${String(p.slug)}` : null,
-        isFeatured: Boolean(p.isFeatured),
+        isFeatured: Boolean(p.isFeatured) && (
+          !p.promotionEndDate || new Date(p.promotionEndDate as string | Date | number) >= new Date()
+        ),
         highriseScore: score,
         createdAt: p.createdAt instanceof Date ? p.createdAt.toISOString() : String(p.createdAt ?? ''),
       };
