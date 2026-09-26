@@ -169,7 +169,7 @@ export function SeoLocalityGuide({ city }: SeoLocalityGuideProps): React.ReactEl
             return (
               <Link
                 key={c.name}
-                href={`/projects?city=${encodeURIComponent(c.name)}`}
+                href={`/projects/in/${encodeURIComponent(c.name.toLowerCase())}`}
                 className={`flex items-center justify-between p-2.5 rounded-xl border text-xs font-bold transition-all ${
                   isSelected
                     ? 'bg-[#029bba] text-white border-[#029bba]'
