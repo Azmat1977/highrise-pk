@@ -91,6 +91,9 @@ const RATE_LIMITS = {
 
   // DDoS Protection (global burst)
   GLOBAL_BURST: { requests: 500, window: "1 m", prefix: "hr:rl:global" },
+
+  // Telemetry & Ad Ingestion Limits
+  TELEMETRY_TRACK: { requests: 120, window: "1 m", prefix: "hr:rl:telemetry_track" },
 } as const;
 
 // ✅ Trusted IP addresses (never rate limited)
@@ -461,6 +464,8 @@ export async function rateLimitDeveloper(req: NextApiRequest) { return rateLimit
 export async function rateLimitAgent(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.AGENT_ACTION); }
 
 export async function rateLimitGlobal(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.GLOBAL_BURST); }
+
+export async function rateLimitTelemetry(req: NextApiRequest) { return rateLimit(req, RATE_LIMITS.TELEMETRY_TRACK); }
 
 export function setRateLimitHeaders(res: NextApiResponse, result: RateLimitResult): void {
   res.setHeader("X-RateLimit-Limit", result.limit);

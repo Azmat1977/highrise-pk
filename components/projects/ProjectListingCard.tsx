@@ -647,6 +647,76 @@ function GridCard({
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
 
+  // Real-time Sponsored Telemetry Ingestion (Impression tracking)
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isPromoted || !project._id) return;
+
+    // Deduplicate via sessionStorage
+    const storageKey = `hr_imp_${project._id}`;
+    if (sessionStorage.getItem(storageKey)) return;
+
+    let timerId: NodeJS.Timeout | null = null;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Trigger impression only if visible for at least 500ms
+            timerId = setTimeout(() => {
+              sessionStorage.setItem(storageKey, 'true');
+              fetch('/api/analytics/track-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  projectId: project._id,
+                  eventType: 'impression',
+                }),
+              }).catch((err) =>
+                console.error('[Telemetry Error - Impression]:', err)
+              );
+              observer.unobserve(entry.target);
+            }, 500);
+          } else {
+            if (timerId) {
+              clearTimeout(timerId);
+              timerId = null;
+            }
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    const currentRef = cardRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      if (currentRef) observer.unobserve(currentRef);
+    };
+  }, [isPromoted, project._id]);
+
+  // Click telemetry ingestion
+  const trackClick = () => {
+    if (!isPromoted || !project._id) return;
+    const clickKey = `hr_clk_${project._id}`;
+    if (sessionStorage.getItem(clickKey)) return;
+
+    sessionStorage.setItem(clickKey, 'true');
+    fetch('/api/analytics/track-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: project._id,
+        eventType: 'click',
+      }),
+    }).catch((err) => console.error('[Telemetry Error - Click]:', err));
+  };
+
   const { isFavorite, toggle, actionState } = useFavorites({
     defaultEntityType: 'project',
   });
@@ -680,6 +750,7 @@ function GridCard({
 
   return (
     <article
+      ref={cardRef}
       className={`rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 group ${
         isPromoted
           ? 'bg-gradient-to-b from-[#029bba]/[0.05] to-white border-2 border-[#029bba]/40 ring-1 ring-[#029bba]/20'
@@ -690,6 +761,7 @@ function GridCard({
       {/* Image */}
       <Link
         href={`/projects/${project.slug}`}
+        onClick={trackClick}
         className="block relative aspect-[16/10] overflow-hidden bg-gray-100"
         tabIndex={-1}
         aria-hidden="true"
@@ -804,7 +876,7 @@ function GridCard({
         </div>
 
         {/* Name */}
-        <Link href={`/projects/${project.slug}`}>
+        <Link href={`/projects/${project.slug}`} onClick={trackClick}>
           <h3
             className="font-black text-sm text-gray-900 leading-snug mb-1
                        hover:text-[#029bba] transition-colors line-clamp-2"
@@ -868,6 +940,7 @@ function GridCard({
         <div className="flex items-center gap-2 pt-3 border-t border-gray-50">
           <Link
             href={`/projects/${project.slug}`}
+            onClick={trackClick}
             className="flex-1 flex items-center justify-center gap-1
                        py-1.5 rounded-xl bg-[#029bba] text-white
                        text-xs font-bold hover:bg-[#017a94]
@@ -975,6 +1048,76 @@ function ListCard({
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
 
+  // Real-time Sponsored Telemetry Ingestion (Impression tracking)
+  const cardRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (!isPromoted || !project._id) return;
+
+    // Deduplicate via sessionStorage
+    const storageKey = `hr_imp_${project._id}`;
+    if (sessionStorage.getItem(storageKey)) return;
+
+    let timerId: NodeJS.Timeout | null = null;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            // Trigger impression only if visible for at least 500ms
+            timerId = setTimeout(() => {
+              sessionStorage.setItem(storageKey, 'true');
+              fetch('/api/analytics/track-event', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  projectId: project._id,
+                  eventType: 'impression',
+                }),
+              }).catch((err) =>
+                console.error('[Telemetry Error - Impression]:', err)
+              );
+              observer.unobserve(entry.target);
+            }, 500);
+          } else {
+            if (timerId) {
+              clearTimeout(timerId);
+              timerId = null;
+            }
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+
+    const currentRef = cardRef.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (timerId) clearTimeout(timerId);
+      if (currentRef) observer.unobserve(currentRef);
+    };
+  }, [isPromoted, project._id]);
+
+  // Click telemetry ingestion
+  const trackClick = () => {
+    if (!isPromoted || !project._id) return;
+    const clickKey = `hr_clk_${project._id}`;
+    if (sessionStorage.getItem(clickKey)) return;
+
+    sessionStorage.setItem(clickKey, 'true');
+    fetch('/api/analytics/track-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId: project._id,
+        eventType: 'click',
+      }),
+    }).catch((err) => console.error('[Telemetry Error - Click]:', err));
+  };
+
   const { isFavorite, toggle, actionState } = useFavorites({
     defaultEntityType: 'project',
   });
@@ -1010,6 +1153,7 @@ function ListCard({
 
   return (
     <article
+      ref={cardRef}
       className={`rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 group flex flex-col md:flex-row ${
         isPromoted
           ? 'bg-gradient-to-b from-[#029bba]/[0.05] to-white border-2 border-[#029bba]/40 ring-1 ring-[#029bba]/20'
@@ -1017,11 +1161,12 @@ function ListCard({
       }`}
       aria-label={project.projectName}
     >
-      {/* ═══════════════════════════════════════════════════
+      {/* ───
           LEFT PANEL — Image (33% desktop, full-width mobile)
-      ═══════════════════════════════════════════════════ */}
+      ─── */}
       <Link
         href={`/projects/${project.slug}`}
+        onClick={trackClick}
         className="block relative w-full md:w-[320px] lg:w-[360px]
                    aspect-[16/10] md:aspect-auto md:h-auto
                    overflow-hidden bg-gray-100 flex-shrink-0"
@@ -1148,7 +1293,7 @@ function ListCard({
         </div>
 
         {/* Project name — bigger for list view */}
-        <Link href={`/projects/${project.slug}`}>
+        <Link href={`/projects/${project.slug}`} onClick={trackClick}>
           <h3
             className="font-black text-xl md:text-2xl text-gray-900
                        leading-tight mb-1.5
@@ -1304,6 +1449,7 @@ function ListCard({
         {/* Tertiary CTA — View Full Details */}
         <Link
           href={`/projects/${project.slug}`}
+          onClick={trackClick}
           className="w-full inline-flex items-center justify-center gap-1
                      px-4 py-2.5 rounded-xl
                      text-gray-600 hover:text-[#029bba]
