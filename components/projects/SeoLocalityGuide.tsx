@@ -138,7 +138,7 @@ export function SeoLocalityGuide({ city }: SeoLocalityGuideProps): React.ReactEl
         </div>
       </div>
 
-      {/* Hotspots Bar */}
+      {/* Hotspots Bar with Deep Locality Navigation */}
       {config.hotspots.length > 0 && (
         <div className="p-4 rounded-xl bg-[#029bba]/5 border border-[#029bba]/15 space-y-2">
           <p className="text-xs font-bold text-[#004063] uppercase tracking-wider flex items-center gap-1.5">
@@ -146,14 +146,34 @@ export function SeoLocalityGuide({ city }: SeoLocalityGuideProps): React.ReactEl
             <span>High-Demand Areas in {activeCity || 'Pakistan'}:</span>
           </p>
           <div className="flex flex-wrap gap-2 pt-1">
-            {config.hotspots.map((area, idx) => (
-              <span
-                key={idx}
-                className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 shadow-2xs"
-              >
-                {area}
-              </span>
-            ))}
+            {config.hotspots.map((area, idx) => {
+              const localitySlug = area
+                .toLowerCase()
+                .trim()
+                .replace(/[^a-z0-9]+/g, '-')
+                .replace(/^-+|-+$/g, '');
+
+              if (activeCity) {
+                return (
+                  <Link
+                    key={idx}
+                    href={`/projects/in/${encodeURIComponent(activeCity.toLowerCase())}/${encodeURIComponent(localitySlug)}`}
+                    className="px-2.5 py-1 bg-white border border-gray-200 hover:border-[#029bba] hover:text-[#029bba] rounded-lg text-xs font-semibold text-gray-700 shadow-2xs transition-colors"
+                  >
+                    {area}
+                  </Link>
+                );
+              }
+
+              return (
+                <span
+                  key={idx}
+                  className="px-2.5 py-1 bg-white border border-gray-200 rounded-lg text-xs font-semibold text-gray-700 shadow-2xs"
+                >
+                  {area}
+                </span>
+              );
+            })}
           </div>
         </div>
       )}
