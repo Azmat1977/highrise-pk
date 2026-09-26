@@ -52,6 +52,7 @@ import {
   Shield,
   ExternalLink,
   ChevronRight,
+  Star,
 } from "lucide-react";
 import { useDeveloperContext } from "./DeveloperContext";
 import type { DeveloperStatus } from "./DeveloperContext";
@@ -296,7 +297,10 @@ function DeveloperLayoutInner({
 
   // Auto-expand Projects submenu on project routes
   useEffect(() => {
-    if (router.pathname.startsWith("/developer/projects")) {
+    if (
+      router.pathname.startsWith("/developer/projects") ||
+      router.pathname === "/developer/campaigns"
+    ) {
       setExpandedMenus((prev) =>
         prev.includes("Projects") ? prev : [...prev, "Projects"]
       );
@@ -308,7 +312,7 @@ function DeveloperLayoutInner({
     setMobileSidebarOpen(false);
   }, [router.pathname]);
 
-  // ── Nav items ───────────────────────────────────────────────
+  // ── Nav items ────────────────────────────────────────────────
   const navItems: NavItem[] = [
     {
       name: "Dashboard",
@@ -323,6 +327,11 @@ function DeveloperLayoutInner({
           name: "All Projects",
           href: "/developer/projects",
           icon: Building2,
+        },
+        {
+          name: "Ad Campaigns",
+          href: "/developer/campaigns",
+          icon: Star,
         },
         {
           name: "Add New Project",
@@ -408,6 +417,7 @@ function DeveloperLayoutInner({
     if (path === "/developer/dashboard") return "Dashboard";
     if (path === "/developer/profile") return "Company Profile";
     if (path === "/developer/analytics") return "Analytics";
+    if (path === "/developer/campaigns") return "Ad Campaigns";
     if (path === "/developer/leads") return "Leads";
     if (path === "/developer/projects") return "Projects";
     if (path === "/developer/projects/new") return "New Project";

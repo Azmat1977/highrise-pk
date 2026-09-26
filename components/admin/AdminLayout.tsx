@@ -42,6 +42,7 @@ import {
   CheckCircle,
   Zap,
   BookTemplate,
+  Star,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -159,6 +160,7 @@ const EMPTY_STATS: SidebarStats = {
 function getParentMenuFromRoute(pathname: string): string | null {
   if (pathname.startsWith('/admin/properties')) return 'Properties';
   if (pathname.startsWith('/admin/projects')) return 'Projects';
+  if (pathname.startsWith('/admin/promoted-projects')) return 'Projects';
   if (pathname.startsWith('/admin/aleem')) return 'Aleem AI';
   if (pathname.startsWith('/admin/applications')) return 'Applications';
   if (pathname.startsWith('/admin/societies')) return 'Societies';
@@ -548,6 +550,11 @@ export default function AdminLayout({
           icon: <FolderOpen className="w-4 h-4" />,
         },
         {
+          name: 'Sponsorships',
+          href: '/admin/promoted-projects',
+          icon: <Star className="w-4 h-4" />,
+        },
+        {
           name: 'Pending Approval',
           href: '/admin/projects/pending',
           icon: <Clock className="w-4 h-4" />,
@@ -863,6 +870,7 @@ export default function AdminLayout({
       '/admin/settings',
       '/admin/comments',
       '/admin/chats',
+      '/admin/promoted-projects',
     ];
     if (exactRoutes.includes(href)) return currentPath === href;
 
