@@ -6,6 +6,13 @@ import Project from '@/models/Projects';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk';
 
+const PAKISTAN_CITIES = [
+  'Islamabad', 'Lahore', 'Karachi', 'Rawalpindi', 'Multan', 'Peshawar',
+  'Faisalabad', 'Sialkot', 'Gujranwala', 'Bahawalpur', 'Sargodha',
+  'Hyderabad', 'Quetta', 'Sukkur', 'Larkana', 'Sheikhupura', 'Jhelum',
+  'Mardan', 'Mirpur', 'Abbottabad', 'Kasur', 'Okara', 'Sahiwal',
+];
+
 interface SitemapUrl {
   loc: string;
   lastmod?: string;
@@ -16,6 +23,14 @@ interface SitemapUrl {
     title?: string;
     caption?: string;
   }>;
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
 function escapeXml(text: string): string {
@@ -63,34 +78,75 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
 
     const urls: SitemapUrl[] = [];
 
+    const today = formatDate(new Date());
+
+    // 1. National Root Directory (Priority 1.0)
     urls.push({
       loc: `${SITE_URL}/projects`,
-      lastmod: formatDate(new Date()),
+      lastmod: today,
       changefreq: 'daily',
-      priority: 0.9,
+      priority: 1.0,
     });
 
+    // 2. All 23 Major Pakistani Cities (Priority 0.9)
+    for (const city of PAKISTAN_CITIES) {
+      const citySlug = slugify(city);
+      urls.push({
+        loc: `${SITE_URL}/projects/in/${citySlug}`,
+        lastmod: today,
+        changefreq: 'daily',
+        priority: 0.9,
+      });
+    }
+
+    // 3. Fetch verified, non-deleted projects for detail pages & locality aggregation
     const projects = await Project.find({
       status: 'verified',
       isDeleted: { $ne: true },
     })
       .sort({ updatedAt: -1 })
-      .select('slug projectName city areaName projectStatus images updatedAt createdAt')
+      .select('slug projectName city area areaName projectStatus featureImageUrl images updatedAt createdAt')
       .limit(2000)
       .lean();
 
+    // 4. Extract distinct (city, locality) pairs that have real inventory (Priority 0.8)
+    const localitySeen = new Set<string>();
+
+    for (const project of projects) {
+      const pCity = String(project.city ?? '').trim();
+      const pArea = String(project.area || project.areaName || '').trim();
+
+      if (pCity && pArea) {
+        const citySlug = slugify(pCity);
+        const locSlug = slugify(pArea);
+        const uniqueKey = `${citySlug}/${locSlug}`;
+
+        if (!localitySeen.has(uniqueKey)) {
+          localitySeen.add(uniqueKey);
+          urls.push({
+            loc: `${SITE_URL}/projects/in/${citySlug}/${locSlug}`,
+            lastmod: formatDate(new Date(project.updatedAt || project.createdAt || new Date())),
+            changefreq: 'weekly',
+            priority: 0.8,
+          });
+        }
+      }
+    }
+
+    // 5. Individual Verified Project Detail Pages (Priority 0.7)
     for (const project of projects) {
       const projectUrl: SitemapUrl = {
         loc: `${SITE_URL}/projects/${project.slug || project._id}`,
-        lastmod: formatDate(new Date(project.updatedAt || project.createdAt)),
+        lastmod: formatDate(new Date(project.updatedAt || project.createdAt || new Date())),
         changefreq: 'weekly',
-        priority: 0.8,
+        priority: 0.7,
       };
 
-      if (project.images?.[0]?.url) {
+      const primaryImg = project.featureImageUrl || project.images?.[0]?.url;
+      if (primaryImg) {
         projectUrl.images = [
           {
-            loc: project.images[0].url,
+            loc: primaryImg,
             title: project.projectName,
             caption: `${String(project.projectName ?? '')} - ${String(project.city ?? 'Pakistan')}`,
           },
