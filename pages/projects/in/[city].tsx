@@ -338,7 +338,7 @@ const CityProjectsPage: NextPage<ProjectsPageProps> = ({
               <span className="text-[#004063] font-bold">{cityName}</span>
             </nav>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
               <div>
                 <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[#004063] tracking-tight">
                   Explore Verified Projects in {cityName}
@@ -374,6 +374,41 @@ const CityProjectsPage: NextPage<ProjectsPageProps> = ({
                 )}
               </div>
             </div>
+
+            {/* Popular Localities Discovery Hub */}
+            {hotspots && hotspots.length > 0 && (
+              <div className="mt-4 pt-3 border-t border-gray-150 flex flex-col gap-2">
+                <div className="flex items-center gap-1.5 text-xs text-gray-400 font-bold uppercase tracking-wider">
+                  <MapPin className="w-3.5 h-3.5 text-[#029bba]" />
+                  <span>Popular Areas in {cityName}:</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {hotspots.map((h, idx) => {
+                    const areaName = typeof h === 'string' ? h : h.area;
+                    const localitySlug = areaName
+                      .toLowerCase()
+                      .trim()
+                      .replace(/[^a-z0-9]+/g, '-')
+                      .replace(/^-+|-+$/g, '');
+
+                    return (
+                      <Link
+                        key={idx}
+                        href={`/projects/in/${encodeURIComponent(citySlug)}/${encodeURIComponent(localitySlug)}`}
+                        className="px-3 py-1.5 bg-white hover:bg-gray-50 border border-gray-200 hover:border-[#029bba] rounded-xl text-xs font-semibold text-gray-700 hover:text-[#029bba] shadow-2xs transition-all hover:-translate-y-0.5 flex items-center gap-1.5"
+                      >
+                        <span>{areaName}</span>
+                        {typeof h !== 'string' && typeof h.projectCount === 'number' && h.projectCount > 0 && (
+                          <span className="text-[10px] text-gray-400 font-bold">
+                            ({h.projectCount})
+                          </span>
+                        )}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Search & Filter Bar */}
