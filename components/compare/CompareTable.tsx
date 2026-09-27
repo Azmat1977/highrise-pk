@@ -41,6 +41,7 @@ import {
   SlidersHorizontal,
   Info,
   TrendingUp,
+  CreditCard,
 } from 'lucide-react';
 
 // ─── TYPES ────────────────────────────────────────────────────────────────────
@@ -188,6 +189,8 @@ interface NormalizedEntity {
   areaUnit:     string | null;
   listingType:  string | null;
   detailUrl:    string;
+  saleMode:     string;
+  amenities:    string[];
 }
 
 function normalizeEntity(entity: CompareEntity): NormalizedEntity {
@@ -233,6 +236,8 @@ function normalizeEntity(entity: CompareEntity): NormalizedEntity {
     areaUnit:     typeof d.areaUnit === 'string' ? d.areaUnit : null,
     listingType:  typeof d.listingType === 'string' ? d.listingType : null,
     detailUrl:    isProject ? `/projects/${slug}` : `/property/${slug}`,
+    saleMode:     typeof d.saleMode === 'string' ? d.saleMode : 'Full Payment',
+    amenities:    Array.isArray(d.amenities) ? (d.amenities as string[]) : [],
   };
 }
 
@@ -661,6 +666,61 @@ export default function CompareTable({
                   {renderEmptyCells('status')}
                 </tr>
               )}
+
+              {/* PAYMENT OPTION (Cash vs Installments) */}
+              {isRowDifferent(normalized.map((e) => e.saleMode)) && (
+                <tr className="hover:bg-gray-50/40 transition-colors">
+                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
+                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
+                      Payment Terms
+                    </p>
+                  </th>
+                  {normalized.map((entity) => (
+                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
+                      {entity.saleMode === 'Installment' || entity.saleMode === 'Both' ? (
+                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#029bba]/10 text-[#029bba] text-xs font-bold border border-[#029bba]/20">
+                          <CreditCard className="w-3.5 h-3.5" />
+                          <span>Installment Schedule</span>
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold text-gray-600">Full Payment Only</span>
+                      )}
+                    </td>
+                  ))}
+                  {renderEmptyCells('payment_terms')}
+                </tr>
+              )}
+
+              {/* AMENITIES */}
+              <tr className="hover:bg-gray-50/40 transition-colors">
+                <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
+                  <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
+                    Amenities Matrix
+                  </p>
+                </th>
+                {normalized.map((entity) => (
+                  <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
+                    {entity.amenities && entity.amenities.length > 0 ? (
+                      <div className="flex flex-col gap-1.5">
+                        {entity.amenities.slice(0, 5).map((amenity, idx) => (
+                          <div key={idx} className="flex items-center gap-1.5 text-xs text-gray-600 font-bold">
+                            <span className="w-1.5 h-1.5 bg-[#029bba] rounded-full shrink-0" />
+                            <span className="truncate">{amenity}</span>
+                          </div>
+                        ))}
+                        {entity.amenities.length > 5 && (
+                          <span className="text-[10px] text-gray-400 font-bold ml-3">
+                            +{entity.amenities.length - 5} more features
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <span className="text-xs text-gray-400">See description</span>
+                    )}
+                  </td>
+                ))}
+                {renderEmptyCells('amenities_matrix')}
+              </tr>
 
               {/* BEDROOMS */}
               {normalized.some((e) => e.bedrooms !== null) && isRowDifferent(normalized.map((e) => e.bedrooms)) && (
