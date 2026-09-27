@@ -603,6 +603,7 @@ async function handlePatch(
         // Reset tracking metrics for a fresh promotional lifecycle
         proj.promotionImpressions = 0;
         proj.promotionClicks = 0;
+        proj.promotionLeads = 0;
       }
       break;
 
