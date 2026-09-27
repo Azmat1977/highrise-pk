@@ -46,6 +46,7 @@ import {
   Bed,
   Maximize2,
   Lightbulb,
+  Calculator,
 } from 'lucide-react';
 
 import { useSession } from 'next-auth/react';
@@ -63,6 +64,7 @@ import {
   PROJECT_CATEGORY_LABELS,
 } from '@/types/projects';
 import UniversalInquiryModal from '@/components/UniversalInquiryModal';
+import InstallmentEstimatorModal from '@/components/projects/InstallmentEstimatorModal';
 
 // ─── TYPES ───────────────────────────────────────────────────────────────────
 
@@ -275,6 +277,7 @@ function FeaturedCard({
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [shareOpen,   setShareOpen]   = useState(false);
   const [authOpen,    setAuthOpen]    = useState(false);
+  const [emiOpen,     setEmiOpen]     = useState(false);
 
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
@@ -522,9 +525,9 @@ function FeaturedCard({
           </div>
         )}
 
-        {/* Installment pill */}
+        {/* Installment pill + EMI Calculator */}
         {project.projectCategory && (
-          <div className="mb-3">
+          <div className="mb-3 flex items-center gap-2 flex-wrap">
             <span
               className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
                          bg-[#029bba]/10 text-[#029bba] text-[10px] font-bold"
@@ -532,6 +535,18 @@ function FeaturedCard({
               <CreditCard className="w-3 h-3" />
               {project.projectCategory}
             </span>
+            {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && project.minPrice && (
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEmiOpen(true); }}
+                className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full
+                           bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold
+                           hover:bg-amber-100 transition-colors"
+              >
+                <Calculator className="w-3 h-3" />
+                EMI Calculator
+              </button>
+            )}
           </div>
         )}
 
@@ -625,6 +640,23 @@ function FeaturedCard({
           isSponsored={project.isFeatured}
           campaignSource={project.isFeatured ? 'promoted_featured_card' : undefined}
         />
+
+        {/* EMI Estimator Modal */}
+        <InstallmentEstimatorModal
+          isOpen={emiOpen}
+          onClose={() => setEmiOpen(false)}
+          projectId={project._id}
+          projectName={project.projectName}
+          minPrice={project.minPrice}
+          maxPrice={project.maxPrice}
+          developerId={project.developerId}
+          developerName={project.developerName}
+          city={project.city}
+          area={project.area}
+          primaryImage={project.primaryImage}
+          isSponsored={project.isFeatured}
+          campaignSource={project.isFeatured ? 'emi_featured_card' : undefined}
+        />
       </div>
     </article>
   );
@@ -645,6 +677,7 @@ function GridCard({
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [shareOpen,   setShareOpen]   = useState(false);
   const [authOpen,    setAuthOpen]    = useState(false);
+  const [emiOpen,     setEmiOpen]     = useState(false);
 
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
@@ -935,6 +968,16 @@ function GridCard({
                 Installments
               </span>
             )}
+            {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && project.minPrice && (
+              <button
+                type="button"
+                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEmiOpen(true); }}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded hover:bg-amber-100 transition-colors"
+              >
+                <Calculator className="w-3 h-3" />
+                EMI
+              </button>
+            )}
           </div>
         </div>
 
@@ -1026,6 +1069,23 @@ function GridCard({
           isSponsored={isPromoted}
           campaignSource={isPromoted ? 'promoted_grid_card' : undefined}
         />
+
+        {/* EMI Estimator Modal */}
+        <InstallmentEstimatorModal
+          isOpen={emiOpen}
+          onClose={() => setEmiOpen(false)}
+          projectId={project._id}
+          projectName={project.projectName}
+          minPrice={project.minPrice}
+          maxPrice={project.maxPrice}
+          developerId={project.developerId}
+          developerName={project.developerName}
+          city={project.city}
+          area={project.area}
+          primaryImage={project.primaryImage}
+          isSponsored={isPromoted}
+          campaignSource={isPromoted ? 'emi_grid_card' : undefined}
+        />
       </div>
     </article>
   );
@@ -1048,6 +1108,7 @@ function ListCard({
   const [inquiryOpen, setInquiryOpen] = useState(false);
   const [shareOpen,   setShareOpen]   = useState(false);
   const [authOpen,    setAuthOpen]    = useState(false);
+  const [emiOpen,     setEmiOpen]     = useState(false);
 
   const { data: session } = useSession();
   const isLoggedIn = !!session?.user;
@@ -1369,6 +1430,18 @@ function ListCard({
               {areaStr}
             </span>
           )}
+          {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && project.minPrice && (
+            <button
+              type="button"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEmiOpen(true); }}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full
+                         bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold
+                         hover:bg-amber-100 transition-colors"
+            >
+              <Calculator className="w-3 h-3" />
+              EMI Calculator
+            </button>
+          )}
         </div>
 
         {/* Price — HUGE for list view */}
@@ -1562,6 +1635,23 @@ function ListCard({
         buttonText="Send Inquiry"
         isSponsored={isPromoted}
         campaignSource={isPromoted ? 'promoted_list_card' : undefined}
+      />
+
+      {/* EMI Estimator Modal */}
+      <InstallmentEstimatorModal
+        isOpen={emiOpen}
+        onClose={() => setEmiOpen(false)}
+        projectId={project._id}
+        projectName={project.projectName}
+        minPrice={project.minPrice}
+        maxPrice={project.maxPrice}
+        developerId={project.developerId}
+        developerName={project.developerName}
+        city={project.city}
+        area={project.area}
+        primaryImage={project.primaryImage}
+        isSponsored={isPromoted}
+        campaignSource={isPromoted ? 'emi_list_card' : undefined}
       />
     </article>
   );
