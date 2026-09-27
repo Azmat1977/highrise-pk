@@ -60,6 +60,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         developerId,
         leadType = 'project_interest',
         source = 'project_page',
+        isSponsored,
+        campaignSource,
         utmSource,
         utmMedium,
         utmCampaign,
@@ -111,11 +113,18 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
 
       const project: any = await Project.findById(projectId).select(
-        'projectName slug projectId city area minPrice maxPrice projectCategory projectNature images gallery developerProfile'
+        'projectName slug projectId city area minPrice maxPrice projectCategory projectNature images gallery developerProfile isFeatured promotionEndDate'
       );
       if (!project) {
         return res.status(404).json({ success: false, message: 'Project not found.' });
       }
+
+      // Server-Side Auto-Attribution Fallback
+      // Validate campaign authenticity: if user was in organic details flow but campaign is active
+      const now = new Date();
+      const isCampaignActive = project.isFeatured && (!project.promotionEndDate || new Date(project.promotionEndDate) >= now);
+      const computedIsSponsored = Boolean(isSponsored) || isCampaignActive;
+      const computedCampaignSource = campaignSource || (isCampaignActive ? 'organic_attributed_lead' : undefined);
 
       let primaryImage: string | null = null;
       if (project.images?.length) {
@@ -167,6 +176,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         developer: developerId,
         developerSnapshot,
         source,
+        isSponsored: computedIsSponsored,
+        campaignSource: computedCampaignSource,
         utmSource,
         utmMedium,
         utmCampaign,
@@ -187,7 +198,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         status: 'new',
       });
 
-      await Project.findByIdAndUpdate(projectId, { $inc: { inquiries: 1 } });
+      // Atomically increment organic inquiries AND promotionLeads if tagged
+      const incFields: Record<string, number> = { inquiries: 1 };
+      if (computedIsSponsored) {
+        incFields.promotionLeads = 1;
+      }
+      await Project.findByIdAndUpdate(projectId, { $inc: incFields });
 
       try {
         const { enrollRecipient } = await import('@/lib/automation/enrollRecipient');

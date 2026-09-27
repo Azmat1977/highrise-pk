@@ -35,12 +35,14 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   await dbConnect();
 
   try {
-    const { 
-      projectId, 
-      propertyId, 
+    const {
+      projectId,
+      propertyId,
       leadType = 'project_interest',
       message = "Interested in this listing. Please contact me.",
-      source = 'direct'
+      source = 'direct',
+      isSponsored,
+      campaignSource
     } = req.body;
 
     // ── 1. Fetch User Profile for Data ───────────────────────
@@ -56,10 +58,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     // ── 2. Determine Entity & Developer ──────────────────────
     let projectSnapshot, propertySnapshot, developerId, developerSnapshot;
 
+    let computedIsSponsored = Boolean(isSponsored);
+    let computedCampaignSource = campaignSource;
+
     if (projectId) {
       const project: any = await Project.findById(projectId).lean();
       if (!project) return res.status(404).json({ success: false, message: 'Project not found' });
-      
+
       projectSnapshot = {
         _id: project._id,
         projectName: project.projectName,
@@ -71,6 +76,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         primaryImage: project.images?.[0]?.url || project.gallery?.[0]?.url,
       };
       developerId = project.developerProfile;
+
+      // Auto-Attribution Check
+      const now = new Date();
+      const isCampaignActive = project.isFeatured && (!project.promotionEndDate || new Date(project.promotionEndDate) >= now);
+      if (isCampaignActive) {
+        computedIsSponsored = true;
+        if (!computedCampaignSource) {
+          computedCampaignSource = 'quick_attributing_lead';
+        }
+      }
     } else if (propertyId) {
       const property: any = await Property.findById(propertyId).lean();
       if (!property) return res.status(404).json({ success: false, message: 'Property not found' });
@@ -101,7 +116,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       };
     }
 
-    // ── 4. CREATE THE LEAD ───────────────────────────────────
+      // ── 4. CREATE THE LEAD ──────────────────────────────
     const lead = await Lead.create({
       name: user.name,
       email: user.email,
@@ -115,6 +130,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       developer: developerId,
       developerSnapshot,
       source,
+      isSponsored: computedIsSponsored,
+      campaignSource: computedCampaignSource,
       status: 'new',
       assignedTo: developer?.email,
       assignedToRole: projectId ? 'developer' : 'agent',
@@ -124,9 +141,16 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       tags: ['social_lead', 'verified_phone'],
     });
 
-    // Increment inquiry counts
-    if (projectId) await Project.findByIdAndUpdate(projectId, { $inc: { inquiries: 1 } });
-    else if (propertyId) await Property.findByIdAndUpdate(propertyId, { $inc: { inquiries: 1 } });
+    // Increment inquiry and attribution counters atomically
+    if (projectId) {
+      const incFields: Record<string, number> = { inquiries: 1 };
+      if (computedIsSponsored) {
+        incFields.promotionLeads = 1;
+      }
+      await Project.findByIdAndUpdate(projectId, { $inc: incFields });
+    } else if (propertyId) {
+      await Property.findByIdAndUpdate(propertyId, { $inc: { inquiries: 1 } });
+    }
 
     return res.status(201).json({
       success: true,

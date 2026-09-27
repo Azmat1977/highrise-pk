@@ -41,6 +41,8 @@ interface UniversalInquiryModalProps {
     | 'payment_plan'
     | 'general_inquiry';
   buttonText?: string;
+  isSponsored?: boolean;
+  campaignSource?: string;
 }
 
 interface FormData {
@@ -184,6 +186,8 @@ export default function UniversalInquiryModal({
   developerName,
   leadType = 'project_interest',
   buttonText = 'Submit Inquiry',
+  isSponsored = false,
+  campaignSource,
 }: UniversalInquiryModalProps): React.ReactElement | null {
   // ═══════════════════════════════════════════════════════════
   // 🔒 SESSION CHECK — Enterprise Auth Gate
@@ -314,6 +318,8 @@ export default function UniversalInquiryModal({
             message: `[Buyer City: ${formData.city}]\n\n${formData.message.trim()}`,
             leadType,
             source: 'project_page',
+            isSponsored,
+            campaignSource,
             projectId: entityId,
             developerId,
             utmSource: urlParams.get('utm_source') || undefined,

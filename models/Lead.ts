@@ -185,6 +185,8 @@ export interface ILead extends Document {
   // SOURCE TRACKING (Marketing Analytics)
   // ===================================
   source: LeadSource;
+  isSponsored?: boolean;
+  campaignSource?: string;
   listingIds?: string[];  // ALEEM: property slugs shown to the user
   utmSource?: string;
   utmMedium?: string;
@@ -534,6 +536,15 @@ const LeadSchema = new Schema<ILead>(
       type: String,
       enum: ['project_page', 'property_page', 'listing_page', 'search_results', 'developer_profile', 'agent_profile', 'direct', 'referral', 'whatsapp', 'call', 'aleem_chat'],
       default: 'project_page',
+    },
+    isSponsored: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+    campaignSource: {
+      type: String,
+      trim: true,
     },
     utmSource: { type: String },
     utmMedium: { type: String },

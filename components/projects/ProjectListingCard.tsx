@@ -622,6 +622,8 @@ function FeaturedCard({
           developerName={project.developerName}
           leadType="project_interest"
           buttonText="Send Inquiry"
+          isSponsored={project.isFeatured}
+          campaignSource={project.isFeatured ? 'promoted_featured_card' : undefined}
         />
       </div>
     </article>
@@ -1021,6 +1023,8 @@ function GridCard({
           developerName={project.developerName}
           leadType="project_interest"
           buttonText="Send Inquiry"
+          isSponsored={isPromoted}
+          campaignSource={isPromoted ? 'promoted_grid_card' : undefined}
         />
       </div>
     </article>
@@ -1556,6 +1560,8 @@ function ListCard({
         developerName={project.developerName}
         leadType="project_interest"
         buttonText="Send Inquiry"
+        isSponsored={isPromoted}
+        campaignSource={isPromoted ? 'promoted_list_card' : undefined}
       />
     </article>
   );

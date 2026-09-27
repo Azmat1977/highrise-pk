@@ -817,6 +817,7 @@ export interface IProject extends Document {
   promotionEndDate?: Date;
   promotionImpressions?: number;
   promotionClicks?: number;
+  promotionLeads?: number;
   isVerified?: boolean;
   verifiedBy?: mongoose.Types.ObjectId;
   verifiedAt?: Date;
@@ -1831,6 +1832,7 @@ const ProjectSchema = new Schema<IProject>(
     promotionEndDate: { type: Date, default: null, index: true },
     promotionImpressions: { type: Number, default: 0 },
     promotionClicks: { type: Number, default: 0 },
+    promotionLeads: { type: Number, default: 0 },
     isVerified: { type: Boolean, default: false, index: true },
     verifiedBy: {
       type: Schema.Types.ObjectId,
