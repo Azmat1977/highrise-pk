@@ -8,8 +8,25 @@ import React, { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { Turnstile } from '@marsidev/react-turnstile';
-import { ShieldCheck, Loader2, Send, Phone, Lock, X } from 'lucide-react';
+import { ShieldCheck, Loader2, Send, Phone, Lock, X, MessageCircle } from 'lucide-react';
 import LoginOrSignupForm from '@/components/auth/LoginOrSignupForm';
+
+function normalizeWhatsAppPhone(phone: string): string {
+  let clean = phone.replace(/[^\d+]/g, ''); // Keep only digits and +
+  if (clean.startsWith('+')) {
+    clean = clean.slice(1);
+  }
+  if (clean.startsWith('00')) {
+    clean = clean.slice(2);
+  }
+  if (clean.startsWith('03')) {
+    clean = '92' + clean.slice(1);
+  }
+  if (clean.startsWith('3')) {
+    clean = '92' + clean;
+  }
+  return clean;
+}
 
 interface StickyContactFormProps {
   projectId: string;
@@ -43,6 +60,30 @@ export default function StickyContactForm({
   const [error, setError] = useState('');
   const [token, setToken] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+
+  // Real-time WhatsApp Click Telemetry Tracking
+  const handleWhatsAppClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const basePhone = developerPhone || '+92 333 5877106';
+    const cleanPhone = normalizeWhatsAppPhone(basePhone);
+    const text = `Assalam-o-Alaikum, I found the project "${projectName}" on Highrise.pk. I would like to inquire about unit options, pricing, and the latest payment schedule. Please share more details.`;
+    const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+
+    // Fire background non-blocking telemetry event
+    fetch('/api/analytics/track-event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        projectId,
+        eventType: 'click',
+        campaignSource: 'whatsapp_sticky',
+      }),
+    }).catch((err) => console.error('[Telemetry Error]:', err));
+
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
 
   // ─── Body Scroll Lock (Rule Set A) ───
   useEffect(() => {
@@ -113,13 +154,29 @@ export default function StickyContactForm({
           />
 
           {/* Phone — auth gated */}
-          {isLoggedIn && developerPhone ? (
-            <a
-              href={`tel:${developerPhone.replace(/\s/g, '')}`}
-              className="text-[22px] font-semibold text-[#029bba] tracking-tight hover:text-[#027a94] transition-colors"
-            >
-              {developerPhone}
-            </a>
+          {isLoggedIn ? (
+            <div className="flex flex-col items-center gap-2 w-full">
+              {developerPhone ? (
+                <a
+                  href={`tel:${developerPhone.replace(/\s/g, '')}`}
+                  className="inline-flex items-center gap-1.5 text-lg font-bold text-[#004063] hover:text-[#029bba] transition-colors"
+                >
+                  <Phone className="w-4 h-4 text-[#029bba]" />
+                  {developerPhone}
+                </a>
+              ) : (
+                <p className="text-xs text-gray-400">Phone not available</p>
+              )}
+
+              <button
+                type="button"
+                onClick={handleWhatsAppClick}
+                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:shadow hover:-translate-y-0.5"
+              >
+                <MessageCircle className="w-4 h-4 text-white fill-current" />
+                WhatsApp Developer
+              </button>
+            </div>
           ) : (
             <button
               type="button"
@@ -127,7 +184,7 @@ export default function StickyContactForm({
               className="inline-flex items-center justify-center gap-1.5 px-4 py-1.5 text-[14px] font-bold text-[#029bba] border border-[#029bba]/40 rounded-full hover:bg-[#029bba]/5 hover:border-[#029bba] transition-colors"
             >
               <Lock className="w-3.5 h-3.5 opacity-70" />
-              Contact
+              Contact Details
             </button>
           )}
 
