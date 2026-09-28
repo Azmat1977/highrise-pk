@@ -870,7 +870,7 @@ function GridCard({
   return (
     <article
       ref={cardRef}
-      className={`rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 group ${
+      className={`h-full flex flex-col justify-between rounded-2xl shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 group ${
         isPromoted
           ? 'bg-gradient-to-b from-[#029bba]/[0.05] to-white border-2 border-[#029bba]/40 ring-1 ring-[#029bba]/20'
           : 'bg-white border border-gray-100 hover:border-[#029bba]/20'
@@ -976,151 +976,155 @@ function GridCard({
       </Link>
 
       {/* Content */}
-      <div className="p-4">
-        {/* Developer */}
-        <div className="flex items-center gap-1.5 mb-1.5 min-w-0">
-          <span className="text-xs text-gray-500 font-semibold truncate">
-            {project.developerName}
-          </span>
-          {project.isVerified && (
-            <BadgeCheck className="w-3.5 h-3.5 text-[#029bba] flex-shrink-0" />
-          )}
-        </div>
+      <div className="p-4 flex-1 flex flex-col justify-between">
+        <div>
+          {/* Developer */}
+          <div className="flex items-center gap-1.5 mb-1.5 min-w-0">
+            <span className="text-xs text-gray-500 font-semibold truncate">
+              {project.developerName}
+            </span>
+            {project.isVerified && (
+              <BadgeCheck className="w-3.5 h-3.5 text-[#029bba] flex-shrink-0" />
+            )}
+          </div>
 
-        {/* Name */}
-        <Link href={`/projects/${project.slug}`} onClick={trackClick}>
-          <h3
-            className="font-black text-sm text-gray-900 leading-snug mb-1
-                       hover:text-[#029bba] transition-colors line-clamp-2"
-          >
-            {project.projectName}
-          </h3>
-        </Link>
+          {/* Name */}
+          <Link href={`/projects/${project.slug}`} onClick={trackClick}>
+            <h3
+              className="font-black text-sm text-gray-900 leading-snug mb-1
+                         hover:text-[#029bba] transition-colors line-clamp-2"
+            >
+              {project.projectName}
+            </h3>
+          </Link>
 
-        {/* Location */}
-        <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
-          <MapPin className="w-3 h-3 flex-shrink-0 text-gray-400" />
-          <span className="truncate">
-            {[project.area, project.city].filter(Boolean).join(', ')}
-          </span>
-        </div>
+          {/* Location */}
+          <div className="flex items-center gap-1 text-xs text-gray-500 mb-2">
+            <MapPin className="w-3 h-3 flex-shrink-0 text-gray-400" />
+            <span className="truncate">
+              {[project.area, project.city].filter(Boolean).join(', ')}
+            </span>
+          </div>
 
-        {/* Shield */}
-        <div className="mb-2">
-          <ShieldBar score={project.shield.total} />
-        </div>
+          {/* Shield */}
+          <div className="mb-2">
+            <ShieldBar score={project.shield.total} />
+          </div>
 
-        {/* Price */}
-        <p className="text-base font-black text-[#029bba] mb-1">{priceStr}</p>
+          {/* Price */}
+          <p className="text-base font-black text-[#029bba] mb-1">{priceStr}</p>
 
-        {/* Smart Context Zone (Residential vs Commercial + Payment Terms) */}
-        <div className="my-2.5 p-2.5 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-600 space-y-1.5">
-          {project.projectNature === 'commercial' || project.projectCategory === 'commercial_plaza' ? (
-            <div className="flex items-center gap-1.5 font-bold text-[#004063]">
-              <Building2 className="w-3.5 h-3.5 text-[#029bba]" />
-              <span>Commercial Shops, Offices & Spaces</span>
-            </div>
-          ) : (
-            <div className="flex flex-wrap items-center justify-between gap-2 font-semibold">
-              {project.minBedrooms !== null && (
-                <span>Bedrooms: {project.minBedrooms === project.maxBedrooms ? `${project.minBedrooms} Bed` : `${project.minBedrooms} - ${project.maxBedrooms} Beds`}</span>
-              )}
-              {areaStr && <span>Area: {areaStr}</span>}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
-            {project.nocStatus === 'approved' ? (
-              <div className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold">
-                <BadgeCheck className="w-3 h-3 text-emerald-600" />
-                <span>{project.nocAuthority ? `${project.nocAuthority} Approved` : 'NOC Approved'}</span>
+          {/* Smart Context Zone (Residential vs Commercial + Payment Terms) */}
+          <div className="my-2.5 p-2.5 bg-gray-50 rounded-xl border border-gray-100 text-xs text-gray-600 space-y-1.5">
+            {project.projectNature === 'commercial' || project.projectCategory === 'commercial_plaza' ? (
+              <div className="flex items-center gap-1.5 font-bold text-[#004063]">
+                <Building2 className="w-3.5 h-3.5 text-[#029bba]" />
+                <span>Commercial Shops, Offices & Spaces</span>
               </div>
             ) : (
-              <span className="text-[11px] text-gray-400 font-medium">NOC Pending</span>
+              <div className="flex flex-wrap items-center justify-between gap-2 font-semibold">
+                {project.minBedrooms !== null && (
+                  <span>Bedrooms: {project.minBedrooms === project.maxBedrooms ? `${project.minBedrooms} Bed` : `${project.minBedrooms} - ${project.maxBedrooms} Beds`}</span>
+                )}
+                {areaStr && <span>Area: {areaStr}</span>}
+              </div>
             )}
 
-            {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#029bba]/10 text-[#029bba] text-[10px] font-bold rounded">
-                <CreditCard className="w-3 h-3" />
-                Installments
-              </span>
-            )}
-            {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && project.minPrice && (
-              <button
-                type="button"
-                onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEmiOpen(true); }}
-                className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded hover:bg-amber-100 transition-colors"
-              >
-                <Calculator className="w-3 h-3" />
-                EMI
-              </button>
-            )}
+            <div className="flex items-center justify-between gap-2 pt-1 border-t border-gray-100">
+              {project.nocStatus === 'approved' ? (
+                <div className="flex items-center gap-1 text-emerald-700 text-[11px] font-bold">
+                  <BadgeCheck className="w-3 h-3 text-emerald-600" />
+                  <span>{project.nocAuthority ? `${project.nocAuthority} Approved` : 'NOC Approved'}</span>
+                </div>
+              ) : (
+                <span className="text-[11px] text-gray-400 font-medium">NOC Pending</span>
+              )}
+
+              {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && (
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-[#029bba]/10 text-[#029bba] text-[10px] font-bold rounded">
+                  <CreditCard className="w-3 h-3" />
+                  Installments
+                </span>
+              )}
+              {project.saleMode && (project.saleMode === 'Installment' || project.saleMode === 'Both') && project.minPrice && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); setEmiOpen(true); }}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold rounded hover:bg-amber-100 transition-colors"
+                >
+                  <Calculator className="w-3 h-3" />
+                  EMI
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-2 pt-3 border-t border-gray-50">
-          <Link
-            href={`/projects/${project.slug}`}
-            onClick={trackClick}
-            className="flex-1 flex items-center justify-center gap-1
-                       py-1.5 rounded-xl bg-[#029bba] text-white
-                       text-xs font-bold hover:bg-[#017a94]
-                       transition-colors focus:outline-none
-                       focus:ring-2 focus:ring-[#029bba]/50"
-          >
-            View <ArrowRight className="w-3 h-3" />
-          </Link>
+        <div className="mt-auto pt-3">
+          <div className="flex items-center gap-2 pt-3 border-t border-gray-50">
+            <Link
+              href={`/projects/${project.slug}`}
+              onClick={trackClick}
+              className="flex-1 flex items-center justify-center gap-1
+                         py-1.5 rounded-xl bg-[#029bba] text-white
+                         text-xs font-bold hover:bg-[#017a94]
+                         transition-colors focus:outline-none
+                         focus:ring-2 focus:ring-[#029bba]/50"
+            >
+              View <ArrowRight className="w-3 h-3" />
+            </Link>
 
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                setInquiryOpen(true);
+              }}
+              className="flex-1 flex items-center justify-center gap-1
+                         py-1.5 rounded-xl border border-[#029bba]
+                         text-[#029bba] text-xs font-bold
+                         hover:bg-[#029bba]/5 transition-colors
+                         focus:outline-none focus:ring-2
+                         focus:ring-[#029bba]/50"
+            >
+              <MessageSquare className="w-3 h-3" />
+              Inquire
+            </button>
+          </div>
+
+          {/* Compare button */}
           <button
             type="button"
-            onClick={(e) => {
+            onClick={async (e) => {
               e.preventDefault();
               e.stopPropagation();
-              setInquiryOpen(true);
+              if (!isLoggedIn) {
+                setAuthOpen(true);
+                return;
+              }
+              await toggleCompare(project._id);
             }}
-            className="flex-1 flex items-center justify-center gap-1
-                       py-1.5 rounded-xl border border-[#029bba]
-                       text-[#029bba] text-xs font-bold
-                       hover:bg-[#029bba]/5 transition-colors
-                       focus:outline-none focus:ring-2
-                       focus:ring-[#029bba]/50"
+            disabled={comparePending || (!inCompare && isMaxReached)}
+            aria-pressed={inCompare}
+            aria-label={inCompare ? 'Remove from compare' : 'Add to compare'}
+            className={`w-full mt-2 flex items-center justify-center gap-1
+                        py-1.5 rounded-xl border text-xs font-bold
+                        transition-all
+                        focus:outline-none focus:ring-2
+                        disabled:opacity-50 disabled:cursor-not-allowed
+                        ${inCompare
+                          ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 focus:ring-emerald-300'
+                          : 'border-gray-200 text-gray-600 hover:border-[#029bba]/40 hover:text-[#029bba] hover:bg-[#029bba]/5 focus:ring-[#029bba]/40'
+                        }`}
           >
-            <MessageSquare className="w-3 h-3" />
-            Inquire
+            {inCompare
+              ? <Check className="w-3 h-3" />
+              : <BarChart3 className="w-3 h-3" />}
+            {inCompare ? 'In Compare' : 'Compare'}
           </button>
         </div>
-
-        {/* Compare button */}
-        <button
-          type="button"
-          onClick={async (e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            if (!isLoggedIn) {
-              setAuthOpen(true);
-              return;
-            }
-            await toggleCompare(project._id);
-          }}
-          disabled={comparePending || (!inCompare && isMaxReached)}
-          aria-pressed={inCompare}
-          aria-label={inCompare ? 'Remove from compare' : 'Add to compare'}
-          className={`w-full mt-2 flex items-center justify-center gap-1
-                      py-1.5 rounded-xl border text-xs font-bold
-                      transition-all
-                      focus:outline-none focus:ring-2
-                      disabled:opacity-50 disabled:cursor-not-allowed
-                      ${inCompare
-                        ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 focus:ring-emerald-300'
-                        : 'border-gray-200 text-gray-600 hover:border-[#029bba]/40 hover:text-[#029bba] hover:bg-[#029bba]/5 focus:ring-[#029bba]/40'
-                      }`}
-        >
-          {inCompare
-            ? <Check className="w-3 h-3" />
-            : <BarChart3 className="w-3 h-3" />}
-          {inCompare ? 'In Compare' : 'Compare'}
-        </button>
 
         <AuthGateModal
           isOpen={authOpen}

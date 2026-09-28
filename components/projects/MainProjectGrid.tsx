@@ -725,11 +725,12 @@ export function MainProjectGrid({
 
                 return (
                   <React.Fragment key={project._id}>
-                    <div role="listitem">
+                    <div role="listitem" className="h-full">
                       <ProjectListingCard
                         project={project}
                         variant={viewMode === 'list' ? 'list' : 'grid'}
                         isPromoted={isPromotedSlot}
+                        className="h-full"
                       />
                     </div>
 
