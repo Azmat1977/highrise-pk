@@ -238,6 +238,7 @@ export interface ProjectListing {
   // Media
   primaryImage:     string | null;
   imageCount:       number;
+  galleryImages?:   string[];
 
   // Engagement
   isShortlisted:    boolean;    // SSR: always false — corrected client-side

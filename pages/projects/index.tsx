@@ -54,7 +54,8 @@ import {
   budgetTierToRange,
 } from '@/types/projects';
 
-const POSSESSION_OPTIONS: Array<{ value: PossessionStatus; label: string }> = [
+const STATUS_OPTIONS = [
+  { value: 'installments',       label: 'On Installments' },
   { value: 'ready_to_move',      label: 'Ready to Move' },
   { value: 'under_construction', label: 'Under Construction' },
   { value: 'new_launch',         label: 'New Launch' },
@@ -409,12 +410,12 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
       />
 
       <div className="bg-gray-50 min-h-screen">
-        {/* ENTERPRISE 1120PX CONTAINER SHELL */}
-        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-6 md:py-8 space-y-6">
+        {/* TRULIA-STYLE WIDE CONTAINER SHELL (1440px) */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
 
-          {/* BREADCRUMBS & HEADER ZONE */}
+          {/* BREADCRUMBS & HEADER ZONE - COMPACT */}
           <div>
-            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-3">
+            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
               <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
                 <Home className="w-3.5 h-3.5" />
                 <span>Home</span>
@@ -431,21 +432,21 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
               )}
             </nav>
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
-                <h1 className="text-2xl md:text-3xl lg:text-4xl font-black text-[#004063] tracking-tight">
-                  {filters.city ? `Explore Verified Projects in ${filters.city}` : 'Explore Verified Projects in Pakistan'}
+                <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+                  {filters.city ? `Verified Projects in ${filters.city}` : 'Verified Projects in Pakistan'}
                 </h1>
-                <p className="text-xs md:text-sm text-gray-600 font-semibold mt-1 flex flex-wrap items-center gap-2">
-                  <span>{totalCount.toLocaleString()} Verified Projects</span>
-                  <span className="text-gray-300">|</span>
-                  <span className="text-emerald-600 font-bold">NOC Approved</span>
-                  <span className="text-gray-300">|</span>
-                  <span className="text-[#029bba] font-bold">Easy Installment Plans</span>
+                <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+                  <span>{totalCount.toLocaleString()} Projects</span>
+                  <span className="text-gray-300">•</span>
+                  <span className="text-emerald-600">NOC Approved</span>
+                  <span className="text-gray-300">•</span>
+                  <span className="text-[#029bba]">Installments Available</span>
                 </p>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
                 <button
                   type="button"
                   onClick={handleSaveSearchClick}
@@ -469,16 +470,16 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
             </div>
           </div>
 
-          {/* ENTERPRISE SEARCH & FILTER BAR */}
-          <div className={`transition-all duration-300 md:sticky md:top-[64px] z-30 bg-white rounded-2xl border shadow-sm p-4 space-y-4 relative ${
-            isSticky
-              ? 'md:bg-white/95 md:backdrop-blur-md md:border-gray-300 md:shadow-md md:py-3 md:px-5'
-              : 'border-gray-200 md:p-5'
+          {/* TRULIA-STYLE COMPACT SEARCH & FILTER BAR */}
+          <div className={`transition-all duration-300 md:sticky md:top-[64px] z-30 relative ${
+            isSticky ? 'bg-white shadow-sm border-b border-gray-200 py-3 -mx-4 px-4 sm:mx-0 sm:px-0' : 'bg-transparent'
           }`}>
-
-            {/* Search Input Row */}
-            <div className="flex flex-col md:flex-row gap-3">
-              <div className="flex-1 relative">
+            
+            {/* Unified 1-Row Layout */}
+            <div className="flex flex-col md:flex-row items-center gap-2.5">
+              
+              {/* Search Bar - Flex 1 */}
+              <div className="w-full md:flex-1 relative">
                 <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
                   type="text"
@@ -490,157 +491,115 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
                       handleSearchSubmit();
                     }
                   }}
-                  placeholder="Search project name, locality, or developer..."
-                  className="w-full h-11 pl-10 pr-24 bg-gray-50 border border-gray-200 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:outline-none transition-all"
+                  placeholder="Search locality, project, or developer..."
+                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
                 />
                 <button
                   type="button"
                   onClick={handleSearchSubmit}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3.5 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors"
                 >
                   Search
                 </button>
               </div>
 
-              <div className="w-full md:w-56">
-                <FilterDropdown
-                  icon={MapPin}
-                  placeholder="All Cities"
-                  value={filters.city || ''}
-                  onChange={(v) => updateFilters({ city: v })}
-                  searchable
-                  options={[
-                    { value: '', label: 'All Cities' },
-                    ...citiesToShow.map((c) => ({
-                      value: c.city,
-                      label: c.city,
-                      count: c.count > 0 ? c.count : undefined,
-                    })),
-                  ]}
-                />
-              </div>
-            </div>
-
-            {/* Filter Dropdowns Row */}
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 relative z-30">
-              <FilterDropdown
-                icon={Building2}
-                placeholder="Category"
-                value={filters.category || ''}
-                onChange={(v) => updateFilters({ category: v as ProjectCategory | '' })}
-                options={[
-                  { value: '', label: 'All Categories' },
-                  ...(Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[]).map((key) => ({
-                    value: key,
-                    label: PROJECT_CATEGORY_LABELS[key],
-                  })),
-                ]}
-              />
-
-              <FilterDropdown
-                icon={Clock}
-                placeholder="Possession"
-                value={filters.possession || ''}
-                onChange={(v) => updateFilters({ possession: v as PossessionStatus | '' })}
-                options={[
-                  { value: '', label: 'Any Possession' },
-                  ...POSSESSION_OPTIONS.map((opt) => ({
-                    value: opt.value,
-                    label: opt.label,
-                  })),
-                ]}
-              />
-
-              <FilterDropdown
-                icon={Banknote}
-                placeholder="Budget Tier"
-                value={getMatchingBudgetTier(filters.minBudget, filters.maxBudget) || ''}
-                onChange={(v) => updateFilters(budgetTierToRange(v as BudgetTierKey | ''))}
-                options={[
-                  { value: '', label: 'Any Budget' },
-                  ...BUDGET_TIERS.map((t) => ({ value: t.key, label: t.label })),
-                ]}
-              />
-
-              <button
-                type="button"
-                onClick={() => updateFilters({ installments: !filters.installments })}
-                className={`h-11 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  filters.installments
-                    ? 'bg-[#029bba] border-[#029bba] text-white shadow-sm'
-                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-[#029bba]/40 hover:text-[#029bba]'
-                }`}
-              >
-                <CreditCard className="w-4 h-4" />
-                <span>Installments</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => updateFilters({ noc: !filters.noc })}
-                className={`h-11 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                  filters.noc
-                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
-                    : 'bg-gray-50 border-gray-200 text-gray-700 hover:border-[#029bba]/40 hover:text-[#029bba]'
-                }`}
-              >
-                <ShieldCheck className="w-4 h-4" />
-                <span>NOC Approved</span>
-              </button>
-            </div>
-
-            {/* Active Filter Chips Bar */}
-            {activeFilterCount > 0 && (
-              <div className="pt-3 border-t border-gray-100 flex flex-wrap items-center gap-2">
-                <span className="text-xs font-bold text-gray-400">Active Filters:</span>
+              {/* Tightly Packed Dropdowns (Scrollable on small mobile, inline on desktop) */}
+              <div className="w-full md:w-auto flex overflow-x-auto md:flex-wrap items-center gap-2.5 pb-1 md:pb-0 shrink-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
                 
-                {filters.city && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
-                    City: {filters.city}
-                    <button type="button" onClick={() => updateFilters({ city: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                  </span>
-                )}
+                <div className="w-[140px] shrink-0">
+                  <FilterDropdown
+                    icon={MapPin}
+                    placeholder="All Cities"
+                    value={filters.city || ''}
+                    onChange={(v) => updateFilters({ city: v })}
+                    searchable
+                    options={[
+                      { value: '', label: 'All Cities' },
+                      ...citiesToShow.map((c) => ({
+                        value: c.city,
+                        label: c.city,
+                        count: c.count > 0 ? c.count : undefined,
+                      })),
+                    ]}
+                  />
+                </div>
 
-                {filters.locality && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
-                    Locality: {filters.locality}
-                    <button type="button" onClick={() => updateFilters({ locality: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                  </span>
-                )}
+                <div className="w-[140px] shrink-0">
+                  <FilterDropdown
+                    icon={Building2}
+                    placeholder="Category"
+                    value={filters.category || ''}
+                    onChange={(v) => updateFilters({ category: v as ProjectCategory | '' })}
+                    options={[
+                      { value: '', label: 'All Categories' },
+                      ...(Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[]).map((key) => ({
+                        value: key,
+                        label: PROJECT_CATEGORY_LABELS[key],
+                      })),
+                    ]}
+                  />
+                </div>
 
-                {filters.category && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
-                    {PROJECT_CATEGORY_LABELS[filters.category] || filters.category}
-                    <button type="button" onClick={() => updateFilters({ category: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                  </span>
-                )}
+                <div className="w-[150px] shrink-0">
+                  <FilterDropdown
+                    icon={Clock}
+                    placeholder="Status"
+                    value={filters.installments ? 'installments' : (filters.possession || '')}
+                    onChange={(v) => {
+                      if (v === 'installments') {
+                        updateFilters({ installments: true, possession: '' });
+                      } else {
+                        updateFilters({ installments: false, possession: v as PossessionStatus | '' });
+                      }
+                    }}
+                    options={[
+                      { value: '', label: 'Any Status' },
+                      ...STATUS_OPTIONS.map((opt) => ({
+                        value: opt.value,
+                        label: opt.label,
+                      })),
+                    ]}
+                  />
+                </div>
 
-                {filters.possession && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-gray-100 border border-gray-200 rounded-lg text-xs font-bold text-gray-700">
-                    {POSSESSION_OPTIONS.find(p => p.value === filters.possession)?.label || filters.possession}
-                    <button type="button" onClick={() => updateFilters({ possession: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                  </span>
-                )}
-
-                {filters.installments && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-[#029bba]/10 text-[#029bba] border border-[#029bba]/20 rounded-lg text-xs font-bold">
-                    On Installments
-                    <button type="button" onClick={() => updateFilters({ installments: false })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                  </span>
-                )}
-
-                {filters.noc && (
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg text-xs font-bold">
-                    NOC Approved
-                    <button type="button" onClick={() => updateFilters({ noc: false })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                  </span>
-                )}
+                <div className="w-[140px] shrink-0">
+                  <FilterDropdown
+                    icon={Banknote}
+                    placeholder="Budget"
+                    value={getMatchingBudgetTier(filters.minBudget, filters.maxBudget) || ''}
+                    onChange={(v) => updateFilters(budgetTierToRange(v as BudgetTierKey | ''))}
+                    options={[
+                      { value: '', label: 'Any Budget' },
+                      ...BUDGET_TIERS.map((t) => ({ value: t.key, label: t.label })),
+                    ]}
+                  />
+                </div>
 
                 <button
                   type="button"
-                  onClick={() => updateFilters(DEFAULT_FILTERS)}
-                  className="text-xs font-bold text-red-600 hover:underline ml-2"
+                  onClick={() => updateFilters({ noc: !filters.noc })}
+                  className={`shrink-0 h-11 px-3.5 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                    filters.noc
+                      ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                      : 'bg-white border-gray-300 text-gray-700 hover:border-emerald-500/40 hover:text-emerald-600 shadow-sm'
+                  }`}
                 >
+                  <ShieldCheck className="w-4 h-4" />
+                  <span className="hidden lg:inline">NOC Approved</span>
+                  <span className="lg:hidden">NOC</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Active Locality Chip (Other filters are visibly active in dropdowns) */}
+            {filters.locality && (
+              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Active:</span>
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-[11px] font-bold text-gray-700">
+                  {filters.locality}
+                  <button type="button" onClick={() => updateFilters({ locality: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+                </span>
+                <button type="button" onClick={() => updateFilters(DEFAULT_FILTERS)} className="text-[11px] font-bold text-red-500 hover:underline ml-1">
                   Clear All
                 </button>
               </div>
@@ -809,11 +768,35 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
 
     const projects: ProjectListing[] = (rawProjects as Array<Record<string, unknown>>).map(p => {
       let primaryImage: string | null = null;
+      let galleryImages: string[] = [];
+
       if (typeof p.featureImageUrl === 'string') {
         primaryImage = p.featureImageUrl;
       } else if (Array.isArray(p.images) && p.images.length > 0) {
         const imgs = p.images as Array<{ url?: string; isPrimary?: boolean }>;
         primaryImage = imgs.find(i => i?.isPrimary)?.url ?? imgs[0]?.url ?? null;
+      }
+
+      // Extract top 5 images for hover carousel
+      if (Array.isArray(p.images) && p.images.length > 0) {
+        const imgs = p.images as Array<{ url?: string }>;
+        const validUrls = imgs.map(i => i?.url).filter((u): u is string => typeof u === 'string');
+        
+        if (typeof p.featureImageUrl === 'string' && !validUrls.includes(p.featureImageUrl)) {
+          validUrls.unshift(p.featureImageUrl);
+        }
+        
+        // Ensure primary is strictly at index 0
+        if (primaryImage && validUrls.includes(primaryImage)) {
+          const idx = validUrls.indexOf(primaryImage);
+          if (idx > 0) {
+            validUrls.splice(idx, 1);
+            validUrls.unshift(primaryImage);
+          }
+        }
+        galleryImages = validUrls.slice(0, 5);
+      } else if (primaryImage) {
+        galleryImages = [primaryImage];
       }
 
       const dev = p.developerProfile as { name?: string; logoUrl?: string } | undefined;
@@ -904,6 +887,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
         isTrustedBuilder: Boolean(p.isTrustedBuilder),
         marketedBy: null,
         primaryImage,
+        galleryImages,
         imageCount: Array.isArray(p.images) ? p.images.length : 0,
         isShortlisted: false,
         inquiryCount: null,

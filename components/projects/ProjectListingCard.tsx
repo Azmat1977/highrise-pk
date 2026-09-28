@@ -29,6 +29,8 @@ import Image from 'next/image';
 import {
   MapPin,
   Building2,
+  ChevronLeft,
+  ChevronRight,
   BadgeCheck,
   ShieldCheck,
   Heart,
@@ -212,7 +214,94 @@ function ImagePlaceholder(): React.ReactElement {
   );
 }
 
-// ─── POSSESSION BADGE ─────────────────────────────────────────────────────────
+// === IMAGE CAROUSEL ========================================================
+
+function ImageCarousel({
+  images,
+  alt,
+}: {
+  images: string[];
+  alt: string;
+}): React.ReactElement {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isHovered, setIsHovered] = useState(false);
+
+  if (!images || images.length === 0) return <ImagePlaceholder />;
+  
+  if (images.length === 1) {
+    return (
+      <Image
+        src={images[0]}
+        alt={alt}
+        fill
+        className="object-cover group-hover:scale-105 transition-transform duration-500"
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+      />
+    );
+  }
+
+  const handlePrev = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev === images.length - 1 ? 0 : prev + 1));
+  };
+
+  return (
+    <div
+      className="absolute inset-0 w-full h-full"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      <Image
+        src={images[currentIndex]}
+        alt={`${alt} - Image ${currentIndex + 1}`}
+        fill
+        className="object-cover group-hover:scale-105 transition-transform duration-500"
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+      />
+
+      <div
+        className={`absolute inset-0 flex items-center justify-between px-2 z-20 transition-opacity duration-200 ${
+          isHovered ? 'opacity-100' : 'opacity-0'
+        }`}
+      >
+        <button
+          onClick={handlePrev}
+          className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-700 hover:text-[#029bba] hover:scale-110 transition-all focus:outline-none"
+          aria-label="Previous image"
+        >
+          <ChevronLeft className="w-4 h-4" />
+        </button>
+        <button
+          onClick={handleNext}
+          className="w-7 h-7 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-700 hover:text-[#029bba] hover:scale-110 transition-all focus:outline-none"
+          aria-label="Next image"
+        >
+          <ChevronRight className="w-4 h-4" />
+        </button>
+      </div>
+
+      <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-20 pointer-events-none">
+        {images.map((_, idx) => (
+          <div
+            key={idx}
+            className={`h-1.5 rounded-full shadow-sm transition-all duration-300 ${
+              idx === currentIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'
+            }`}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- POSSESSION BADGE -------------------------------------------------------
 
 function PossessionBadge({
   status,
@@ -332,15 +421,10 @@ function FeaturedCard({
         tabIndex={-1}
         aria-hidden="true"
       >
-        {project.primaryImage ? (
-          <Image
-            src={project.primaryImage}
-            alt={project.projectName}
-            fill
-            className="object-cover group-hover:scale-105
-                       transition-transform duration-500"
-            sizes="(max-width: 640px) 288px, 320px"
-          />
+        {project.galleryImages && project.galleryImages.length > 0 ? (
+          <ImageCarousel images={project.galleryImages} alt={project.projectName} />
+        ) : project.primaryImage ? (
+          <ImageCarousel images={[project.primaryImage]} alt={project.projectName} />
         ) : (
           <ImagePlaceholder />
         )}
@@ -801,17 +885,10 @@ function GridCard({
         tabIndex={-1}
         aria-hidden="true"
       >
-        {project.primaryImage ? (
-          <Image
-            src={project.primaryImage}
-            alt={project.projectName}
-            fill
-            className="object-cover group-hover:scale-105
-                       transition-transform duration-500"
-            sizes="(max-width: 640px) 100vw,
-                   (max-width: 1024px) 50vw,
-                   33vw"
-          />
+        {project.galleryImages && project.galleryImages.length > 0 ? (
+          <ImageCarousel images={project.galleryImages} alt={project.projectName} />
+        ) : project.primaryImage ? (
+          <ImageCarousel images={[project.primaryImage]} alt={project.projectName} />
         ) : (
           <ImagePlaceholder />
         )}
@@ -1238,15 +1315,10 @@ function ListCard({
         tabIndex={-1}
         aria-hidden="true"
       >
-        {project.primaryImage ? (
-          <Image
-            src={project.primaryImage}
-            alt={project.projectName}
-            fill
-            className="object-cover group-hover:scale-105
-                       transition-transform duration-500"
-            sizes="(max-width: 768px) 100vw, 360px"
-          />
+        {project.galleryImages && project.galleryImages.length > 0 ? (
+          <ImageCarousel images={project.galleryImages} alt={project.projectName} />
+        ) : project.primaryImage ? (
+          <ImageCarousel images={[project.primaryImage]} alt={project.projectName} />
         ) : (
           <ImagePlaceholder />
         )}
