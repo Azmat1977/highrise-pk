@@ -37,12 +37,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       await Project.deleteMany({ slug: { $regex: '^mock-' } });
       await Property.deleteMany({ slug: { $regex: '^mock-' } });
 
-      // High-resolution architectural photos (Unsplash whitelisted in next.config.js)
-      const img1 = 'https://images.unsplash.com/photo-1545324418-cc1a3fa10c00?auto=format&fit=crop&w=1000&q=80';
-      const img2 = 'https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1000&q=80';
-      const img3 = 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80';
-      const img4 = 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1000&q=80';
-      const img5 = 'https://images.unsplash.com/photo-1570129477492-45c003edd2be?auto=format&fit=crop&w=1000&q=80';
+      // Guaranteed Cloudinary sample assets (Whitelisted & never blocked by localhost fetch)
+      const img1 = 'https://res.cloudinary.com/demo/image/upload/v1312461206/sample.jpg';
+      const img2 = 'https://res.cloudinary.com/demo/image/upload/cld-sample-2.jpg';
+      const img3 = 'https://res.cloudinary.com/demo/image/upload/cld-sample-3.jpg';
+      const img4 = 'https://res.cloudinary.com/demo/image/upload/cld-sample-4.jpg';
+      const img5 = 'https://res.cloudinary.com/demo/image/upload/cld-sample-5.jpg';
 
       const mockDevId = new mongoose.Types.ObjectId();
 
