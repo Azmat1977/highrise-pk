@@ -269,7 +269,7 @@ export default function StepType({ form, setField, errors }: StepTypeProps): Rea
         {/* Interactive Map & Coordinates Picker Zone */}
         <div className="md:col-span-2 space-y-3 pt-2">
           <div className="flex items-center justify-between">
-            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+            <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-700">
               <Globe className="w-4 h-4 text-[#029bba]" />
               Interactive Property Map Location
             </label>
