@@ -56,6 +56,7 @@ import {
   FileText,
   Zap,
   Shield,
+  ShieldCheck,
   Droplets,
   Flame,
   Trees,
@@ -75,6 +76,8 @@ import {
   Ruler,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  ChevronUp,
   X,
   Image as ImageIcon,
   Play,
@@ -85,6 +88,20 @@ import {
   Info,
   Lock,
   Receipt,
+  Sparkles,
+  ChefHat,
+  DoorOpen,
+  User,
+  Store,
+  Megaphone,
+  Truck,
+  Snowflake,
+  Utensils,
+  Landmark,
+  HeartPulse,
+  Bus,
+  Navigation,
+  Compass,
 } from "lucide-react";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -218,6 +235,7 @@ interface Property {
   possessionStatus?: string;
   ownershipType?: string;
   amenities?: string[];
+  nearbyFacilities?: Array<{ name: string; category?: string; distance?: string }>;
   parking?: string | number;
   isBankFinanceAvailable?: boolean;
   booking?: BookingPayment;
@@ -480,11 +498,62 @@ type AmenityDef = {
 };
 
 const AMENITY_ICONS: Record<string, AmenityDef> = {
-  centralHeating:       { icon: Thermometer,   label: "Central Heating",        group: "interior"  },
+  // Residential Keys
+  balcony:              { icon: DoorOpen,       label: "Balcony",                group: "interior"  },
+  servant_quarter:      { icon: User,           label: "Servant Quarter",        group: "interior"  },
+  store_room:           { icon: Warehouse,      label: "Store Room",             group: "interior"  },
+  laundry:              { icon: Warehouse,      label: "Laundry Room",           group: "interior"  },
+  modular_kitchen:      { icon: ChefHat,        label: "Modular Kitchen",        group: "interior"  },
+  lift:                 { icon: Building,       label: "Lift / Elevator",        group: "building"  },
+  backup_generator:     { icon: Zap,            label: "Backup Generator",       group: "building"  },
+  gym:                  { icon: Dumbbell,       label: "Gym",                    group: "building"  },
+  swimming_pool:        { icon: Droplets,       label: "Swimming Pool",          group: "exterior"  },
+  community_hall:       { icon: Users,          label: "Community Hall",         group: "building"  },
+  kids_play_area:       { icon: Users,          label: "Kids Play Area",         group: "building"  },
+  rooftop_access:       { icon: Layers,         label: "Rooftop Access",         group: "exterior"  },
+  cctv:                 { icon: Eye,            label: "CCTV Security",          group: "security"  },
+  security_guard:       { icon: ShieldCheck,    label: "24/7 Security",          group: "security"  },
   intercom:             { icon: Phone,          label: "Intercom",               group: "interior"  },
+  reserved_parking:     { icon: Car,            label: "Reserved Parking",       group: "exterior"  },
+  visitor_parking:      { icon: Car,            label: "Visitor Parking",        group: "exterior"  },
+
+  // Commercial Keys
+  front_signage:        { icon: Megaphone,      label: "Front Signage",          group: "exterior"  },
+  display_window:       { icon: Store,          label: "Display Window",         group: "interior"  },
+  reception:            { icon: Users,          label: "Reception Area",         group: "interior"  },
+  meeting_room:         { icon: Users,          label: "Meeting Room",           group: "interior"  },
+  central_ac:           { icon: Wind,           label: "Central AC",             group: "building"  },
+  split_ac:             { icon: Wind,           label: "Split AC",               group: "interior"  },
+  backup_power:         { icon: Zap,            label: "Backup Power",           group: "building"  },
+  internet_ready:       { icon: Zap,            label: "Internet Ready",         group: "interior"  },
+  lift_access:          { icon: Building,       label: "Lift Access",            group: "building"  },
+  loading_dock:         { icon: Truck,          label: "Loading Dock",           group: "exterior"  },
+  fire_safety:          { icon: AlertCircle,    label: "Fire Safety System",     group: "building"  },
+  access_control:       { icon: Lock,           label: "Access Control",         group: "security"  },
+
+  // Food Court / Restaurant
+  commercial_kitchen:   { icon: ChefHat,        label: "Commercial Kitchen",     group: "interior"  },
+  exhaust_system:       { icon: Wind,           label: "Exhaust System",         group: "interior"  },
+  grease_trap:          { icon: Droplets,       label: "Grease Trap",            group: "interior"  },
+  cold_storage:         { icon: Snowflake,      label: "Cold Storage",           group: "interior"  },
+  gas_connection:       { icon: Flame,          label: "Gas Connection",         group: "building"  },
+  outdoor_seating:      { icon: Utensils,       label: "Outdoor Seating",        group: "exterior"  },
+  delivery_bay:         { icon: Truck,          label: "Delivery Bay",           group: "exterior"  },
+
+  // Plot / Land
+  electricity:          { icon: Zap,            label: "Electricity Available",  group: "building"  },
+  sui_gas:              { icon: Flame,          label: "Sui Gas Available",      group: "building"  },
+  water:                { icon: Droplets,       label: "Water Connection",       group: "building"  },
+  sewerage:             { icon: Warehouse,      label: "Sewerage Line",          group: "building"  },
+  boundary_wall:        { icon: Shield,         label: "Boundary Wall",          group: "exterior"  },
+  main_gate:            { icon: Lock,           label: "Main Gate",              group: "exterior"  },
+  paved_road:           { icon: Navigation,     label: "Paved Road Access",      group: "society"   },
+  corner:               { icon: Sparkles,       label: "Corner Plot",            group: "exterior"  },
+
+  // Legacy Fallbacks
+  centralHeating:       { icon: Thermometer,   label: "Central Heating",        group: "interior"  },
   smartHome:            { icon: Home,           label: "Smart Home",             group: "interior"  },
   doubleGlazedWindows:  { icon: Layers,         label: "Double-Glazed Windows",  group: "interior"  },
-  store_room:           { icon: Warehouse,      label: "Store Room",             group: "interior"  },
   laundry_room:         { icon: Warehouse,      label: "Laundry Room",           group: "interior"  },
   boundaryWall:         { icon: Shield,         label: "Boundary Wall",          group: "exterior"  },
   garden:               { icon: Trees,          label: "Garden",                 group: "exterior"  },
@@ -493,18 +562,9 @@ const AMENITY_ICONS: Record<string, AmenityDef> = {
   lawn_garden:          { icon: Trees,          label: "Lawn / Garden",          group: "exterior"  },
   elevator:             { icon: Building,       label: "Elevator / Lift",        group: "building"  },
   generator:            { icon: Zap,            label: "Generator / Backup",     group: "building"  },
-  fireSafety:           { icon: AlertCircle,    label: "Fire Safety",            group: "building"  },
-  reception:            { icon: Users,          label: "Reception / Lobby",      group: "building"  },
-  gym:                  { icon: Dumbbell,       label: "Gym",                    group: "building"  },
-  communityHall:        { icon: Users,          label: "Community Hall",         group: "building"  },
-  kidsPlayArea:         { icon: Users,          label: "Kids' Play Area",        group: "building"  },
   prayerRoom:           { icon: Building,       label: "Prayer Room",            group: "building"  },
-  sui_gas:              { icon: Flame,          label: "Sui Gas",                group: "building"  },
-  electricity:          { icon: Zap,            label: "Electricity",            group: "building"  },
   water_supply:         { icon: Droplets,       label: "Water Supply",           group: "building"  },
-  sewerage:             { icon: Warehouse,      label: "Sewerage",               group: "building"  },
   solar_panels:         { icon: Zap,            label: "Solar Panels",           group: "building"  },
-  central_ac:           { icon: Wind,           label: "Central AC",             group: "building"  },
   central_heating:      { icon: Thermometer,    label: "Central Heating",        group: "interior"  },
   mosque:               { icon: Building,       label: "Mosque",                 group: "society"   },
   school:               { icon: GraduationCap,  label: "School",                 group: "society"   },
@@ -515,14 +575,12 @@ const AMENITY_ICONS: Record<string, AmenityDef> = {
   joggingTrack:         { icon: Users,          label: "Jogging Track",          group: "society"   },
   communityCenter:      { icon: Users,          label: "Community Center",       group: "society"   },
   gatedEntry:           { icon: Shield,         label: "Gated Entry",            group: "security"  },
-  securityGuards24x7:   { icon: Shield,         label: "24/7 Security",          group: "security"  },
+  securityGuards24x7:   { icon: ShieldCheck,    label: "24/7 Security",          group: "security"  },
   cctvCameras:          { icon: Eye,            label: "CCTV Cameras",           group: "security"  },
   intercomSystem:       { icon: Phone,          label: "Intercom System",        group: "security"  },
-  smartLock:            { icon: Key,            label: "Smart Lock",             group: "security"  },
+  smartLock:            { icon: Lock,           label: "Smart Lock",             group: "security"  },
   panicButton:          { icon: AlertCircle,    label: "Panic Button",           group: "security"  },
   gated_community:      { icon: Shield,         label: "Gated Community",        group: "security"  },
-  security_guard:       { icon: Shield,         label: "Security Guard",         group: "security"  },
-  cctv:                 { icon: Eye,            label: "CCTV Cameras",           group: "security"  },
 };
 
 // ─── Status badge ─────────────────────────────────────────────────────────────
@@ -617,6 +675,7 @@ export default function PropertySlugPage({
 
   const [showJumpLinks, setShowJumpLinks] = useState(false);
   const [activeSection, setActiveSection] = useState("overview");
+  const [isDescExpanded, setIsDescExpanded] = useState(false);
 
   // Inline copy banner (replaces alert())
   const [copyBanner, setCopyBanner] = useState("");
@@ -1352,33 +1411,57 @@ export default function PropertySlugPage({
                           </>
                         )}
 
-                        {/* Top badges */}
-                        <div className="absolute top-3 left-3 flex flex-wrap gap-2">
-                          <span className="bg-[#029bba] text-white px-3 py-1 rounded-full text-xs font-medium shadow">
+                        {/* Top badges & Floating Trulia-Style Save/Share Buttons */}
+                        <div className="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
+                          <span className="bg-[#029bba] text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">
                             {getListingTypeBadge(property.listingType)}
                           </span>
                           {property.isVerified && (
-                            <span className="bg-[#10b981] text-white px-3 py-1 rounded-full text-xs font-medium shadow flex items-center gap-1">
+                            <span className="bg-[#10b981] text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1">
                               <CheckCircle className="w-3 h-3" /> Verified
                             </span>
                           )}
                         </div>
 
-                        {isOwner && (
-                          <div className="absolute top-3 right-3">
-                            <StatusBadge status={property.status} />
-                          </div>
-                        )}
+                        {/* Top Right: Trulia Pill Buttons */}
+                        <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
+                          {isOwner && <StatusBadge status={property.status} />}
+                          
+                          <button
+                            type="button"
+                            onClick={(e) => { e.stopPropagation(); handleShare(); }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-gray-800 text-xs font-bold shadow-md backdrop-blur-sm transition-all hover:scale-105"
+                          >
+                            <Share2 className="w-3.5 h-3.5 text-[#029bba]" />
+                            <span>Share</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (property?._id) void favorites.toggle(property._id, 'property');
+                            }}
+                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-md backdrop-blur-sm transition-all hover:scale-105 ${
+                              isSaved
+                                ? "bg-red-500 text-white"
+                                : "bg-white/90 hover:bg-white text-gray-800"
+                            }`}
+                          >
+                            <Heart className={`w-3.5 h-3.5 ${isSaved ? "fill-white text-white" : "text-red-500"}`} />
+                            <span>{isSaved ? "Saved" : "Save"}</span>
+                          </button>
+                        </div>
 
                         {/* Bottom controls */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent p-4">
+                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4">
                           <div className="flex items-center justify-between">
                             <div className="flex gap-2">
                               <button
                                 onClick={(e) => { e.stopPropagation(); setShowLightbox(true); }}
-                                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full text-sm font-medium transition-all"
+                                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full text-xs font-bold transition-all border border-white/30"
                               >
-                                <ImageIcon className="w-4 h-4" />
+                                <ImageIcon className="w-3.5 h-3.5" />
                                 {property.images.length} Photos
                               </button>
 
@@ -1388,9 +1471,9 @@ export default function PropertySlugPage({
                                     e.stopPropagation();
                                     scrollToSection("video-section");
                                   }}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full text-sm font-medium transition-all"
+                                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full text-xs font-bold transition-all border border-white/30"
                                 >
-                                  <Play className="w-4 h-4" />
+                                  <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                                   {videoCount} Video{videoCount > 1 ? "s" : ""}
                                 </button>
                               )}
@@ -1398,16 +1481,16 @@ export default function PropertySlugPage({
                               {heroMapUrl && (
                                 <button
                                   onClick={(e) => { e.stopPropagation(); setShowHeroMap(true); }}
-                                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-sm text-white rounded-full text-sm font-medium transition-all"
+                                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full text-xs font-bold transition-all border border-white/30"
                                 >
-                                  <Map className="w-4 h-4" />
-                                  Map
+                                  <Map className="w-3.5 h-3.5 text-[#4dd6f5]" />
+                                  Map View
                                 </button>
                               )}
                             </div>
 
                             {property.images.length > 1 && (
-                              <span className="text-white/90 text-sm font-medium">
+                              <span className="text-white/90 text-xs font-bold bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-sm">
                                 {selectedImage + 1} / {property.images.length}
                               </span>
                             )}
@@ -1625,11 +1708,11 @@ export default function PropertySlugPage({
 
                 {/* Price */}
                 <div className="mb-4">
-                  <p className="text-3xl font-bold text-[#029bba]">
+                  <p className="text-3xl font-black text-[#029bba]">
                     {isRent ? (
                       <>
                         PKR {formatPrice(property.price)}
-                        <span className="text-base font-semibold text-[#666666]">
+                        <span className="text-base font-semibold text-gray-500">
                           {" "} / month
                         </span>
                       </>
@@ -1638,56 +1721,128 @@ export default function PropertySlugPage({
                     )}
                   </p>
                   {!isRent && property.pricePerUnit && (
-                    <p className="text-sm text-[#666666] mt-1">
+                    <p className="text-xs text-gray-500 mt-1 font-semibold">
                       PKR {formatPrice(property.pricePerUnit)} per {property.unit}
                     </p>
                   )}
                   {property.priceNegotiable && (
-                    <span className="inline-block mt-2 px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                      Negotiable
+                    <span className="inline-block mt-2 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full">
+                      Price Negotiable
                     </span>
                   )}
                 </div>
+              </div>
 
-                {/* Key facts */}
-                <div>
-                  <p className="text-xs text-[#666666] mb-2">Key Facts</p>
-                  <div className="flex flex-wrap gap-2">
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm text-[#333333]">
-                      <Maximize className="w-4 h-4 text-[#029bba]" />
-                      {property.area} {property.unit}
+              {/* ── Trulia-Style Property Highlights Card ─────────────────── */}
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+                <h2 className="text-lg font-bold text-[#004063] flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-[#029bba]" />
+                  Property Highlights
+                </h2>
+                
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+                      <Building className="w-5 h-5" />
                     </div>
-
-                    {property.propertyCategory === "residential" &&
-                      (property.bedrooms ?? 0) > 0 && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm text-[#333333]">
-                          <Bed className="w-4 h-4 text-[#029bba]" />
-                          {property.bedrooms} Bed{property.bedrooms !== 1 ? "s" : ""}
-                        </div>
-                      )}
-
-                    {property.propertyCategory === "residential" &&
-                      (property.bathrooms ?? 0) > 0 && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm text-[#333333]">
-                          <Bath className="w-4 h-4 text-[#029bba]" />
-                          {property.bathrooms} Bath{property.bathrooms !== 1 ? "s" : ""}
-                        </div>
-                      )}
-
-                    {property.propertyCategory === "residential" &&
-                      (property.kitchens ?? 0) > 0 && (
-                        <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm text-[#333333]">
-                          <Home className="w-4 h-4 text-[#029bba]" />
-                          {property.kitchens} Kitchen{property.kitchens !== 1 ? "s" : ""}
-                        </div>
-                      )}
-
-                    <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-50 border border-gray-200 text-sm text-[#333333]">
-                      <Car className="w-4 h-4 text-[#029bba]" />
-                      {formatParking(property.parking)}
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Type</p>
+                      <p className="text-xs font-bold text-gray-900 truncate">{property.propertyType}</p>
                     </div>
                   </div>
+
+                  <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+                      <Maximize className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Area</p>
+                      <p className="text-xs font-bold text-gray-900 truncate">{property.area} {property.unit}</p>
+                    </div>
+                  </div>
+
+                  {property.bedrooms !== undefined && property.bedrooms > 0 && (
+                    <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+                        <Bed className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bedrooms</p>
+                        <p className="text-xs font-bold text-gray-900 truncate">{property.bedrooms} Bed{property.bedrooms > 1 ? "s" : ""}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {property.bathrooms !== undefined && property.bathrooms > 0 && (
+                    <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+                        <Bath className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Bathrooms</p>
+                        <p className="text-xs font-bold text-gray-900 truncate">{property.bathrooms} Bath{property.bathrooms > 1 ? "s" : ""}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+                      <Car className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Parking</p>
+                      <p className="text-xs font-bold text-gray-900 truncate">{formatParking(property.parking)}</p>
+                    </div>
+                  </div>
+
+                  {property.possessionStatus && (
+                    <div className="p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3">
+                      <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+                        <Key className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Possession</p>
+                        <p className="text-xs font-bold text-gray-900 truncate">{formatPossession(property.possessionStatus)}</p>
+                      </div>
+                    </div>
+                  )}
                 </div>
+              </div>
+
+              {/* ── Expandable Description (Moved above True Cost) ──────────── */}
+              <div
+                id="description"
+                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-3"
+              >
+                <h2 className="text-lg font-bold text-[#004063] flex items-center gap-2">
+                  <FileText className="w-5 h-5 text-[#029bba]" />
+                  Property Description
+                </h2>
+
+                <div className="relative">
+                  <div
+                    className={`prose prose-sm max-w-none text-gray-700 leading-relaxed transition-all duration-300 overflow-hidden ${
+                      !isDescExpanded ? "max-h-36" : "max-h-none"
+                    }`}
+                    dangerouslySetInnerHTML={{
+                      __html: sanitizeRichHtml(property.description ?? ""),
+                    }}
+                  />
+                  {!isDescExpanded && (property.description?.length ?? 0) > 300 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-white to-transparent pointer-events-none" />
+                  )}
+                </div>
+
+                {(property.description?.length ?? 0) > 300 && (
+                  <button
+                    type="button"
+                    onClick={() => setIsDescExpanded((prev) => !prev)}
+                    className="inline-flex items-center gap-1.5 text-xs font-bold text-[#029bba] hover:text-[#004063] transition-colors pt-2"
+                  >
+                    <span>{isDescExpanded ? "Show Less" : "Read Full Description"}</span>
+                    {isDescExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                  </button>
+                )}
               </div>
 
               {/* ── True Cost ────────────────────────────────────────────── */}
@@ -1984,58 +2139,123 @@ export default function PropertySlugPage({
                 </div>
               </div>
 
-              {/* ── Location ──────────────────────────────────────────────── */}
-              <div
-                id="location"
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
-              >
-                <h2 className="text-lg font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                  <MapPin className="w-5 h-5 text-[#029bba]" />
-                  Location
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                  <div className="p-3 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-[#666666] mb-1">City</p>
-                    <p className="font-medium text-[#333333]">{property.city}</p>
+                {/* ── Location & Embedded Map ─────────────────────────────── */}
+                <div
+                  id="location"
+                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5"
+                >
+                  <h2 className="text-lg font-semibold text-[#004063] flex items-center gap-2">
+                    <MapPin className="w-5 h-5 text-[#029bba]" />
+                    Location &amp; Address
+                  </h2>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-xs text-[#666666] mb-1">City</p>
+                      <p className="font-medium text-[#333333]">{property.city}</p>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <p className="text-xs text-[#666666] mb-1">Society / Scheme</p>
+                      <p className="font-medium text-[#333333]">{property.society ?? "N/A"}</p>
+                    </div>
+                    {property.phase && (
+                      <div className="p-3 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-[#666666] mb-1">Phase</p>
+                        <p className="font-medium text-[#333333]">{property.phase}</p>
+                      </div>
+                    )}
+                    {property.block && (
+                      <div className="p-3 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-[#666666] mb-1">Block / Sector</p>
+                        <p className="font-medium text-[#333333]">{property.block}</p>
+                      </div>
+                    )}
+                    {property.streetNumber && (
+                      <div className="p-3 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-[#666666] mb-1">Street</p>
+                        <p className="font-medium text-[#333333]">{property.streetNumber}</p>
+                      </div>
+                    )}
+                    {property.plotNumber && (
+                      <div className="p-3 bg-gray-50 rounded-xl">
+                        <p className="text-xs text-[#666666] mb-1">Plot</p>
+                        <p className="font-medium text-[#333333]">{property.plotNumber}</p>
+                      </div>
+                    )}
                   </div>
-                  <div className="p-3 bg-gray-50 rounded-xl">
-                    <p className="text-xs text-[#666666] mb-1">Society / Scheme</p>
-                    <p className="font-medium text-[#333333]">{property.society ?? "N/A"}</p>
-                  </div>
-                  {property.phase && (
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-[#666666] mb-1">Phase</p>
-                      <p className="font-medium text-[#333333]">{property.phase}</p>
-                    </div>
-                  )}
-                  {property.block && (
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-[#666666] mb-1">Block / Sector</p>
-                      <p className="font-medium text-[#333333]">{property.block}</p>
-                    </div>
-                  )}
-                  {property.streetNumber && (
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-[#666666] mb-1">Street</p>
-                      <p className="font-medium text-[#333333]">{property.streetNumber}</p>
-                    </div>
-                  )}
-                  {property.plotNumber && (
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-[#666666] mb-1">Plot</p>
-                      <p className="font-medium text-[#333333]">{property.plotNumber}</p>
+
+                  {/* Embedded Google Map Frame */}
+                  {heroMapUrl && (
+                    <div className="rounded-xl overflow-hidden border border-gray-200 h-72 w-full relative shadow-sm">
+                      <iframe
+                        src={heroMapUrl}
+                        width="100%"
+                        height="100%"
+                        style={{ border: 0 }}
+                        allowFullScreen
+                        loading="lazy"
+                        referrerPolicy="no-referrer-when-downgrade"
+                        title="Property Location Map"
+                      />
                     </div>
                   )}
                 </div>
 
-                {property.nearbyLandmarks?.length && (
-                  <div className="mt-4 p-3 bg-[#eff6ff] border border-[#029bba]/20 rounded-xl">
-                    <p className="text-xs text-[#666666] mb-2">Nearby Landmarks</p>
+                {/* ── Nearby Places & Neighborhood ────────────────────────── */}
+                {Array.isArray(property.nearbyFacilities) && property.nearbyFacilities.length > 0 && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+                    <h2 className="text-lg font-semibold text-[#004063] mb-4 flex items-center gap-2">
+                      <Compass className="w-5 h-5 text-[#029bba]" />
+                      Nearby Places &amp; Neighborhood
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                      {property.nearbyFacilities.map((fac, idx) => {
+                        const cat = String(fac.category || 'School').toLowerCase();
+                        let IconComponent = GraduationCap;
+                        if (cat.includes('hospital')) IconComponent = HeartPulse;
+                        else if (cat.includes('mall') || cat.includes('market')) IconComponent = ShoppingBag;
+                        else if (cat.includes('mosque')) IconComponent = Building;
+                        else if (cat.includes('park')) IconComponent = Trees;
+                        else if (cat.includes('gym')) IconComponent = Dumbbell;
+                        else if (cat.includes('restaurant')) IconComponent = Utensils;
+                        else if (cat.includes('bank') || cat.includes('atm')) IconComponent = Landmark;
+                        else if (cat.includes('bus') || cat.includes('metro') || cat.includes('transit')) IconComponent = Bus;
+
+                        return (
+                          <div key={idx} className="flex items-center justify-between p-3 bg-gray-50 rounded-xl border border-gray-100">
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div className="w-8 h-8 rounded-lg bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+                                <IconComponent className="w-4 h-4" />
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-gray-900 truncate">{fac.name}</p>
+                                <p className="text-[10px] text-gray-500 capitalize">{fac.category}</p>
+                              </div>
+                            </div>
+                            {fac.distance && (
+                              <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200 text-[#029bba] text-[11px] font-bold shrink-0 ml-2">
+                                {fac.distance}
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Nearby Landmarks ────────────────────────────────────── */}
+                {Array.isArray(property.nearbyLandmarks) && property.nearbyLandmarks.length > 0 && (
+                  <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-3">
+                    <h3 className="text-xs font-bold text-[#004063] uppercase tracking-wider flex items-center gap-1.5">
+                      <MapPin className="w-3.5 h-3.5 text-[#029bba]" />
+                      Nearby Landmarks
+                    </h3>
                     <div className="flex flex-wrap gap-2">
                       {property.nearbyLandmarks.map((lm) => (
                         <span
                           key={lm}
-                          className="px-2 py-1 bg-white border border-gray-200 rounded-full text-xs text-[#333333]"
+                          className="px-3 py-1 bg-gray-50 border border-gray-200 rounded-xl text-xs font-semibold text-gray-700"
                         >
                           {lm}
                         </span>
@@ -2043,26 +2263,6 @@ export default function PropertySlugPage({
                     </div>
                   </div>
                 )}
-              </div>
-
-              {/* ── Static Map ────────────────────────────────────────────── */}
-              {property.coordinates?.lat && property.coordinates?.lng && (
-                <div
-                  id="map-section"
-                  className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
-                >
-                  <h2 className="text-lg font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                    <MapPin className="w-5 h-5 text-[#029bba]" />
-                    View on Map
-                  </h2>
-                  <StaticMap
-                    lat={property.coordinates.lat}
-                    lng={property.coordinates.lng}
-                    title={property.title}
-                    address={property.formattedAddress ?? fullLocation}
-                  />
-                </div>
-              )}
 
               {/* ── Amenities ─────────────────────────────────────────────── */}
               {property.amenities?.length && (
@@ -2133,22 +2333,7 @@ export default function PropertySlugPage({
                 </div>
               )}
 
-              {/* ── Description ───────────────────────────────────────────── */}
-              <div
-                id="description"
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
-              >
-                <h2 className="text-lg font-semibold text-[#004063] mb-3 flex items-center gap-2">
-                  <FileText className="w-5 h-5 text-[#029bba]" />
-                  Description
-                </h2>
-                <div
-                  className="prose prose-sm max-w-none text-[#333333]"
-                  dangerouslySetInnerHTML={{
-                    __html: sanitizeRichHtml(property.description ?? ""),
-                  }}
-                />
-              </div>
+              {/* Description moved above True Cost */}
 
               {/* ── Video ─────────────────────────────────────────────────── */}
               {videoInfo && (

@@ -17,12 +17,12 @@ export const PROPERTY_VERIFICATION_STATUSES: readonly PropertyVerificationStatus
 ] as const;
 
 export const PROPERTY_ALLOWED_TRANSITIONS: Readonly<Record<PropertyVerificationStatus, readonly PropertyVerificationStatus[]>> = {
-  draft: ['pending'],
-  pending: ['draft', 'under_review', 'rejected'],
-  under_review: ['verified', 'rejected', 'flagged'],
-  verified: ['draft', 'flagged'],
-  rejected: ['draft', 'under_review'],
-  flagged: ['under_review'],
+  draft: ['pending', 'under_review', 'verified', 'rejected', 'flagged'],
+  pending: ['draft', 'under_review', 'verified', 'rejected', 'flagged'],
+  under_review: ['draft', 'pending', 'verified', 'rejected', 'flagged'],
+  verified: ['draft', 'pending', 'under_review', 'rejected', 'flagged'],
+  rejected: ['draft', 'pending', 'under_review', 'verified', 'flagged'],
+  flagged: ['draft', 'pending', 'under_review', 'verified', 'rejected'],
 };
 
 /**

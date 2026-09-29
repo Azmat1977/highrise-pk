@@ -252,6 +252,12 @@ export interface IGalleryImage {
   order?: number;
 }
 
+export interface INearbyFacility {
+  name:      string;
+  category?: string;
+  distance?: string;
+}
+
 export interface IDocument {
   type:        string;
   name:        string;
@@ -809,6 +815,7 @@ export interface IProperty extends Document {
   societyAmenities?:   string[];
   securityFeatures?:   string[];
   amenities?:          string[];
+  nearbyFacilities?:   INearbyFacility[];
 
   // Legal
   possessionStatus?: string;
@@ -2065,6 +2072,13 @@ const PropertySchema = new Schema<IProperty>(
     societyAmenities:  [{ type: String, trim: true, maxlength: 80 }],
     securityFeatures:  [{ type: String, trim: true, maxlength: 80 }],
     amenities:         [{ type: String, trim: true, maxlength: 80 }],
+    nearbyFacilities: [
+      {
+        name:     { type: String, trim: true, maxlength: 100 },
+        category: { type: String, trim: true, maxlength: 40 },
+        distance: { type: String, trim: true, maxlength: 30 },
+      },
+    ],
 
     // ── Legal ──────────────────────────────────────────────────
     possessionStatus: {
@@ -2388,7 +2402,7 @@ PropertySchema.index({
 // 🔧 PRE-VALIDATE MIDDLEWARE
 // ═══════════════════════════════════════════════════════════════
 
-PropertySchema.pre<IProperty>('validate', function (next) {
+PropertySchema.pre<IProperty>('validate', function (this: IProperty, next) {
   // ── TypeKey derivation ──────────────────────────────────────
   if (!this.typeKey) {
     if (this.propertyCategory === 'residential' && this.residentialType) {
@@ -2503,7 +2517,7 @@ PropertySchema.pre<IProperty>('validate', function (next) {
 // 🔧 PRE-SAVE MIDDLEWARE (single hook — no duplicate)
 // ═══════════════════════════════════════════════════════════════
 
-PropertySchema.pre<IProperty>('save', async function (next: (err?: CallbackError) => void) {
+PropertySchema.pre<IProperty>('save', async function (this: IProperty, next: (err?: CallbackError) => void) {
   try {
     // ── Capture previous verification status ──────────────────
     let previousVerificationStatus: string | null = null;
@@ -2550,6 +2564,7 @@ PropertySchema.pre<IProperty>('save', async function (next: (err?: CallbackError
         typeof previousVerificationStatus === 'string' &&
         previousVerificationStatus !== newStatus
       ) {
+        // Admin moderation transition validation
         if (!canTransitionPropertyVerification(
           previousVerificationStatus as VerificationStatus,
           newStatus as VerificationStatus,
