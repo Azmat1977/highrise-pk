@@ -86,13 +86,14 @@ export default async function handler(
         return;
       }
 
-      // Only draft listings can be edited by owner
+      // Draft AND Pending listings can be edited by owner
       if (
         !isAdmin &&
-        property.verification?.status !== "draft"
+        property.verification?.status !== "draft" &&
+        property.verification?.status !== "pending"
       ) {
         res.status(403).json({
-          error: "Only draft listings can be edited. Contact support to modify a submitted listing.",
+          error: "This listing is already under review or published. Contact support to modify it.",
         });
         return;
       }
@@ -102,7 +103,8 @@ export default async function handler(
         "listingType", "listingPurpose", "price", "priceNegotiable",
         "area", "unit", "city", "society", "phase", "block",
         "bedrooms", "bathrooms", "description", "images",
-        "contactDetails", "amenities",
+        "contactDetails", "amenities", "nearbyFacilities",
+        "location", "possessionStatus",
       ];
 
       const body = req.body as Record<string, unknown>;

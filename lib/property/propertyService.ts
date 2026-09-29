@@ -16,9 +16,20 @@ export async function getPublicPropertyBySlug(slugOrId: string): Promise<Propert
   await dbConnect();
   const key = String(slugOrId || '').trim();
   if (!key) return null;
+  
   const identity = mongoose.isValidObjectId(key) ? { _id: key } : { slug: key };
-  const raw = await Property.findOne({ ...identity, ...PUBLIC_PROPERTY_FILTER }).lean<Record<string, unknown>>();
-  if (!raw) return null;
+  
+  // 1. Try public query
+  let raw = await Property.findOne({ ...identity, ...PUBLIC_PROPERTY_FILTER }).lean<Record<string, unknown>>();
+  let isPreview = false;
+
+  // 2. Fallback for Owner/Admin preview (listing exists but pending/draft)
+  if (!raw) {
+    raw = await Property.findOne({ ...identity, isDeleted: { $ne: true } }).lean<Record<string, unknown>>();
+    if (!raw) return null;
+    isPreview = true;
+  }
+
   const actor = await resolvePropertyActor({
     owner: raw.owner as string | undefined,
     agentId: raw.agentId as string | undefined,
@@ -26,7 +37,14 @@ export async function getPublicPropertyBySlug(slugOrId: string): Promise<Propert
   });
   const publicActor = publicPropertyActor(actor);
   const trust = buildPropertyTrustSummary(raw, publicActor?.verified === true);
-  return { property: toPublicPropertyDto(raw, publicActor, trust), actorUserId: actor?.userId };
+  const dto = toPublicPropertyDto(raw, publicActor, trust);
+  
+  // Attach preview flag so the UI can render a warning banner
+  if (isPreview) {
+    dto.isPendingPreview = true;
+  }
+  
+  return { property: dto, actorUserId: actor?.userId };
 }
 
 export async function getPublicPropertyById(id: string): Promise<PropertyPublicResult | null> {

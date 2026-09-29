@@ -1243,11 +1243,30 @@ export default function AdminLayout({
               <div className="relative" ref={notifRef}>
                 <button
                   onClick={() => {
-                    setShowNotifications((v) => !v);
+                    setShowNotifications((v) => {
+                      if (!v) {
+                        // Clear badges optimistically when opening
+                        setSidebarStats((prev) => ({
+                          ...prev,
+                          propertiesPendingApproval: 0,
+                          projectsPendingApproval: 0,
+                          ownerVerificationsPending: 0,
+                          developerVerificationsPending: 0,
+                          agentVerificationsPending: 0,
+                          societyApplicantsPending: 0,
+                          newLeads: 0,
+                          unreadInquiries: 0,
+                          commentsPending: 0,
+                          reportsOpen: 0,
+                          emailsFailed: 0,
+                        }));
+                      }
+                      return !v;
+                    });
                     setShowHelp(false);
                   }}
                   className="relative p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors"
-                  aria-label={`Notifications${notificationsCount > 0 ? ` — ${notificationsCount} pending` : ''}`}
+                  aria-label={`Notifications${notificationsCount > 0 ? ` â€” ${notificationsCount} pending` : ''}`}
                 >
                   <Bell className="w-5 h-5" />
                   {notificationsCount > 0 && (
