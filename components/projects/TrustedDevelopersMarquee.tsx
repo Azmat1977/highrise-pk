@@ -9,7 +9,8 @@
 
 import React, { useMemo } from 'react';
 import Image from 'next/image';
-import { ShieldCheck, Award } from 'lucide-react';
+import Link from 'next/link';
+import { ShieldCheck } from 'lucide-react';
 import { ProjectListing } from '@/types/projects';
 
 interface TrustedDevelopersMarqueeProps {
@@ -115,18 +116,21 @@ export function TrustedDevelopersMarquee({ projects }: TrustedDevelopersMarqueeP
       <div className="flex w-[300%] sm:w-[200%] md:w-[150%] animate-infinite-scroll items-center">
         {marqueeItems.map((dev, idx) => {
           const badgeConfig = getBadgeStyle(dev.badge);
+          const href = `/projects?builder=${encodeURIComponent(dev.name)}`;
           return (
-            <div 
-              key={`${dev.id}-${idx}`} 
-              className="flex flex-col items-center justify-center w-52 flex-shrink-0 group cursor-pointer px-3"
+            <Link
+              key={`${dev.id}-${idx}`}
+              href={href}
+              className="flex flex-col items-center justify-center w-52 flex-shrink-0 group cursor-pointer px-3 no-underline"
+              aria-label={`View projects by ${dev.name}`}
             >
               <div className="w-20 h-20 rounded-2xl flex items-center justify-center p-2 shadow-sm group-hover:shadow-md group-hover:scale-105 transition-all duration-300 mb-2.5 bg-gray-50 border border-gray-200">
                 {dev.logoUrl ? (
-                  <Image 
-                    src={dev.logoUrl} 
-                    alt={dev.name} 
-                    width={64} 
-                    height={64} 
+                  <Image
+                    src={dev.logoUrl}
+                    alt={dev.name}
+                    width={64}
+                    height={64}
                     className="max-w-full max-h-full object-contain"
                   />
                 ) : (
@@ -143,7 +147,7 @@ export function TrustedDevelopersMarquee({ projects }: TrustedDevelopersMarqueeP
               <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border mt-1 ${badgeConfig.color}`}>
                 {badgeConfig.label}
               </span>
-            </div>
+            </Link>
           );
         })}
       </div>

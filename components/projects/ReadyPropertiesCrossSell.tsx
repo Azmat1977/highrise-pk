@@ -18,10 +18,35 @@ interface ReadyPropertiesCrossSellProps {
   city?: string | null;
 }
 
+const HIGHRISE_READY_TYPES = new Set([
+  'apartment',
+  'apartments',
+  'flat',
+  'flats',
+  'shop',
+  'shops',
+  'office',
+  'offices',
+  'penthouse',
+  'penthouses',
+  'commercial',
+  'building',
+  'buildings',
+  'commercial_plaza',
+  'unit',
+  'units',
+]);
+
+function isHighriseReadyProperty(prop: ReadyPropertyItem): boolean {
+  if (prop.purpose === 'rent') return false;
+  const type = String(prop.propertyType || '').toLowerCase().trim();
+  return HIGHRISE_READY_TYPES.has(type);
+}
+
 export function ReadyPropertiesCrossSell({ properties, city }: ReadyPropertiesCrossSellProps) {
   const cityName = city || 'Pakistan';
 
-  // Fallback ready properties for fresh local databases
+  // Fallback ready properties for fresh local databases (sale + high-rise only)
   const FALLBACK_PROPERTIES: ReadyPropertyItem[] = [
     {
       _id: 'prop-1',
@@ -81,7 +106,8 @@ export function ReadyPropertiesCrossSell({ properties, city }: ReadyPropertiesCr
     },
   ];
 
-  const displayProperties = properties && properties.length > 0 ? properties : FALLBACK_PROPERTIES;
+  const sourceProperties = properties && properties.length > 0 ? properties : FALLBACK_PROPERTIES;
+  const displayProperties = sourceProperties.filter(isHighriseReadyProperty).slice(0, 4);
 
   return (
     <section className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 md:p-8 my-6">
@@ -96,15 +122,17 @@ export function ReadyPropertiesCrossSell({ properties, city }: ReadyPropertiesCr
             Looking for Ready-to-Move Properties in {cityName}?
           </h3>
           <p className="text-sm text-gray-500 font-semibold mt-1">
-            Explore resale apartments, shops, & offices available for immediate key handover.
+            Explore ready apartments, shops, offices, penthouses & commercial units for sale.
           </p>
         </div>
 
         <Link
-          href={city ? `/properties?city=${encodeURIComponent(city)}` : '/properties'}
+          href={city
+            ? `/properties?city=${encodeURIComponent(city)}&purpose=sale&type=apartment`
+            : '/properties?purpose=sale&type=apartment'}
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-white border-2 border-gray-200 text-gray-700 hover:text-[#029bba] hover:border-[#029bba]/40 text-sm font-bold transition-all shadow-sm self-start md:self-auto whitespace-nowrap"
         >
-          <span>Browse All Properties</span>
+          <span>Browse Ready Units</span>
           <ChevronRight className="w-4 h-4" />
         </Link>
       </div>

@@ -702,6 +702,11 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
     }
     if (filters.noc) base.nocStatus = 'approved';
     if (filters.installments) base.saleMode = { $in: ['Installment', 'Both'] };
+    if (filters.builder) {
+      base['developerProfile.name'] = {
+        $regex: new RegExp(escapeRegExp(filters.builder), 'i'),
+      };
+    }
     
     if (filters.possession) {
       const map: Record<string, string> = {
@@ -906,6 +911,16 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
     try {
       const propQuery: Record<string, unknown> = {
         isDeleted: { $ne: true },
+        purpose: 'sale',
+        propertyType: {
+          $in: [
+            'apartment', 'apartments', 'flat', 'flats',
+            'shop', 'shops', 'office', 'offices',
+            'penthouse', 'penthouses',
+            'commercial', 'building', 'buildings',
+            'commercial_plaza', 'unit', 'units',
+          ],
+        },
         $or: [
           { status: { $in: ['approved', 'available', 'active', 'verified'] } },
           { 'verification.status': 'verified' },
