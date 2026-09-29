@@ -134,9 +134,18 @@ export default function PropertyListingForm(): React.ReactElement {
   const handleSubmit = useCallback(async (): Promise<void> => {
     if (submitting) return;
 
-    // Final validation (step 4 + re-check step 3)
-    if (!validateStep(3) || !validateStep(4)) {
-      setSubmitError('Please fix the errors before submitting.');
+    // Re-check Step 3 — if invalid, auto-jump to Step 3 so user can fix it
+    if (!validateStep(3)) {
+      setStep(3);
+      setSubmitError('Please complete the required pricing details in Step 3.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    // Check Step 4
+    if (!validateStep(4)) {
+      setSubmitError('Please fix the required legal, description, or image details in Step 4.');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
 
@@ -156,6 +165,11 @@ export default function PropertyListingForm(): React.ReactElement {
         society: form.society.trim(),
         phase: form.phase.trim() || undefined,
         block: form.block.trim() || undefined,
+        coordinatesRaw: form.coordinatesRaw.trim() || undefined,
+        latitude: form.lat ? Number(form.lat) : undefined,
+        longitude: form.lng ? Number(form.lng) : undefined,
+        lat: form.lat ? Number(form.lat) : undefined,
+        lng: form.lng ? Number(form.lng) : undefined,
 
         // Size (owner endpoint contract: area + unit)
         area: Number(form.area) || 0,
@@ -177,6 +191,15 @@ export default function PropertyListingForm(): React.ReactElement {
         boundaryWall: form.boundaryWall || undefined,
         furnishingStatus: form.furnishingStatus || undefined,
         possessionStatus: form.possessionStatus,
+        amenities: form.amenities,
+        nearbyFacilities: form.nearbyFacilities
+          .filter((n) => n.name.trim())
+          .map((n) => ({
+            name: n.name.trim().slice(0, 100),
+            category: n.category || 'other',
+            distance: n.distance.trim() || null,
+          })),
+        isFeaturedRequested: form.isFeaturedRequested === true,
 
         // Pricing (listing-type conditional)
         ...(form.listingType === 'full_payment' || form.listingType === 'pre_launch'
@@ -253,13 +276,20 @@ export default function PropertyListingForm(): React.ReactElement {
       });
 
       const data = (await res.json()) as {
-        success: boolean;
+        success?: boolean;
         message?: string;
+        error?: string;
+        details?: string[];
         data?: { _id?: string; slug?: string };
       };
 
-      if (!res.ok || !data.success) {
-        setSubmitError(data.message ?? 'Failed to create listing. Please try again.');
+      if (!res.ok || data.success === false) {
+        let errMessage = data.message || data.error || 'Failed to create listing. Please try again.';
+        if (Array.isArray(data.details) && data.details.length > 0) {
+          errMessage += ` (${data.details.join(' | ')})`;
+        }
+        setSubmitError(errMessage);
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
 

@@ -560,7 +560,32 @@ export default function StepLegal({ form, setField, errors }: StepLegalProps): R
         </div>
       </div>
 
-      {/* ═══ DECLARATION ═══ */}
+      {/* --- FEATURED REQUEST (user request only; admin approves) --- */}
+      <div className="rounded-xl border border-[#029bba]/20 bg-[#029bba]/5 p-4">
+        <button
+          type="button"
+          onClick={() => setField('isFeaturedRequested', !form.isFeaturedRequested)}
+          className="flex items-start gap-3 w-full text-left"
+        >
+          <span className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 mt-0.5 ${
+            form.isFeaturedRequested ? 'border-[#029bba] bg-[#029bba]' : 'border-gray-300 bg-white'
+          }`}>
+            {form.isFeaturedRequested && <CheckCircle className="w-3 h-3 text-white" />}
+          </span>
+          <div>
+            <p className="text-sm font-semibold text-[#004063]">
+              Request Featured Placement
+            </p>
+            <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+              Featured listings get higher visibility on Highrise.pk. This is a request only.
+              Our admin team reviews quality and may approve featured placement.
+              You cannot self-feature a listing.
+            </p>
+          </div>
+        </button>
+      </div>
+
+      {/* --- DECLARATION --- */}
       <div className="rounded-xl border-2 border-amber-200 bg-amber-50 p-4">
         <button
           type="button"

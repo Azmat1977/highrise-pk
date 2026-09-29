@@ -259,6 +259,49 @@ export default function StepType({ form, setField, errors }: StepTypeProps): Rea
             maxLength={60}
           />
         </div>
+
+        <div className="md:col-span-2">
+          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
+            Map Coordinates (Lat, Lng)
+          </label>
+          <input
+            type="text"
+            value={form.coordinatesRaw}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setField('coordinatesRaw', raw);
+              const match = raw.trim().match(/^\s*(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)\s*$/);
+              if (match) {
+                setField('lat', match[1]);
+                setField('lng', match[3]);
+              }
+            }}
+            placeholder="e.g. 33.6844, 73.0479"
+            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white
+                       text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/20
+                       outline-none"
+          />
+          <p className="text-[11px] text-gray-400 mt-1">
+            Right-click on Google Maps - &quot;What&apos;s here?&quot; - copy coordinates.
+            If empty, city center coordinates will be used automatically.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-3">
+            <input
+              type="text"
+              value={form.lat}
+              onChange={(e) => setField('lat', e.target.value)}
+              placeholder="Latitude"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-[#029bba]"
+            />
+            <input
+              type="text"
+              value={form.lng}
+              onChange={(e) => setField('lng', e.target.value)}
+              placeholder="Longitude"
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-[#029bba]"
+            />
+          </div>
+        </div>
       </div>
 
       {/* ── Listing Title ── */}

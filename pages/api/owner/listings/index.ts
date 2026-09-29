@@ -19,6 +19,53 @@ function escapeRegex(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").trim().slice(0, 80);
 }
 
+function parseGeoLocation(body: Record<string, unknown>): { type: "Point"; coordinates: [number, number] } {
+  if (Array.isArray(body.coordinates) && body.coordinates.length === 2) {
+    const lng = Number(body.coordinates[0]);
+    const lat = Number(body.coordinates[1]);
+    if (Number.isFinite(lng) && Number.isFinite(lat) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+      return { type: "Point", coordinates: [lng, lat] };
+    }
+  }
+
+  const latNum = Number(body.latitude ?? body.lat);
+  const lngNum = Number(body.longitude ?? body.lng);
+  if (
+    Number.isFinite(latNum) && Number.isFinite(lngNum) &&
+    latNum >= -90 && latNum <= 90 && lngNum >= -180 && lngNum <= 180 &&
+    (latNum !== 0 || lngNum !== 0)
+  ) {
+    return { type: "Point", coordinates: [lngNum, latNum] };
+  }
+
+  if (typeof body.coordinatesRaw === "string" && body.coordinatesRaw.trim()) {
+    const match = body.coordinatesRaw.trim().match(/^\s*(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)\s*$/);
+    if (match) {
+      const lat = Number(match[1]);
+      const lng = Number(match[3]);
+      if (Number.isFinite(lat) && Number.isFinite(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { type: "Point", coordinates: [lng, lat] };
+      }
+    }
+  }
+
+  const CITY_COORDS: Record<string, [number, number]> = {
+    islamabad: [73.0479, 33.6844],
+    rawalpindi: [73.0479, 33.5651],
+    lahore: [74.3587, 31.5204],
+    karachi: [67.0011, 24.8607],
+    peshawar: [71.5249, 34.0151],
+    faisalabad: [73.0479, 31.4504],
+    multan: [71.5249, 30.1575],
+    quetta: [67.0011, 30.1798],
+  };
+  const cityStr = String(body.city ?? "").toLowerCase().trim();
+  if (cityStr && CITY_COORDS[cityStr]) {
+    return { type: "Point", coordinates: CITY_COORDS[cityStr] };
+  }
+  return { type: "Point", coordinates: [73.0479, 33.6844] };
+}
+
 // ─── GET handler ─────────────────────────────────────────────────────────────
 
 async function handleGet(
@@ -227,8 +274,21 @@ async function handlePost(
   if (!listingType || !["full_payment","installment","rent","pre_launch"].includes(String(listingType))) {
     errors.push("Valid listing type is required");
   }
-  if (!price || isNaN(Number(price)) || Number(price) < 0) {
-    errors.push("Valid price is required");
+
+  // Price validation according to listing type
+  if (listingType === "rent") {
+    if (!monthlyRent || isNaN(Number(monthlyRent)) || Number(monthlyRent) <= 0) {
+      errors.push("Valid monthly rent is required");
+    }
+  } else if (listingType === "installment") {
+    const ip = installmentPlan as Record<string, unknown> | undefined;
+    if (!ip || !ip.totalPrice || isNaN(Number(ip.totalPrice)) || Number(ip.totalPrice) <= 0) {
+      errors.push("Valid total price for installment plan is required");
+    }
+  } else {
+    if (!price || isNaN(Number(price)) || Number(price) <= 0) {
+      errors.push("Valid price is required");
+    }
   }
   if (!area || isNaN(Number(area)) || Number(area) <= 0) {
     errors.push("Valid area is required");
@@ -329,10 +389,28 @@ async function handlePost(
     unit: String(unit).trim(),
 
     // Location
-    city:    String(city).trim(),
-    society: String(society).trim(),
-    phase:   phase ? String(phase).trim() : undefined,
-    block:   block ? String(block).trim() : undefined,
+    city:     String(city).trim(),
+    society:  String(society).trim(),
+    phase:    phase ? String(phase).trim() : undefined,
+    block:    block ? String(block).trim() : undefined,
+    location: parseGeoLocation(req.body as Record<string, unknown>),
+    amenities: Array.isArray((req.body as Record<string, unknown>).amenities)
+      ? ((req.body as Record<string, unknown>).amenities as string[])
+          .filter((a) => typeof a === "string")
+          .slice(0, 40)
+      : [],
+    nearbyFacilities: Array.isArray((req.body as Record<string, unknown>).nearbyFacilities)
+      ? ((req.body as Record<string, unknown>).nearbyFacilities as Array<Record<string, unknown>>)
+          .filter((n) => typeof n?.name === "string" && String(n.name).trim())
+          .slice(0, 20)
+          .map((n) => ({
+            name: String(n.name).trim().slice(0, 100),
+            category: String(n.category ?? "other").trim().slice(0, 40),
+            distance: n.distance ? String(n.distance).trim().slice(0, 30) : undefined,
+          }))
+      : [],
+    isFeaturedRequested: Boolean((req.body as Record<string, unknown>).isFeaturedRequested),
+    isFeatured: false,
 
     // Rooms
     bedrooms:  bedrooms  ? Number(bedrooms)  : undefined,
@@ -442,11 +520,6 @@ async function handlePost(
     // Contact
     contactDetails: safeContact,
 
-    // Amenities
-    amenities: Array.isArray(amenities)
-      ? (amenities as string[]).filter((a) => typeof a === "string").slice(0, 20)
-      : [],
-
     // Verification - starts as draft
     verification: {
       status: "draft",
@@ -518,6 +591,8 @@ export default async function handler(
       res.status(405).json({ error: "Method not allowed" });
     }
   } catch (err: unknown) {
-    res.status(500).json({ error: "Internal server error" });
+    const errMsg = err instanceof Error ? err.message : String(err);
+    console.error("[owner/listings] Post error:", err);
+    res.status(500).json({ error: "Internal server error", details: [errMsg] });
   }
 }

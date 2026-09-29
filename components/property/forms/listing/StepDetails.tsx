@@ -15,7 +15,15 @@ import {
 } from 'lucide-react';
 
 import type { ListingFormState, PropertyType } from './types';
-import { AREA_UNITS, FACING_OPTIONS, FURNISHING_OPTIONS, POSSESSION_OPTIONS } from './types';
+import {
+  AREA_UNITS,
+  FACING_OPTIONS,
+  FURNISHING_OPTIONS,
+  POSSESSION_OPTIONS,
+  NEARBY_CATEGORIES,
+  getAmenityGroupForType,
+} from './types';
+import { Plus, X } from 'lucide-react';
 
 interface StepDetailsProps {
   form: ListingFormState;
@@ -367,7 +375,123 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
         </div>
       )}
 
-      {/* ── Possession (sab types — API contract) ── */}
+       {/* --- Amenities (property-type aware) --- */}
+      <div>
+        <label className={labelCls}>Property Amenities</label>
+        <p className="text-xs text-gray-500 mb-3">
+          Select amenities that match this property type.
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+          {getAmenityGroupForType(pt).map((item) => {
+            const checked = form.amenities.includes(item.key);
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => {
+                  setField(
+                    'amenities',
+                    checked
+                      ? form.amenities.filter((a) => a !== item.key)
+                      : [...form.amenities, item.key]
+                  );
+                }}
+                className={`text-left px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
+                  checked
+                    ? 'border-[#029bba] bg-[#029bba]/10 text-[#029bba]'
+                    : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {item.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* --- Nearby neighbourhood facilities --- */}
+      <div>
+        <div className="flex items-center justify-between mb-2">
+          <label className={labelCls + ' mb-0'}>Nearby Facilities</label>
+          <button
+            type="button"
+            onClick={() =>
+              setField('nearbyFacilities', [
+                ...form.nearbyFacilities,
+                { name: '', category: 'School', distance: '' },
+              ])
+            }
+            className="inline-flex items-center gap-1 text-xs font-bold text-[#029bba] hover:underline"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            Add Facility
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mb-3">
+          Schools, colleges, hospitals, malls, gyms, major roads, and more.
+        </p>
+        <div className="space-y-2">
+          {form.nearbyFacilities.map((item, idx) => (
+            <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
+              <select
+                value={item.category}
+                onChange={(e) => {
+                  const next = [...form.nearbyFacilities];
+                  next[idx] = { ...next[idx], category: e.target.value };
+                  setField('nearbyFacilities', next);
+                }}
+                className="md:col-span-3 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-[#029bba]"
+              >
+                {NEARBY_CATEGORIES.map((c) => (
+                  <option key={c} value={c}>{c}</option>
+                ))}
+              </select>
+              <input
+                type="text"
+                value={item.name}
+                onChange={(e) => {
+                  const next = [...form.nearbyFacilities];
+                  next[idx] = { ...next[idx], name: e.target.value };
+                  setField('nearbyFacilities', next);
+                }}
+                placeholder="e.g. Beaconhouse School"
+                className="md:col-span-5 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-[#029bba]"
+                maxLength={100}
+              />
+              <input
+                type="text"
+                value={item.distance}
+                onChange={(e) => {
+                  const next = [...form.nearbyFacilities];
+                  next[idx] = { ...next[idx], distance: e.target.value };
+                  setField('nearbyFacilities', next);
+                }}
+                placeholder="e.g. 1.5 km"
+                className="md:col-span-3 px-3 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-[#029bba]"
+                maxLength={30}
+              />
+              <button
+                type="button"
+                onClick={() =>
+                  setField(
+                    'nearbyFacilities',
+                    form.nearbyFacilities.filter((_, i) => i !== idx)
+                  )
+                }
+                className="md:col-span-1 p-2 rounded-lg text-red-500 hover:bg-red-50"
+                aria-label="Remove facility"
+              >
+                <X className="w-4 h-4 mx-auto" />
+              </button>
+            </div>
+          ))}
+          {form.nearbyFacilities.length === 0 && (
+            <p className="text-xs text-gray-400">No nearby facilities added yet.</p>
+          )}
+        </div>
+      </div>
+
+      {/* --- Possession (sab types - API contract) --- */}
       <div>
         <label className={labelCls}>Possession Status</label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
