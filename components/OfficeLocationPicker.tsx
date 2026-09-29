@@ -63,7 +63,7 @@ const MAP_OPTIONS: google.maps.MapOptions = {
   disableDefaultUI:   false,
   zoomControl:        true,
   streetViewControl:  false,
-  mapTypeControl:     false,
+  mapTypeControl:     true, // Enables Map/Satellite toggle
   fullscreenControl:  true,
   clickableIcons:     false,
   gestureHandling:    "greedy",
