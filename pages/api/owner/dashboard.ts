@@ -67,7 +67,8 @@ export default async function handler(
       Property.aggregate([
         {
           $match: {
-            owner:     { $eq: auth.id },
+            // Must cast to ObjectId in aggregation pipeline
+            owner:     { $eq: new (require('mongoose').Types.ObjectId)(auth.id) },
             isDeleted: false,
           },
         },

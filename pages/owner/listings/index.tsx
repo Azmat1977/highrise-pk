@@ -107,9 +107,9 @@ function StatusBadge({ status }: { status: string }): React.ReactElement | null 
 }
 
 const LISTING_TYPE_BADGE: Record<string, { label: string; className: string }> = {
-  full_payment: { label: "Sale",        className: "bg-[#029bba]/10 text-[#029bba]" },
-  installment:  { label: "Installment", className: "bg-violet-100 text-violet-700" },
-  rent:         { label: "Rent",        className: "bg-teal-100 text-teal-700" },
+  full_payment: { label: "For Sale",    className: "bg-rose-500 text-white shadow-sm" },
+  installment:  { label: "Installment", className: "bg-violet-500 text-white shadow-sm" },
+  rent:         { label: "For Rent",    className: "bg-emerald-500 text-white shadow-sm" },
 };
 
 function ListingTypeBadge({ type }: { type: string }): React.ReactElement | null {
@@ -272,7 +272,7 @@ function GridCard({
         {/* Hover actions */}
         <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
           <a
-            href={`/property/${property.slug ?? property._id}`}
+            href={`/properties/${property.slug ?? property._id}`}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors"
@@ -343,27 +343,7 @@ function GridCard({
           <span>{formatDate(property.createdAt)}</span>
         </div>
 
-        {/* Submit for review (draft only, owner approved) */}
-        {isDraft && ownerApproved && !isConfirmDel && (
-          <div className="mt-3">
-            {!isConfirmSub ? (
-              <button
-                type="button"
-                onClick={() => onSubmitRequest(property._id)}
-                className="w-full flex items-center justify-center gap-2 px-3 py-2 bg-[#029bba]/10 text-[#029bba] rounded-xl text-xs font-bold hover:bg-[#029bba]/20 transition-colors border border-[#029bba]/20"
-              >
-                <Send className="w-3 h-3" />
-                Submit for Review
-              </button>
-            ) : (
-              <SubmitConfirmBar
-                onConfirm={() => onSubmitConfirm(property._id)}
-                onCancel={onSubmitCancel}
-                submitting={isSubmitting}
-              />
-            )}
-          </div>
-        )}
+        {/* Auto-submit replaced the need for manual draft submission */}
 
         {/* Delete confirm */}
         {isConfirmDel && (
@@ -452,7 +432,7 @@ function ListRow({
                 </Link>
               )}
               <a
-                href={`/property/${property.slug ?? property._id}`}
+                href={`/properties/${property.slug ?? property._id}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"

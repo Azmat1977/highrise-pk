@@ -520,15 +520,15 @@ async function handlePost(
     // Contact
     contactDetails: safeContact,
 
-    // Verification - starts as draft
+    // Verification - Auto-submits to admin approval queue
     verification: {
-      status: "draft",
+      status: "pending",
     },
   });
 
   res.status(201).json({
     success:  true,
-    message:  "Listing created as draft",
+    message:  "Listing submitted for review",
     property: {
       _id:  property._id,
       slug: property.slug,
