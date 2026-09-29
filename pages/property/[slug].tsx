@@ -2252,16 +2252,16 @@ export default function PropertySlugPage({
                 ) : (
                   /* ── Logged in ── */
                   <>
-                    {/* Owner info */}
-                    <div className="flex items-center gap-3 mb-5">
-                      <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
-                        {property.listingActor?.profileImageUrl ? (
-                          <img
-                            src={property.owner.profilePictureUrl}
-                            alt={property.listingActor?.displayName ?? "Property seller"}
-                            className="w-full h-full object-cover"
-                          />
-                        ) : (
+                      {/* Owner info */}
+                      <div className="flex items-center gap-3 mb-5">
+                        <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+                          {property.listingActor?.profileImageUrl ? (
+                            <img
+                              src={property.listingActor.profileImageUrl}
+                              alt={property.listingActor?.displayName ?? "Property seller"}
+                              className="w-full h-full object-cover"
+                            />
+                          ) : (
                           <div className="w-full h-full flex items-center justify-center text-[#666666] text-xl font-bold">
                             {(
                               property.listingActor?.displayName?.charAt(0) ??
