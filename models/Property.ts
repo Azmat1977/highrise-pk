@@ -1642,7 +1642,7 @@ const PropertySchema = new Schema<IProperty>(
       lng: { type: Number },
     },
     location: {
-      type: { type: String, enum: ['Point'], default: 'Point' },
+      type: { type: String, enum: ['Point'] },
       coordinates: {
         type:    [Number],
         default: undefined,
@@ -2413,7 +2413,7 @@ PropertySchema.pre<IProperty>('validate', function (next) {
     this.isFeatured = false;
   }
 
-  // ── Geo sync from legacy coordinates ───────────────────────
+  // --- Geo sync from legacy coordinates -------------------------
   const lat = this.coordinates?.lat;
   const lng = this.coordinates?.lng;
 
@@ -2424,13 +2424,25 @@ PropertySchema.pre<IProperty>('validate', function (next) {
     isValidPakistanCoordinates(lat, lng)
   ) {
     this.location = { type: 'Point', coordinates: [lng, lat] };
-  } else if (this.location?.coordinates) {
+  } else if (
+    Array.isArray(this.location?.coordinates) &&
+    this.location.coordinates.length === 2 &&
+    typeof this.location.coordinates[0] === 'number' &&
+    typeof this.location.coordinates[1] === 'number'
+  ) {
     const coords = this.location.coordinates as [number, number];
     const glng = coords[0];
     const glat = coords[1];
     if (!isValidLatLng(glat, glng) || !isValidPakistanCoordinates(glat, glng)) {
       this.location = undefined;
+      this.set('location', undefined);
+      if ((this as any)._doc) delete (this as any)._doc.location;
     }
+  } else {
+    // Force Mongoose & MongoDB driver to completely purge incomplete location object before write
+    this.location = undefined;
+    this.set('location', undefined);
+    if ((this as any)._doc) delete (this as any)._doc.location;
   }
 
   // ── Image normalization ─────────────────────────────────────
@@ -2726,8 +2738,11 @@ PropertySchema.pre<IProperty>('save', async function (next: (err?: CallbackError
     qm.imageCount        = this.images?.length          ?? 0;
     qm.hasDescription    = typeof this.description === 'string' && this.description.length >= 100;
     qm.descriptionLength = this.description?.length     ?? 0;
-    qm.hasCoordinates    = Array.isArray(this.location?.coordinates) &&
-                           this.location!.coordinates.length === 2;
+    
+    // Safely check coordinates without invoking Mongoose defaults
+    const coords = (this as any)._doc?.location?.coordinates ?? this.location?.coordinates;
+    qm.hasCoordinates = Array.isArray(coords) && coords.length === 2;
+    
     qm.hasContact        = typeof this.contactDetails?.primaryPhone === 'string' &&
                            this.contactDetails.primaryPhone.length > 0;
     qm.hasAmenities      = Array.isArray(this.amenities) && this.amenities.length > 0;
@@ -2756,6 +2771,16 @@ PropertySchema.pre<IProperty>('save', async function (next: (err?: CallbackError
     this.grandTotalWithAllCharges = this.trueCost.grandTotalBuyerFiler;
     this.totalExtraCharges        = this.trueCost.extraChargesTotal;
     this.totalPossessionCost      = this.trueCost.possessionChargesTotal;
+
+    // --- Final GeoJSON Purge (MUST run at the very end of pre-save AFTER metrics getters read this.location) ---
+    const finalCoords = (this as any)._doc?.location?.coordinates ?? this.location?.coordinates;
+    if (!Array.isArray(finalCoords) || finalCoords.length !== 2 || typeof finalCoords[0] !== 'number' || typeof finalCoords[1] !== 'number') {
+      this.location = undefined;
+      this.set('location', undefined);
+      if ((this as any)._doc) {
+        delete (this as any)._doc.location;
+      }
+    }
 
     return next();
   } catch (err: unknown) {

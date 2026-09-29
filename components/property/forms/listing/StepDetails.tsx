@@ -383,7 +383,8 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
         </p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
           {getAmenityGroupForType(pt).map((item) => {
-            const checked = form.amenities.includes(item.key);
+            const selectedAmenities = Array.isArray(form.amenities) ? form.amenities : [];
+            const checked = selectedAmenities.includes(item.key);
             return (
               <button
                 key={item.key}
@@ -392,8 +393,8 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
                   setField(
                     'amenities',
                     checked
-                      ? form.amenities.filter((a) => a !== item.key)
-                      : [...form.amenities, item.key]
+                      ? selectedAmenities.filter((a) => a !== item.key)
+                      : [...selectedAmenities, item.key]
                   );
                 }}
                 className={`text-left px-3 py-2 rounded-xl border text-xs font-semibold transition-all ${
@@ -417,7 +418,7 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
             type="button"
             onClick={() =>
               setField('nearbyFacilities', [
-                ...form.nearbyFacilities,
+                ...(Array.isArray(form.nearbyFacilities) ? form.nearbyFacilities : []),
                 { name: '', category: 'School', distance: '' },
               ])
             }
@@ -431,12 +432,13 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
           Schools, colleges, hospitals, malls, gyms, major roads, and more.
         </p>
         <div className="space-y-2">
-          {form.nearbyFacilities.map((item, idx) => (
+          {(Array.isArray(form.nearbyFacilities) ? form.nearbyFacilities : []).map((item, idx) => (
             <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center">
               <select
                 value={item.category}
                 onChange={(e) => {
-                  const next = [...form.nearbyFacilities];
+                  const current = Array.isArray(form.nearbyFacilities) ? form.nearbyFacilities : [];
+                  const next = [...current];
                   next[idx] = { ...next[idx], category: e.target.value };
                   setField('nearbyFacilities', next);
                 }}
@@ -450,7 +452,8 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
                 type="text"
                 value={item.name}
                 onChange={(e) => {
-                  const next = [...form.nearbyFacilities];
+                  const current = Array.isArray(form.nearbyFacilities) ? form.nearbyFacilities : [];
+                  const next = [...current];
                   next[idx] = { ...next[idx], name: e.target.value };
                   setField('nearbyFacilities', next);
                 }}
@@ -462,7 +465,8 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
                 type="text"
                 value={item.distance}
                 onChange={(e) => {
-                  const next = [...form.nearbyFacilities];
+                  const current = Array.isArray(form.nearbyFacilities) ? form.nearbyFacilities : [];
+                  const next = [...current];
                   next[idx] = { ...next[idx], distance: e.target.value };
                   setField('nearbyFacilities', next);
                 }}
@@ -472,12 +476,13 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
               />
               <button
                 type="button"
-                onClick={() =>
+                onClick={() => {
+                  const current = Array.isArray(form.nearbyFacilities) ? form.nearbyFacilities : [];
                   setField(
                     'nearbyFacilities',
-                    form.nearbyFacilities.filter((_, i) => i !== idx)
-                  )
-                }
+                    current.filter((_, i) => i !== idx)
+                  );
+                }}
                 className="md:col-span-1 p-2 rounded-lg text-red-500 hover:bg-red-50"
                 aria-label="Remove facility"
               >
@@ -485,7 +490,7 @@ export default function StepDetails({ form, setField, errors }: StepDetailsProps
               </button>
             </div>
           ))}
-          {form.nearbyFacilities.length === 0 && (
+          {(Array.isArray(form.nearbyFacilities) ? form.nearbyFacilities : []).length === 0 && (
             <p className="text-xs text-gray-400">No nearby facilities added yet.</p>
           )}
         </div>
