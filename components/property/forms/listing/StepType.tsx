@@ -8,11 +8,17 @@
 'use client';
 
 import React, { useMemo } from 'react';
+import dynamic from 'next/dynamic';
 import {
-  MapPin, ChevronDown, Building2, Home, Landmark, Tractor,
+  MapPin, ChevronDown, Building2, Home, Landmark, Tractor, Globe,
 } from 'lucide-react';
 
 import type { ListingFormState, PropertyType, ListingType } from './types';
+
+// Client-side dynamic import for Google Maps (prevents SSR window errors)
+const OfficeLocationPicker = dynamic(() => import('@/components/OfficeLocationPicker'), {
+  ssr: false,
+});
 import { PAKISTAN_CITIES, PROPERTY_TYPE_GROUPS, PROPERTY_TYPE_LABELS } from './types';
 import { PROPERTY_SUBTYPES, getFieldConfig } from '../shared/usePropertyForm';
 
@@ -260,46 +266,72 @@ export default function StepType({ form, setField, errors }: StepTypeProps): Rea
           />
         </div>
 
-        <div className="md:col-span-2">
-          <label className="block text-sm font-semibold text-gray-700 mb-1.5">
-            Map Coordinates (Lat, Lng)
-          </label>
-          <input
-            type="text"
-            value={form.coordinatesRaw}
-            onChange={(e) => {
-              const raw = e.target.value;
-              setField('coordinatesRaw', raw);
-              const match = raw.trim().match(/^\s*(-?\d+(\.\d+)?)\s*,\s*(-?\d+(\.\d+)?)\s*$/);
-              if (match) {
-                setField('lat', match[1]);
-                setField('lng', match[3]);
-              }
-            }}
-            placeholder="e.g. 33.6844, 73.0479"
-            className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white
-                       text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/20
-                       outline-none"
-          />
-          <p className="text-[11px] text-gray-400 mt-1">
-            Right-click on Google Maps - &quot;What&apos;s here?&quot; - copy coordinates.
-            If empty, city center coordinates will be used automatically.
-          </p>
-          <div className="mt-3 grid grid-cols-2 gap-3">
-            <input
-              type="text"
-              value={form.lat}
-              onChange={(e) => setField('lat', e.target.value)}
-              placeholder="Latitude"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-[#029bba]"
+        {/* Interactive Map & Coordinates Picker Zone */}
+        <div className="md:col-span-2 space-y-3 pt-2">
+          <div className="flex items-center justify-between">
+            <label className="block text-sm font-semibold text-gray-700 flex items-center gap-1.5">
+              <Globe className="w-4 h-4 text-[#029bba]" />
+              Interactive Property Map Location
+            </label>
+            <span className="text-xs text-[#029bba] font-bold">
+              Click on map to drop pin
+            </span>
+          </div>
+
+          {/* Interactive Google Map Embed */}
+          <div className="rounded-2xl overflow-hidden border border-gray-200 shadow-sm">
+            <OfficeLocationPicker
+              initialAddress={[form.society, form.phase, form.block].filter(Boolean).join(', ')}
+              initialCity={form.city}
+              initialLat={form.lat ? Number(form.lat) : undefined}
+              initialLng={form.lng ? Number(form.lng) : undefined}
+              height={320}
+              showSearchBox={true}
+              showGpsButton={true}
+              onLocationChange={(locData) => {
+                const latStr = locData.lat.toFixed(6);
+                const lngStr = locData.lng.toFixed(6);
+                setField('lat', latStr);
+                setField('lng', lngStr);
+                setField('coordinatesRaw', `${latStr}, ${lngStr}`);
+              }}
             />
-            <input
-              type="text"
-              value={form.lng}
-              onChange={(e) => setField('lng', e.target.value)}
-              placeholder="Longitude"
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:border-[#029bba]"
-            />
+          </div>
+
+          {/* Manual Coordinate Override Fields */}
+          <div className="grid grid-cols-2 gap-3 pt-1">
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                Selected Latitude
+              </label>
+              <input
+                type="text"
+                value={form.lat}
+                onChange={(e) => {
+                  const newLat = e.target.value;
+                  setField('lat', newLat);
+                  setField('coordinatesRaw', `${newLat}, ${form.lng}`);
+                }}
+                placeholder="e.g. 33.684400"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-800 outline-none focus:border-[#029bba]"
+              />
+            </div>
+            <div>
+              <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-1">
+                Selected Longitude
+              </label>
+              <input
+                type="text"
+                value={form.lng}
+                onChange={(e) => {
+                  const newLng = e.target.value;
+                  setField('lng', newLng);
+                  setField('coordinatesRaw', `${form.lat}, ${newLng}`);
+                }}
+                placeholder="e.g. 73.047900"
+                className="w-full px-3 py-2 rounded-xl border border-gray-200 bg-white text-xs font-mono text-gray-800 outline-none focus:border-[#029bba]"
+              />
+            </div>
           </div>
         </div>
       </div>
