@@ -32,6 +32,7 @@ import SafeDealBanner from "@/components/safedeal/SafeDealBanner";
 import VerifiedOwnerBadge from "@/components/badges/VerifiedOwnerBadge";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useCompare } from "@/hooks/useCompare";
+import PropertyMediaExplorer from "@/components/property/PropertyMediaExplorer";
 
 import {
   ArrowLeft,
@@ -82,6 +83,9 @@ import {
   Image as ImageIcon,
   Play,
   Map,
+  Map as MapIcon,
+  Camera,
+  Video,
   LayoutGrid,
   CreditCard,
   Banknote,
@@ -659,8 +663,9 @@ export default function PropertySlugPage({
     useState<TrueCostBreakdown | null>(null);
 
   const [selectedImage, setSelectedImage] = useState(0);
-  const [showLightbox, setShowLightbox] = useState(false);
-  const [showHeroMap, setShowHeroMap] = useState(false);
+  const [explorerOpen, setExplorerOpen] = useState(false);
+  const [explorerTab, setExplorerTab] = useState<'media'|'video'|'map'>('media');
+  const [explorerPhotoIdx, setExplorerPhotoIdx] = useState(0);
   const [showPhone, setShowPhone] = useState(false);
   const [revealedContact, setRevealedContact] = useState<{ name?: string | null; phone?: string | null; whatsapp?: string | null; email?: string | null; preferredMethod?: string | null; contactTime?: string | null } | null>(null);
   const [contactLoading, setContactLoading] = useState(false);
@@ -777,8 +782,7 @@ export default function PropertySlugPage({
 
       // Reset UI that belongs to the previous listing.
       setSelectedImage(0);
-      setShowLightbox(false);
-      setShowHeroMap(false);
+      setExplorerOpen(false);
       setShowPhone(false);
       setRevealedContact(null);
       setTrueCostBreakdown(null);
@@ -980,27 +984,11 @@ export default function PropertySlugPage({
   }, [property?._id]);
 
   // ── Gallery navigation ────────────────────────────────────────────────────
-  const nextImage = useCallback(() => {
-    if (!property?.images?.length) return;
-    setSelectedImage((p) => (p === property.images.length - 1 ? 0 : p + 1));
-  }, [property?.images]);
-
-  const prevImage = useCallback(() => {
-    if (!property?.images?.length) return;
-    setSelectedImage((p) => (p === 0 ? property.images.length - 1 : p - 1));
-  }, [property?.images]);
-
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (!property?.images || property.images.length <= 1) return;
-      if (e.key === "ArrowLeft") prevImage();
-      if (e.key === "ArrowRight") nextImage();
-      if (e.key === "Escape" && showLightbox) setShowLightbox(false);
-      if (e.key === "Escape" && showHeroMap) setShowHeroMap(false);
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [property?.images, showLightbox, showHeroMap, nextImage, prevImage]);
+  const openExplorer = useCallback((tab: 'media' | 'video' | 'map', photoIdx = 0) => {
+    setExplorerTab(tab);
+    setExplorerPhotoIdx(photoIdx);
+    setExplorerOpen(true);
+  }, []);
 
   // ── Contact helpers ───────────────────────────────────────────────────────
   // Public ISR data contains no seller PII. Contact is revealed only after
@@ -1291,6 +1279,95 @@ export default function PropertySlugPage({
   }
 
   // ── Render ─────────────────────────────────────────────────────────────────
+
+  const contactCardNode = (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      <h2 className="text-lg font-semibold text-[#004063] mb-4">
+        Contact Seller
+      </h2>
+
+      {!isLoggedIn ? (
+        <div className="text-center py-6">
+          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Lock className="w-8 h-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-semibold text-[#004063] mb-2">Login Required</h3>
+          <p className="text-sm text-[#666666] mb-6">Please login to view seller contact details and send inquiries.</p>
+          <div className="flex flex-col gap-3">
+            <button onClick={() => setShowAuthModal(true)} className="w-full py-3 bg-[#029bba] text-white rounded-xl font-semibold hover:bg-[#017a8a] transition-colors flex items-center justify-center gap-2">
+              <Key className="w-4 h-4" /> Login to View Contacts
+            </button>
+            <button onClick={() => setShowAuthModal(true)} className="w-full py-3 border border-gray-200 text-[#333333] rounded-xl font-medium hover:bg-gray-50 transition-colors">
+              Create Account
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
+              {property.listingActor?.profileImageUrl ? (
+                <img src={property.listingActor.profileImageUrl} alt={property.listingActor?.displayName ?? "Seller"} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-[#666666] text-xl font-bold">
+                  {(property.listingActor?.displayName?.charAt(0) ?? "U").toUpperCase()}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-semibold text-[#333333]">{property.listingActor?.displayName ?? "Property seller"}</p>
+              <p className="text-sm text-[#666666]">{property.listingActor?.label ?? "Seller"}</p>
+            </div>
+          </div>
+
+          {property.listingActor?.verified && (
+            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
+              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
+                <Shield className="w-4 h-4 text-emerald-600" />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-emerald-800">🛡️ Verified Owner Listing</p>
+                <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">The accountable listing actor has a verified Highrise profile.</p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-3">
+            {canRevealPhone ? (
+              showPhone ? (
+                <a href={`tel:${phoneValue}`} className="flex items-center justify-center gap-2 w-full py-3.5 bg-white border-2 border-[#029bba] text-[#029bba] rounded-xl font-black text-lg hover:bg-[#029bba]/5 shadow-sm transition-all"><Phone className="w-5 h-5" />{phoneValue}</a>
+              ) : (
+                <button onClick={() => setShowPhone(true)} className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#029bba] text-white rounded-xl font-bold text-[15px] hover:bg-[#017a8a] shadow-md transition-colors"><Phone className="w-5 h-5" />Show Phone Number</button>
+              )
+            ) : (
+              <button onClick={() => void revealContact()} disabled={contactLoading} className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#029bba] text-white rounded-xl font-bold text-[15px] hover:bg-[#017a8a] shadow-md transition-colors disabled:opacity-60"><Phone className="w-5 h-5" />{contactLoading ? "Checking Contact…" : "Reveal Contact"}</button>
+            )}
+
+            {canWhatsapp && (
+              <a href={`https://wa.me/${waValue}?text=${encodeURIComponent(`Hi, I'm interested in your property: ${property.title}\n\nLink: ${canonicalUrl}`)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#25D366] text-white rounded-xl font-bold text-[15px] shadow-md shadow-[#25D366]/20 hover:bg-[#128C7E] hover:scale-[1.02] transition-all active:scale-[0.98]">
+                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.052 0C5.495 0 .092 5.403.089 11.961c-.002 2.095.545 4.14 1.583 5.945L.035 24l6.247-1.637a11.85 11.85 0 0 0 5.766 1.498h.004c6.556 0 11.96-5.403 11.963-11.961a11.83 11.83 0 0 0-3.551-8.402"/></svg>
+                WhatsApp
+              </a>
+            )}
+          </div>
+
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <h3 className="text-base font-semibold text-[#004063] mb-4 flex items-center gap-2"><Mail className="w-5 h-5 text-[#029bba]" />Interested in this property?</h3>
+            <div className="space-y-3">
+              <button onClick={() => { setInquiryLeadType("general_inquiry"); setShowInquiryModal(true); }} className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white font-semibold hover:opacity-90 transition-opacity"><Mail className="w-5 h-5" />Send Inquiry</button>
+              <button onClick={() => { setInquiryLeadType("site_visit"); setShowInquiryModal(true); }} className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-[#029bba] text-[#029bba] font-medium hover:bg-[#029bba]/5 transition-colors"><Calendar className="w-5 h-5" />Schedule Site Visit</button>
+            </div>
+          </div>
+
+          {/* Enterprise SafeDeal Integration Inside Contact Card */}
+          <div className="mt-6 pt-5 border-t border-gray-100">
+            <SafeDealBanner variant="compact" />
+          </div>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <>
       <Head>
@@ -1377,286 +1454,184 @@ export default function PropertySlugPage({
           </div>
         </div>
 
-        {/* ── Main grid ───────────────────────────────────────────────────── */}
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* ── Main Layout Container ───────────────────────────────────────── */}
+        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-6 lg:py-8">
 
-            {/* ── Left column ─────────────────────────────────────────────── */}
-            <div className="lg:col-span-2 space-y-6">
+          {/* ── HERO GALLERY (Full Width) ─────────────────────────────────── */}
+          <div className="relative mb-10">
+                {/* Gallery Card */}
+                <div className="relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                  {/* Top Left Badges */}
+                  <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-20 pointer-events-none">
+                    <span className="bg-[#029bba] text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm">
+                      {getListingTypeBadge(property.listingType)}
+                    </span>
+                    {property.isVerified && (
+                      <span className="bg-[#10b981] text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
+                        <CheckCircle className="w-3 h-3" /> Verified
+                      </span>
+                    )}
+                  </div>
 
-              {/* Gallery */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                {property.images?.length ? (
-                  <>
-                    {/* Desktop: main + thumbnails */}
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-0.5">
-                      {/* Main image */}
-                      <div
-                        className="md:col-span-3 relative h-64 sm:h-80 md:h-[400px] cursor-pointer group"
-                        onClick={() => setShowLightbox(true)}
-                      >
-                        <img
-                          src={getOptimizedImageUrl(
-                            property.images[selectedImage].url,
-                            1200
-                          )}
-                          alt={property.title}
-                          className="w-full h-full object-cover"
-                          loading="eager"
-                        />
+                  {/* Top Right Floating Actions */}
+                  <div className="absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto">
+                    {isOwner && <StatusBadge status={property.status} />}
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleShare(); }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-[#004063] hover:bg-white transition-all shadow-sm"
+                    >
+                      <Share2 className="w-4 h-4 text-[#029bba]" /> Share
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (property?._id) void favorites.toggle(property._id, 'property');
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-[#004063] hover:bg-white transition-all shadow-sm"
+                    >
+                      <Heart className={`w-4 h-4 ${isSaved ? 'fill-[#029bba] text-[#029bba]' : 'text-[#029bba]'}`} />
+                      {isSaved ? 'Saved' : 'Save'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (property?._id) void compare.toggle(property._id, 'property');
+                      }}
+                      className={`hidden sm:flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold transition-all shadow-sm hover:bg-white ${
+                        isCompared ? 'text-[#029bba]' : 'text-[#004063]'
+                      }`}
+                    >
+                      <LayoutGrid className="w-4 h-4 text-[#029bba]" />
+                      {isCompared ? 'Compared' : 'Compare'}
+                    </button>
+                  </div>
 
-                        {/* Hover overlay */}
-                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all duration-300" />
-
-                        {/* Prev / Next arrows */}
-                        {property.images.length > 1 && (
-                          <>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); prevImage(); }}
-                              className="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 text-gray-800 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                              aria-label="Previous image"
-                            >
-                              <ChevronLeft className="w-6 h-6" />
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                              className="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white/90 text-gray-800 flex items-center justify-center shadow-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                              aria-label="Next image"
-                            >
-                              <ChevronRight className="w-6 h-6" />
-                            </button>
-                          </>
-                        )}
-
-                        {/* Top badges & Floating Trulia-Style Save/Share Buttons */}
-                        <div className="absolute top-3 left-3 flex flex-wrap gap-2 z-10">
-                          <span className="bg-[#029bba] text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm">
-                            {getListingTypeBadge(property.listingType)}
-                          </span>
-                          {property.isVerified && (
-                            <span className="bg-[#10b981] text-white px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1">
-                              <CheckCircle className="w-3 h-3" /> Verified
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Top Right: Trulia Pill Buttons */}
-                        <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-                          {isOwner && <StatusBadge status={property.status} />}
-                          
-                          <button
-                            type="button"
-                            onClick={(e) => { e.stopPropagation(); handleShare(); }}
-                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/90 hover:bg-white text-gray-800 text-xs font-bold shadow-md backdrop-blur-sm transition-all hover:scale-105"
-                          >
-                            <Share2 className="w-3.5 h-3.5 text-[#029bba]" />
-                            <span>Share</span>
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              if (property?._id) void favorites.toggle(property._id, 'property');
-                            }}
-                            className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold shadow-md backdrop-blur-sm transition-all hover:scale-105 ${
-                              isSaved
-                                ? "bg-red-500 text-white"
-                                : "bg-white/90 hover:bg-white text-gray-800"
-                            }`}
-                          >
-                            <Heart className={`w-3.5 h-3.5 ${isSaved ? "fill-white text-white" : "text-red-500"}`} />
-                            <span>{isSaved ? "Saved" : "Save"}</span>
-                          </button>
-                        </div>
-
-                        {/* Bottom controls */}
-                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex gap-2">
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setShowLightbox(true); }}
-                                className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full text-xs font-bold transition-all border border-white/30"
-                              >
-                                <ImageIcon className="w-3.5 h-3.5" />
-                                {property.images.length} Photos
-                              </button>
-
-                              {videoCount > 0 && (
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    scrollToSection("video-section");
-                                  }}
-                                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full text-xs font-bold transition-all border border-white/30"
-                                >
-                                  <Play className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                                  {videoCount} Video{videoCount > 1 ? "s" : ""}
-                                </button>
-                              )}
-
-                              {heroMapUrl && (
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); setShowHeroMap(true); }}
-                                  className="flex items-center gap-1.5 px-3.5 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur-md text-white rounded-full text-xs font-bold transition-all border border-white/30"
-                                >
-                                  <Map className="w-3.5 h-3.5 text-[#4dd6f5]" />
-                                  Map View
-                                </button>
-                              )}
-                            </div>
-
-                            {property.images.length > 1 && (
-                              <span className="text-white/90 text-xs font-bold bg-black/40 px-2.5 py-1 rounded-full backdrop-blur-sm">
-                                {selectedImage + 1} / {property.images.length}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Side thumbnails — desktop */}
-                      <div className="hidden md:flex md:col-span-1 flex-col gap-0.5">
-                        {property.images.slice(1, 4).map((img, idx) => (
-                          <div
-                            key={idx}
-                            className="relative flex-1 min-h-[130px] cursor-pointer group overflow-hidden"
-                            onClick={() => {
-                              setSelectedImage(idx + 1);
-                              if (idx === 2 && property.images.length > 4)
-                                setShowLightbox(true);
-                            }}
-                          >
-                            <img
-                              src={getOptimizedImageUrl(img.url, 400)}
-                              alt={`${property.title} ${idx + 2}`}
-                              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
-                              loading="lazy"
-                            />
-                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" />
-                            {idx === 2 && property.images.length > 4 && (
-                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                                <span className="text-white text-lg font-bold">
-                                  +{property.images.length - 4} more
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Mobile thumbnail strip */}
-                    <div className="md:hidden flex gap-2 p-3 overflow-x-auto scrollbar-hide bg-gray-50">
-                      {property.images.map((img, idx) => (
-                        <button
-                          key={idx}
-                          onClick={() => setSelectedImage(idx)}
-                          className={`flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 transition-all ${
-                            selectedImage === idx
-                              ? "border-[#029bba] ring-2 ring-[#029bba]/30"
-                              : "border-transparent"
-                          }`}
+                  {property.images?.length ? (
+                    <>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-0.5">
+                        <div
+                          className="md:col-span-3 relative h-64 sm:h-80 md:h-[400px] cursor-pointer group"
+                          onClick={() => openExplorer('media', 0)}
                         >
                           <img
-                            src={getThumbnailUrl(img.url)}
-                            alt={`Thumbnail ${idx + 1}`}
+                            src={getOptimizedImageUrl(property.images[selectedImage].url, 1200)}
+                            alt={property.title}
                             className="w-full h-full object-cover"
-                            loading="lazy"
+                            loading="eager"
                           />
-                        </button>
-                      ))}
+                          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all duration-300" />
+                        </div>
+
+                        <div className="hidden md:flex md:col-span-1 flex-col gap-0.5">
+                          {property.images.slice(1, 4).map((img, idx) => (
+                            <div
+                              key={idx}
+                              className="relative flex-1 min-h-[130px] cursor-pointer group overflow-hidden"
+                              onClick={() => openExplorer('media', idx + 1)}
+                            >
+                              <img
+                                src={getOptimizedImageUrl(img.url, 400)}
+                                alt={`${property.title} ${idx + 2}`}
+                                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+                                loading="lazy"
+                              />
+                              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" />
+                              {idx === 2 && property.images.length > 4 && (
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                                  <span className="text-white text-lg font-bold">
+                                    +{property.images.length - 4} more
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Mobile thumbnail strip */}
+                      <div className="md:hidden flex gap-2 p-3 overflow-x-auto scrollbar-hide bg-gray-50">
+                        {property.images.map((img, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => openExplorer('media', idx)}
+                            className="flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 border-transparent transition-all"
+                          >
+                            <img
+                              src={getThumbnailUrl(img.url)}
+                              alt={`Thumbnail ${idx + 1}`}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-64 sm:h-80 md:h-[400px] bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center">
+                      <Home className="w-16 h-16 text-gray-300 mb-3" />
+                      <p className="text-[#666666] text-sm">No images available</p>
                     </div>
-                  </>
-                ) : (
-                  <div className="h-64 sm:h-80 md:h-[400px] bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center">
-                    <Home className="w-16 h-16 text-gray-300 mb-3" />
-                    <p className="text-[#666666] text-sm">No images available</p>
+                  )}
+                </div>
+
+                {/* Media Chips - Project style: sibling with -mt-6 so half sits on hero, half hangs below */}
+                <div className="flex justify-center -mt-6 relative z-20 px-4">
+                  <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 px-2 py-1 flex items-center flex-wrap gap-1">
+                    <button
+                      type="button"
+                      onClick={() => openExplorer('media', 0)}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 hover:text-[#029bba] hover:bg-[#029bba]/5 transition-colors"
+                      aria-label="Open photos"
+                    >
+                      <Camera className="w-4 h-4 text-[#029bba]" />
+                      {property.images?.length || 0} {(property.images?.length || 0) === 1 ? 'Photo' : 'Photos'}
+                    </button>
+
+                    {videoCount > 0 && (
+                      <>
+                        <div className="w-px h-6 bg-gray-200" aria-hidden="true" />
+                        <button
+                          type="button"
+                          onClick={() => openExplorer('video', 0)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 hover:text-[#029bba] hover:bg-[#029bba]/5 transition-colors"
+                          aria-label="Open videos"
+                        >
+                          <Video className="w-4 h-4 text-[#029bba]" />
+                          {videoCount} {videoCount === 1 ? 'Video' : 'Videos'}
+                        </button>
+                      </>
+                    )}
+
+                    {heroMapUrl && (
+                      <>
+                        <div className="w-px h-6 bg-gray-200" aria-hidden="true" />
+                        <button
+                          type="button"
+                          onClick={() => openExplorer('map', 0)}
+                          className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold text-gray-700 hover:text-[#029bba] hover:bg-[#029bba]/5 transition-colors"
+                          aria-label="Open map"
+                        >
+                          <MapIcon className="w-4 h-4 text-[#029bba]" />
+                          Map
+                        </button>
+                      </>
+                    )}
                   </div>
-                )}
+                </div>
               </div>
 
-              {/* ── Lightbox ─────────────────────────────────────────────── */}
-              {showLightbox && property.images?.length > 0 && (
-                <div
-                  className="fixed inset-0 z-[150] bg-black flex items-center justify-center"
-                  onClick={() => setShowLightbox(false)}
-                >
-                  <button
-                    onClick={() => setShowLightbox(false)}
-                    className="absolute top-4 right-4 w-12 h-12 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center z-10 transition-colors"
-                    aria-label="Close lightbox"
-                  >
-                    <X className="w-7 h-7" />
-                  </button>
-                  <div className="absolute top-4 left-4 text-white text-sm font-medium bg-black/50 px-4 py-2 rounded-full">
-                    {selectedImage + 1} / {property.images.length}
-                  </div>
-                  {property.images.length > 1 && (
-                    <>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); prevImage(); }}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-                        aria-label="Previous"
-                      >
-                        <ChevronLeft className="w-8 h-8" />
-                      </button>
-                      <button
-                        onClick={(e) => { e.stopPropagation(); nextImage(); }}
-                        className="absolute right-4 top-1/2 -translate-y-1/2 w-14 h-14 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
-                        aria-label="Next"
-                      >
-                        <ChevronRight className="w-8 h-8" />
-                      </button>
-                    </>
-                  )}
-                  <img
-                    src={getOptimizedImageUrl(
-                      property.images[selectedImage].url,
-                      1920
-                    )}
-                    alt={property.title}
-                    className="max-w-[95vw] max-h-[85vh] object-contain"
-                    onClick={(e) => e.stopPropagation()}
-                  />
-                </div>
-              )}
+          {/* ── TWO-COLUMN CONTENT GRID ───────────────────────────────────── */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-              {/* ── Hero Map Overlay ──────────────────────────────────────── */}
-              {showHeroMap && heroMapUrl && (
-                <div
-                  className="fixed inset-0 z-[160] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
-                  onClick={() => setShowHeroMap(false)}
-                >
-                  <div
-                    className="relative w-full max-w-4xl h-[70vh] bg-white rounded-2xl overflow-hidden shadow-2xl border border-gray-200"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      onClick={() => setShowHeroMap(false)}
-                      className="absolute top-3 right-3 z-10 p-2 rounded-full bg-white/90 hover:bg-white shadow text-gray-700 transition-colors"
-                      aria-label="Close map"
-                    >
-                      <X className="w-5 h-5" />
-                    </button>
-                    <iframe
-                      src={heroMapUrl}
-                      width="100%"
-                      height="100%"
-                      style={{ border: 0 }}
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      title="Property Location Map"
-                    />
-                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent px-4 py-3">
-                      <p className="text-sm font-medium text-white line-clamp-1">
-                        {property.formattedAddress ?? fullLocation}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* ── Left column (Details) ───────────────────────────────────── */}
+            <div className="lg:col-span-2 space-y-6 min-w-0">
+
+              {/* ── Overview ─────────────────────────────────────────────── */}
+
+              {/* OLD LIGHTBOX REMOVED - REPLACED BY PROPERTY MEDIA EXPLORER */}
 
               {/* ── Overview ─────────────────────────────────────────────── */}
               <div
@@ -1687,40 +1662,7 @@ export default function PropertySlugPage({
                     </div>
                   </div>
 
-                  <div className="flex gap-2 flex-shrink-0">
-                    <button
-                      onClick={handleShare}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-gray-200 text-[#666666] text-sm font-medium hover:bg-gray-50 transition-colors"
-                    >
-                      <Share2 className="w-4 h-4" />
-                      Share
-                    </button>
-                    <button
-                      onClick={() => property?._id && void favorites.toggle(property._id, 'property')}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        isSaved
-                          ? "border-red-300 text-red-500 bg-red-50"
-                          : "border-gray-200 text-[#666666] hover:bg-gray-50"
-                      }`}
-                    >
-                      <Heart
-                        className="w-4 h-4"
-                        fill={isSaved ? "currentColor" : "none"}
-                      />
-                      {isSaved ? "Saved" : "Save"}
-                    </button>
-                    <button
-                      onClick={() => property?._id && void compare.toggle(property._id, 'property')}
-                      className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
-                        isCompared
-                          ? "border-[#029bba] text-[#017a8a] bg-cyan-50"
-                          : "border-gray-200 text-[#666666] hover:bg-gray-50"
-                      }`}
-                    >
-                      <LayoutGrid className="w-4 h-4" />
-                      {isCompared ? "Compared" : "Compare"}
-                    </button>
-                  </div>
+                  {/* Duplicate buttons removed - now placed dynamically on the hero image */}
                 </div>
 
                 {/* Price */}
@@ -2417,204 +2359,7 @@ export default function PropertySlugPage({
             {/* ── Right column — Contact ───────────────────────────────────── */}
             <div className="space-y-6" id="contact">
               {/* Contact card */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                <h2 className="text-lg font-semibold text-[#004063] mb-4">
-                  Contact Seller
-                </h2>
-
-                {!isLoggedIn ? (
-                  /* ── Login gate ── */
-                  <div className="text-center py-6">
-                    <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Lock className="w-8 h-8 text-gray-400" />
-                    </div>
-                    <h3 className="text-lg font-semibold text-[#004063] mb-2">
-                      Login Required
-                    </h3>
-                    <p className="text-sm text-[#666666] mb-6">
-                      Please login to view seller contact details and send
-                      inquiries.
-                    </p>
-                    <div className="flex flex-col gap-3">
-                      <button
-                        onClick={() => setShowAuthModal(true)}
-                        className="w-full py-3 bg-[#029bba] text-white rounded-xl font-semibold hover:bg-[#017a8a] transition-colors flex items-center justify-center gap-2"
-                      >
-                        <Key className="w-4 h-4" />
-                        Login to View Contacts
-                      </button>
-                      <button
-                        onClick={() => setShowAuthModal(true)}
-                        className="w-full py-3 border border-gray-200 text-[#333333] rounded-xl font-medium hover:bg-gray-50 transition-colors"
-                      >
-                        Create Account
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* ── Logged in ── */
-                  <>
-                      {/* Owner info */}
-                      <div className="flex items-center gap-3 mb-5">
-                        <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
-                          {property.listingActor?.profileImageUrl ? (
-                            <img
-                              src={property.listingActor.profileImageUrl}
-                              alt={property.listingActor?.displayName ?? "Property seller"}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                          <div className="w-full h-full flex items-center justify-center text-[#666666] text-xl font-bold">
-                            {(
-                              property.listingActor?.displayName?.charAt(0) ??
-                              "U"
-                            ).toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-[#333333]">
-                          {property.listingActor?.displayName ?? "Property seller"}
-                        </p>
-                        <p className="text-sm text-[#666666]">{property.listingActor?.label ?? "Seller"}</p>
-                      </div>
-                    </div>
-
-                    {/* Verified Owner trust block */}
-                    {property.listingActor?.verified && (
-                      <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                          <Shield className="w-4 h-4 text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold text-emerald-800">
-                            🛡️ Verified Owner Listing
-                          </p>
-                          <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">
-                            The accountable listing actor has a verified Highrise profile. Verification describes completed platform checks and is not a legal title guarantee.
-                          </p>
-                        </div>
-                      </div>
-                    )}
-
-                    {revealedContact?.contactTime && revealedContact.contactTime !== "anytime" && (
-                      <div className="mb-4 p-3 bg-[#eff6ff] rounded-xl">
-                        <p className="text-xs text-[#029bba] mb-1">Best Time to Contact</p>
-                        <p className="text-sm font-medium text-[#004063]">
-                          {formatContactTime(revealedContact.contactTime ?? "anytime")}
-                        </p>
-                      </div>
-                    )}
-
-                    <div className="space-y-3">
-                      {/* Phone */}
-                      {canRevealPhone ? (
-                        showPhone ? (
-                          <a
-                            href={`tel:${phoneValue}`}
-                            className="flex items-center justify-center gap-2 w-full py-3 bg-[#029bba] text-white rounded-xl font-medium hover:bg-[#017a8a] transition-colors"
-                          >
-                            <Phone className="w-5 h-5" />
-                            {phoneValue}
-                          </a>
-                        ) : (
-                          <button
-                            onClick={() => setShowPhone(true)}
-                            className="flex items-center justify-center gap-2 w-full py-3 bg-[#029bba] text-white rounded-xl font-medium hover:bg-[#017a8a] transition-colors"
-                          >
-                            <Phone className="w-5 h-5" />
-                            Show Phone Number
-                          </button>
-                        )
-                      ) : (
-                        <button
-                          onClick={() => void revealContact()}
-                          disabled={contactLoading}
-                          className="flex items-center justify-center gap-2 w-full py-3 bg-[#029bba] text-white rounded-xl font-medium hover:bg-[#017a8a] transition-colors disabled:opacity-60"
-                        >
-                          <Phone className="w-5 h-5" />
-                          {contactLoading ? "Checking Contact…" : "Reveal Contact"}
-                        </button>
-                      )}
-
-                      {/* WhatsApp */}
-                      {canWhatsapp && (() => {
-                        const msg = `Hi, I'm interested in your property: ${property.title}\n\nLink: ${canonicalUrl}`;
-                        return (
-                          <a
-                            href={`https://wa.me/${waValue}?text=${encodeURIComponent(msg)}`}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] text-white rounded-xl font-medium hover:bg-[#128C7E] transition-colors"
-                          >
-                            <MessageCircle className="w-5 h-5" />
-                            WhatsApp
-                          </a>
-                        );
-                      })()}
-                    </div>
-
-                    {/* Inquiries */}
-                    <div className="mt-6 pt-5 border-t border-gray-100">
-                      <h3 className="text-base font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                        <Mail className="w-5 h-5 text-[#029bba]" />
-                        Interested in this property?
-                      </h3>
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => {
-                            setInquiryLeadType("general_inquiry");
-                            setShowInquiryModal(true);
-                          }}
-                          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white font-semibold hover:opacity-90 transition-opacity"
-                        >
-                          <Mail className="w-5 h-5" />
-                          Send Inquiry
-                        </button>
-                        <button
-                          onClick={() => {
-                            setInquiryLeadType("site_visit");
-                            setShowInquiryModal(true);
-                          }}
-                          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-[#029bba] text-[#029bba] font-medium hover:bg-[#029bba]/5 transition-colors"
-                        >
-                          <Calendar className="w-5 h-5" />
-                          Schedule Site Visit
-                        </button>
-                        <button
-                          onClick={() => {
-                            setInquiryLeadType("call_back");
-                            setShowInquiryModal(true);
-                          }}
-                          className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-gray-200 text-[#666666] font-medium hover:bg-gray-50 transition-colors"
-                        >
-                          <Phone className="w-5 h-5" />
-                          Request Callback
-                        </button>
-                      </div>
-                      <div className="flex items-start gap-2 p-3 bg-[#eff6ff] rounded-xl mt-4">
-                        <Shield className="w-4 h-4 text-[#029bba] flex-shrink-0 mt-0.5" />
-                        <p className="text-xs text-[#004063]">
-                          Your contact info will be shared with the property owner.
-                          We respect your privacy.
-                        </p>
-                      </div>
-                    </div>
-
-                    {/* Edit link (owner only) */}
-                    {isOwner && (
-                      <div className="mt-5 pt-4 border-t border-gray-100">
-                        <Link
-                          href={`/edit-property/${property._id}`}
-                          className="flex items-center justify-center gap-2 w-full py-2.5 border border-gray-200 text-[#333333] rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors"
-                        >
-                          Edit Property
-                        </Link>
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
+              {contactCardNode}
 
               {/* Safety tips */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
@@ -2641,9 +2386,6 @@ export default function PropertySlugPage({
                   </p>
                 </div>
               </div>
-
-              {/* SafeDeal Protection Banner */}
-              <SafeDealBanner variant="compact" />
 
               {/* Quick summary */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
@@ -2845,6 +2587,23 @@ export default function PropertySlugPage({
           reporterPhone=""
         />
       )}
+
+      <PropertyMediaExplorer
+        isOpen={explorerOpen}
+        onClose={() => setExplorerOpen(false)}
+        title={property.title}
+        priceDisplay={`PKR ${formatPrice(property.totalPrice ?? property.price)}`}
+        locationDisplay={fullLocation}
+        images={property.images ?? []}
+        videoUrl={property.videoUrl}
+        mapEmbedUrl={heroMapUrl}
+        initialTab={explorerTab}
+        initialPhotoIdx={explorerPhotoIdx}
+        contactCard={contactCardNode}
+        onShare={handleShare}
+        isSaved={isSaved}
+        onSave={() => property?._id && void favorites.toggle(property._id, 'property')}
+      />
 
       {/* Aria AI — property context */}
       <AleemWidget
