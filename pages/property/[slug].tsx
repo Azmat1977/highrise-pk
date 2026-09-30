@@ -1010,12 +1010,29 @@ export default function PropertySlugPage({
   const waValue = normalizePkMobile(revealedContact?.whatsapp ?? "");
   const canWhatsapp = !!waValue;
 
+  const getCleanPropertyId = useCallback((p: Property | null): string => {
+    if (!p) return "";
+    if (typeof p._id === "string" && p._id && p._id !== "[object Object]") {
+      return p._id;
+    }
+    if (p._id && typeof p._id === "object") {
+      const obj = p._id as Record<string, unknown>;
+      if (typeof obj._id === "string") return obj._id;
+      if (typeof obj.toString === "function") {
+        const str = obj.toString();
+        if (str !== "[object Object]") return str;
+      }
+    }
+    return p.slug || "";
+  }, []);
+
   const revealContact = useCallback(async (): Promise<void> => {
-    if (!property?._id || contactLoading) return;
+    const targetId = getCleanPropertyId(property);
+    if (!targetId || contactLoading) return;
     if (!isLoggedIn) { setShowAuthModal(true); return; }
     setContactLoading(true);
     try {
-      const res = await fetch(`/api/properties/${encodeURIComponent(property._id)}/contact`, { headers: { Accept: 'application/json' } });
+      const res = await fetch(`/api/properties/${encodeURIComponent(targetId)}/contact`, { headers: { Accept: 'application/json' } });
       const data = await res.json() as { success?: boolean; contact?: typeof revealedContact; message?: string };
       if (res.ok && data.success && data.contact) {
         setRevealedContact(data.contact);
@@ -1028,7 +1045,7 @@ export default function PropertySlugPage({
     } finally {
       setContactLoading(false);
     }
-  }, [property?._id, contactLoading, isLoggedIn]);
+  }, [property, getCleanPropertyId, contactLoading, isLoggedIn]);
 
   // ── Jump links ────────────────────────────────────────────────────────────
   const jumpLinks = useMemo(() => {
@@ -2769,7 +2786,7 @@ export default function PropertySlugPage({
         isOpen={showInquiryModal}
         onClose={() => setShowInquiryModal(false)}
         entityType="property"
-        entityId={property._id}
+        entityId={getCleanPropertyId(property)}
         entityTitle={property.title}
         entityPrice={property.totalPrice ?? property.price}
         entityLocation={fullLocation}
@@ -2803,8 +2820,13 @@ export default function PropertySlugPage({
             </button>
             <div className="pt-8">
               <LoginOrSignupForm
+                isModal={true}
+                context="contact"
                 onSuccess={() => {
                   setShowAuthModal(false);
+                  if (property) {
+                    void revealContact();
+                  }
                 }}
               />
             </div>
@@ -2813,11 +2835,11 @@ export default function PropertySlugPage({
       )}
 
       {/* Report modal */}
-      {property._id && (
+      {property && (
         <ReportListingModal
           open={showReportModal}
           onClose={() => setShowReportModal(false)}
-          propertyId={property._id}
+          propertyId={getCleanPropertyId(property)}
           reporterUserId={sessionUser?._id ?? sessionUser?.id ?? ""}
           reporterEmail={sessionUser?.email ?? ""}
           reporterPhone=""

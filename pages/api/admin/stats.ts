@@ -22,6 +22,8 @@ import SocietyProfile from "@/models/SocietyProfile";
 import Lead from "@/models/Lead";
 import Conversation from "@/models/Conversation";
 import OwnerProfile from "@/models/OwnerProfile";
+import Property from "@/models/Property";
+import Projects from "@/models/Projects";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -358,12 +360,26 @@ export default async function handler(
       // Society onboarding applications
       societyApplicantsPending,
     ] = await Promise.all([
-      // ── Properties ── TODO: import Property model (Section 4)
-      safeCount(() => Promise.resolve(0)),
-      safeCount(() => Promise.resolve(0)),
+      // ── Properties ──
+      safeCount(() => Property.countDocuments({ isDeleted: { $ne: true } })),
+      safeCount(() =>
+        Property.countDocuments({
+          isDeleted: { $ne: true },
+          $or: [
+            { status: "pending" },
+            { "verification.status": "pending" },
+            { "verification.status": "under_review" },
+          ],
+        })
+      ),
 
-      // ── Projects ── TODO: import Project model (Section 5)
-      safeCount(() => Promise.resolve(0)),
+      // ── Projects ──
+      safeCount(() =>
+        Projects.countDocuments({
+          isDeleted: { $ne: true },
+          $or: [{ status: "pending" }, { projectStatus: "pending" }],
+        })
+      ),
 
       // ── Developers ──
       safeCount(() =>

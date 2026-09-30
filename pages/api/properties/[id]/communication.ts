@@ -82,8 +82,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const auth = await requireAuth(req, res);
   if (!auth) return;
 
-  const propertyId = typeof req.query.id === "string" ? req.query.id.trim() : "";
-  if (!mongoose.Types.ObjectId.isValid(propertyId)) {
+  const rawId = typeof req.query.id === "string" ? req.query.id.trim() : "";
+  if (!rawId) {
     return res.status(400).json({ success: false, message: "Invalid Property ID" });
   }
 
@@ -91,10 +91,21 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   if (!parsed.ok) return res.status(400).json({ success: false, code: parsed.code, message: parsed.message });
 
   await dbConnect();
-  const property = await Property.findOne({ _id: propertyId, ...PUBLIC_PROPERTY_FILTER })
-    .select("_id title price city locality society slug owner agentId developerId")
+
+  const isObjectId = mongoose.Types.ObjectId.isValid(rawId);
+  const query = isObjectId ? { _id: rawId } : { slug: rawId };
+
+  const property = await Property.findOne({ ...query, isDeleted: { $ne: true } })
+    .select("_id title price city locality society slug owner agentId developerId isFlagged")
     .lean<Record<string, unknown> | null>();
+
   if (!property) return res.status(404).json({ success: false, message: "Property is not currently available for inquiries." });
+
+  if (property.isFlagged) {
+    return res.status(403).json({ success: false, message: "This listing is under review due to reports." });
+  }
+
+  const propertyId = String(property._id);
 
   const recipientProperty: PropertyRecipientProperty = {
     id: propertyId,

@@ -479,17 +479,6 @@ export default function AdminLayout({
       icon: <Mail className="w-4 h-4" />,
       colorClass: 'bg-red-50 text-red-700',
     },
-    // ─── V6.6.0: Owner Verifications ───
-    {
-      id: 'owner-verifications',
-      label: 'Owner Verifications Pending',
-      description: 'CNIC verifications waiting for review.',
-      count: sidebarStats.ownerVerificationsPending,
-      href: '/admin/owners?status=pending',
-      icon: <ShieldCheck className="w-4 h-4" />,
-      colorClass: 'bg-[#029bba]/10 text-[#029bba]',
-    },
-    // ─── Existing but not previously shown as notifications ───
     {
       id: 'agent-verifications',
       label: 'Agent Verifications Pending',

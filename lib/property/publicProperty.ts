@@ -1,4 +1,3 @@
-//C:\dev\highrise-pk\lib\property\publicProperty.ts
 import type { FilterQuery } from 'mongoose';
 import type { IProperty } from '@/models/Property';
 
