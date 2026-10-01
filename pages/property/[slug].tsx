@@ -1335,9 +1335,19 @@ export default function PropertySlugPage({
           <div className="space-y-3">
             {canRevealPhone ? (
               showPhone ? (
-                <a href={`tel:${phoneValue}`} className="flex items-center justify-center gap-2 w-full py-3.5 bg-white border-2 border-[#029bba] text-[#029bba] rounded-xl font-black text-lg hover:bg-[#029bba]/5 shadow-sm transition-all"><Phone className="w-5 h-5" />{phoneValue}</a>
+                <div className="flex items-center justify-between w-full py-3 px-4 bg-[#f8fafc] border border-gray-200 rounded-xl">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center shrink-0">
+                      <Phone className="w-5 h-5 text-[#004063]" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Phone Number</p>
+                      <a href={`tel:${phoneValue}`} className="font-black text-[#004063] text-lg hover:text-[#029bba] transition-colors truncate block">{phoneValue}</a>
+                    </div>
+                  </div>
+                </div>
               ) : (
-                <button onClick={() => setShowPhone(true)} className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#029bba] text-white rounded-xl font-bold text-[15px] hover:bg-[#017a8a] shadow-md transition-colors"><Phone className="w-5 h-5" />Show Phone Number</button>
+                <button onClick={() => setShowPhone(true)} className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#004063] text-white rounded-xl font-bold text-[15px] hover:bg-[#002b42] shadow-md transition-colors"><Phone className="w-5 h-5" />Show Phone Number</button>
               )
             ) : (
               <button onClick={() => void revealContact()} disabled={contactLoading} className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#029bba] text-white rounded-xl font-bold text-[15px] hover:bg-[#017a8a] shadow-md transition-colors disabled:opacity-60"><Phone className="w-5 h-5" />{contactLoading ? "Checking Contact…" : "Reveal Contact"}</button>
@@ -1402,26 +1412,6 @@ export default function PropertySlugPage({
           />
         )}
 
-        {/* ── Top bar ─────────────────────────────────────────────────────── */}
-        <div className="bg-white shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
-            <button
-              onClick={() => router.back()}
-              className="flex items-center gap-2 text-[#666666] hover:text-[#029bba] transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Back
-            </button>
-            <Link
-              href="/my-properties"
-              className="hidden sm:inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[#029bba] text-[#029bba] text-sm font-medium hover:bg-[#029bba]/5 transition-colors"
-            >
-              <Home className="w-4 h-4" />
-              My Properties
-            </Link>
-          </div>
-        </div>
-
         {/* ── Jump links (sticky) ─────────────────────────────────────────── */}
         <div
           className={`fixed top-0 left-0 right-0 z-50 bg-white border-b border-gray-200 shadow-md transition-all duration-300 ${
@@ -1454,10 +1444,48 @@ export default function PropertySlugPage({
           </div>
         </div>
 
-        {/* ── Main Layout Container ───────────────────────────────────────── */}
-        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-6 lg:py-8">
+          {/* ── Main Layout Container ──────────────────────────────────────── */}
+          <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-6 lg:py-8">
 
-          {/* ── HERO GALLERY (Full Width) ─────────────────────────────────── */}
+            {/* ── BREADCRUMBS & TOP ACTIONS ROW ───────────────────────────── */}
+            <div className="flex items-center justify-between gap-4 mb-4 text-xs">
+              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-gray-500 overflow-x-auto scrollbar-hide">
+                <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 transition-colors flex-shrink-0">
+                  <Home className="w-3.5 h-3.5" />
+                  <span>Home</span>
+                </Link>
+                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                <Link href="/properties" className="hover:text-[#029bba] transition-colors flex-shrink-0">
+                  Properties
+                </Link>
+                {property.city && (
+                  <>
+                    <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                    <Link
+                      href={`/properties?city=${encodeURIComponent(property.city)}`}
+                      className="hover:text-[#029bba] transition-colors flex-shrink-0"
+                    >
+                      {property.city}
+                    </Link>
+                  </>
+                )}
+                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                <span className="font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-[300px]">
+                  {property.title}
+                </span>
+              </nav>
+
+              <button
+                type="button"
+                onClick={() => router.back()}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#029bba] transition-colors flex-shrink-0"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Back to Search</span>
+              </button>
+            </div>
+
+            {/* ── HERO GALLERY (Full Width) ─────────────────────────────────── */}
           <div className="relative mb-10">
                 {/* Gallery Card */}
                 <div className="relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -1633,64 +1661,58 @@ export default function PropertySlugPage({
 
               {/* OLD LIGHTBOX REMOVED - REPLACED BY PROPERTY MEDIA EXPLORER */}
 
-              {/* ── Overview ─────────────────────────────────────────────── */}
-              <div
-                id="overview"
-                className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
-              >
-                <div className="flex flex-col sm:flex-row justify-between gap-4 mb-4">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 mb-2">
-                      <h1 className="text-2xl font-bold text-[#004063]">
-                        {property.title}
-                      </h1>
-                      {property.listingActor?.verified && (
-                        <VerifiedOwnerBadge size="sm" showTooltip />
+                {/* ── Overview (Project Style - Unboxed) ─────────────────── */}
+                <div id="overview" className="pb-2 border-b border-gray-200 mb-6">
+                  <div className="flex flex-col gap-4 mb-4">
+                    {/* Price (Top, massive and dark, matching Project page) */}
+                    <div>
+                      <p className="text-3xl md:text-[32px] font-black text-[#004063] tracking-tight">
+                        {isRent ? (
+                          <>
+                            PKR {formatPrice(property.price)}
+                            <span className="text-lg font-bold text-gray-500 ml-1">/ month</span>
+                          </>
+                        ) : (
+                          <>PKR {formatPrice(property.totalPrice ?? property.price)}</>
+                        )}
+                      </p>
+                      {!isRent && property.pricePerUnit && (
+                        <p className="text-sm text-gray-500 mt-1 font-medium">
+                          PKR {formatPrice(property.pricePerUnit)} per {property.unit}
+                        </p>
                       )}
-                    </div>
-                    <div className="flex flex-wrap items-center gap-3">
-                      <div className="flex items-center text-[#666666]">
-                        <MapPin className="w-4 h-4 mr-1 flex-shrink-0" />
-                        <span className="text-sm">{fullLocation}</span>
-                      </div>
-                      {property.projectId && (
-                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white text-xs font-semibold">
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          Verified Project Unit
+                      {property.priceNegotiable && (
+                        <span className="inline-block mt-2 px-2.5 py-1 bg-emerald-50 text-emerald-700 text-[11px] font-bold uppercase tracking-wider rounded-full border border-emerald-100">
+                          Price Negotiable
                         </span>
                       )}
+                    </div>
+
+                    {/* Title & Location */}
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        <h1 className="text-xl md:text-2xl font-bold text-gray-900 leading-snug">
+                          {property.title}
+                        </h1>
+                        {property.listingActor?.verified && (
+                          <VerifiedOwnerBadge size="sm" showTooltip />
+                        )}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex items-center text-[#666666]">
+                          <MapPin className="w-4 h-4 mr-1.5 flex-shrink-0 text-[#029bba]" />
+                          <span className="text-sm font-medium">{fullLocation}</span>
+                        </div>
+                        {property.projectId && (
+                          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white text-xs font-semibold">
+                            <CheckCircle className="w-3.5 h-3.5" />
+                            Verified Project Unit
+                          </span>
+                        )}
+                      </div>
                     </div>
                   </div>
-
-                  {/* Duplicate buttons removed - now placed dynamically on the hero image */}
                 </div>
-
-                {/* Price */}
-                <div className="mb-4">
-                  <p className="text-3xl font-black text-[#029bba]">
-                    {isRent ? (
-                      <>
-                        PKR {formatPrice(property.price)}
-                        <span className="text-base font-semibold text-gray-500">
-                          {" "} / month
-                        </span>
-                      </>
-                    ) : (
-                      <>PKR {formatPrice(property.totalPrice ?? property.price)}</>
-                    )}
-                  </p>
-                  {!isRent && property.pricePerUnit && (
-                    <p className="text-xs text-gray-500 mt-1 font-semibold">
-                      PKR {formatPrice(property.pricePerUnit)} per {property.unit}
-                    </p>
-                  )}
-                  {property.priceNegotiable && (
-                    <span className="inline-block mt-2 px-2.5 py-0.5 bg-emerald-100 text-emerald-800 text-xs font-bold rounded-full">
-                      Price Negotiable
-                    </span>
-                  )}
-                </div>
-              </div>
 
               {/* ── Trulia-Style Property Highlights Card ─────────────────── */}
               <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
@@ -2010,93 +2032,64 @@ export default function PropertySlugPage({
                   </div>
                 )}
 
-              {/* ── Details ───────────────────────────────────────────────── */}
-              <div id="details" className="space-y-4">
-                {/* Size */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+              {/* ── Additional Details (Clean List) ──────────────────────── */}
+              {(property.floorNumber !== undefined || property.propertySubtype || property.furnished || property.condition || property.facing || property.ownershipType) && (
+                <div id="details" className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
                   <h2 className="text-lg font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                    <Ruler className="w-5 h-5 text-[#029bba]" />
-                    Size &amp; Measurements
+                    <Info className="w-5 h-5 text-[#029bba]" />
+                    Additional Details
                   </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-[#666666] mb-1">Total Area</p>
-                      <p className="font-medium text-[#333333]">
-                        {property.area} {property.unit}
-                      </p>
-                    </div>
-                    {property.floorNumber !== undefined && (
-                      <div className="p-3 bg-gray-50 rounded-xl">
-                        <p className="text-xs text-[#666666] mb-1">Floor</p>
-                        <p className="font-medium text-[#333333]">
-                          {property.floorNumber}
-                          {property.totalFloors
-                            ? ` / ${property.totalFloors}`
-                            : ""}
-                        </p>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-0">
+                    {property.propertySubtype && (
+                      <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                        <span className="text-sm text-gray-500">Subtype</span>
+                        <span className="text-sm font-semibold text-gray-900">{property.propertySubtype}</span>
                       </div>
                     )}
-                  </div>
-                </div>
-
-                {/* Property details */}
-                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-                  <h2 className="text-lg font-semibold text-[#004063] mb-4 flex items-center gap-2">
-                    <Home className="w-5 h-5 text-[#029bba]" />
-                    Property Details
-                  </h2>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                    <div className="p-3 bg-gray-50 rounded-xl">
-                      <p className="text-xs text-[#666666] mb-1">Property Type</p>
-                      <p className="font-medium text-[#333333]">{property.propertyType}</p>
-                    </div>
-                    {property.propertySubtype && (
-                      <div className="p-3 bg-gray-50 rounded-xl">
-                        <p className="text-xs text-[#666666] mb-1">Subtype</p>
-                        <p className="font-medium text-[#333333]">{property.propertySubtype}</p>
+                    {property.floorNumber !== undefined && (
+                      <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                        <span className="text-sm text-gray-500">Floor</span>
+                        <span className="text-sm font-semibold text-gray-900">
+                          {property.floorNumber} {property.totalFloors ? `of ${property.totalFloors}` : ""}
+                        </span>
                       </div>
                     )}
                     {property.furnished && (
-                      <div className="p-3 bg-gray-50 rounded-xl">
-                        <p className="text-xs text-[#666666] mb-1">Furnished</p>
-                        <p className="font-medium text-[#333333]">{formatFurnished(property.furnished)}</p>
+                      <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                        <span className="text-sm text-gray-500">Furnishing</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatFurnished(property.furnished)}</span>
                       </div>
                     )}
                     {property.condition && (
-                      <div className="p-3 bg-gray-50 rounded-xl">
-                        <p className="text-xs text-[#666666] mb-1">Condition</p>
-                        <p className="font-medium text-[#333333]">{formatCondition(property.condition)}</p>
+                      <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                        <span className="text-sm text-gray-500">Condition</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatCondition(property.condition)}</span>
                       </div>
                     )}
                     {property.facing && (
-                      <div className="p-3 bg-gray-50 rounded-xl">
-                        <p className="text-xs text-[#666666] mb-1">Facing</p>
-                        <p className="font-medium text-[#333333]">{formatFacing(property.facing)}</p>
-                      </div>
-                    )}
-                    {property.possessionStatus && (
-                      <div className="p-3 bg-gray-50 rounded-xl">
-                        <p className="text-xs text-[#666666] mb-1">Possession</p>
-                        <p className="font-medium text-[#333333]">{formatPossession(property.possessionStatus)}</p>
+                      <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                        <span className="text-sm text-gray-500">Facing</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatFacing(property.facing)}</span>
                       </div>
                     )}
                     {property.ownershipType && (
-                      <div className="p-3 bg-gray-50 rounded-xl">
-                        <p className="text-xs text-[#666666] mb-1">Ownership</p>
-                        <p className="font-medium text-[#333333]">{formatOwnership(property.ownershipType)}</p>
+                      <div className="flex justify-between items-center py-3 border-b border-gray-100">
+                        <span className="text-sm text-gray-500">Ownership</span>
+                        <span className="text-sm font-semibold text-gray-900">{formatOwnership(property.ownershipType)}</span>
                       </div>
                     )}
                   </div>
+
                   {isCommercial && (
-                    <div className="mt-4 pt-4 border-t border-gray-100">
-                      <p className="text-sm text-[#666666]">
-                        This is a commercial property. Contact seller for floor,
-                        frontage, and signage details.
+                    <div className="mt-4 pt-4">
+                      <p className="text-xs text-gray-500">
+                        * This is a commercial property. Contact the seller for exact frontage, signage rights, and loading dock availability.
                       </p>
                     </div>
                   )}
                 </div>
-              </div>
+              )}
 
                 {/* ── Location & Embedded Map ─────────────────────────────── */}
                 <div
@@ -2361,83 +2354,24 @@ export default function PropertySlugPage({
               {/* Contact card */}
               {contactCardNode}
 
-              {/* Safety tips */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                <h3 className="font-semibold text-[#004063] mb-3 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-[#029bba]" />
-                  Safety Tips
+              {/* Safety tips (Project Style) */}
+              <div className="bg-[#fffdf0] rounded-2xl border border-[#fef08a] p-5 shadow-sm">
+                <h3 className="font-bold text-yellow-800 mb-2.5 flex items-center gap-2 text-sm">
+                  <Shield className="w-4 h-4 text-yellow-600" />
+                  Safety First
                 </h3>
-                <ul className="text-sm text-[#666666] space-y-1.5">
-                  <li>• Meet seller in a public place</li>
-                  <li>• Verify property documents thoroughly</li>
-                  <li>• Don&apos;t pay in advance without verification</li>
-                  <li>• Report suspicious listings to us</li>
-                </ul>
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <button
-                    onClick={() => setShowReportModal(true)}
-                    className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-red-50 text-red-700 font-semibold text-sm hover:bg-red-100 transition-colors"
-                  >
-                    <AlertCircle className="w-4 h-4" />
-                    Report This Listing
-                  </button>
-                  <p className="text-xs text-[#666666] mt-2 text-center">
-                    We review reports and take action when needed.
-                  </p>
-                </div>
+                <p className="text-xs text-yellow-800/80 leading-relaxed mb-4">
+                  Always visit the property before making any payment. Verify all documents independently. Verification on Highrise.pk does not constitute a legal guarantee.
+                </p>
+                <button
+                  onClick={() => setShowReportModal(true)}
+                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-yellow-200 text-yellow-700 font-bold text-xs hover:bg-yellow-50 transition-colors shadow-sm"
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Report This Listing
+                </button>
               </div>
 
-              {/* Quick summary */}
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-                <h3 className="font-semibold text-[#004063] mb-3">
-                  Quick Summary
-                </h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-[#666666]">Type</span>
-                    <span className="font-medium text-[#333333]">{property.propertyType}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-[#666666]">Area</span>
-                    <span className="font-medium text-[#333333]">
-                      {property.area} {property.unit}
-                    </span>
-                  </div>
-                  {!isRent && (
-                    <div className="flex justify-between">
-                      <span className="text-[#666666]">Price / Unit</span>
-                      <span className="font-medium text-[#333333]">
-                        PKR{" "}
-                        {formatPrice(
-                          Math.round(
-                            (property.totalPrice ?? property.price) /
-                              Math.max(1, property.area)
-                          )
-                        )}
-                        /{property.unit}
-                      </span>
-                    </div>
-                  )}
-                  {property.possessionStatus && (
-                    <div className="flex justify-between">
-                      <span className="text-[#666666]">Possession</span>
-                      <span className="font-medium text-[#333333]">
-                        {formatPossession(property.possessionStatus)}
-                      </span>
-                    </div>
-                  )}
-                  <div className="flex justify-between pt-2 border-t border-gray-100">
-                    <span className="text-[#666666]">Listing Type</span>
-                    <span className="font-medium text-[#029bba]">
-                      {isRent
-                        ? "For Rent"
-                        : isInstallment
-                        ? "Installment Plan"
-                        : "For Sale"}
-                    </span>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
         </div>

@@ -33,6 +33,7 @@ import {
   Camera,
   Video,
   Map as MapIcon,
+  LayoutGrid,
 } from 'lucide-react';
 
 import ProjectGallery, {
@@ -211,87 +212,193 @@ export default function ProjectDetailHero({
   const nocApproved =
     project.nocStatus === 'approved' && !!project.approvalAuthority;
 
+  const statusLabel = String(
+    (project as { projectStatus?: string; status?: string }).projectStatus ||
+    (project as { status?: string }).status ||
+    'Project'
+  ).replace(/_/g, ' ');
+
+  const isVerifiedProject = !!(
+    (project as { isVerified?: boolean }).isVerified ||
+    (project as { verification?: { status?: string } }).verification?.status === 'verified' ||
+    nocApproved
+  );
+
   return (
     <>
-      {/* 1. BREADCRUMB — semantic (JSON-LD owns structured data) */}
-      <div className="bg-white border-b border-gray-100">
-        <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-6 py-3">
-          <nav aria-label="Breadcrumb">
-            <ol className="flex items-center gap-2 text-sm flex-wrap list-none p-0 m-0">
-              <li>
-                <Link href="/"
-                  className="flex items-center gap-1.5 text-gray-500 hover:text-[#029bba] transition-colors">
-                  <Home className="w-4 h-4" />
-                  <span>Home</span>
-                </Link>
-              </li>
-              <li aria-hidden="true"><ChevronRight className="w-4 h-4 text-gray-300" /></li>
-              <li>
-                <Link href="/projects"
-                  className="text-gray-500 hover:text-[#029bba] transition-colors">
-                  <span>Projects</span>
-                </Link>
-              </li>
-              <li aria-hidden="true"><ChevronRight className="w-4 h-4 text-gray-300" /></li>
-              <li>
-                <Link href={`/projects?city=${encodeURIComponent(project.city)}`}
-                  className="flex items-center gap-1 text-gray-500 hover:text-[#029bba] transition-colors">
-                  <MapPin className="w-3 h-3" />
-                  <span>{project.city}</span>
-                </Link>
-              </li>
-              <li aria-hidden="true"><ChevronRight className="w-4 h-4 text-gray-300" /></li>
-              <li className="min-w-0">
-                <span aria-current="page"
-                  className="text-gray-900 font-bold truncate block max-w-[250px]">
-                  {project.projectName}
-                </span>
-                <link rel="canonical" href={canonicalUrl} />
-              </li>
-            </ol>
-          </nav>
-        </div>
-      </div>
+      {/* 1. BREADCRUMBS ── Pattern C, property parity (no back button) */}
+      <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-6 pt-6 pb-0">
+        <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-gray-500 overflow-x-auto scrollbar-hide mb-4">
+          <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 transition-colors flex-shrink-0">
+            <Home className="w-3.5 h-3.5" />
+            <span>Home</span>
+          </Link>
+          <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+          <Link href="/projects" className="hover:text-[#029bba] transition-colors flex-shrink-0">
+            Projects
+          </Link>
+          {project.city && (
+            <>
+              <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              <Link
+                href={`/projects?city=${encodeURIComponent(project.city)}`}
+                className="hover:text-[#029bba] transition-colors flex-shrink-0"
+              >
+                {project.city}
+              </Link>
+            </>
+          )}
+          <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+          <span className="font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-[300px]">
+            {project.projectName}
+          </span>
+          <link rel="canonical" href={canonicalUrl} />
+        </nav>
 
-      {/* 2. GALLERY — delegated to ProjectGallery */}
-      <div className="bg-white border-b border-gray-100 pb-6">
-        {/* Match exact spacing of index.tsx grid */}
-        <div className="w-full max-w-[1120px] mx-auto px-4 sm:px-6 pt-4 lg:pt-6">
-          <div className="relative">
+        {/* 2. HERO GALLERY ── exact property detail parity */}
+        <div className="relative mb-10">
+          <div className="relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+            {/* Top Left Badges */}
+            <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-20 pointer-events-none">
+              <span className="bg-[#029bba] text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm capitalize">
+                {statusLabel}
+              </span>
+              {isVerifiedProject && (
+                <span className="bg-[#10b981] text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3" /> Verified
+                </span>
+              )}
+              {nocApproved && (
+                <span className="bg-[#004063] text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
+                  <Flame className="w-3 h-3" /> NOC Approved
+                </span>
+              )}
+            </div>
+
             {/* Top Right Floating Actions */}
             <div className="absolute top-4 right-4 z-20 flex gap-2 pointer-events-auto">
               <button
-                onClick={() => setShareOpen(true)}
-                className="flex items-center gap-1.5 px-3 py-2 bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-gray-800 hover:bg-white transition-all shadow-sm"
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShareOpen(true); }}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-[#004063] hover:bg-white transition-all shadow-sm"
               >
-                <Share2 className="w-4 h-4 text-[#029bba]" />
-                Share
+                <Share2 className="w-4 h-4 text-[#029bba]" /> Share
               </button>
               <button
-                onClick={() => void toggleFavorite(project._id, 'project')}
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void toggleFavorite(project._id, 'project');
+                }}
                 disabled={favPending}
-                className={`flex items-center gap-1.5 px-3 py-2 bg-white/90 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-gray-800 hover:bg-white transition-all shadow-sm ${
-                  isFavorited ? 'text-[#029bba]' : ''
-                }`}
+                className="flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-[#004063] hover:bg-white transition-all shadow-sm"
               >
                 <Heart className={`w-4 h-4 ${isFavorited ? 'fill-[#029bba] text-[#029bba]' : 'text-[#029bba]'}`} />
                 {isFavorited ? 'Saved' : 'Save'}
               </button>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  void toggleCompare(project._id, 'project');
+                }}
+                disabled={comparePending}
+                className={`hidden sm:flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold transition-all shadow-sm hover:bg-white ${
+                  isCompared ? 'text-[#029bba]' : 'text-[#004063]'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4 text-[#029bba]" />
+                {isCompared ? 'Compared' : 'Compare'}
+              </button>
             </div>
 
-            <ProjectGallery
-              images={galleryImages}
-              projectName={project.projectName}
-              variant="full"
-              maxVisible={12}
-              onImageClick={(idx) => openExplorer('media', idx)}
-            />
-            <MediaChips
-              photoCount={photoCount}
-              videoCount={videoCount}
-              onOpen={openExplorer}
-            />
+            {galleryImages.length > 0 ? (
+              <>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-0.5">
+                  <div
+                    className="md:col-span-3 relative h-64 sm:h-80 md:h-[400px] cursor-pointer group"
+                    onClick={() => openExplorer('media', 0)}
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openExplorer('media', 0); }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label="Open main project photo"
+                  >
+                    <Image
+                      src={galleryImages[0].url}
+                      alt={project.projectName}
+                      fill
+                      className="object-cover"
+                      sizes="(max-width: 768px) 100vw, 75vw"
+                      priority
+                    />
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all duration-300" />
+                  </div>
+
+                  <div className="hidden md:flex md:col-span-1 flex-col gap-0.5">
+                    {galleryImages.slice(1, 4).map((img, idx) => (
+                      <div
+                        key={`${img.url}-${idx}`}
+                        className="relative flex-1 min-h-[130px] cursor-pointer group overflow-hidden"
+                        onClick={() => openExplorer('media', idx + 1)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openExplorer('media', idx + 1); }}
+                        role="button"
+                        tabIndex={0}
+                        aria-label={`Open project photo ${idx + 2}`}
+                      >
+                        <Image
+                          src={img.url}
+                          alt={`${project.projectName} ${idx + 2}`}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          sizes="25vw"
+                        />
+                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-all" />
+                        {idx === 2 && galleryImages.length > 4 && (
+                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <span className="text-white text-lg font-bold">
+                              +{galleryImages.length - 4} more
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                    {galleryImages.length === 1 && (
+                      <div className="relative flex-1 min-h-[130px] bg-gray-100 flex items-center justify-center">
+                        <Building2 className="w-8 h-8 text-gray-300" />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Mobile thumbnail strip */}
+                <div className="md:hidden flex gap-2 p-3 overflow-x-auto scrollbar-hide bg-gray-50">
+                  {galleryImages.map((img, idx) => (
+                    <button
+                      key={`m-${img.url}-${idx}`}
+                      type="button"
+                      onClick={() => openExplorer('media', idx)}
+                      className="flex-shrink-0 w-16 h-12 rounded-lg overflow-hidden border-2 border-transparent hover:border-[#029bba] transition-all relative"
+                      aria-label={`Open photo ${idx + 1}`}
+                    >
+                      <Image src={img.url} alt="" fill className="object-cover" sizes="64px" />
+                    </button>
+                  ))}
+                </div>
+              </>
+            ) : (
+              <div className="h-64 sm:h-80 md:h-[400px] bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center">
+                <Building2 className="w-16 h-16 text-gray-300 mb-3" />
+                <p className="text-gray-500 text-sm">No images available</p>
+              </div>
+            )}
           </div>
+
+          {/* Media Chips - half on hero, half below (property parity) */}
+          <MediaChips
+            photoCount={photoCount}
+            videoCount={videoCount}
+            onOpen={openExplorer}
+          />
         </div>
       </div>
 
