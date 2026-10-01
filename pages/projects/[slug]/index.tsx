@@ -643,9 +643,9 @@ export default function ProjectDetailPage({ project }: PageProps) {
   // ══════════════
 
   return (
-    <div className="min-h-screen bg-white">
-      <Head>
-        {/* Primary SEO tags */}
+    <div className="min-h-screen bg-[#f8f9fa]">
+        <Head>
+          {/* Primary SEO tags */}
         <title>{seoTitle}</title>
         <meta name="description" content={seoDescription} />
         <link rel="canonical" href={canonicalUrl} />
