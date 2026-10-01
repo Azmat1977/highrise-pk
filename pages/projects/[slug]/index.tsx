@@ -36,9 +36,12 @@ import EnterprisePropertySpecs   from '@/components/project-detail/EnterprisePro
 import BuildingHighlights        from '@/components/project-detail/BuildingHighlights';
 import NeighborhoodInsights      from '@/components/project-detail/NeighborhoodInsights';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
-import ProjectMetaHeader         from '@/components/project-detail/ProjectMetaHeader';
-import StickyContactForm         from '@/components/project-detail/StickyContactForm';
-import type { NearbyPlacesExplorerProps } from '@/components/shared/NearbyPlacesExplorer';
+  import ProjectMetaHeader         from '@/components/project-detail/ProjectMetaHeader';
+  import UniversalContactCard      from '@/components/shared/UniversalContactCard';
+  import SafeDealSidebarCard      from '@/components/shared/SafeDealSidebarCard';
+  import SafetyWarningCard         from '@/components/shared/SafetyWarningCard';
+  import ReportListingModal        from '@/components/property/ReportListingModal';
+  import type { NearbyPlacesExplorerProps } from '@/components/shared/NearbyPlacesExplorer';
 
 // Leaflet requires browser APIs (window) — dynamic import skips SSR
 const NearbyPlacesExplorer = dynamic<NearbyPlacesExplorerProps>(
@@ -388,8 +391,9 @@ export default function ProjectDetailPage({ project }: PageProps) {
 
   // VideoModal removed — ProjectMediaExplorer owns media viewing
 
-  // Inquiry modal (contact gating)
-  const [showInquiry, setShowInquiry] = useState(false);
+    // Inquiry & Report modal state
+    const [showInquiry, setShowInquiry] = useState(false);
+    const [showReportModal, setShowReportModal] = useState(false);
   const [inquiryType, setInquiryType] = useState<
     'project_interest' | 'call_back' | 'site_visit' | 'general_inquiry'
   >('project_interest');
@@ -847,39 +851,35 @@ export default function ProjectDetailPage({ project }: PageProps) {
 
           </div>{/* end left column */}
 
-          {/* ── RIGHT SIDEBAR (Sticky context) ── */}
-          <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
-            <div className="space-y-4 w-full sticky top-24">
-              <StickyContactForm
-                projectId={project._id}
-                projectName={project.projectName}
-                developerName={developerName}
-                developerPhone={
-                  (project as any)?.contactDetails?.primaryPhone
-                  || (project as any)?.contactDetails?.whatsappNumber
-                  || (project as any)?.developerProfile?.contactNumber
-                  || (project as any)?.developerProfile?.whatsappNumber
-                  || undefined
-                }
-                isVerified={Boolean(project.isVerified || project.verificationPanel?.verifiedAt)}
-                entityLabel="project"
-              />
+            {/* ── RIGHT SIDEBAR (Unified 3-Card Stack) ── */}
+            <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
+              <div className="space-y-6 w-full sticky top-24">
+                <UniversalContactCard
+                  entityType="project"
+                  entityId={project._id}
+                  entityTitle={project.projectName}
+                  actorName={developerName || "Verified Developer"}
+                  actorRole="Project Developer"
+                  actorImage={project.developerProfile?.logoUrl || null}
+                  isVerified={Boolean(project.isVerified || project.verificationPanel?.verifiedAt)}
+                  initialPhone={
+                    (project as any)?.contactDetails?.primaryPhone
+                    || (project as any)?.developerProfile?.contactNumber
+                    || undefined
+                  }
+                  initialWhatsapp={
+                    (project as any)?.contactDetails?.whatsappNumber
+                    || (project as any)?.developerProfile?.whatsappNumber
+                    || undefined
+                  }
+                  developerId={project.developer}
+                />
 
-              <div className="bg-amber-50 rounded-xl p-4 border border-amber-200">
-                <div className="flex gap-3">
-                  <Shield className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm text-amber-800 font-medium mb-1">Safety First</p>
-                    <p className="text-xs text-amber-700 leading-relaxed">
-                      Always visit the project site before making any payment.
-                      Verify all documents independently. Verification on Highrise.pk
-                      does not constitute a guarantee.
-                    </p>
-                  </div>
-                </div>
+                <SafeDealSidebarCard />
+
+                <SafetyWarningCard onReport={() => setShowReportModal(true)} />
               </div>
             </div>
-          </div>{/* end sidebar */}
 
         </div>{/* end 2-col grid */}
 
@@ -1287,14 +1287,25 @@ export default function ProjectDetailPage({ project }: PageProps) {
       />
 
       {/* Floor plan fullscreen viewer */}
-      {floorPlanViewer && (
-        <FloorPlanModal
-          plan={floorPlanViewer.plan}
-          imageUrl={floorPlanViewer.imageUrl}
-          pdfUrl={floorPlanViewer.pdfUrl}
-          onClose={() => setFloorPlanViewer(null)}
+        {/* Floor plan fullscreen viewer */}
+        {floorPlanViewer && (
+          <FloorPlanModal
+            plan={floorPlanViewer.plan}
+            imageUrl={floorPlanViewer.imageUrl}
+            pdfUrl={floorPlanViewer.pdfUrl}
+            onClose={() => setFloorPlanViewer(null)}
+          />
+        )}
+
+        {/* Report Project Modal */}
+        <ReportListingModal
+          open={showReportModal}
+          onClose={() => setShowReportModal(false)}
+          propertyId={project._id}
+          reporterUserId=""
+          reporterEmail=""
+          reporterPhone=""
         />
-      )}
 
     </div>
   );
