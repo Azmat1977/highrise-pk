@@ -48,7 +48,7 @@ export default function TruliaHeader({ project, minPrice, maxPrice, minAreaSqft,
           Developed by <span className="font-bold text-gray-700">{project.developerProfile?.companyName || project.developerProfile?.name || 'Verified Developer'}</span>
         </p>
 
-        <h2 className="text-2xl sm:text-3xl font-bold text-[#004063] mb-3 tracking-tight flex flex-wrap items-center gap-2.5">
+        <h2 className="text-3xl md:text-[32px] font-black text-[#004063] mb-3 tracking-tight flex flex-wrap items-center gap-2.5">
           {typeof minPrice === 'number' && minPrice > 0
             ? `PKR ${formatDetailPrice(minPrice)}`
             : 'Contact for Price'}
@@ -107,8 +107,8 @@ export default function TruliaHeader({ project, minPrice, maxPrice, minAreaSqft,
 
       {/* 2. Home Highlights Box */}
       {highlights.length > 0 && (
-        <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
-          <h3 className="text-lg font-bold text-gray-900 mb-4">Project Highlights</h3>
+        <div className="bg-white rounded-2xl border border-gray-100 p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-[#004063] mb-4">Project Highlights</h3>
           <div className="grid grid-cols-2 gap-4">
             <div className="flex items-center gap-2 text-sm font-semibold text-gray-700">
               <Building2 className="w-5 h-5 text-[#029bba]" />

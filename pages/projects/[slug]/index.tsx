@@ -179,21 +179,21 @@ function maskPhone(phone?: string): string {
 
 // Section wrapper
 function Section({ id, title, icon, children, headerExtra, className = '' }: {
-  id?: string;
-  title: string;
-  icon: React.ReactNode;
-  children: React.ReactNode;
-  headerExtra?: React.ReactNode;
-  className?: string;
-}) {
-  return (
-    <section id={id} className={`bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden ${className}`}>
-      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-        <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-          {icon}{title}
-        </h2>
-        {headerExtra}
-      </div>
+    id?: string;
+    title: string;
+    icon: React.ReactNode;
+    children: React.ReactNode;
+    headerExtra?: React.ReactNode;
+    className?: string;
+  }) {
+    return (
+      <section id={id} className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${className}`}>
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-[#004063] flex items-center gap-2">
+            {icon}{title}
+          </h2>
+          {headerExtra}
+        </div>
       <div className="p-6">{children}</div>
     </section>
   );
@@ -736,12 +736,13 @@ export default function ProjectDetailPage({ project }: PageProps) {
 ═════════════════════════════════════════════════════════════════════════════════════════════════
             MAIN CONTENT — TWO COLUMN LAYOUT (Grid)
 ═════════════════════════════════════════════════════════════════════════════════════════════════ */}
-        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-8 lg:py-10">
-        {/* minmax(0,1fr) prevents grid blowout so CTA right-edge = hero right-edge */}
-        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-8 lg:gap-10">
+          <div className="max-w-[1120px] mx-auto px-4 sm:px-6 pb-6 lg:pb-8">
+          {/* minmax(0,1fr) prevents grid blowout so CTA right-edge = hero right-edge */}
+          {/* gap-6 + space-y-6 match property detail Pattern C rhythm */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
 
-          {/* ─── LEFT COLUMN (Content) ─── */}
-          <div className="space-y-10 min-w-0">
+            {/* --- LEFT COLUMN (Content) --- */}
+            <div className="space-y-6 min-w-0">
 
             {/* PROJECT AT A GLANCE HEADER */}
             <ProjectMetaHeader

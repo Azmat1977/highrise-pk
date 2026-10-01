@@ -138,7 +138,7 @@ export default function StickyContactForm({
 
   return (
     <>
-      <div className="bg-white rounded-2xl border border-gray-200 shadow-lg">
+      <div className="bg-white rounded-2xl border border-gray-100 shadow-sm">
       {/* ─── Compact header (Highrise density) ─── */}
       <div className="px-5 pt-6 pb-5 border-b border-gray-100">
         {/* Column stack: Logo → Contact → Verified */}
@@ -168,14 +168,16 @@ export default function StickyContactForm({
                 <p className="text-xs text-gray-400">Phone not available</p>
               )}
 
-              <button
-                type="button"
-                onClick={handleWhatsAppClick}
-                className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#25D366] hover:bg-[#20ba5a] text-white text-xs font-bold rounded-xl shadow-sm transition-all hover:shadow hover:-translate-y-0.5"
-              >
-                <MessageCircle className="w-4 h-4 text-white fill-current" />
-                WhatsApp Developer
-              </button>
+                            <button
+                  type="button"
+                  onClick={handleWhatsAppClick}
+                  className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#25D366] text-white rounded-xl font-bold text-[15px] shadow-md shadow-[#25D366]/20 hover:bg-[#128C7E] hover:scale-[1.02] transition-all active:scale-[0.98]"
+                >
+                  <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.052 0C5.495 0 .092 5.403.089 11.961c-.002 2.095.545 4.14 1.583 5.945L.035 24l6.247-1.637a11.85 11.85 0 0 0 5.766 1.498h.004c6.556 0 11.96-5.403 11.963-11.961a11.83 11.83 0 0 0-3.551-8.402" />
+                  </svg>
+                  WhatsApp
+                </button>
             </div>
           ) : (
             <button
@@ -234,7 +236,7 @@ export default function StickyContactForm({
               placeholder="Name"
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none"
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none"
             />
             <input
               type="tel"
@@ -242,7 +244,7 @@ export default function StickyContactForm({
               placeholder="Phone"
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none"
+              className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none"
             />
           </div>
 
@@ -252,7 +254,7 @@ export default function StickyContactForm({
             placeholder="Email"
             value={formData.email}
             onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none"
           />
 
           <textarea
@@ -260,7 +262,7 @@ export default function StickyContactForm({
             rows={3}
             value={formData.message}
             onChange={(e) => setFormData({ ...formData, message: e.target.value })}
-            className="w-full px-3 py-2.5 rounded-lg border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none resize-none"
+            className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-[13px] font-medium text-gray-800 placeholder:text-gray-400 focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 outline-none resize-none"
           />
 
           {error && (
