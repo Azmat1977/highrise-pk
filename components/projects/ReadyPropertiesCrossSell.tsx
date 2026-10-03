@@ -10,7 +10,7 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Key, ArrowRight, Building2, MapPin, Bed, Ruler, ChevronRight } from 'lucide-react';
+import { Key, Building2, MapPin, Bed, ChevronRight } from 'lucide-react';
 import { ReadyPropertyItem, formatPKR } from '@/types/projects';
 
 interface ReadyPropertiesCrossSellProps {
@@ -140,7 +140,10 @@ export function ReadyPropertiesCrossSell({ properties, city }: ReadyPropertiesCr
       {/* Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
         {displayProperties.map((prop) => {
-          const priceFormatted = prop.price ? `PKR ${formatPKR(prop.price)}` : 'Contact for Price';
+          const priceDisplay = prop.price ? `PKR ${formatPKR(prop.price)}` : 'Contact for Price';
+          const locationDisplay = [prop.location, prop.city].filter(Boolean).join(', ');
+          const typeDisplay = prop.propertyType ? prop.propertyType.replace(/_/g, ' ') : 'Property';
+          const areaDisplay = prop.areaSize && prop.areaUnit ? `${prop.areaSize} ${prop.areaUnit}` : null;
 
           return (
             <div
@@ -148,71 +151,74 @@ export function ReadyPropertiesCrossSell({ properties, city }: ReadyPropertiesCr
               className="bg-white rounded-2xl border border-gray-100 overflow-hidden shadow-sm hover:shadow-xl hover:border-[#029bba]/20 transition-all duration-300 flex flex-col group"
             >
               {/* Image Container */}
-              <Link href={`/properties/${prop.slug}`} className="relative aspect-[16/10] bg-gray-100 overflow-hidden block">
+              <Link href={`/property/${prop.slug}`} className="relative aspect-[16/10] bg-gray-100 overflow-hidden block">
                 {prop.primaryImage ? (
                   <Image
                     src={prop.primaryImage}
                     alt={prop.title}
                     fill
                     className="object-cover group-hover:scale-105 transition-transform duration-500"
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                   />
                 ) : (
-                  <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#004063]/5 to-[#029bba]/5 text-gray-400">
-                    <Building2 className="w-8 h-8 text-[#029bba]/30" />
-                    <span className="text-[10px] font-bold mt-1 tracking-widest uppercase">No Image</span>
+                  <div className="w-full h-full flex items-center justify-center text-gray-400">
+                    <Building2 className="w-10 h-10 stroke-[1.5]" />
                   </div>
                 )}
 
-                {/* Purpose Badge */}
-                <div className="absolute top-3 left-3">
-                  <span className="px-2.5 py-1 rounded-full bg-[#029bba] text-white text-[10px] font-black uppercase tracking-wider shadow-md">
-                    {prop.purpose === 'rent' ? 'For Rent' : 'For Sale'}
+                {/* Badge Overlay */}
+                <div className="absolute top-3 left-3 flex items-center gap-1.5 z-10">
+                  <span className="px-2.5 py-1 rounded-full bg-[#004063]/90 backdrop-blur-sm text-white text-[10px] font-bold uppercase tracking-wider shadow-sm">
+                    {typeDisplay}
                   </span>
                 </div>
               </Link>
 
-              {/* Card Details */}
-              <div className="p-4 flex flex-col flex-1">
-                {/* Price (Now Prominent in Teal) */}
-                <p className="text-lg font-black text-[#029bba] mb-1">
-                  {priceFormatted}
-                </p>
+              {/* Card Body */}
+              <div className="p-4 flex-1 flex flex-col">
+                {/* Location */}
+                <div className="flex items-center gap-1 text-xs text-gray-500 mb-1">
+                  <MapPin className="w-3.5 h-3.5 text-[#029bba] flex-shrink-0" />
+                  <span className="truncate">{locationDisplay}</span>
+                </div>
 
-                <Link href={`/properties/${prop.slug}`}>
+                {/* Title */}
+                <Link href={`/property/${prop.slug}`}>
                   <h4 className="font-bold text-sm text-gray-900 line-clamp-1 group-hover:text-[#029bba] transition-colors mb-1.5">
                     {prop.title}
                   </h4>
                 </Link>
 
-                <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-4">
-                  <MapPin className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                  <span className="truncate font-medium">{[prop.location, prop.city].filter(Boolean).join(', ')}</span>
+                {/* Price */}
+                <div className="text-base font-black text-[#004063] mb-3">
+                  {priceDisplay}
                 </div>
 
-                {/* Specs (Pill Design) */}
-                <div className="flex flex-wrap items-center gap-2 text-[11px] text-gray-700 font-bold mb-4 pt-3 border-t border-gray-100">
-                  {prop.bedrooms !== null && (
-                    <span className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 px-2 py-1 rounded-lg">
-                      <Bed className="w-3.5 h-3.5 text-[#029bba]" />
-                      {prop.bedrooms} Bed
-                    </span>
-                  )}
-                  {prop.areaSize !== null && (
-                    <span className="flex items-center gap-1.5 bg-gray-50 border border-gray-100 px-2 py-1 rounded-lg">
-                      <Ruler className="w-3.5 h-3.5 text-[#029bba]" />
-                      {prop.areaSize} {prop.areaUnit || 'Marla'}
-                    </span>
-                  )}
-                </div>
+                {/* Specs Pill Grid */}
+                {(prop.bedrooms !== null || areaDisplay) && (
+                  <div className="flex items-center gap-3 text-xs text-gray-600 bg-gray-50 px-3 py-2 rounded-xl mb-4 mt-auto">
+                    {prop.bedrooms !== null && prop.bedrooms !== undefined && (
+                      <div className="flex items-center gap-1 font-semibold">
+                        <Bed className="w-3.5 h-3.5 text-gray-400" />
+                        <span>{prop.bedrooms} Bed</span>
+                      </div>
+                    )}
+                    {areaDisplay && (
+                      <div className="flex items-center gap-1 font-semibold ml-auto">
+                        <span>{areaDisplay}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
 
+                {/* View Details CTA */}
                 <div className="mt-auto pt-1">
                   <Link
-                    href={`/properties/${prop.slug}`}
+                    href={`/property/${prop.slug}`}
                     className="w-full py-2.5 rounded-xl bg-[#029bba]/10 hover:bg-[#029bba] text-[#029bba] hover:text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200"
                   >
-                    <span>View Property</span>
-                    <ArrowRight className="w-3.5 h-3.5" />
+                    <span>View Property Details</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
                   </Link>
                 </div>
               </div>

@@ -101,7 +101,7 @@ function MediaChips({
   if (items.length === 0) return null;
 
   return (
-    <div className="flex justify-center -mt-6 relative z-10 px-4">
+    <div className="flex justify-center -mt-6 relative z-20 px-4">
       <div className="bg-white rounded-2xl shadow-2xl border border-gray-100
                       px-2 py-1 flex items-center flex-wrap gap-1">
         {items.map((item, idx) => (

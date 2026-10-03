@@ -269,15 +269,15 @@ function GridCard({
         <div className="absolute top-3 right-3">
           <ListingTypeBadge type={property.listingType} />
         </div>
-        {/* Hover actions */}
-        <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-          <a
-            href={`/properties/${property.slug ?? property._id}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors"
-            title="View listing"
-          >
+          {/* Hover actions */}
+          <div className="absolute bottom-3 right-3 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+            <a
+              href={`/property/${property.slug ?? property._id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="p-2 bg-white rounded-full shadow-md hover:bg-gray-50 transition-colors"
+              title="View listing"
+            >
             <ExternalLink className="w-3.5 h-3.5 text-gray-700" />
           </a>
           {isDraft && (
@@ -431,13 +431,13 @@ function ListRow({
                   <Edit className="w-3 h-3" /> Edit
                 </Link>
               )}
-              <a
-                href={`/properties/${property.slug ?? property._id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
-              >
-                <ExternalLink className="w-3 h-3" /> View
+                              <a
+                  href={`/property/${property.slug ?? property._id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors text-gray-700"
+                >
+                  <ExternalLink className="w-3 h-3" /> View
               </a>
               <button
                 type="button"

@@ -855,13 +855,14 @@ export default function ProjectDetailPage({ project }: PageProps) {
             <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
               <div className="space-y-6 w-full sticky top-24">
                 <UniversalContactCard
-                  entityType="project"
-                  entityId={project._id}
-                  entityTitle={project.projectName}
-                  actorName={developerName || "Verified Developer"}
-                  actorRole="Project Developer"
-                  actorImage={project.developerProfile?.logoUrl || null}
-                  isVerified={Boolean(project.isVerified || project.verificationPanel?.verifiedAt)}
+                    entityType="project"
+                    entityId={project._id}
+                    entityTitle={project.projectName}
+                    actorName={developerName || "Verified Developer"}
+                    actorRole="Project Developer"
+                    actorImage={project.developerProfile?.logoUrl || null}
+                    brandLogo="/images/logo.png"
+                    isVerified={Boolean(project.isVerified || project.verificationPanel?.verifiedAt)}
                   initialPhone={
                     (project as any)?.contactDetails?.primaryPhone
                     || (project as any)?.developerProfile?.contactNumber

@@ -28,7 +28,9 @@ import TrueCostCard, {
 import ReportListingModal from "@/components/property/ReportListingModal";
 import { addToRecentlyViewed } from "@/lib/recently-viewed";
 import AleemWidget from "@/components/aleem/AleemWidget";
-import SafeDealBanner from "@/components/safedeal/SafeDealBanner";
+import UniversalContactCard from "@/components/shared/UniversalContactCard";
+import SafeDealSidebarCard from "@/components/shared/SafeDealSidebarCard";
+import SafetyWarningCard from "@/components/shared/SafetyWarningCard";
 import VerifiedOwnerBadge from "@/components/badges/VerifiedOwnerBadge";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useCompare } from "@/hooks/useCompare";
@@ -1280,103 +1282,23 @@ export default function PropertySlugPage({
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
-  const contactCardNode = (
-    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-      <h2 className="text-lg font-semibold text-[#004063] mb-4">
-        Contact Seller
-      </h2>
-
-      {!isLoggedIn ? (
-        <div className="text-center py-6">
-          <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Lock className="w-8 h-8 text-gray-400" />
-          </div>
-          <h3 className="text-lg font-semibold text-[#004063] mb-2">Login Required</h3>
-          <p className="text-sm text-[#666666] mb-6">Please login to view seller contact details and send inquiries.</p>
-          <div className="flex flex-col gap-3">
-            <button onClick={() => setShowAuthModal(true)} className="w-full py-3 bg-[#029bba] text-white rounded-xl font-semibold hover:bg-[#017a8a] transition-colors flex items-center justify-center gap-2">
-              <Key className="w-4 h-4" /> Login to View Contacts
-            </button>
-            <button onClick={() => setShowAuthModal(true)} className="w-full py-3 border border-gray-200 text-[#333333] rounded-xl font-medium hover:bg-gray-50 transition-colors">
-              Create Account
-            </button>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-14 h-14 rounded-full bg-gray-100 overflow-hidden flex-shrink-0">
-              {property.listingActor?.profileImageUrl ? (
-                <img src={property.listingActor.profileImageUrl} alt={property.listingActor?.displayName ?? "Seller"} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[#666666] text-xl font-bold">
-                  {(property.listingActor?.displayName?.charAt(0) ?? "U").toUpperCase()}
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="font-semibold text-[#333333]">{property.listingActor?.displayName ?? "Property seller"}</p>
-              <p className="text-sm text-[#666666]">{property.listingActor?.label ?? "Seller"}</p>
-            </div>
-          </div>
-
-          {property.listingActor?.verified && (
-            <div className="mb-4 p-4 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center shrink-0">
-                <Shield className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-emerald-800">🛡️ Verified Owner Listing</p>
-                <p className="text-xs text-emerald-700 mt-0.5 leading-relaxed">The accountable listing actor has a verified Highrise profile.</p>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
-            {canRevealPhone ? (
-              showPhone ? (
-                <div className="flex items-center justify-between w-full py-3 px-4 bg-[#f8fafc] border border-gray-200 rounded-xl">
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-10 h-10 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center shrink-0">
-                      <Phone className="w-5 h-5 text-[#004063]" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">Phone Number</p>
-                      <a href={`tel:${phoneValue}`} className="font-black text-[#004063] text-lg hover:text-[#029bba] transition-colors truncate block">{phoneValue}</a>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <button onClick={() => setShowPhone(true)} className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#004063] text-white rounded-xl font-bold text-[15px] hover:bg-[#002b42] shadow-md transition-colors"><Phone className="w-5 h-5" />Show Phone Number</button>
-              )
-            ) : (
-              <button onClick={() => void revealContact()} disabled={contactLoading} className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#029bba] text-white rounded-xl font-bold text-[15px] hover:bg-[#017a8a] shadow-md transition-colors disabled:opacity-60"><Phone className="w-5 h-5" />{contactLoading ? "Checking Contact…" : "Reveal Contact"}</button>
-            )}
-
-            {canWhatsapp && (
-              <a href={`https://wa.me/${waValue}?text=${encodeURIComponent(`Hi, I'm interested in your property: ${property.title}\n\nLink: ${canonicalUrl}`)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-3.5 bg-[#25D366] text-white rounded-xl font-bold text-[15px] shadow-md shadow-[#25D366]/20 hover:bg-[#128C7E] hover:scale-[1.02] transition-all active:scale-[0.98]">
-                <svg className="w-5 h-5 fill-current" viewBox="0 0 24 24"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51a12.8 12.8 0 0 0-.57-.01c-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.82 9.82 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.052 0C5.495 0 .092 5.403.089 11.961c-.002 2.095.545 4.14 1.583 5.945L.035 24l6.247-1.637a11.85 11.85 0 0 0 5.766 1.498h.004c6.556 0 11.96-5.403 11.963-11.961a11.83 11.83 0 0 0-3.551-8.402"/></svg>
-                WhatsApp
-              </a>
-            )}
-          </div>
-
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <h3 className="text-base font-semibold text-[#004063] mb-4 flex items-center gap-2"><Mail className="w-5 h-5 text-[#029bba]" />Interested in this property?</h3>
-            <div className="space-y-3">
-              <button onClick={() => { setInquiryLeadType("general_inquiry"); setShowInquiryModal(true); }} className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white font-semibold hover:opacity-90 transition-opacity"><Mail className="w-5 h-5" />Send Inquiry</button>
-              <button onClick={() => { setInquiryLeadType("site_visit"); setShowInquiryModal(true); }} className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl border-2 border-[#029bba] text-[#029bba] font-medium hover:bg-[#029bba]/5 transition-colors"><Calendar className="w-5 h-5" />Schedule Site Visit</button>
-            </div>
-          </div>
-
-          {/* Enterprise SafeDeal Integration Inside Contact Card */}
-          <div className="mt-6 pt-5 border-t border-gray-100">
-            <SafeDealBanner variant="compact" />
-          </div>
-        </>
-      )}
-    </div>
-  );
+    const contactCardNode = (
+      <div className="space-y-6 lg:sticky lg:top-24">
+        <UniversalContactCard
+          entityType="property"
+          entityId={getCleanPropertyId(property)}
+          entityTitle={property.title}
+          actorName={property.listingActor?.displayName ?? "Property Seller"}
+          actorRole={property.listingActor?.label ?? "Seller"}
+          actorImage={property.listingActor?.profileImageUrl}
+          isVerified={!!property.listingActor?.verified}
+        />
+        
+        <SafeDealSidebarCard />
+        
+        <SafetyWarningCard onReport={() => setShowReportModal(true)} />
+      </div>
+    );
 
   return (
     <>
@@ -1447,43 +1369,32 @@ export default function PropertySlugPage({
           {/* ── Main Layout Container ──────────────────────────────────────── */}
           <div className="max-w-[1120px] mx-auto px-4 sm:px-6 py-6 lg:py-8">
 
-            {/* ── BREADCRUMBS & TOP ACTIONS ROW ───────────────────────────── */}
-            <div className="flex items-center justify-between gap-4 mb-4 text-xs">
-              <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-gray-500 overflow-x-auto scrollbar-hide">
-                <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 transition-colors flex-shrink-0">
-                  <Home className="w-3.5 h-3.5" />
-                  <span>Home</span>
-                </Link>
-                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                <Link href="/properties" className="hover:text-[#029bba] transition-colors flex-shrink-0">
-                  Properties
-                </Link>
-                {property.city && (
-                  <>
-                    <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                    <Link
-                      href={`/properties?city=${encodeURIComponent(property.city)}`}
-                      className="hover:text-[#029bba] transition-colors flex-shrink-0"
-                    >
-                      {property.city}
-                    </Link>
-                  </>
-                )}
-                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                <span className="font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-[300px]">
-                  {property.title}
-                </span>
-              </nav>
-
-              <button
-                type="button"
-                onClick={() => router.back()}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-[#029bba] transition-colors flex-shrink-0"
-              >
-                <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Back to Search</span>
-              </button>
-            </div>
+            {/* ── BREADCRUMBS ─────────────────────────────────────────────── */}
+            <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-gray-500 overflow-x-auto scrollbar-hide mb-4">
+              <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 transition-colors flex-shrink-0">
+                <Home className="w-3.5 h-3.5" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              <Link href="/properties" className="hover:text-[#029bba] transition-colors flex-shrink-0">
+                Properties
+              </Link>
+              {property.city && (
+                <>
+                  <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                  <Link
+                    href={`/properties?city=${encodeURIComponent(property.city)}`}
+                    className="hover:text-[#029bba] transition-colors flex-shrink-0"
+                  >
+                    {property.city}
+                  </Link>
+                </>
+              )}
+              <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+              <span className="font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-[300px]">
+                {property.title}
+              </span>
+            </nav>
 
             {/* ── HERO GALLERY (Full Width) ─────────────────────────────────── */}
           <div className="relative mb-10">
@@ -2349,27 +2260,9 @@ export default function PropertySlugPage({
               />
             </div>
 
-            {/* ── Right column — Contact ───────────────────────────────────── */}
-            <div className="space-y-6" id="contact">
-              {/* Contact card */}
-              {contactCardNode}
-
-              {/* Safety tips (Project Style) */}
-              <div className="bg-[#fffdf0] rounded-2xl border border-[#fef08a] p-5 shadow-sm">
-                <h3 className="font-bold text-yellow-800 mb-2.5 flex items-center gap-2 text-sm">
-                  <Shield className="w-4 h-4 text-yellow-600" />
-                  Safety First
-                </h3>
-                <p className="text-xs text-yellow-800/80 leading-relaxed mb-4">
-                  Always visit the property before making any payment. Verify all documents independently. Verification on Highrise.pk does not constitute a legal guarantee.
-                </p>
-                <button
-                  onClick={() => setShowReportModal(true)}
-                  className="w-full flex items-center justify-center gap-1.5 px-4 py-2 rounded-lg bg-white border border-yellow-200 text-yellow-700 font-bold text-xs hover:bg-yellow-50 transition-colors shadow-sm"
-                >
-                  <AlertCircle className="w-3.5 h-3.5" />
-                  Report This Listing
-                </button>
+              {/* ── Right column (Sticky Unified Stack) ─────────────────────────────── */}
+              <div className="min-w-0">
+                {contactCardNode}
               </div>
 
             </div>
@@ -2432,20 +2325,17 @@ export default function PropertySlugPage({
               </button>
             )}
 
-            {canWhatsapp && (() => {
-              const msg = `Hi, I'm interested in your property: ${property.title}\n\nLink: ${canonicalUrl}`;
-              return (
-                <a
-                  href={`https://wa.me/${waValue}?text=${encodeURIComponent(msg)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-4 py-2.5 bg-[#25D366] text-white rounded-xl font-medium text-sm hover:bg-[#128C7E] transition-colors"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  WhatsApp
-                </a>
-              );
-            })()}
+            {canWhatsapp && (
+              <a
+                href={`https://wa.me/${waValue}?text=${encodeURIComponent(`Hi, I'm interested in your property: ${property.title}\n\nLink: ${canonicalUrl}`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 px-4 py-2.5 bg-[#25D366] text-white rounded-xl font-medium text-sm hover:bg-[#128C7E] transition-colors"
+              >
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp
+              </a>
+            )}
           </>
         )}
 
@@ -2453,9 +2343,8 @@ export default function PropertySlugPage({
     </div>
   </div>
 </div>
-      </div>
 
-      {/* ── Modals ──────────────────────────────────────────────────────────── */}
+      {/* ── Modals ────────────────────────────────────────────────────────── */}
 
       {/* Inquiry */}
       <UniversalInquiryModal
@@ -2463,12 +2352,12 @@ export default function PropertySlugPage({
         onClose={() => setShowInquiryModal(false)}
         entityType="property"
         entityId={getCleanPropertyId(property)}
-        entityTitle={property.title}
-        entityPrice={property.totalPrice ?? property.price}
+        entityTitle={property?.title ?? ""}
+        entityPrice={property ? (property.totalPrice ?? property.price) : 0}
         entityLocation={fullLocation}
-        entityImage={property.images?.[0]?.url}
+        entityImage={property?.images?.[0]?.url}
         developerId={undefined}
-        developerName={property.listingActor?.displayName ?? "Property seller"}
+        developerName={property?.listingActor?.displayName ?? "Property seller"}
         leadType={inquiryLeadType}
         buttonText={
           inquiryLeadType === "site_visit"
@@ -2522,46 +2411,50 @@ export default function PropertySlugPage({
         />
       )}
 
-      <PropertyMediaExplorer
-        isOpen={explorerOpen}
-        onClose={() => setExplorerOpen(false)}
-        title={property.title}
-        priceDisplay={`PKR ${formatPrice(property.totalPrice ?? property.price)}`}
-        locationDisplay={fullLocation}
-        images={property.images ?? []}
-        videoUrl={property.videoUrl}
-        mapEmbedUrl={heroMapUrl}
-        initialTab={explorerTab}
-        initialPhotoIdx={explorerPhotoIdx}
-        contactCard={contactCardNode}
-        onShare={handleShare}
-        isSaved={isSaved}
-        onSave={() => property?._id && void favorites.toggle(property._id, 'property')}
-      />
+      {property && (
+        <PropertyMediaExplorer
+          isOpen={explorerOpen}
+          onClose={() => setExplorerOpen(false)}
+          title={property.title}
+          priceDisplay={`PKR ${formatPrice(property.totalPrice ?? property.price)}`}
+          locationDisplay={fullLocation}
+          images={property.images ?? []}
+          videoUrl={property.videoUrl}
+          mapEmbedUrl={heroMapUrl}
+          initialTab={explorerTab}
+          initialPhotoIdx={explorerPhotoIdx}
+          contactCard={contactCardNode}
+          onShare={handleShare}
+          isSaved={isSaved}
+          onSave={() => property?._id && void favorites.toggle(property._id, 'property')}
+        />
+      )}
 
-      {/* Aria AI — property context */}
-      <AleemWidget
-        context={{
-          type:         'property',
-          id:           property._id,
-          slug:         property.slug,
-          title:        property.title,
-          price:        property.totalPrice ?? property.price,
-          city:         property.city,
-          propertyType: property.propertyType,
-          listingType:  property.listingType,
-          area:         `${property.area} ${property.unit}`,
-          bedrooms:     property.bedrooms,
-          bathrooms:    property.bathrooms,
-          society:      property.society,
-          canonicalUrl: canonicalUrl,
-        }}
-      />
+      {/* Aria AI - property context */}
+      {property && (
+        <AleemWidget
+          context={{
+            type:         'property',
+            id:           property._id,
+            slug:         property.slug,
+            title:        property.title,
+            price:        property.totalPrice ?? property.price,
+            city:         property.city,
+            propertyType: property.propertyType,
+            listingType:  property.listingType,
+            area:         `${property.area} ${property.unit}`,
+            bedrooms:     property.bedrooms,
+            bathrooms:    property.bathrooms,
+            society:      property.society,
+            canonicalUrl: canonicalUrl,
+          }}
+        />
+      )}
     </>
   );
 }
 
-// ─── ISR ─────────────────────────────────────────────────────────────────────
+// --- ISR --------------------------------------------------------------------
 
 export const getStaticPaths: GetStaticPaths = async () => {
   return { paths: [], fallback: "blocking" };
