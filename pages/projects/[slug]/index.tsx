@@ -36,10 +36,10 @@ import EnterprisePropertySpecs   from '@/components/project-detail/EnterprisePro
 import BuildingHighlights        from '@/components/project-detail/BuildingHighlights';
 import NeighborhoodInsights      from '@/components/project-detail/NeighborhoodInsights';
 import ConstructionTracker       from '@/components/project-detail/ConstructionTracker';
-  import ProjectMetaHeader         from '@/components/project-detail/ProjectMetaHeader';
-  import UniversalContactCard      from '@/components/shared/UniversalContactCard';
-  import SafeDealSidebarCard      from '@/components/shared/SafeDealSidebarCard';
-  import SafetyWarningCard         from '@/components/shared/SafetyWarningCard';
+import ProjectMetaHeader         from '@/components/project-detail/ProjectMetaHeader';
+import UniversalContactCard      from '@/components/shared/UniversalContactCard';
+import SafeDealSidebarCard      from '@/components/shared/SafeDealSidebarCard';
+import SafetyWarningCard         from '@/components/shared/SafetyWarningCard';
   import ReportListingModal        from '@/components/property/ReportListingModal';
   import type { NearbyPlacesExplorerProps } from '@/components/shared/NearbyPlacesExplorer';
 
@@ -851,9 +851,9 @@ export default function ProjectDetailPage({ project }: PageProps) {
 
           </div>{/* end left column */}
 
-            {/* ── RIGHT SIDEBAR (Unified 3-Card Stack) ── */}
+            {/* RIGHT SIDEBAR (Unified 3-Card Stack) */}
             <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
-              <div className="space-y-6 w-full sticky top-24">
+              <div className="space-y-6 w-full">
                 <UniversalContactCard
                     entityType="project"
                     entityId={project._id}

@@ -63,7 +63,21 @@ import { formatPriceRange }     from '@/types/projects';
 // ─── PROPS ───────────────────────────────────────────────────────────────────
 
 export interface ShareMenuProps {
-  project:  ProjectListing;
+  project?: ProjectListing | null;
+  property?: {
+    _id: string;
+    slug?: string;
+    title: string;
+    city: string;
+    society?: string | null;
+    price?: number;
+    totalPrice?: number;
+    images?: Array<{ url: string }>;
+    bedrooms?: number;
+    bathrooms?: number;
+    area?: number;
+    unit?: string;
+  } | null;
   isOpen:   boolean;
   onClose:  () => void;
 }
@@ -216,44 +230,33 @@ const EMAIL_PROVIDERS: EmailProviderConfig[] = [
 
 // ─── PROJECT PREVIEW CARD ────────────────────────────────────────────────────
 
-function ProjectPreview({
-  project,
+function ItemPreview({
+  title,
+  location,
+  priceStr,
+  imageUrl,
+  shieldScore,
 }: {
-  project: ProjectListing;
+  title: string;
+  location: string;
+  priceStr: string;
+  imageUrl?: string | null;
+  shieldScore?: number;
 }): React.ReactElement {
-  const priceStr  = formatPriceRange(
-    project.minPrice,
-    project.maxPrice,
-    project.priceOnRequest,
-  );
-  const location  = [project.area, project.city].filter(Boolean).join(', ');
-
   return (
-    <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl
-                    border border-gray-100 p-4 flex items-center gap-4">
-      <div className="relative w-16 h-16 rounded-xl overflow-hidden
-                      bg-gray-100 flex-shrink-0">
-        {project.primaryImage ? (
-          <Image
-            src={project.primaryImage}
-            alt={project.projectName}
-            fill
-            className="object-cover"
-            sizes="64px"
-          />
+    <div className="bg-gradient-to-br from-gray-50 to-white rounded-2xl border border-gray-100 p-4 flex items-center gap-4">
+      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-gray-100 flex-shrink-0">
+        {imageUrl ? (
+          <Image src={imageUrl} alt={title} fill className="object-cover" sizes="64px" />
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-br
-                          from-[#004063]/10 to-[#029bba]/10
-                          flex items-center justify-center">
+          <div className="absolute inset-0 bg-gradient-to-br from-[#004063]/10 to-[#029bba]/10 flex items-center justify-center">
             <Building2 className="w-6 h-6 text-[#029bba]/40" />
           </div>
         )}
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="font-black text-sm text-gray-900 truncate leading-tight">
-          {project.projectName}
-        </p>
+        <p className="font-black text-sm text-gray-900 truncate leading-tight">{title}</p>
         {location && (
           <div className="flex items-center gap-1 mt-0.5">
             <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -263,17 +266,17 @@ function ProjectPreview({
         <p className="text-sm font-black text-[#029bba] mt-1">{priceStr}</p>
       </div>
 
-      <div className="flex flex-col items-center flex-shrink-0">
-        <ShieldCheck className={`w-5 h-5 ${
-          project.shield.total >= 80 ? 'text-emerald-500' :
-          project.shield.total >= 60 ? 'text-[#029bba]' :
-          project.shield.total >= 40 ? 'text-amber-500' :
-          'text-gray-300'
-        }`} />
-        <span className="text-[10px] font-black text-gray-600 mt-0.5">
-          {project.shield.total}
-        </span>
-      </div>
+      {shieldScore !== undefined && (
+        <div className="flex flex-col items-center flex-shrink-0">
+          <ShieldCheck className={`w-5 h-5 ${
+            shieldScore >= 80 ? 'text-emerald-500' :
+            shieldScore >= 60 ? 'text-[#029bba]' :
+            shieldScore >= 40 ? 'text-amber-500' :
+            'text-gray-300'
+          }`} />
+          <span className="text-[10px] font-black text-gray-600 mt-0.5">{shieldScore}</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -521,6 +524,7 @@ function QrPanel({
 
 export default function ShareMenu({
   project,
+  property,
   isOpen,
   onClose,
 }: ShareMenuProps): React.ReactElement | null {
@@ -535,20 +539,32 @@ export default function ShareMenu({
     generateQrCode,
   } = useShare();
 
-  // Build ShareTarget from ProjectListing
+  // Build ShareTarget for either Project or Property
+  const isProp = !project && !!property;
+  const targetTitle = project?.projectName ?? property?.title ?? 'Property Listing';
+  const targetSlug = project?.slug ?? property?.slug ?? property?._id ?? '';
+  const targetCity = project?.city ?? property?.city ?? '';
+  const targetArea = project?.area ?? property?.society ?? '';
+  const targetImage = project?.primaryImage ?? property?.images?.[0]?.url ?? null;
+
+  const rawPrice = property?.totalPrice ?? property?.price ?? 0;
+  const priceDisplay = project
+    ? formatPriceRange(project.minPrice, project.maxPrice, project.priceOnRequest)
+    : rawPrice ? `PKR ${(rawPrice / 100000).toFixed(1)} Lakh` : 'Price on Request';
+
   const target: ShareTarget = {
-    projectId:      project._id,
-    projectSlug:    project.slug,
-    projectName:    project.projectName,
-    city:           project.city,
-    area:           project.area,
-    minPrice:       project.minPrice,
-    maxPrice:       project.maxPrice,
-    priceOnRequest: project.priceOnRequest,
-    shieldScore:    project.shield.total,
-    primaryImage:   project.primaryImage,
-    developerName:  project.developerName,
-    nocStatus:      project.nocStatus,
+    projectId:      project?._id ?? property?._id ?? '',
+    projectSlug:    targetSlug,
+    projectName:    targetTitle,
+    city:           targetCity,
+    area:           targetArea,
+    minPrice:       project?.minPrice ?? rawPrice,
+    maxPrice:       project?.maxPrice ?? rawPrice,
+    priceOnRequest: project?.priceOnRequest ?? !rawPrice,
+    shieldScore:    project?.shield?.total ?? 85,
+    primaryImage:   targetImage || null,
+    developerName:  project?.developerName || '',
+    nocStatus:      project?.nocStatus || 'approved',
   };
 
   // ── Reset view when modal opens ──────────────────────────────────────────
@@ -660,7 +676,7 @@ export default function ShareMenu({
                     ? 'Share via Email'
                     : view === 'qr'
                       ? 'QR Code'
-                      : 'Share This Project'}
+                      : isProp ? 'Share This Property' : 'Share This Project'}
                 </h2>
                 <p className="text-xs text-gray-400 font-semibold">
                   via Highrise.pk
@@ -684,8 +700,14 @@ export default function ShareMenu({
           {/* ── Body ── */}
           <div className="p-5 space-y-4">
 
-            {/* Project preview — always visible */}
-            <ProjectPreview project={project} />
+            {/* Item preview — always visible */}
+            <ItemPreview
+              title={targetTitle}
+              location={[targetArea, targetCity].filter(Boolean).join(', ')}
+              priceStr={priceDisplay}
+              imageUrl={targetImage}
+              shieldScore={target.shieldScore}
+            />
 
             {/* ══════ VIEW: MAIN ══════ */}
             {view === 'main' && (
@@ -794,8 +816,8 @@ export default function ShareMenu({
               <QrPanel
                 qrDataUrl={qrDataUrl}
                 qrLoading={qrLoading}
-                projectName={project.projectName}
-                projectSlug={project.slug}
+                projectName={targetTitle}
+                projectSlug={targetSlug}
                 onBack={() => setView('main')}
                 onGenerate={handleQrGenerate}
               />
