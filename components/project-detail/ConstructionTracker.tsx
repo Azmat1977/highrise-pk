@@ -56,43 +56,30 @@ function getQuarterString(d: string | Date): string {
 
 export default function ConstructionTracker({ project }: ConstructionTrackerProps): React.ReactElement | null {
   const updates = (project.developmentUpdates ?? []) as EnterpriseMilestone[];
-  
-  // Only hide if zero updates AND no progress tracking initialized
-  if (updates.length === 0 && !project.developmentProgress && !project.launchDate) {
-    return null; 
-  }
-
-  const overallProgress = project.developmentProgress || 0;
-  const status = project.deliveryStatus || 'on_track';
-  
-  // Delay calculations
+  const launchDate = project.launchDate;
   const expectedDate = project.expectedCompletionDate;
-  const today = new Date();
-  const isDelayed = status === 'slightly_delayed' || status === 'critical_delay';
-  const delayMonths = expectedDate && isDelayed ? getMonthsDifference(expectedDate, today) : 0;
+  const devProgress = project.developmentProgress;
+  const status = project.deliveryStatus || 'on_track';
+  const overallProgress = devProgress || 0;
 
-  // Sorted updates (Newest first)
-  const sortedUpdates = [...updates].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  );
-
-  // Generate Timeline Quarters (Launch -> Expected/Today)
+  // Generate Timeline Quarters (Launch -> Expected/Today) - Hook must run unconditionally at top
   const timelineQuarters = useMemo(() => {
-    if (!project.launchDate) return [];
-    
-    const start = new Date(project.launchDate);
+    if (!launchDate) return [];
+
+    const today = new Date();
+    const start = new Date(launchDate);
     const end = expectedDate ? new Date(expectedDate) : today;
     if (end < start) return [];
 
     const quarters: { label: string; hasUpdate: boolean; isCurrent: boolean }[] = [];
-    let current = new Date(start);
+    const current = new Date(start);
     const currentQStr = getQuarterString(today);
 
     while (current <= end || getQuarterString(current) === currentQStr) {
       const qStr = getQuarterString(current);
       // Check if any update falls in this quarter
       const hasUpdate = updates.some(u => getQuarterString(u.date) === qStr);
-      
+
       // Prevent duplicates
       if (!quarters.some(q => q.label === qStr)) {
         quarters.push({
@@ -104,7 +91,21 @@ export default function ConstructionTracker({ project }: ConstructionTrackerProp
       current.setMonth(current.getMonth() + 3); // Move to next quarter
     }
     return quarters;
-  }, [project.launchDate, expectedDate, updates, today]);
+  }, [launchDate, expectedDate, updates]);
+
+  // Only hide if zero updates AND no progress tracking initialized
+  if (updates.length === 0 && !devProgress && !launchDate) {
+    return null;
+  }
+
+  // Delay calculations
+  const isDelayed = status === 'slightly_delayed' || status === 'critical_delay';
+  const delayMonths = expectedDate && isDelayed ? getMonthsDifference(expectedDate, new Date()) : 0;
+
+  // Sorted updates (Newest first)
+  const sortedUpdates = [...updates].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
 
   // Status UI Config
   const statusConfig = {
