@@ -69,8 +69,9 @@ export function getOptimizedImageUrl(
       // Calculate absolute pixels to avoid fl_relative calculation bugs
       const scaleRatio = opts.watermarkScale ?? (width <= 400 ? 0.24 : 0.16);
       const wmWidth = Math.round(width * scaleRatio);
-      const offsetX = opts.watermarkOffsetX ?? (width <= 400 ? 12 : 24);
-      const offsetY = opts.watermarkOffsetY ?? (width <= 400 ? 12 : 24);
+      // Right padding slightly larger than bottom so logo never clips on object-cover crops
+      const offsetX = opts.watermarkOffsetX ?? (width <= 400 ? 18 : 36);
+      const offsetY = opts.watermarkOffsetY ?? (width <= 400 ? 14 : 28);
 
       // 1. e_replace_color:ffffff:90:003d5b -> High tolerance (90) turns dark navy text into solid pure white
       // 2. e_grayscale -> Turns the teal 3D spires into sleek grey
