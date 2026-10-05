@@ -351,6 +351,11 @@ export default function NearbyPlacesExplorer({
       maxZoom: 19,
     }).addTo(map);
 
+      const lat = Number(projectLat);
+      const lng = Number(projectLng);
+
+      if (isNaN(lat) || isNaN(lng) || lat === 0 || lng === 0) return;
+
       // Classic location marker (teardrop pin) — Google-style, brand teal
       const projectIcon = L.divIcon({
         className: 'custom-project-pin',
@@ -365,15 +370,16 @@ export default function NearbyPlacesExplorer({
         iconSize: [32, 42],
         iconAnchor: [16, 42], // tip at exact coordinate
       });
-    L.marker([projectLat, projectLng], { icon: projectIcon, zIndexOffset: 1000 })
-      .addTo(map)
-      .bindTooltip(projectName, {
-        permanent: true,
-        direction: 'top',
-        offset: [0, -30],
-        className: 'project-pin-label',
-      })
-      .bindPopup(`<strong>${projectName}</strong><br/>Project location`);
+
+      L.marker([lat, lng], { icon: projectIcon, zIndexOffset: 1000 })
+        .addTo(map)
+        .bindTooltip(projectName, {
+          permanent: true,
+          direction: 'top',
+          offset: [0, -46], // Float 4px above pin tip so teardrop pin is 100% visible
+          className: 'project-pin-label',
+        })
+        .bindPopup(`<strong>${projectName}</strong><br/>Site Location`);
 
     map.on('click', () => map.scrollWheelZoom.enable());
     map.on('mouseout', () => map.scrollWheelZoom.disable());

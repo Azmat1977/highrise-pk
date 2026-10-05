@@ -7,15 +7,14 @@ export interface CloudinaryTransformOptions {
   crop?: 'fill' | 'fit' | 'limit' | 'scale' | 'thumb';
   gravity?: 'auto' | 'center' | 'south_east' | 'north';
   watermark?: boolean;        // default: true
-  watermarkScale?: number;    // default: 0.15 (15% relative width)
-  watermarkOpacity?: number;  // default: 40
-  watermarkOffsetX?: number;  // default: 0.03 (3% relative padding)
-  watermarkOffsetY?: number;  // default: 0.03 (3% relative padding)
+  watermarkScale?: number;    // default: 0.16 (16% relative width)
+  watermarkOpacity?: number;  // default: 85
+  watermarkOffsetX?: number;  // default: 24 (exact px padding)
+  watermarkOffsetY?: number;  // default: 24 (exact px padding)
 }
 
 /**
  * Universal Cloudinary URL Optimizer & Watermarker
- * Supports options as either a width number OR a CloudinaryTransformOptions object
  */
 export function getOptimizedImageUrl(
   url: string,
@@ -66,13 +65,12 @@ export function getOptimizedImageUrl(
 
     if (showWatermark) {
       const opacity = opts.watermarkOpacity ?? 85;
-      const scale = opts.watermarkScale ?? 0.15;
-      const offsetX = opts.watermarkOffsetX ?? 0.03; // 3% relative padding
-      const offsetY = opts.watermarkOffsetY ?? 0.03; // 3% relative padding
+      const scale = opts.watermarkScale ?? (width <= 400 ? 0.20 : 0.16);
+      const offsetX = opts.watermarkOffsetX ?? (width <= 400 ? 12 : 24);
+      const offsetY = opts.watermarkOffsetY ?? (width <= 400 ? 12 : 24);
 
-      // Target-replace dark navy text (#003d5b) with white (#ffffff)
-      // Preserves original blue/teal building spires while making text bright white
-      watermarkSegment = `l_highrise_logo,e_replace_color:ffffff:45:003d5b,o_${opacity},w_${scale},fl_relative,g_south_east,x_${offsetX},y_${offsetY}`;
+      // Clean authentic brand watermark overlay -- exact 24px corner offset
+      watermarkSegment = `l_highrise_logo,o_${opacity},w_${scale},fl_relative,g_south_east,x_${offsetX},y_${offsetY}`;
     }
 
     const baseStr = baseTransforms.join(",");
@@ -92,8 +90,8 @@ export function getThumbnailUrl(url: string, width = 240, height = 160): string 
     width,
     height,
     crop: "fill",
-    watermarkScale: 0.18,
-    watermarkOffsetX: 0.04,
-    watermarkOffsetY: 0.04,
+    watermarkScale: 0.20,
+    watermarkOffsetX: 12,
+    watermarkOffsetY: 12,
   });
 }

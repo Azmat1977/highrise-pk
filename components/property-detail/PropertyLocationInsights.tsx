@@ -59,7 +59,13 @@ export default function PropertyLocationInsights({
     return null;
   }
 
-  const hasCoords = Boolean(property?.coordinates?.lat && property?.coordinates?.lng);
+  // Extract coordinates safely from object OR GeoJSON array fallback
+  const rawLat = property?.coordinates?.lat ?? (Array.isArray((property as any)?.location?.coordinates) ? (property as any).location.coordinates[1] : null);
+  const rawLng = property?.coordinates?.lng ?? (Array.isArray((property as any)?.location?.coordinates) ? (property as any).location.coordinates[0] : null);
+
+  const latNum = Number(rawLat);
+  const lngNum = Number(rawLng);
+  const hasCoords = !isNaN(latNum) && !isNaN(lngNum) && latNum !== 0 && lngNum !== 0;
 
   const googleMapsHref = hasCoords && property?.coordinates
     ? `https://www.google.com/maps/dir/?api=1&destination=${property.coordinates.lat},${property.coordinates.lng}`
@@ -111,10 +117,10 @@ export default function PropertyLocationInsights({
 
       {/* ── 1. Interactive Map Explorer FIRST ── */}
       <div className="mb-8 border-y border-gray-200 bg-gray-50">
-        {hasCoords && property?.coordinates ? (
+        {hasCoords ? (
           <NearbyPlacesExplorer
-            projectLat={property.coordinates.lat}
-            projectLng={property.coordinates.lng}
+            projectLat={latNum}
+            projectLng={lngNum}
             projectName={property.title || 'Property Location'}
             initialRadius={3000}
             verifiedPlaces={verifiedPlaces}
