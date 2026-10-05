@@ -78,6 +78,16 @@ export interface ShareMenuProps {
     area?: number;
     unit?: string;
   } | null;
+  agent?: {
+    _id?: string;
+    slug: string;
+    name?: string;
+    displayName?: string;
+    city?: string;
+    agencyName?: string;
+    image?: string;
+    avatar?: string;
+  } | null;
   isOpen:   boolean;
   onClose:  () => void;
 }
@@ -525,6 +535,7 @@ function QrPanel({
 export default function ShareMenu({
   project,
   property,
+  agent,
   isOpen,
   onClose,
 }: ShareMenuProps): React.ReactElement | null {
@@ -539,21 +550,24 @@ export default function ShareMenu({
     generateQrCode,
   } = useShare();
 
-  // Build ShareTarget for either Project or Property
+  // Build ShareTarget for Project, Property, or Agent
+  const isAgent = !project && !property && !!agent;
   const isProp = !project && !!property;
-  const targetTitle = project?.projectName ?? property?.title ?? 'Property Listing';
-  const targetSlug = project?.slug ?? property?.slug ?? property?._id ?? '';
-  const targetCity = project?.city ?? property?.city ?? '';
-  const targetArea = project?.area ?? property?.society ?? '';
-  const targetImage = project?.primaryImage ?? property?.images?.[0]?.url ?? null;
+  const targetTitle = project?.projectName ?? property?.title ?? agent?.displayName ?? agent?.name ?? 'Property Listing';
+  const targetSlug = project?.slug ? `projects/${project.slug}` : property?.slug ? `property/${property.slug}` : agent?.slug ? `agent/${agent.slug}` : '';
+  const targetCity = project?.city ?? property?.city ?? agent?.city ?? '';
+  const targetArea = project?.area ?? property?.society ?? agent?.agencyName ?? '';
+  const targetImage = project?.primaryImage ?? property?.images?.[0]?.url ?? agent?.image ?? agent?.avatar ?? null;
 
   const rawPrice = property?.totalPrice ?? property?.price ?? 0;
   const priceDisplay = project
     ? formatPriceRange(project.minPrice, project.maxPrice, project.priceOnRequest)
-    : rawPrice ? `PKR ${(rawPrice / 100000).toFixed(1)} Lakh` : 'Price on Request';
+    : isProp
+    ? rawPrice ? `PKR ${(rawPrice / 100000).toFixed(1)} Lakh` : 'Price on Request'
+    : 'Verified Agent';
 
   const target: ShareTarget = {
-    projectId:      project?._id ?? property?._id ?? '',
+    projectId:      project?._id ?? property?._id ?? agent?._id ?? '',
     projectSlug:    targetSlug,
     projectName:    targetTitle,
     city:           targetCity,
@@ -676,7 +690,9 @@ export default function ShareMenu({
                     ? 'Share via Email'
                     : view === 'qr'
                       ? 'QR Code'
-                      : isProp ? 'Share This Property' : 'Share This Project'}
+                      : isAgent
+                        ? 'Share Agent Profile'
+                        : isProp ? 'Share This Property' : 'Share This Project'}
                 </h2>
                 <p className="text-xs text-gray-400 font-semibold">
                   via Highrise.pk

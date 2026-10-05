@@ -5,7 +5,7 @@ import { getSession } from "next-auth/react";
 import { signOut, useSession } from "next-auth/react";
 import { useRouter } from "next/router";
 import React, { useCallback, useMemo, useState } from "react";
-import toast from "react-hot-toast";
+import { useEffect } from "react";
 import { Shield, LogOut, Laptop } from "lucide-react";
 
 type PageProps = {
@@ -50,6 +50,13 @@ export default function AccountSettingsPage(
   const router = useRouter();
   const { data: session, status } = useSession();
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
+  const [banner, setBanner] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   const displayName = useMemo(() => {
     const name = props.userName?.trim();
@@ -72,7 +79,7 @@ export default function AccountSettingsPage(
 
     // Safety: session check (client-side defense-in-depth)
     if (!session?.user) {
-      toast.error("You are not logged in.");
+      setBanner({ message: "You are not logged in.", type: "error" });
       router.push("/login?redirect=/account/settings");
       return;
     }
@@ -95,17 +102,17 @@ export default function AccountSettingsPage(
           data?.error ||
           data?.message ||
           "Unable to log out all devices. Please try again.";
-        toast.error(msg);
+        setBanner({ message: msg, type: "error" });
         return;
       }
 
-      toast.success("All devices logged out. Redirecting…");
+      setBanner({ message: "All devices logged out. Redirecting...", type: "success" });
 
       // Immediately end current session too (user experience + safety)
       await signOut({ callbackUrl: "/login" });
     } catch (err) {
       console.error("Logout-all devices error:", err);
-      toast.error("Network error. Please try again.");
+      setBanner({ message: "Network error. Please try again.", type: "error" });
     } finally {
       setIsLoggingOutAll(false);
     }
@@ -123,6 +130,18 @@ export default function AccountSettingsPage(
         <meta name="robots" content="noindex,nofollow" />
         <meta name="referrer" content="strict-origin-when-cross-origin" />
       </Head>
+
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === "success"
+              ? "bg-[#004063] text-white border border-[#029bba]/30"
+              : "bg-red-600 text-white"
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
 
       <div className="min-h-[70vh] bg-gray-50">
         <div className="container mx-auto px-4 py-10">

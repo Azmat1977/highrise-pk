@@ -143,15 +143,15 @@ export default function PropertyHeroGallery({
 
         {images.length ? (
           <>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-0.5">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-0.5 md:h-[400px]">
               <div
-                className="md:col-span-3 relative h-64 sm:h-80 md:h-[400px] cursor-pointer group"
+                className="md:col-span-3 relative h-64 sm:h-80 md:h-[400px] cursor-pointer group overflow-hidden"
                 onClick={() => openExplorer("media", 0)}
               >
                 <img
                   src={getOptimizedImageUrl(
                     images[selectedImage]?.url || images[0].url,
-                    1200
+                    { width: 1200, height: 570, crop: "fill" }
                   )}
                   alt={title}
                   className="w-full h-full object-cover"
@@ -160,15 +160,19 @@ export default function PropertyHeroGallery({
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/5 transition-all duration-300" />
               </div>
 
-              <div className="hidden md:flex md:col-span-1 flex-col gap-0.5">
+              <div className="hidden md:flex md:col-span-1 flex-col gap-0.5 md:h-[400px] overflow-hidden">
                 {images.slice(1, 4).map((img, idx) => (
                   <div
                     key={idx}
-                    className="relative flex-1 min-h-[130px] cursor-pointer group overflow-hidden"
+                    className="relative flex-1 min-h-0 cursor-pointer group overflow-hidden"
                     onClick={() => openExplorer("media", idx + 1)}
                   >
                     <img
-                      src={getOptimizedImageUrl(img.url, 400)}
+                      src={getOptimizedImageUrl(img.url, {
+                        width: 400,
+                        height: 190,
+                        crop: "fill",
+                      })}
                       alt={`${title} ${idx + 2}`}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                       loading="lazy"

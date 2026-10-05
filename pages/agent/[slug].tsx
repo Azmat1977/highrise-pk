@@ -10,6 +10,7 @@
 // - No alert() — inline clipboard feedback
 
 import React, { useState, useCallback } from "react";
+import ShareMenu from "@/components/projects/ShareMenu";
 import { GetStaticPaths, GetStaticProps } from "next";
 import Head from "next/head";
 import Image from "next/image";
@@ -840,24 +841,11 @@ export default function AgentPublicProfilePage({
     }
   }, []);
 
-  const handleShare = useCallback(async () => {
-    const url = `${APP_URL}/agent/${agent.slug}`;
-    try {
-      if (typeof navigator !== "undefined" && navigator.share) {
-        await navigator.share({
-          title: `${agent.displayName} — Real Estate Agent`,
-          text: `Check out ${agent.displayName}'s profile on Highrise.pk`,
-          url,
-        });
-        return;
-      }
-      await navigator.clipboard.writeText(url);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch {
-      // Share cancelled or clipboard unavailable — silent fail
-    }
-  }, [agent.slug, agent.displayName]);
+  const [shareOpen, setShareOpen] = useState(false);
+
+  const handleShare = useCallback(() => {
+    setShareOpen(true);
+  }, []);
 
   // V6.8.10: Filter properties by active category
   const activeCategoryConfig = PROPERTY_CATEGORIES.find((c) => c.key === activePropertyCategory)
@@ -1301,6 +1289,19 @@ export default function AgentPublicProfilePage({
 
                 {/* Insight Card */}
                 <InsightCard agent={agent} />
+
+                {/* Share Modal */}
+                <ShareMenu
+                  agent={{
+                    slug: agent.slug,
+                    displayName: agent.displayName,
+                    agencyName: agent.agencyName,
+                    city: agent.city,
+                    image: agent.documents?.profilePhoto?.url || agent.agencyLogo?.url,
+                  }}
+                  isOpen={shareOpen}
+                  onClose={() => setShareOpen(false)}
+                />
 
                 {/* ── Contact Section — Enterprise Grade ─────────────────── */}
                 <div>

@@ -9,6 +9,7 @@ import {
   Map as MapIcon, Home, UtensilsCrossed, Heart,
   Building2, TreePine, Star, Car, Share2
 } from 'lucide-react';
+import { getOptimizedImageUrl, getThumbnailUrl } from '@/utils/cloudinaryTransform';
 
 type ExplorerTab = 'media' | 'video' | 'map';
 
@@ -185,7 +186,19 @@ export default function PropertyMediaExplorer({
                 {currentPhoto ? (
                   <>
                     <div className="relative w-full aspect-video bg-black/80 rounded-2xl overflow-hidden border border-white/10 shadow-2xl">
-                      <Image src={currentPhoto.url.replace('/upload/', '/upload/f_auto,q_auto,w_1920/')} alt={currentPhoto.caption ?? 'Photo'} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 70vw" priority />
+                      <Image
+                        src={getOptimizedImageUrl(currentPhoto.url, {
+                          width: 1920,
+                          watermarkScale: 0.14,
+                          watermarkOffsetX: 35,
+                          watermarkOffsetY: 35,
+                        })}
+                        alt={currentPhoto.caption ?? 'Photo'}
+                        fill
+                        className="object-contain"
+                        sizes="(max-width: 1024px) 100vw, 70vw"
+                        priority
+                      />
                       {filteredImages.length > 1 && (
                         <>
                           <button onClick={() => setPhotoIdx((i) => (i - 1 + filteredImages.length) % filteredImages.length)} className="absolute left-3 top-1/2 -translate-y-1/2 p-2.5 rounded-full bg-black/60 text-white hover:bg-black/90 transition-all shadow-lg"><ChevronLeft className="w-5 h-5" /></button>
@@ -197,7 +210,13 @@ export default function PropertyMediaExplorer({
                       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2 pt-2">
                         {filteredImages.map((img, i) => (
                           <button key={i} onClick={() => setPhotoIdx(i)} className={`relative aspect-video rounded-xl overflow-hidden border-2 transition-all ${i === photoIdx ? 'border-[#029bba] scale-[1.02] shadow-lg' : 'border-transparent opacity-60 hover:opacity-100'}`}>
-                            <Image src={img.url.replace('/upload/', '/upload/w_150,h_100,c_fill,q_auto,f_auto/')} alt="" fill className="object-cover" sizes="160px" />
+                            <Image
+                              src={getThumbnailUrl(img.url, 240, 160)}
+                              alt=""
+                              fill
+                              className="object-cover"
+                              sizes="160px"
+                            />
                           </button>
                         ))}
                       </div>

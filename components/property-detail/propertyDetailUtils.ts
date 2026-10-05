@@ -217,23 +217,10 @@ export const normalizePkMobile = (raw: string): string => {
   return digits;
 };
 
-export const getOptimizedImageUrl = (url: string, width = 800): string => {
-  if (!url || !url.includes("cloudinary.com") || !url.includes("/upload/"))
-    return url;
-  const base = `f_auto,q_auto,w_${width}`;
-  const wm =
-    "l_highrise_logo,o_40,w_0.15,fl_relative,g_south_east,x_45,y_45";
-  return url.replace("/upload/", `/upload/${base}/${wm}/`);
-};
-
-export const getThumbnailUrl = (url: string): string => {
-  if (!url || !url.includes("cloudinary.com") || !url.includes("/upload/"))
-    return url;
-  const base = "w_150,h_100,c_fill,q_auto,f_auto";
-  const wm =
-    "l_highrise_logo,o_40,w_0.14,fl_relative,g_south_east,x_25,y_25";
-  return url.replace("/upload/", `/upload/${base}/${wm}/`);
-};
+export {
+  getOptimizedImageUrl,
+  getThumbnailUrl,
+} from "@/utils/cloudinaryTransform";
 
 export const formatPrice = (price: number): string => {
   const p = typeof price === "number" && !isNaN(price) ? price : 0;

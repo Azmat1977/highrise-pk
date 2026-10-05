@@ -26,10 +26,9 @@
   box-sizing: border-box;
 }
 
+/* html scroll-behavior intentionally omitted — Next.js router owns scroll */
 html {
-  /* This is intentionally left blank. The 'scroll-behavior: smooth'
-     was removed to prevent conflicts with the Next.js router,
-     as recommended by the console warning. */
+  scroll-behavior: auto;
 }
 
 body {

@@ -161,43 +161,71 @@ export default function PropertyListingForm({
     setSubmitError(null);
 
     try {
-      // Build API payload (pages/api/properties/index.ts POST contract)
+      // Map furnishing state back to schema enum
+      let mappedFurnishing = "unfurnished";
+      if (form.furnishingStatus === "semi-furnished" || form.furnishingStatus === "semi_furnished") {
+        mappedFurnishing = "semi_furnished";
+      } else if (form.furnishingStatus === "furnished" || form.furnishingStatus === "fully_furnished" || form.furnishingStatus === "fully-furnished") {
+        mappedFurnishing = "fully_furnished";
+      }
+
+      // Prepend featureImage to gallery images array for full parity in HeroGallery
+      let finalImages = [...form.images];
+      if (form.featureImage?.url) {
+        const hasFeatureInGallery = finalImages.some(img => img.url === form.featureImage?.url);
+        if (!hasFeatureInGallery) {
+          finalImages = [
+            { url: form.featureImage.url, public_id: form.featureImage.public_id, caption: "Feature Cover Image" },
+            ...finalImages
+          ];
+        }
+      }
+
+      // Ensure first image is explicitly marked primary
+      if (finalImages.length > 0) {
+        finalImages = finalImages.map((img, idx) => ({
+          ...img,
+          isPrimary: idx === 0
+        }));
+      }
+
+      // Build API payload aligned with Mongoose schema
       const body: Record<string, unknown> = {
         // Type
         propertyType: form.propertyType,
         listingType: form.listingType,
         title: form.title.trim(),
 
-        // Location
+        // Location & Map Parity
         city: form.city,
         society: form.society.trim(),
         phase: form.phase.trim() || undefined,
         block: form.block.trim() || undefined,
         coordinatesRaw: form.coordinatesRaw.trim() || undefined,
-        latitude: form.lat ? Number(form.lat) : undefined,
-        longitude: form.lng ? Number(form.lng) : undefined,
-        lat: form.lat ? Number(form.lat) : undefined,
-        lng: form.lng ? Number(form.lng) : undefined,
+        coordinates: form.lat && form.lng ? {
+          lat: Number(form.lat),
+          lng: Number(form.lng)
+        } : undefined,
 
-        // Size (owner endpoint contract: area + unit)
+        // Size
         area: Number(form.area) || 0,
         unit: form.areaUnit,
-        frontSize: Number(form.frontSize) || undefined,
-        depthSize: Number(form.depthSize) || undefined,
+        plotWidth: Number(form.frontSize) || undefined,
+        plotDepth: Number(form.depthSize) || undefined,
         coveredArea: Number(form.coveredArea) || undefined,
 
         // Details
         bedrooms: Number(form.bedrooms) || undefined,
         bathrooms: Number(form.bathrooms) || undefined,
-        servantQuarters: Number(form.servantQuarters) || undefined,
-        parkings: Number(form.parkings) || undefined,
+        servantQuarterRooms: Number(form.servantQuarters) || undefined,
+        parking: form.parkings || "0",
         floors: Number(form.floors) || undefined,
         floorNumber: Number(form.floorNumber) || undefined,
         propertyAge: Number(form.propertyAge) || undefined,
         facing: form.facing || undefined,
-        cornerPlot: form.isCorner || undefined,
-        boundaryWall: form.boundaryWall || undefined,
-        furnishingStatus: form.furnishingStatus || undefined,
+        isCornerPlot: form.isCorner || undefined,
+        hasBoundaryWall: form.boundaryWall || undefined,
+        furnished: mappedFurnishing,
         possessionStatus: form.possessionStatus,
         amenities: form.amenities,
         nearbyFacilities: form.nearbyFacilities
@@ -205,25 +233,21 @@ export default function PropertyListingForm({
           .map((n) => ({
             name: n.name.trim().slice(0, 100),
             category: n.category || 'other',
-            distance: n.distance.trim() || null,
+            distance: n.distance.trim() || "",
           })),
         isFeaturedRequested: form.isFeaturedRequested === true,
 
-        // Pricing (listing-type conditional)
-        ...(form.listingType === 'full_payment' || form.listingType === 'pre_launch'
-          ? {
-              price: Number(form.price) || 0,
-              priceNegotiable: form.priceNegotiable,
-            }
-          : {}),
-        ...(form.listingType === 'rent'
-          ? {
-              monthlyRent: Number(form.monthlyRent) || 0,
-              securityDeposit: Number(form.securityDeposit) || undefined,
-              advanceMonths: Number(form.advanceMonths) || undefined,
-              utilitiesIncluded: form.utilitiesIncluded,
-            }
-          : {}),
+        // Pricing & Rent Parity
+        price: form.listingType === 'rent' ? (Number(form.monthlyRent) || 0) : (Number(form.price) || 0),
+        priceNegotiable: form.priceNegotiable,
+        rentalDetails: form.listingType === 'rent' ? {
+          monthlyRent: Number(form.monthlyRent) || 0,
+          securityDeposit: Number(form.securityDeposit) || undefined,
+          advanceMonths: Number(form.advanceMonths) || undefined,
+          utilitiesIncluded: form.utilitiesIncluded,
+        } : undefined,
+
+        // Installment Breakdown
         ...(form.listingType === 'installment'
           ? {
               installmentPlan: {
@@ -237,39 +261,45 @@ export default function PropertyListingForm({
             }
           : {}),
 
-        // Utilities
-        electricityStatus: form.electricityStatus || undefined,
-        suiGasStatus: form.suiGasStatus || undefined,
-        waterStatus: form.waterStatus || undefined,
-        sewerageStatus: form.sewerageStatus || undefined,
-        internetReady: form.internetReady,
-        cctvCoverage: form.cctvCoverage,
-        streetLights: form.streetLights,
-        roadCondition: form.roadCondition || undefined,
-        gatedCommunity: form.gatedCommunity,
+        // Infrastructure Utilities
+        infrastructure: {
+          electricityStatus: form.electricityStatus || undefined,
+          gasStatus: form.suiGasStatus || undefined,
+          waterStatus: form.waterStatus || undefined,
+          sewerageStatus: form.sewerageStatus || undefined,
+          internetReady: form.internetReady,
+          cctvCoverage: form.cctvCoverage,
+          streetLights: form.streetLights,
+          roadCondition: form.roadCondition || undefined,
+          gatedCommunity: form.gatedCommunity,
+        },
 
-        // Legal
-        ownershipType: form.ownershipType,
-        fileType: form.fileType || undefined,
-        documentsAvailable: form.documentsAvailable,
-        hasDispute: form.hasDispute,
-        disputeDetails: form.disputeDetails || undefined,
-        taxPaidUpToDate: form.taxPaidUpToDate,
-        societyMembershipRequired: form.societyMembershipRequired,
+        // Legal Schema Alignment
+        legal: {
+          ownershipType: form.ownershipType,
+          fileType: form.fileType || undefined,
+          documentationAvailable: form.documentsAvailable,
+          hasDispute: form.hasDispute,
+          disputeDetails: form.disputeDetails || undefined,
+          taxPaidUpToDate: form.taxPaidUpToDate,
+          societyMembershipRequired: form.societyMembershipRequired,
+        },
 
-        // Media
-        featureImageUrl: form.featureImage?.url,
-        featureImagePublicId: form.featureImage?.public_id,
-        images: form.images,
+        // Media & Images
+        featureImageUrl: form.featureImage?.url || undefined,
+        featureImagePublicId: form.featureImage?.public_id || undefined,
+        images: finalImages,
         videoUrl: form.videoUrl || undefined,
         virtualTourUrl: form.virtualTourUrl || undefined,
         droneVideoUrl: form.droneVideoUrl || undefined,
 
-        // Contact
-        contactPerson: form.contactPerson.trim() || undefined,
-        primaryPhone: form.contactPhone.trim() || undefined,
-        whatsappNumber: form.contactWhatsapp.trim() || undefined,
-        showPhoneOnListing: form.showPhoneOnListing,
+        // Secured Nested Contact Details
+        contactDetails: {
+          personName: form.contactPerson.trim() || undefined,
+          primaryPhone: form.contactPhone.trim() || undefined,
+          whatsappNumber: form.contactWhatsapp.trim() || undefined,
+          showPhoneOnListing: form.showPhoneOnListing,
+        },
 
         // Description
         description: form.description.trim(),

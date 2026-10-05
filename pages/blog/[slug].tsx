@@ -22,7 +22,7 @@ import {
   ChevronUp,
   Mail,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+// react-hot-toast removed in favor of design-system banner
 import TurnstileWidget from '@/components/ui/TurnstileWidget';
 import SubscriptionModal from '@/components/ui/SubscriptionModal';
 
@@ -93,6 +93,13 @@ export default function BlogPostPage() {
   const [activeHeading, setActiveHeading] = useState('');
   const [readingProgress, setReadingProgress] = useState(0);
   const [showBackToTop, setShowBackToTop] = useState(false);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   useEffect(() => {
     if (!slug || typeof slug !== 'string') return;
@@ -108,12 +115,12 @@ export default function BlogPostPage() {
           setRelatedPosts(Array.isArray(data.relatedPosts) ? data.relatedPosts : []);
           setSeoSchema(data.seo || null);
         } else {
-          toast.error('Blog post not found');
+          setBanner({ message: 'Blog post not found', type: 'error' });
           router.push('/blog');
         }
       } catch (error) {
         console.error('Error fetching blog:', error);
-        toast.error('Error loading blog post');
+        setBanner({ message: 'Error loading blog post', type: 'error' });
       } finally {
         setLoading(false);
       }
@@ -184,7 +191,7 @@ export default function BlogPostPage() {
 
     if (platform === 'copy') {
       navigator.clipboard.writeText(url);
-      toast.success('Link copied to clipboard!');
+      setBanner({ message: 'Link copied to clipboard!', type: 'success' });
       return;
     }
 
@@ -327,6 +334,19 @@ export default function BlogPostPage() {
           />
         ) : null}
       </Head>
+
+      {/* Branded Banner Notification */}
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
 
       {/* Reading progress */}
       <div className="fixed top-0 left-0 w-full h-1 bg-transparent z-50">

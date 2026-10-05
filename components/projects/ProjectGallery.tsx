@@ -13,6 +13,7 @@ import {
   Camera,
   ImageOff,
 } from 'lucide-react';
+import ShareMenu from '@/components/projects/ShareMenu';
 
 // ════════════════════════════════════════════════════
 // TYPES
@@ -133,26 +134,29 @@ function Lightbox({
     if (currentIndex < total - 1) onChange(currentIndex + 1);
   }, [currentIndex, total, onChange]);
 
-  const handleShare = useCallback(async () => {
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${projectName} — Gallery`,
-          url:   current.url,
-        });
-      } catch {
-        // User cancelled or share failed
-      }
-    }
-  }, [projectName, current]);
+      const [shareOpen, setShareOpen] = useState(false);
 
-  return (
-    <div
-      className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm
-                 flex flex-col"
-      onClick={onClose}
-    >
-      {/* ── Top bar ── */}
+    const handleShare = useCallback(() => {
+      setShareOpen(true);
+    }, []);
+
+    return (
+      <div
+        className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm
+                   flex flex-col"
+        onClick={onClose}
+      >
+        <ShareMenu
+          project={{
+            _id: '',
+            projectName,
+            slug: '',
+            primaryImage: current?.url || '',
+          } as any}
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
+        {/* ── Top bar ── */}
       <div
         className="flex items-center justify-between px-4 py-3 flex-shrink-0"
         onClick={(e) => e.stopPropagation()}

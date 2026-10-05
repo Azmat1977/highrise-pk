@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Send, Loader2, User, Mail, MessageSquare } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useEffect } from 'react';
 import TurnstileWidget from '@/components/ui/TurnstileWidget';
 
 interface CommentFormProps {
@@ -16,6 +16,13 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
   const [submitting, setSubmitting] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState('');
   const [turnstileKey, setTurnstileKey] = useState(0);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   const handleTurnstileVerify = useCallback((token: string) => setTurnstileToken(token), []);
   const clearTurnstile = useCallback(() => setTurnstileToken(''), []);
@@ -24,33 +31,33 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
     e.preventDefault();
 
     if (!name.trim()) {
-      toast.error('Please enter your name');
+      setBanner({ message: 'Please enter your name', type: 'error' });
       return;
     }
 
     if (!email.trim()) {
-      toast.error('Please enter your email');
+      setBanner({ message: 'Please enter your email', type: 'error' });
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      toast.error('Please enter a valid email address');
+      setBanner({ message: 'Please enter a valid email address', type: 'error' });
       return;
     }
 
     if (!content.trim()) {
-      toast.error('Please enter your comment');
+      setBanner({ message: 'Please enter your comment', type: 'error' });
       return;
     }
 
     if (content.trim().length < 3) {
-      toast.error('Comment must be at least 3 characters');
+      setBanner({ message: 'Comment must be at least 3 characters', type: 'error' });
       return;
     }
 
     if (!turnstileToken) {
-      toast.error('Please complete the bot verification');
+      setBanner({ message: 'Please complete the bot verification', type: 'error' });
       return;
     }
 
@@ -75,9 +82,10 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
       const data = await res.json();
 
       if (data.success) {
-        toast.success(
-          data.message || 'Comment submitted successfully. Awaiting approval.'
-        );
+        setBanner({
+          message: data.message || 'Comment submitted successfully. Awaiting approval.',
+          type: 'success',
+        });
         setName('');
         setEmail('');
         setContent('');
@@ -85,11 +93,11 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
         setTurnstileKey((value) => value + 1);
         onCommentAdded?.();
       } else {
-        toast.error(data.message || 'Failed to submit comment');
+        setBanner({ message: data.message || 'Failed to submit comment', type: 'error' });
       }
     } catch (error) {
       console.error('Comment submit error:', error);
-      toast.error('Failed to submit comment. Please try again.');
+      setBanner({ message: 'Failed to submit comment. Please try again.', type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -173,6 +181,18 @@ export default function CommentForm({ blogSlug, blogId, onCommentAdded }: Commen
             theme="light"
           />
         </div>
+
+        {banner && (
+          <div
+            className={`p-3 rounded-xl text-sm font-semibold ${
+              banner.type === 'success'
+                ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                : 'bg-red-50 text-red-800 border border-red-200'
+            }`}
+          >
+            {banner.message}
+          </div>
+        )}
 
         {/* Submit */}
         <div className="flex justify-end">

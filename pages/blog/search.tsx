@@ -23,7 +23,7 @@ import {
   ArrowRight,
   FileText,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+// react-hot-toast removed in favor of design-system banner
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -168,6 +168,13 @@ export default function BlogSearchPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [showFilters, setShowFilters] = useState(false);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // SYNC URL PARAMS ON MOUNT
@@ -224,11 +231,11 @@ export default function BlogSearchPage() {
         });
         setFilterOptions(data.filterOptions);
       } else {
-        toast.error('Search failed. Please try again.');
+        setBanner({ message: 'Search failed. Please try again.', type: 'error' });
       }
     } catch (error) {
       console.error('Search error:', error);
-      toast.error('Search failed. Please try again.');
+      setBanner({ message: 'Search failed. Please try again.', type: 'error' });
     } finally {
       setIsLoading(false);
     }
@@ -340,6 +347,18 @@ export default function BlogSearchPage() {
         <meta name="robots" content="noindex, follow" />
         <link rel="canonical" href="https://highrise.pk/blog/search" />
       </Head>
+
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
 
       <div className="min-h-screen bg-gray-50">
         {/* ─────────────────────────────────────────────────────────────────── */}

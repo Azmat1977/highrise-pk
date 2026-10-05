@@ -18,7 +18,7 @@ import {
   BadgeCheck,
   Pencil,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+import { useEffect } from 'react';
 import TurnstileWidget from '@/components/ui/TurnstileWidget';
 
 interface Reply {
@@ -103,6 +103,13 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
   const [likeLoading, setLikeLoading] = useState(false);
   const [helpfulLoading, setHelpfulLoading] = useState(false);
   const [reportLoading, setReportLoading] = useState(false);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4000);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   const repliesArray = Array.isArray(comment.replies) ? comment.replies : [];
   const replyCount = Array.isArray(comment.replies) ? comment.replies.length : comment.replies || 0;
@@ -122,10 +129,10 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
         setLikes(data.stats?.likes || 0);
         setDislikes(data.stats?.dislikes || 0);
       } else {
-        toast.error(data.message || 'Failed to update reaction');
+        setBanner({ message: data.message || 'Failed to update reaction', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to update reaction');
+      setBanner({ message: 'Failed to update reaction', type: 'error' });
     } finally {
       setLikeLoading(false);
     }
@@ -146,10 +153,10 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
         setHelpfulVotes(data.stats?.helpfulCount || 0);
         setNotHelpfulVotes(data.stats?.notHelpfulCount || 0);
       } else {
-        toast.error(data.message || 'Failed to update vote');
+        setBanner({ message: data.message || 'Failed to update vote', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to update vote');
+      setBanner({ message: 'Failed to update vote', type: 'error' });
     } finally {
       setHelpfulLoading(false);
     }
@@ -159,18 +166,18 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
     e.preventDefault();
 
     if (!replyName.trim() || !replyEmail.trim() || !replyContent.trim()) {
-      toast.error('Please fill all fields');
+      setBanner({ message: 'Please fill all fields', type: 'error' });
       return;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(replyEmail)) {
-      toast.error('Please enter a valid email');
+      setBanner({ message: 'Please enter a valid email', type: 'error' });
       return;
     }
 
     if (!replyTurnstileToken) {
-      toast.error('Please complete the bot verification');
+      setBanner({ message: 'Please complete the bot verification', type: 'error' });
       return;
     }
 
@@ -193,7 +200,7 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
       const data = await res.json();
 
       if (data.success) {
-        toast.success(data.message || 'Reply posted successfully!');
+        setBanner({ message: data.message || 'Reply posted successfully!', type: 'success' });
         setReplyName('');
         setReplyEmail('');
         setReplyContent('');
@@ -202,10 +209,10 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
         setShowReplyForm(false);
         onUpdate?.();
       } else {
-        toast.error(data.message || 'Failed to post reply');
+        setBanner({ message: data.message || 'Failed to post reply', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to post reply');
+      setBanner({ message: 'Failed to post reply', type: 'error' });
     } finally {
       setSubmittingReply(false);
     }
@@ -223,13 +230,13 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
       const data = await res.json();
 
       if (data.success) {
-        toast.success('Thank you for reporting. We will review this comment.');
+        setBanner({ message: 'Thank you for reporting. We will review this comment.', type: 'success' });
         setShowReportModal(false);
       } else {
-        toast.error(data.message || 'Failed to report');
+        setBanner({ message: data.message || 'Failed to report', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to report comment');
+      setBanner({ message: 'Failed to report comment', type: 'error' });
     } finally {
       setReportLoading(false);
     }
@@ -247,6 +254,18 @@ export default function CommentCard({ comment, onUpdate }: CommentCardProps) {
           : 'border-gray-200'
       }`}
     >
+      {banner && (
+        <div
+          className={`mb-3 p-2.5 rounded-lg text-xs font-semibold ${
+            banner.type === 'success'
+              ? 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+              : 'bg-red-50 text-red-800 border border-red-200'
+          }`}
+        >
+          {banner.message}
+        </div>
+      )}
+
       {/* Top badges */}
       <div className="flex flex-wrap items-center gap-2 mb-3">
         {comment.isPinned && (

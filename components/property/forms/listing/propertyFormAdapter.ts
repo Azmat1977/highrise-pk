@@ -51,7 +51,7 @@ export function propertyToListingFormState(property: any): ListingFormState {
     facing: property.facing || "",
     isCorner: Boolean(property.isCornerPlot || property.isCorner),
     boundaryWall: Boolean(property.hasBoundaryWall || property.boundaryWall),
-    furnishingStatus: property.furnished || property.furnishingStatus || "unfurnished",
+    furnishingStatus: property.furnished === "semi_furnished" ? "semi-furnished" : property.furnished === "fully_furnished" ? "furnished" : "unfurnished",
     possessionStatus: property.possessionStatus || "ready",
     amenities: amenitiesList,
     nearbyFacilities: Array.isArray(property.nearbyFacilities)
