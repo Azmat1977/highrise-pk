@@ -182,24 +182,25 @@ async function fetchPois(
   const filters = categories
     .flatMap((cat) =>
       OVERPASS_QUERIES[cat].map(({ tag, value }) =>
-        `node["${tag}"${value ? `="${value}"` : ''}](around:${radius},${lat},${lng});`
+        // Use 'nwr' (Nodes, Ways, Relations) to capture buildings/polygons, not just single points
+        `nwr["${tag}"${value ? `="${value}"` : ''}](around:${radius},${lat},${lng});`
       )
     )
     .join('');
 
-  // Compact query: shorter server timeout, fewer elements, no meta
-  const query = `[out:json][timeout:10];(${filters});out center 60;`;
+  // Increased timeout and result limit (150) to handle rich polygonal data
+  const query = `[out:json][timeout:15];(${filters});out center 150;`;
 
   // Parallel mirror RACE — first success wins, others aborted.
-  // (Serial fallback could hang 75s+ when the primary mirror queues.)
+  // Using official high-availability clusters to prevent discovery failures
   const mirrors = [
     'https://overpass-api.de/api/interpreter',
-    'https://overpass.kumi.systems/api/interpreter',
-    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    'https://lz4.overpass-api.de/api/interpreter',
+    'https://z.overpass-api.de/api/interpreter',
   ];
 
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 12000); // hard 12s cap
+  const timeout = setTimeout(() => controller.abort(), 15000); // 15s cap to accommodate complex queries
 
   const attempts = mirrors.map(async (mirror, i) => {
     // Stagger 300ms per mirror — de-primary usually wins, race still fast
@@ -219,13 +220,16 @@ async function fetchPois(
   try {
     data = await Promise.any(attempts); // first success
   } catch (err: unknown) {
-    lastError = err instanceof Error ? err : new Error('All mirrors failed');
+    // Promise.any throws an AggregateError if all fail.
+    lastError = new Error('All discovery servers failed to respond');
   } finally {
     clearTimeout(timeout);
     controller.abort(); // kill stragglers
   }
 
-  if (!data) throw lastError ?? new Error('Overpass failed');
+  if (!data || !data.elements) {
+    throw lastError ?? new Error('Overpass failed or returned empty data');
+  }
 
   const pois: DiscoveredPOI[] = [];
   for (const el of data.elements ?? []) {

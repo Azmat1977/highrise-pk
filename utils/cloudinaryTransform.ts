@@ -64,13 +64,18 @@ export function getOptimizedImageUrl(
     let watermarkSegment = "";
 
     if (showWatermark) {
-      const opacity = opts.watermarkOpacity ?? 85;
-      const scale = opts.watermarkScale ?? (width <= 400 ? 0.20 : 0.16);
+      const opacity = opts.watermarkOpacity ?? 75; // Optimal enterprise transparency
+      
+      // Calculate absolute pixels to avoid fl_relative calculation bugs
+      const scaleRatio = opts.watermarkScale ?? (width <= 400 ? 0.24 : 0.16);
+      const wmWidth = Math.round(width * scaleRatio);
       const offsetX = opts.watermarkOffsetX ?? (width <= 400 ? 12 : 24);
       const offsetY = opts.watermarkOffsetY ?? (width <= 400 ? 12 : 24);
 
-      // Clean authentic brand watermark overlay -- exact 24px corner offset
-      watermarkSegment = `l_highrise_logo,o_${opacity},w_${scale},fl_relative,g_south_east,x_${offsetX},y_${offsetY}`;
+      // 1. e_replace_color:ffffff:90:003d5b -> High tolerance (90) turns dark navy text into solid pure white
+      // 2. e_grayscale -> Turns the teal 3D spires into sleek grey
+      // 3. Absolute pixels (w_XXX, x_24, y_24) guarantee zero truncation
+      watermarkSegment = `l_highrise_logo,e_replace_color:ffffff:90:003d5b,e_grayscale,o_${opacity},w_${wmWidth},g_south_east,x_${offsetX},y_${offsetY}`;
     }
 
     const baseStr = baseTransforms.join(",");
