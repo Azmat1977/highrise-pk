@@ -65,12 +65,14 @@ export function getOptimizedImageUrl(
     let watermarkSegment = "";
 
     if (showWatermark) {
-      const opacity = opts.watermarkOpacity ?? 40;
+      const opacity = opts.watermarkOpacity ?? 85;
       const scale = opts.watermarkScale ?? 0.15;
       const offsetX = opts.watermarkOffsetX ?? 0.03; // 3% relative padding
       const offsetY = opts.watermarkOffsetY ?? 0.03; // 3% relative padding
 
-      watermarkSegment = `l_highrise_logo,e_colorize:100,co_rgb:ffffff,o_80,w_${scale},fl_relative,g_south_east,x_${offsetX},y_${offsetY}`;
+      // Target-replace dark navy text (#003d5b) with white (#ffffff)
+      // Preserves original blue/teal building spires while making text bright white
+      watermarkSegment = `l_highrise_logo,e_replace_color:ffffff:45:003d5b,o_${opacity},w_${scale},fl_relative,g_south_east,x_${offsetX},y_${offsetY}`;
     }
 
     const baseStr = baseTransforms.join(",");
