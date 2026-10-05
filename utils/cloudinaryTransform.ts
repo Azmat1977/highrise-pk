@@ -70,7 +70,7 @@ export function getOptimizedImageUrl(
       const offsetX = opts.watermarkOffsetX ?? 0.03; // 3% relative padding
       const offsetY = opts.watermarkOffsetY ?? 0.03; // 3% relative padding
 
-      watermarkSegment = `l_highrise_logo,o_${opacity},w_${scale},fl_relative,g_south_east,x_${offsetX},y_${offsetY}`;
+      watermarkSegment = `l_highrise_logo,e_colorize:100,co_rgb:ffffff,o_80,w_${scale},fl_relative,g_south_east,x_${offsetX},y_${offsetY}`;
     }
 
     const baseStr = baseTransforms.join(",");

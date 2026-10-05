@@ -351,21 +351,20 @@ export default function NearbyPlacesExplorer({
       maxZoom: 19,
     }).addTo(map);
 
-    // Classic location marker (teardrop pin) — Google-style, brand teal
-    const projectIcon = L.divIcon({
-      className: '',
-      html: `<div style="position:relative;width:26px;height:34px;">
-        <svg viewBox="0 0 24 34" width="26" height="34"
-             style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3));pointer-events:none;">
-          <path d="M12 1C6 1 1.5 5.5 1.5 11.5c0 7 10.5 21.5 10.5 21.5S22.5 18.5 22.5 11.5C22.5 5.5 18 1 12 1z"
-                fill="#029bba" stroke="#ffffff" stroke-width="1.5"/>
-          <circle cx="12" cy="11.5" r="4" fill="#ffffff"/>
-        </svg>
-      </div>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 30], // tip at exact coordinate; shorter size
-                               // prevents bottom clipping in zoomed viewports
-    });
+      // Classic location marker (teardrop pin) — Google-style, brand teal
+      const projectIcon = L.divIcon({
+        className: 'custom-project-pin',
+        html: `<div style="position:relative;width:32px;height:42px;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 34" width="32" height="42"
+               style="filter:drop-shadow(0 3px 6px rgba(0,0,0,0.4));pointer-events:none;overflow:visible;">
+            <path d="M12 1C6 1 1.5 5.5 1.5 11.5c0 7 10.5 21.5 10.5 21.5S22.5 18.5 22.5 11.5C22.5 5.5 18 1 12 1z"
+                  fill="#029bba" stroke="#ffffff" stroke-width="1.8"/>
+            <circle cx="12" cy="11.5" r="4" fill="#ffffff"/>
+          </svg>
+        </div>`,
+        iconSize: [32, 42],
+        iconAnchor: [16, 42], // tip at exact coordinate
+      });
     L.marker([projectLat, projectLng], { icon: projectIcon, zIndexOffset: 1000 })
       .addTo(map)
       .bindTooltip(projectName, {
