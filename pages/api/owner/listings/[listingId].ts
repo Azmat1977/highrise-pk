@@ -99,12 +99,37 @@ export default async function handler(
       }
 
       const allowed = [
-        "title", "propertyType", "propertyCategory", "residentialType",
+        "title", "propertyType", "propertyCategory", "propertySubtype",
         "listingType", "listingPurpose", "price", "priceNegotiable",
         "area", "unit", "city", "society", "phase", "block",
         "bedrooms", "bathrooms", "description", "images",
         "contactDetails", "amenities", "nearbyFacilities",
-        "location", "possessionStatus",
+        "possessionStatus",
+
+        // Built Specs
+        "coveredArea", "frontSize", "depthSize", "totalFloors", "floors",
+        "floorNumber", "propertyAge", "facing", "cornerPlot", "boundaryWall",
+        "furnished", "furnishingStatus", "parking", "parkings", "servantQuarters",
+
+        // Financials (Installments + Rent)
+        "monthlyRent", "securityDeposit", "advanceMonths", "utilitiesIncluded",
+        "installmentPlan", "booking", "downPayment", "possession",
+
+        // Utilities
+        "electricityStatus", "suiGasStatus", "waterStatus", "sewerageStatus",
+        "internetReady", "cctvCoverage", "streetLights", "roadCondition",
+        "gatedCommunity",
+
+        // Legal
+        "ownershipType", "fileType", "documentsAvailable", "hasDispute",
+        "disputeDetails", "taxPaidUpToDate", "societyMembershipRequired",
+
+        // Media
+        "featureImageUrl", "featureImagePublicId", "videoUrl", "virtualTourUrl",
+        "droneVideoUrl",
+
+        // Contact Base fallback
+        "contactPerson", "contactPhone", "contactWhatsapp", "showPhoneOnListing",
       ];
 
       const body = req.body as Record<string, unknown>;

@@ -30,10 +30,18 @@ const STEPS = [
   { id: 4, label: 'Legal & Media', icon: FileText },
 ] as const;
 
-export default function PropertyListingForm(): React.ReactElement {
+interface PropertyListingFormProps {
+  editId?: string;
+  initialState?: ListingFormState | null;
+}
+
+export default function PropertyListingForm({
+  editId,
+  initialState,
+}: PropertyListingFormProps): React.ReactElement {
   const router = useRouter();
 
-  const [form, setForm] = useState<ListingFormState>(INITIAL_STATE);
+  const [form, setForm] = useState<ListingFormState>(initialState || INITIAL_STATE);
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -267,11 +275,17 @@ export default function PropertyListingForm(): React.ReactElement {
         description: form.description.trim(),
       };
 
-      // Owner-specific endpoint (draft + limit + approval flow)
-      const res = await fetch('/api/owner/listings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
+      // Determine endpoint and method (POST vs PATCH edit mode)
+      const url = editId
+        ? `/api/owner/listings/${encodeURIComponent(editId)}`
+        : "/api/owner/listings";
+
+      const method = editId ? "PATCH" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(body),
       });
 
@@ -284,17 +298,18 @@ export default function PropertyListingForm(): React.ReactElement {
       };
 
       if (!res.ok || data.success === false) {
-        let errMessage = data.message || data.error || 'Failed to create listing. Please try again.';
+        let errMessage = data.message || data.error || "Failed to save listing. Please try again.";
         if (Array.isArray(data.details) && data.details.length > 0) {
-          errMessage += ` (${data.details.join(' | ')})`;
+          errMessage += ` (${data.details.join(" | ")})`;
         }
         setSubmitError(errMessage);
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        window.scrollTo({ top: 0, behavior: "smooth" });
         return;
       }
 
-      // Success → redirect to my listings
-      router.push('/owner/listings?created=success');
+      // Success -> redirect with correct query token
+      const queryParam = editId ? "updated=success" : "created=success";
+      router.push(`/owner/listings?${queryParam}`);
     } catch {
       setSubmitError('Network error. Please try again.');
     } finally {
@@ -324,10 +339,12 @@ export default function PropertyListingForm(): React.ReactElement {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl md:text-3xl font-bold text-[#004063]">
-          Create Property Listing
+          {editId ? "Edit Property Listing" : "Create Property Listing"}
         </h1>
         <p className="mt-2 text-sm text-gray-500">
-          List any property type — houses, plots, shops, offices, farmland, rentals
+          {editId 
+            ? "Modify your property listing specs, pricing details, and media files."
+            : "List any property type — houses, plots, shops, offices, farmland, rentals"}
         </p>
 
         {/* Progress bar */}
@@ -432,12 +449,12 @@ export default function PropertyListingForm(): React.ReactElement {
               {submitting ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Submitting...
+                  Saving changes...
                 </>
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  Submit Listing
+                  {editId ? "Update Listing" : "Submit Listing"}
                 </>
               )}
             </button>
