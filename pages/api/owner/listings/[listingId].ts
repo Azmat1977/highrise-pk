@@ -86,16 +86,21 @@ export default async function handler(
         return;
       }
 
-      // Draft AND Pending listings can be edited by owner
-      if (
-        !isAdmin &&
-        property.verification?.status !== "draft" &&
-        property.verification?.status !== "pending"
-      ) {
-        res.status(403).json({
-          error: "This listing is already under review or published. Contact support to modify it.",
-        });
-        return;
+      // Check lifecycle lock
+      const currentVerStatus = property.verification?.status || "draft";
+      if (!isAdmin) {
+        if (currentVerStatus === "under_review") {
+          res.status(403).json({
+            error: "This listing is currently under review by our moderation team and cannot be edited until the review is complete.",
+          });
+          return;
+        }
+        if (currentVerStatus === "flagged") {
+          res.status(403).json({
+            error: "This listing has been flagged and is locked from editing. Please contact support.",
+          });
+          return;
+        }
       }
 
       const allowed = [
@@ -140,12 +145,36 @@ export default async function handler(
         }
       }
 
+      // If owner edits a verified or rejected listing, transition back to pending for re-moderation
+      if (!isAdmin) {
+        if (currentVerStatus === "verified" || currentVerStatus === "rejected") {
+          if (!property.verification) {
+            property.verification = { status: "pending", submittedAt: new Date() };
+          } else {
+            property.verification.status = "pending";
+            property.verification.submittedAt = new Date();
+          }
+          property.markModified("verification");
+        }
+      }
+
+      // Ensure nested sub-documents are recognized as modified by Mongoose
+      if (body.coordinates) property.markModified("coordinates");
+      if (body.contactDetails) property.markModified("contactDetails");
+      if (body.infrastructure) property.markModified("infrastructure");
+      if (body.legal) property.markModified("legal");
+      if (body.rentalDetails) property.markModified("rentalDetails");
+      if (body.installmentPlan) property.markModified("installmentPlan");
+      if (body.images) property.markModified("images");
+      if (body.nearbyFacilities) property.markModified("nearbyFacilities");
+      if (body.amenities) property.markModified("amenities");
+
       property.updatedBy = new mongoose.Types.ObjectId(auth.id);
       await property.save();
 
       res.status(200).json({
         success:  true,
-        message:  "Listing updated",
+        message:  "Listing updated successfully",
         property: {
           _id:  property._id,
           slug: property.slug,
@@ -179,6 +208,11 @@ export default async function handler(
 
     res.status(405).json({ error: "Method not allowed" });
   } catch (err: unknown) {
-    res.status(500).json({ error: "Internal server error" });
+    console.error("[API Error - Owner Listing Update]:", err);
+    res.status(500).json({ 
+      success: false,
+      error: "Internal server error", 
+      details: err instanceof Error ? [err.message] : [] 
+    });
   }
 }
