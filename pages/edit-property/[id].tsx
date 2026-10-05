@@ -57,12 +57,16 @@ export default function EditPropertyPage(): React.ReactElement {
         }
 
         const rawProperty = data.property as Record<string, any>;
-        const status = typeof rawProperty?.status === "string" ? rawProperty.status : "draft";
+        const verStatus = rawProperty?.verification?.status || "draft";
 
-        // Under review safety lock
-        if (status === "pending") {
+        // Lock editing only if under active moderation review or flagged
+        if (verStatus === "under_review" || verStatus === "flagged") {
           if (!cancelled) {
-            setError("This property is currently under review. Editing is temporarily locked.");
+            setError(
+              verStatus === "flagged"
+                ? "This property has been flagged and is locked from editing. Please contact support."
+                : "This property is currently under active review by our moderation team. Editing is temporarily locked until review is complete."
+            );
           }
           return;
         }
@@ -70,8 +74,10 @@ export default function EditPropertyPage(): React.ReactElement {
         if (!cancelled) {
           setInitialForm(propertyToListingFormState(data.property));
           setVerification({
-            status,
-            rejectionReason: typeof rawProperty?.rejectionReason === "string" ? rawProperty.rejectionReason : null,
+            status: verStatus,
+            rejectionReason: typeof rawProperty?.verification?.rejectionReason === "string" 
+              ? rawProperty.verification.rejectionReason 
+              : null,
           });
         }
       } catch (err: unknown) {
