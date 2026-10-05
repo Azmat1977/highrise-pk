@@ -34,37 +34,7 @@ import {
 } from 'lucide-react';
 
 import { useCompare } from '@/hooks/useCompare';
-// import { getOptimizedImageUrl } from "@/utils/cloudinaryTransform"; // Replaced with local version to fix URL bug
-
-// ✅ Local, corrected version to fix Cloudinary 400 error
-const getOptimizedImageUrl = (
-  url: string,
-  options?: { width?: number; watermark?: boolean }
-) => {
-  if (!url) return url;
-
-  if (url.includes('cloudinary.com') && url.includes('/upload/')) {
-    const doWatermark = options?.watermark !== false;
-    const width = options?.width || 800;
-
-    const transformations: string[] = ['f_auto', 'q_auto', `w_${width}`];
-
-    if (doWatermark) {
-      transformations.push(
-        'l_highrise_logo',
-        'o_40',
-        'w_0.18',
-        'fl_relative',
-        'g_south_east',
-        'x_20',
-        'y_20'
-      );
-    }
-    return url.replace('/upload/', `/upload/${transformations.join(',')}/`);
-  }
-
-  return url;
-};
+import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 
 // ============================================
 // Types (Enterprise: tolerate IdLike drift)
