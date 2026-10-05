@@ -1,12 +1,8 @@
 // File: components/property-detail/PropertyAmenities.tsx
-// Amenities and Features card with categorized icon chips
+// Amenities and Features card with categorized icon chips from universal registry
 
 import React from "react";
-import { CheckCircle } from "lucide-react";
-import {
-  AMENITY_ICONS,
-  AmenityGroup,
-} from "./propertyDetailUtils";
+import { icons, amenityIcons, AmenityGroup } from "@/lib/design-system/icons";
 
 interface PropertyAmenitiesProps {
   amenities?: string[];
@@ -35,11 +31,11 @@ export default function PropertyAmenities({
   };
 
   amenities.forEach((id) => {
-    const def = AMENITY_ICONS[id];
+    const def = amenityIcons[id];
     if (def) {
       grouped[def.group].push({ id, Icon: def.icon, label: def.label });
     } else {
-      grouped.other.push({ id, Icon: CheckCircle, label: humanize(id) });
+      grouped.other.push({ id, Icon: icons.CheckCircle, label: humanize(id) });
     }
   });
 
@@ -67,14 +63,19 @@ export default function PropertyAmenities({
   return (
     <div
       id="amenities"
-      className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
+      className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
     >
-      <h2 className="text-lg font-semibold text-[#004063] mb-4 flex items-center gap-2">
-        <CheckCircle className="w-5 h-5 text-[#029bba]" />
-        Amenities &amp; Features
-      </h2>
+      <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-[#004063] flex items-center gap-2">
+          <icons.CheckCircle className="w-5 h-5 text-[#029bba]" />
+          Amenities &amp; Features
+        </h2>
+        <span className="text-xs font-semibold text-gray-500">
+          {amenities.length} {amenities.length === 1 ? 'Feature' : 'Features'}
+        </span>
+      </div>
 
-      <div>
+      <div className="p-6">
         {renderGroup("interior", "Interior")}
         {renderGroup("exterior", "Exterior")}
         {renderGroup("building", "Building")}

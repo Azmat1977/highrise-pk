@@ -1,6 +1,6 @@
 // File: pages/property/[slug].tsx
-// ISR public property detail page — canonical slug-based URL
-// Refactored Thin Page Orchestrator (< 400 lines)
+// ISR public property detail page -- canonical slug-based URL
+// Refactored Thin Page Orchestrator with Full-Width Section Parity
 
 import React, {
   useState,
@@ -57,24 +57,11 @@ import {
   extractVideoId,
 } from "@/components/property-detail/propertyDetailUtils";
 
-import {
-  Home,
-  ChevronRight,
-  CheckCircle,
-  X,
-  LayoutGrid,
-  CreditCard,
-  Receipt,
-  Banknote,
-  Info,
-  MapPin,
-  Map,
-  FileText,
-  Play,
-  Phone,
-} from "lucide-react";
+import { icons } from "@/lib/design-system/icons";
 
-// ─── Interfaces ───────────────────────────────────────────────────────────────
+// ----------------------------------------------------------------------------
+// Interfaces
+// ----------------------------------------------------------------------------
 
 interface PropertyOwner {
   _id: string;
@@ -202,7 +189,7 @@ type InquiryLeadType = "project_interest" | "call_back" | "site_visit" | "genera
 function CopyBanner({ message, onDismiss }: { message: string; onDismiss: () => void }): React.ReactElement {
   return (
     <div className="fixed bottom-24 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-3 px-5 py-3 rounded-xl bg-[#004063] text-white text-sm font-medium shadow-xl animate-fadeIn">
-      <CheckCircle className="w-4 h-4 text-[#10b981] flex-shrink-0" />
+      <icons.CheckCircle className="w-4 h-4 text-[#10b981] flex-shrink-0" />
       {message}
       <button
         type="button"
@@ -210,7 +197,7 @@ function CopyBanner({ message, onDismiss }: { message: string; onDismiss: () => 
         className="ml-2 text-white/60 hover:text-white transition-colors"
         aria-label="Dismiss"
       >
-        <X className="w-4 h-4" />
+        <icons.X className="w-4 h-4" />
       </button>
     </div>
   );
@@ -409,7 +396,7 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
           baseAmount: basePrice,
           disclaimer: tc.hiddenChargesDisclosed
             ? "Seller has disclosed all known charges. Final amounts may vary based on society rules."
-            : "Estimates only — final amounts depend on society and government rules at transfer.",
+            : "Estimates only -- final amounts depend on society and government rules at transfer.",
           items,
         });
       } catch (err: unknown) {
@@ -436,7 +423,7 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
       propertyType: property.propertyType,
       viewedAt: new Date().toISOString(),
     });
-  }, [property?._id]);
+  }, [property?._id, property?.slug, property?.title, property?.price, property?.city, property?.images, property?.propertyType]);
 
   const openExplorer = useCallback((tab: "media" | "video" | "map", photoIdx = 0) => {
     setExplorerTab(tab);
@@ -478,18 +465,18 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
   const jumpLinks = useMemo(() => {
     if (!property) return [];
     const links: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-      { id: "overview", label: "Overview", icon: LayoutGrid },
+      { id: "overview", label: "Overview", icon: icons.LayoutGrid },
     ];
-    if (isInstallment) links.push({ id: "payment-plan", label: "Payment Plan", icon: CreditCard });
-    if (trueCostLoading || !!trueCostBreakdown) links.push({ id: "true-cost", label: "True Cost", icon: Receipt });
+    if (isInstallment) links.push({ id: "payment-plan", label: "Payment Plan", icon: icons.CreditCard });
+    if (trueCostLoading || !!trueCostBreakdown) links.push({ id: "true-cost", label: "True Cost", icon: icons.Receipt });
     const hasCharges = !!trueCostBreakdown || trueCostLoading || !!property.extraCharges || !!property.possessionCharges || !!property.transferCharges || !!property.governmentTaxes;
-    if (hasCharges && !isRent) links.push({ id: "charges", label: "Charges", icon: Banknote });
-    links.push({ id: "details", label: "Details", icon: Info });
-    links.push({ id: "location", label: "Location", icon: MapPin });
-    if (property.amenities?.length) links.push({ id: "amenities", label: "Amenities", icon: CheckCircle });
-    links.push({ id: "description", label: "Description", icon: FileText });
-    if (property.videoUrl) links.push({ id: "video-section", label: "Video", icon: Play });
-    links.push({ id: "contact", label: "Contact", icon: Phone });
+    if (hasCharges && !isRent) links.push({ id: "charges", label: "Charges", icon: icons.Banknote });
+    links.push({ id: "details", label: "Details", icon: icons.Info });
+    links.push({ id: "location", label: "Location", icon: icons.MapPin });
+    if (property.amenities?.length) links.push({ id: "amenities", label: "Amenities", icon: icons.CheckCircle });
+    links.push({ id: "description", label: "Description", icon: icons.FileText });
+    if (property.videoUrl) links.push({ id: "video-section", label: "Video", icon: icons.Play });
+    links.push({ id: "contact", label: "Contact", icon: icons.Phone });
     return links;
   }, [property, isInstallment, isRent, trueCostLoading, trueCostBreakdown]);
 
@@ -564,7 +551,7 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
           <meta name="robots" content="noindex, nofollow" />
         </Head>
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center max-w-md w-full">
-          <Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+          <icons.Home className="w-16 h-16 text-gray-300 mx-auto mb-4" />
           <h2 className="text-xl font-bold text-[#004063] mb-2">Property Not Found</h2>
           <p className="text-[#666666] mb-6">{error || "This property does not exist or has been removed."}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -581,7 +568,7 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
   }
 
   const contactCardNode = (
-    <div className="space-y-6">
+    <div className="space-y-6 w-full">
       <UniversalContactCard
         entityType="property"
         entityId={getCleanPropertyId(property)}
@@ -589,6 +576,7 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
         actorName={property.listingActor?.displayName ?? "Property Seller"}
         actorRole={property.listingActor?.label ?? "Seller"}
         actorImage={property.listingActor?.profileImageUrl}
+        brandLogo="/images/logo.png"
         isVerified={!!property.listingActor?.verified}
       />
       <SafeDealSidebarCard />
@@ -638,28 +626,28 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
           {/* Breadcrumbs */}
           <nav aria-label="Breadcrumb" className="flex items-center gap-1.5 text-xs text-gray-500 overflow-x-auto scrollbar-hide mb-4">
             <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 transition-colors flex-shrink-0">
-              <Home className="w-3.5 h-3.5" />
+              <icons.Home className="w-3.5 h-3.5" />
               <span>Home</span>
             </Link>
-            <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <icons.ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
             <Link href="/properties" className="hover:text-[#029bba] transition-colors flex-shrink-0">
               Properties
             </Link>
             {property.city && (
               <>
-                <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+                <icons.ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
                 <Link href={`/properties?city=${encodeURIComponent(property.city)}`} className="hover:text-[#029bba] transition-colors flex-shrink-0">
                   {property.city}
                 </Link>
               </>
             )}
-            <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
+            <icons.ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
             <span className="font-semibold text-gray-900 truncate max-w-[200px] sm:max-w-[300px]">
               {property.title}
             </span>
           </nav>
 
-          {/* Hero Gallery Component */}
+          {/* Hero Gallery Component (Full-Width 1120px) */}
           <PropertyHeroGallery
             images={property.images}
             title={property.title}
@@ -678,10 +666,10 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
             openExplorer={openExplorer}
           />
 
-          {/* Two-Column Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column (Details) */}
-            <div className="lg:col-span-2 space-y-6 min-w-0">
+          {/* TWO-COLUMN GRID (Content + 340px Natural Scroll Sidebar) */}
+          <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_340px] gap-6">
+            {/* Left Column (Paired with Sidebar) */}
+            <div className="space-y-6 min-w-0">
               <PropertyOverviewHeader
                 title={property.title}
                 price={property.price}
@@ -739,28 +727,46 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
                 ownershipType={property.ownershipType}
                 isCommercial={isCommercial}
               />
-
-              <PropertyLocationInsights property={property} fullLocation={fullLocation} heroMapUrl={heroMapUrl} />
-
-              <PropertyAmenities amenities={property.amenities} />
-
-              <PropertyVideo videoInfo={videoInfo} />
-
-              <PropertyMetaInfo createdAt={property.createdAt} views={property.views} propertyId={property._id} />
-
-              <SimilarProperties
-                currentProperty={{
-                  _id: property._id,
-                  city: property.city,
-                  propertyType: property.propertyType,
-                  listingType: property.listingType,
-                }}
-              />
             </div>
 
-            {/* Right Column (Natural Scroll Unified Stack) */}
-            <div className="relative min-w-0">
+            {/* Right Column (Locked 340px Sidebar Stack) */}
+            <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
               {contactCardNode}
+            </div>
+          </div>
+
+          {/* FULL-WIDTH SECTIONS (Stretches across 1120px after Sidebar Ends) */}
+          <div className="mt-8 lg:mt-12 space-y-8 lg:space-y-12">
+            <PropertyLocationInsights property={property} fullLocation={fullLocation} heroMapUrl={heroMapUrl} />
+
+            <PropertyAmenities amenities={property.amenities} />
+
+            <PropertyVideo videoInfo={videoInfo} />
+
+            <PropertyMetaInfo createdAt={property.createdAt} views={property.views} propertyId={property._id} />
+
+            <SimilarProperties
+              currentProperty={{
+                _id: property._id,
+                city: property.city,
+                propertyType: property.propertyType,
+                listingType: property.listingType,
+              }}
+            />
+          </div>
+        </div>
+
+        {/* FULL-WIDTH BOTTOM SAFETY DISCLAIMER (Project Page Parity) */}
+        <div className="bg-amber-50 border-t border-amber-100 mt-12">
+          <div className="max-w-6xl mx-auto px-4 py-5">
+            <div className="flex items-start gap-3">
+              <icons.Shield className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-700">
+                <strong className="text-amber-800">Disclaimer:</strong>{" "}
+                Highrise.pk verifies listing details to the best of our ability. We strongly recommend
+                visiting the property site, verifying documents independently, and consulting legal counsel
+                before any financial commitment.
+              </p>
             </div>
           </div>
         </div>
@@ -809,7 +815,7 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
               className="absolute top-4 right-4 z-10 w-8 h-8 flex items-center justify-center rounded-full bg-gray-100 hover:bg-gray-200 text-[#666666] transition-colors"
               aria-label="Close"
             >
-              <X className="w-4 h-4" />
+              <icons.X className="w-4 h-4" />
             </button>
             <div className="pt-8">
               <LoginOrSignupForm
