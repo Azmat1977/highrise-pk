@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import AdminLayout from "@/components/admin/AdminLayout";
-import { toast } from "react-hot-toast";
 import {
   CheckCircle2,
   Mail,
@@ -204,6 +203,13 @@ export default function InquiryDetailPage() {
 
   const [inquiry, setInquiry] = useState<Inquiry | null>(null);
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [error, setError] = useState("");
   const [editMode, setEditMode] = useState(false);
   const [formData, setFormData] = useState({
@@ -325,11 +331,11 @@ export default function InquiryDetailPage() {
         setEditMode(false);
         await fetchInquiry();
       } else {
-        toast.error(data.error || "Failed to update inquiry.");
+        setBanner({ message: data.error || "Failed to update inquiry.", type: "error" });
       }
     } catch (err) {
       console.error("Error updating inquiry:", err);
-      toast.error("Failed to update inquiry. Please try again.");
+      setBanner({ message: "Failed to update inquiry. Please try again.", type: "error" });
     }
   };
 
@@ -381,10 +387,10 @@ Warm regards,
     navigator.clipboard
       .writeText(emailTemplate)
       .then(() => {
-        toast.success(
-          "Professional email template copied. Paste it into your email client.",
-          { duration: 5000 }
-        );
+        setBanner({
+          message: "Professional email template copied. Paste it into your email client.",
+          type: "success"
+        });
       })
       .catch(() => {
         const textArea = document.createElement("textarea");
@@ -393,10 +399,10 @@ Warm regards,
         textArea.select();
         document.execCommand("copy");
         document.body.removeChild(textArea);
-        toast.success(
-          "Email template copied. Paste it into your email client.",
-          { duration: 5000 }
-        );
+        setBanner({
+          message: "Email template copied. Paste it into your email client.",
+          type: "success"
+        });
       });
   };
 
@@ -404,7 +410,7 @@ Warm regards,
     if (!inquiry) return;
 
     if (newStatus === inquiry.status) {
-      toast("Status is already up to date.", { icon: "ℹ️" });
+      setBanner({ message: "Status is already up to date.", type: "success" });
       return;
     }
 
@@ -453,21 +459,22 @@ Warm regards,
         });
       } else {
         console.error("API Error:", data);
-        toast.error(
-          data.error || data.message || "Failed to update status."
-        );
+        setBanner({
+          message: data.error || data.message || "Failed to update status.",
+          type: "error"
+        });
         await fetchInquiry();
       }
     } catch (err) {
       console.error("Status update error:", err);
-      toast.error("Failed to update status. Please try again.");
+      setBanner({ message: "Failed to update status. Please try again.", type: "error" });
       await fetchInquiry();
     }
   };
 
   const sendEmailToCustomer = async () => {
     if (!inquiry || !emailData.subject || !emailData.message) {
-      toast.error("Please enter both subject and message before sending.");
+      setBanner({ message: "Please enter both subject and message before sending.", type: "error" });
       return;
     }
 
@@ -501,17 +508,17 @@ Warm regards,
         });
         await fetchInquiry();
       } else {
-        toast.error(
-          data.message ||
-            data.error ||
-            "Failed to send email. Please try again."
-        );
+        setBanner({
+          message: data.message || data.error || "Failed to send email. Please try again.",
+          type: "error"
+        });
       }
     } catch (err) {
       console.error("Email send error:", err);
-      toast.error(
-        "Failed to send email. Please check your connection and try again."
-      );
+      setBanner({
+        message: "Failed to send email. Please check your connection and try again.",
+        type: "error"
+      });
     } finally {
       setSendingEmail(false);
     }
@@ -611,6 +618,17 @@ Best regards,`,
 
   return (
     <AdminLayout>
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
       <div className="p-6">
         {/* Back button */}
         <div className="mb-6">

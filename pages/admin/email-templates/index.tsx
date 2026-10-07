@@ -19,7 +19,6 @@ import {
   Eye,
   Copy,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 // Types
 interface EmailTemplate {
@@ -48,7 +47,7 @@ const TemplateModal: React.FC<{
   isOpen: boolean;
   onClose: () => void;
   template: EmailTemplate | null;
-  onSave: (data: any) => Promise<void>;
+  onSave: (data: any, errorHandler: (msg: string) => void) => Promise<void>;
   mode: 'create' | 'edit' | 'view';
 }> = ({ isOpen, onClose, template, onSave, mode }) => {
   const [name, setName] = useState('');
@@ -57,6 +56,14 @@ const TemplateModal: React.FC<{
   const [category, setCategory] = useState('other');
   const [isActive, setIsActive] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [modalError, setModalError] = useState('');
+
+  useEffect(() => {
+    if (modalError) {
+      const t = setTimeout(() => setModalError(''), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [modalError]);
 
   useEffect(() => {
     if (template && (mode === 'edit' || mode === 'view')) {
@@ -78,15 +85,15 @@ const TemplateModal: React.FC<{
 
   const handleSubmit = async () => {
     if (!name.trim()) {
-      toast.error('Please enter template name');
+      setModalError('Please enter template name');
       return;
     }
     if (!subject.trim()) {
-      toast.error('Please enter subject');
+      setModalError('Please enter subject');
       return;
     }
     if (!message.trim()) {
-      toast.error('Please enter message');
+      setModalError('Please enter message');
       return;
     }
 
@@ -98,7 +105,7 @@ const TemplateModal: React.FC<{
         message,
         category,
         isActive,
-      });
+      }, setModalError);
     } finally {
       setIsSaving(false);
     }
@@ -141,7 +148,12 @@ const TemplateModal: React.FC<{
         </div>
 
         {/* Body */}
-        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)] relative">
+          {modalError && (
+            <div className="mb-4 p-3 bg-red-100 text-red-800 rounded-xl text-xs font-semibold text-center border border-red-200 animate-fadeIn">
+              {modalError}
+            </div>
+          )}
           {/* Name */}
           <div className="mb-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -324,6 +336,13 @@ const EmailTemplatesPage: NextPage = () => {
   // State
   const [templates, setTemplates] = useState<EmailTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [selectedCategory, setSelectedCategory] = useState('all');
 
   // Modal state
@@ -349,10 +368,10 @@ const EmailTemplatesPage: NextPage = () => {
       if (data.success) {
         setTemplates(data.templates);
       } else {
-        toast.error(data.message || 'Failed to fetch templates');
+        setBanner({ message: data.message || 'Failed to fetch templates', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to fetch templates');
+      setBanner({ message: 'Failed to fetch templates', type: 'error' });
       console.error(error);
     } finally {
       setLoading(false);
@@ -401,20 +420,20 @@ const EmailTemplatesPage: NextPage = () => {
       const data = await res.json();
 
       if (data.success) {
-        toast.success('Template deleted successfully');
+        setBanner({ message: 'Template deleted successfully', type: 'success' });
         fetchTemplates();
       } else {
-        toast.error(data.message || 'Failed to delete template');
+        setBanner({ message: data.message || 'Failed to delete template', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to delete template');
+      setBanner({ message: 'Failed to delete template', type: 'error' });
     }
     setShowDeleteModal(false);
     setTemplateToDelete(null);
   };
 
   // Save template
-  const handleSave = async (data: any) => {
+  const handleSave = async (data: any, errorHandler?: (msg: string) => void) => {
     try {
       const url = modalMode === 'edit' && selectedTemplate
         ? `/api/admin/email-templates/${selectedTemplate._id}`
@@ -429,21 +448,29 @@ const EmailTemplatesPage: NextPage = () => {
       const result = await res.json();
 
       if (result.success) {
-        toast.success(modalMode === 'edit' ? 'Template updated!' : 'Template created!');
+        setBanner({ message: modalMode === 'edit' ? 'Template updated!' : 'Template created!', type: 'success' });
         setShowModal(false);
         fetchTemplates();
       } else {
-        toast.error(result.message || 'Failed to save template');
+        if (errorHandler) {
+          errorHandler(result.message || 'Failed to save template');
+        } else {
+          setBanner({ message: result.message || 'Failed to save template', type: 'error' });
+        }
       }
     } catch (error) {
-      toast.error('Failed to save template');
+      if (errorHandler) {
+        errorHandler('Failed to save template');
+      } else {
+        setBanner({ message: 'Failed to save template', type: 'error' });
+      }
     }
   };
 
   // Copy template
   const handleCopy = (template: EmailTemplate) => {
     navigator.clipboard.writeText(`Subject: ${template.subject}\n\n${template.message}`);
-    toast.success('Template copied to clipboard!');
+    setBanner({ message: 'Template copied to clipboard!', type: 'success' });
   };
 
   return (
@@ -451,6 +478,18 @@ const EmailTemplatesPage: NextPage = () => {
       <Head>
         <title>Email Templates | Highrise Admin</title>
       </Head>
+
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
 
       <div className="p-4 md:p-6">
         {/* Header */}

@@ -1,8 +1,7 @@
 // components/admin/NotesModal.tsx
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Save, MessageSquare, Calendar, User, Loader2 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 // ============================================
 // TYPES
@@ -46,6 +45,14 @@ export default function NotesModal({
 }: NotesModalProps) {
   const [notes, setNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [modalError, setModalError] = useState('');
+
+  useEffect(() => {
+    if (modalError) {
+      const t = setTimeout(() => setModalError(''), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [modalError]);
 
   // Reset notes when modal opens with new lead
   React.useEffect(() => {
@@ -59,18 +66,17 @@ export default function NotesModal({
     if (!lead) return;
 
     if (!notes.trim()) {
-      toast.error('Please enter some notes');
+      setModalError('Please enter some notes');
       return;
     }
 
     setIsSaving(true);
     try {
       await onSave(lead._id, notes.trim());
-      toast.success('Notes saved successfully!');
       onClose();
     } catch (error) {
       console.error('Error saving notes:', error);
-      toast.error('Failed to save notes');
+      setModalError('Failed to save notes');
     } finally {
       setIsSaving(false);
     }
@@ -130,6 +136,11 @@ export default function NotesModal({
 
           {/* Body */}
           <div className="p-6 space-y-6">
+            {modalError && (
+              <div className="p-3 bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-semibold text-center animate-fadeIn">
+                {modalError}
+              </div>
+            )}
             {/* Current Notes Input */}
             <div>
               <label className="block text-sm font-semibold text-gray-900 mb-2">

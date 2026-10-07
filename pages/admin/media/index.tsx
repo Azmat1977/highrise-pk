@@ -23,7 +23,6 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
-import toast from 'react-hot-toast';
 
 // Types
 interface MediaItem {
@@ -84,6 +83,13 @@ export default function MediaLibraryPage() {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [counts, setCounts] = useState<MediaCounts>({ all: 0, images: 0, documents: 0, trash: 0 });
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFolder, setSelectedFolder] = useState('all');
@@ -142,11 +148,11 @@ export default function MediaLibraryPage() {
         setCounts(data.counts);
         setTotalPages(data.pagination.totalPages);
       } else {
-        toast.error(data.message || 'Failed to fetch media');
+        setBanner({ message: data.message || 'Failed to fetch media', type: 'error' });
       }
     } catch (error) {
       console.error('Error fetching media:', error);
-      toast.error('Failed to fetch media');
+      setBanner({ message: 'Failed to fetch media', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -177,7 +183,7 @@ export default function MediaLibraryPage() {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const userId = getUserId();
     if (!userId) {
-      toast.error('Please login to upload files');
+      setBanner({ message: 'Please login to upload files', type: 'error' });
       return;
     }
 
@@ -216,13 +222,13 @@ export default function MediaLibraryPage() {
         setUploadProgress((prev) => ({ ...prev, [fileId]: 100 }));
 
         if (data.success) {
-          toast.success(`${file.name} uploaded successfully`);
+          setBanner({ message: `${file.name} uploaded successfully`, type: 'success' });
         } else {
-          toast.error(data.message || `Failed to upload ${file.name}`);
+          setBanner({ message: data.message || `Failed to upload ${file.name}`, type: 'error' });
         }
       } catch (error) {
         console.error('Upload error:', error);
-        toast.error(`Failed to upload ${file.name}`);
+        setBanner({ message: `Failed to upload ${file.name}`, type: 'error' });
       } finally {
         setUploadProgress((prev) => {
           const newProgress = { ...prev };
@@ -257,7 +263,7 @@ export default function MediaLibraryPage() {
   const copyUrl = (url: string, id: string) => {
     navigator.clipboard.writeText(url);
     setCopiedId(id);
-    toast.success('URL copied to clipboard');
+    setBanner({ message: 'URL copied to clipboard', type: 'success' });
     setTimeout(() => setCopiedId(null), 2000);
   };
 
@@ -273,21 +279,24 @@ export default function MediaLibraryPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success(isPermanentDelete ? 'Media permanently deleted' : 'Media moved to trash');
+        setBanner({
+          message: isPermanentDelete ? 'Media permanently deleted' : 'Media moved to trash',
+          type: 'success',
+        });
         setShowDeleteModal(false);
         setMediaToDelete(null);
         fetchMedia();
-        
+
         // Refresh sidebar stats
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('refreshAdminStats'));
         }
       } else {
-        toast.error(data.message || 'Failed to delete media');
+        setBanner({ message: data.message || 'Failed to delete media', type: 'error' });
       }
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete media');
+      setBanner({ message: 'Failed to delete media', type: 'error' });
     }
   };
 
@@ -302,19 +311,19 @@ export default function MediaLibraryPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success('Media restored successfully');
+        setBanner({ message: 'Media restored successfully', type: 'success' });
         fetchMedia();
-        
+
         // Refresh sidebar stats
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('refreshAdminStats'));
         }
       } else {
-        toast.error(data.message || 'Failed to restore media');
+        setBanner({ message: data.message || 'Failed to restore media', type: 'error' });
       }
     } catch (error) {
       console.error('Restore error:', error);
-      toast.error('Failed to restore media');
+      setBanner({ message: 'Failed to restore media', type: 'error' });
     }
   };
 
@@ -495,6 +504,17 @@ export default function MediaLibraryPage() {
 
   return (
     <AdminLayout>
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

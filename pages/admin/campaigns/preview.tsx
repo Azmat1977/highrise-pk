@@ -14,7 +14,6 @@ import {
 import Link from 'next/link';
 import AdminGuard from '@/components/AdminGuard';
 import { Card } from '@/components/ui/card';
-import toast from 'react-hot-toast';
 
 type DeviceType = 'desktop' | 'tablet' | 'mobile';
 
@@ -26,6 +25,13 @@ function PreviewContent() {
   const [device, setDevice] = useState<DeviceType>('desktop');
   const [testEmail, setTestEmail] = useState('');
   const [sendingTest, setSendingTest] = useState(false);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
 
   useEffect(() => {
     // Get campaign data from URL query
@@ -38,7 +44,7 @@ function PreviewContent() {
         generatePreview(parsed);
       } catch (error) {
         console.error('Error parsing campaign data:', error);
-        toast.error('Invalid campaign data');
+        setBanner({ message: 'Invalid campaign data', type: 'error' });
       }
     }
     
@@ -74,14 +80,14 @@ function PreviewContent() {
 
   const handleSendTest = async () => {
     if (!testEmail) {
-      toast.error('Please enter a test email address');
+      setBanner({ message: 'Please enter a test email address', type: 'error' });
       return;
     }
 
     // Validate email format
     const emailRegex = /^\S+@\S+\.\S+$/;
     if (!emailRegex.test(testEmail)) {
-      toast.error('Please enter a valid email address');
+      setBanner({ message: 'Please enter a valid email address', type: 'error' });
       return;
     }
 
@@ -102,14 +108,14 @@ function PreviewContent() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success(`Test email sent to ${testEmail}`);
+        setBanner({ message: `Test email sent to ${testEmail}`, type: 'success' });
         setTestEmail('');
       } else {
-        toast.error(data.message || 'Failed to send test email');
+        setBanner({ message: data.message || 'Failed to send test email', type: 'error' });
       }
     } catch (error) {
       console.error('Error sending test:', error);
-      toast.error('Failed to send test email');
+      setBanner({ message: 'Failed to send test email', type: 'error' });
     } finally {
       setSendingTest(false);
     }
@@ -151,7 +157,18 @@ function PreviewContent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
+    <div className="min-h-screen bg-gray-100 relative">
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
       {/* Header */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-10">
         <div className="container mx-auto px-4 py-4">

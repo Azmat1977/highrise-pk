@@ -25,7 +25,6 @@ import {
   AlertTriangle,
   Trash2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 
 // Types
 interface Email {
@@ -288,6 +287,13 @@ const EmailsPage: NextPage = () => {
 
   // State
   const [emails, setEmails] = useState<Email[]>([]);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [counts, setCounts] = useState<Counts>({
     all: 0,
     sent: 0,
@@ -354,15 +360,15 @@ const EmailsPage: NextPage = () => {
       const data = await res?.json();
 
       if (data && data.success) {
-        toast.success(data.message);
+        setBanner({ message: data.message || 'Action completed!', type: 'success' });
         fetchEmails(); // Refresh list
         closeActionModal();
       } else {
-        toast.error(data?.message || 'Action failed');
+        setBanner({ message: data?.message || 'Action failed', type: 'error' });
       }
     } catch (error) {
       console.error(error);
-      toast.error('Something went wrong');
+      setBanner({ message: 'Something went wrong', type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -387,10 +393,10 @@ const EmailsPage: NextPage = () => {
         setCounts(data.counts);
         setTotalPages(data.pagination.pages);
       } else {
-        toast.error(data.message || 'Failed to fetch emails');
+        setBanner({ message: data.message || 'Failed to fetch emails', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to fetch emails');
+      setBanner({ message: 'Failed to fetch emails', type: 'error' });
       console.error(error);
     } finally {
       setLoading(false);
@@ -416,14 +422,14 @@ const EmailsPage: NextPage = () => {
       const data = await res.json();
 
       if (data.success) {
-        toast.success('Email resent successfully!');
+        setBanner({ message: 'Email resent successfully!', type: 'success' });
         setShowDetailModal(false);
         fetchEmails();
       } else {
-        toast.error(data.message || 'Failed to resend email');
+        setBanner({ message: data.message || 'Failed to resend email', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to resend email');
+      setBanner({ message: 'Failed to resend email', type: 'error' });
     }
   };
 
@@ -438,6 +444,18 @@ const EmailsPage: NextPage = () => {
       <Head>
         <title>Email History | Highrise Admin</title>
       </Head>
+
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
 
       <div className="p-4 md:p-6">
         {/* Header */}

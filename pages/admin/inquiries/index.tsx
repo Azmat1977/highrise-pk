@@ -39,7 +39,6 @@ import AdminGuard from '@/components/AdminGuard';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
-import toast from 'react-hot-toast';
 
 // Types
 interface Inquiry {
@@ -131,6 +130,14 @@ function InquiryModal({
     notes: '',
     assignedTo: '',
   });
+  const [modalError, setModalError] = useState('');
+
+  useEffect(() => {
+    if (modalError) {
+      const t = setTimeout(() => setModalError(''), 4000);
+      return () => clearTimeout(t);
+    }
+  }, [modalError]);
 
   // Reset form when modal opens
   useEffect(() => {
@@ -153,7 +160,7 @@ function InquiryModal({
 
   const handleSendEmail = async () => {
     if (!inquiry || !emailData.subject || !emailData.message) {
-      toast.error('Please fill in subject and message');
+      setModalError('Please fill in subject and message');
       return;
     }
 
@@ -171,14 +178,13 @@ function InquiryModal({
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Email sent successfully!');
         onSuccess();
         onClose();
       } else {
-        toast.error(data.message || 'Failed to send email');
+        setModalError(data.message || 'Failed to send email');
       }
     } catch (error) {
-      toast.error('Failed to send email');
+      setModalError('Failed to send email');
     } finally {
       setLoading(false);
     }
@@ -198,14 +204,13 @@ function InquiryModal({
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Inquiry updated successfully!');
         onSuccess();
         onClose();
       } else {
-        toast.error(data.message || 'Failed to update inquiry');
+        setModalError(data.message || 'Failed to update inquiry');
       }
     } catch (error) {
-      toast.error('Failed to update inquiry');
+      setModalError('Failed to update inquiry');
     } finally {
       setLoading(false);
     }
@@ -250,7 +255,12 @@ function InquiryModal({
           </div>
 
           {/* Body */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)]">
+          <div className="p-6 overflow-y-auto max-h-[calc(90vh-180px)] relative">
+            {modalError && (
+              <div className="mb-4 p-3 bg-red-100 text-red-800 border border-red-200 rounded-xl text-xs font-semibold text-center animate-fadeIn">
+                {modalError}
+              </div>
+            )}
             {mode === 'view' && (
               <div className="space-y-6">
                 {/* Customer Info */}
@@ -554,9 +564,16 @@ function StatusDropdown({
 // Main Component
 function InquiriesContent() {
   const router = useRouter();
-  
+
   // State
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<Stats>({
     all: 0, new: 0, pending: 0, contacted: 0, 
@@ -634,11 +651,11 @@ function InquiriesContent() {
           }));
         }
       } else {
-        toast.error(data.message || 'Failed to load inquiries');
+        setBanner({ message: data.message || 'Failed to load inquiries', type: 'error' });
       }
     } catch (error) {
       console.error('Error fetching inquiries:', error);
-      toast.error('Failed to load inquiries');
+      setBanner({ message: 'Failed to load inquiries', type: 'error' });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -661,7 +678,7 @@ function InquiriesContent() {
   // Export CSV
   const exportCSV = () => {
     if (inquiries.length === 0) {
-      toast.error('No inquiries to export');
+      setBanner({ message: 'No inquiries to export', type: 'error' });
       return;
     }
 
@@ -686,7 +703,7 @@ function InquiriesContent() {
     a.download = `inquiries-${statusFilter}-${new Date().toISOString().split('T')[0]}.csv`;
     a.click();
     window.URL.revokeObjectURL(url);
-    toast.success('CSV exported successfully!');
+    setBanner({ message: 'CSV exported successfully!', type: 'success' });
   };
 
   // Handle selection
@@ -716,15 +733,15 @@ function InquiriesContent() {
       });
 
       const data = await response.json();
-      
+
       if (data.success) {
-        toast.success(`Status updated to ${statusConfig[newStatus]?.label || newStatus}`);
+        setBanner({ message: `Status updated to ${statusConfig[newStatus]?.label || newStatus}`, type: 'success' });
         fetchInquiries();
       } else {
-        toast.error(data.message || 'Failed to update status');
+        setBanner({ message: data.message || 'Failed to update status', type: 'error' });
       }
     } catch (error) {
-      toast.error('Failed to update status');
+      setBanner({ message: 'Failed to update status', type: 'error' });
     }
   };
 
@@ -741,13 +758,13 @@ function InquiriesContent() {
           })
         )
       );
-      
+
       const successCount = results.filter(r => r.ok).length;
-      toast.success(`${successCount} inquiries updated to ${statusConfig[newStatus]?.label}`);
+      setBanner({ message: `${successCount} inquiries updated to ${statusConfig[newStatus]?.label}`, type: 'success' });
       setSelectedIds([]);
       fetchInquiries();
     } catch (error) {
-      toast.error('Failed to update some inquiries');
+      setBanner({ message: 'Failed to update some inquiries', type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -756,7 +773,7 @@ function InquiriesContent() {
   // Delete inquiry
   const handleDelete = async () => {
     if (!deleteModal.inquiry && !deleteModal.isBulk) return;
-    
+
     setActionLoading(true);
     try {
       if (deleteModal.isBulk) {
@@ -765,27 +782,27 @@ function InquiriesContent() {
             fetch(`/api/inquiries/${id}`, { method: 'DELETE' })
           )
         );
-        
+
         const successCount = results.filter(r => r.ok).length;
-        toast.success(`${successCount} inquiries deleted!`);
+        setBanner({ message: `${successCount} inquiries deleted!`, type: 'success' });
         setSelectedIds([]);
       } else if (deleteModal.inquiry) {
         const response = await fetch(`/api/inquiries/${deleteModal.inquiry._id}`, {
           method: 'DELETE'
         });
         const data = await response.json();
-        
+
         if (data.success) {
-          toast.success('Inquiry deleted!');
+          setBanner({ message: 'Inquiry deleted!', type: 'success' });
         } else {
-          toast.error(data.message || 'Failed to delete');
+          setBanner({ message: data.message || 'Failed to delete', type: 'error' });
         }
       }
-      
+
       fetchInquiries();
       setDeleteModal({ isOpen: false, inquiry: null, isBulk: false });
     } catch (error) {
-      toast.error('Failed to delete inquiry');
+      setBanner({ message: 'Failed to delete inquiry', type: 'error' });
     } finally {
       setActionLoading(false);
     }
@@ -811,7 +828,18 @@ function InquiriesContent() {
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 relative">
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
