@@ -20,7 +20,7 @@ import {
   Star,
   Clock,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+// react-hot-toast removed in favor of design-system banner state
 
 // Blog categories from your model
 const CATEGORIES = [
@@ -56,6 +56,13 @@ export default function CreateBlogPage() {
   const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [showMediaPicker, setShowMediaPicker] = useState(false);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [mediaPickerFor, setMediaPickerFor] = useState<'featured' | 'content'>('featured');
   const [tagInput, setTagInput] = useState('');
   const [errors, setErrors] = useState<{ [key: string]: string }>({});
@@ -245,7 +252,7 @@ const handleContentImageSelect = (media: any) => {
     setFormData((prev) => ({ ...prev, status: saveStatus }));
 
     if (!validateForm()) {
-      toast.error('Please fix the errors before saving');
+      setBanner({ message: 'Please fix the errors before saving', type: 'error' });
       return;
     }
 
@@ -264,12 +271,11 @@ const handleContentImageSelect = (media: any) => {
       const data = await res.json();
 
       if (data.success) {
-        toast.success(
-          saveStatus === 'published'
-            ? 'Blog published successfully!'
-            : 'Blog saved as draft!'
-        );
-        
+        setBanner({
+          message: saveStatus === 'published' ? 'Blog published successfully!' : 'Blog saved as draft!',
+          type: 'success',
+        });
+
         // Refresh sidebar stats
         if (typeof window !== 'undefined') {
           window.dispatchEvent(new Event('refreshAdminStats'));
@@ -277,11 +283,11 @@ const handleContentImageSelect = (media: any) => {
 
         router.push('/admin/blogs');
       } else {
-        toast.error(data.message || 'Failed to save blog');
+        setBanner({ message: data.message || 'Failed to save blog', type: 'error' });
       }
     } catch (error) {
       console.error('Save error:', error);
-      toast.error('Failed to save blog');
+      setBanner({ message: 'Failed to save blog', type: 'error' });
     } finally {
       setSaving(false);
     }
@@ -289,6 +295,17 @@ const handleContentImageSelect = (media: any) => {
 
   return (
     <AdminLayout>
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

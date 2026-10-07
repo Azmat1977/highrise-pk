@@ -22,7 +22,6 @@ import {
   Shield,
   Loader2,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import Link from 'next/link';
 
 // Types
@@ -76,6 +75,13 @@ const formatDate = (dateString: string): string => {
 export default function AdminCommentsPage() {
   // State
   const [comments, setComments] = useState<Comment[]>([]);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [counts, setCounts] = useState<CommentCounts>({
     all: 0,
     pending: 0,
@@ -140,11 +146,11 @@ export default function AdminCommentsPage() {
         setCounts(data.counts);
         setTotalPages(data.pagination.totalPages);
       } else {
-        toast.error(data.message || 'Failed to fetch comments');
+        setBanner({ message: data.message || 'Failed to fetch comments', type: 'error' });
       }
     } catch (error) {
       console.error('Error fetching comments:', error);
-      toast.error('Failed to fetch comments');
+      setBanner({ message: 'Failed to fetch comments', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -185,15 +191,15 @@ export default function AdminCommentsPage() {
           spam: 'Marked as spam!',
           pending: 'Moved to pending!',
         };
-        toast.success(messages[action]);
+        setBanner({ message: messages[action], type: 'success' });
         fetchComments();
         refreshSidebarStats();
       } else {
-        toast.error(data.message || 'Failed to update comment');
+        setBanner({ message: data.message || 'Failed to update comment', type: 'error' });
       }
     } catch (error) {
       console.error('Status change error:', error);
-      toast.error('Failed to update comment');
+      setBanner({ message: 'Failed to update comment', type: 'error' });
     } finally {
       setActionLoading(null);
     }
@@ -213,17 +219,20 @@ export default function AdminCommentsPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success(permanent ? 'Comment permanently deleted!' : 'Comment deleted!');
+        setBanner({
+          message: permanent ? 'Comment permanently deleted!' : 'Comment deleted!',
+          type: 'success',
+        });
         setShowDeleteModal(false);
         setSelectedComment(null);
         fetchComments();
         refreshSidebarStats();
       } else {
-        toast.error(data.message || 'Failed to delete comment');
+        setBanner({ message: data.message || 'Failed to delete comment', type: 'error' });
       }
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete comment');
+      setBanner({ message: 'Failed to delete comment', type: 'error' });
     } finally {
       setActionLoading(null);
     }
@@ -232,7 +241,7 @@ export default function AdminCommentsPage() {
   // Handle admin reply
   const handleAdminReply = async () => {
     if (!selectedComment || !replyContent.trim()) {
-      toast.error('Please enter a reply');
+      setBanner({ message: 'Please enter a reply', type: 'error' });
       return;
     }
 
@@ -247,17 +256,17 @@ export default function AdminCommentsPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success('Reply posted successfully!');
+        setBanner({ message: 'Reply posted successfully!', type: 'success' });
         setReplyContent('');
         setShowReplyModal(false);
         setSelectedComment(null);
         fetchComments();
       } else {
-        toast.error(data.message || 'Failed to post reply');
+        setBanner({ message: data.message || 'Failed to post reply', type: 'error' });
       }
     } catch (error) {
       console.error('Reply error:', error);
-      toast.error('Failed to post reply');
+      setBanner({ message: 'Failed to post reply', type: 'error' });
     } finally {
       setReplyLoading(false);
     }
@@ -296,6 +305,17 @@ export default function AdminCommentsPage() {
 
   return (
     <AdminLayout>
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

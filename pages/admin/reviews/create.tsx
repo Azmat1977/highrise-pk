@@ -17,12 +17,18 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import toast from 'react-hot-toast';
 
 export default function CreateReviewPage() {
   const router = useRouter();
   const [step, setStep] = useState(1); // 1: Select Entity, 2: Write Review
   const [loading, setLoading] = useState(false);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  React.useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [submitting, setSubmitting] = useState(false);
   
   // Search State
@@ -52,14 +58,14 @@ export default function CreateReviewPage() {
       // If not, we might need adjustments. 
       // Using generic search for now.
       const res = await api.get(`${endpoint}?search=${searchTerm}&limit=10`);
-      
+
       if (res.success) {
         setSearchResults(res.data || []);
       } else {
         setSearchResults([]);
       }
     } catch (error) {
-      toast.error('Search failed');
+      setBanner({ message: 'Search failed', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -69,7 +75,7 @@ export default function CreateReviewPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedEntity || !content) {
-      toast.error('Please fill all required fields');
+      setBanner({ message: 'Please fill all required fields', type: 'error' });
       return;
     }
 
@@ -94,14 +100,14 @@ export default function CreateReviewPage() {
       const res = await api.post('/api/reviews', payload);
 
       if (res.success) {
-        toast.success('Review published successfully!');
+        setBanner({ message: 'Review published successfully!', type: 'success' });
         router.push('/admin/reviews');
       } else {
-        toast.error(res.message || 'Failed to publish review');
+        setBanner({ message: res.message || 'Failed to publish review', type: 'error' });
       }
     } catch (error) {
       console.error(error);
-      toast.error('Something went wrong');
+      setBanner({ message: 'Something went wrong', type: 'error' });
     } finally {
       setSubmitting(false);
     }
@@ -128,6 +134,18 @@ export default function CreateReviewPage() {
         <Head>
           <title>Write Review | Highrise Admin</title>
         </Head>
+
+        {banner && (
+          <div
+            className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+              banner.type === 'success'
+                ? 'bg-[#004063] text-white border border-[#029bba]/30'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            <span>{banner.message}</span>
+          </div>
+        )}
 
         <div className="max-w-4xl mx-auto space-y-6">
           {/* Header */}

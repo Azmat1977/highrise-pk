@@ -25,12 +25,18 @@ import {
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu';
-import toast from 'react-hot-toast';
 
 export default function AdminReviewsPage() {
   const router = useRouter();
   const [reviews, setReviews] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [search, setSearch] = useState('');
   const [entityType, setEntityType] = useState('all');
 
@@ -73,11 +79,11 @@ export default function AdminReviewsPage() {
     try {
       const res = await api.patch(`/api/reviews/${id}`, { isDeleted: true });
       if (res.success) {
-        toast.success('Review deleted');
+        setBanner({ message: 'Review deleted', type: 'success' });
         setReviews(reviews.filter((r) => r._id !== id));
       }
     } catch (error) {
-      toast.error('Failed to delete');
+      setBanner({ message: 'Failed to delete review', type: 'error' });
     }
   };
 
@@ -87,6 +93,18 @@ export default function AdminReviewsPage() {
         <Head>
           <title>Manage Reviews | Highrise Admin</title>
         </Head>
+
+        {banner && (
+          <div
+            className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+              banner.type === 'success'
+                ? 'bg-[#004063] text-white border border-[#029bba]/30'
+                : 'bg-red-600 text-white'
+            }`}
+          >
+            <span>{banner.message}</span>
+          </div>
+        )}
 
         <div className="space-y-6">
           {/* Header */}

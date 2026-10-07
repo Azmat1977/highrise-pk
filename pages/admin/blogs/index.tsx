@@ -26,7 +26,7 @@ import {
   ExternalLink,
   TrendingUp,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
+// react-hot-toast removed in favor of design-system banner state
 
 // Types
 interface Blog {
@@ -110,6 +110,13 @@ export default function BlogsPage() {
     trash: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4500);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [activeTab, setActiveTab] = useState<TabType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All Categories');
@@ -164,11 +171,11 @@ export default function BlogsPage() {
         setCounts(data.counts);
         setTotalPages(data.pagination.totalPages);
       } else {
-        toast.error(data.message || 'Failed to fetch blogs');
+        setBanner({ message: data.message || 'Failed to fetch blogs', type: 'error' });
       }
     } catch (error) {
       console.error('Error fetching blogs:', error);
-      toast.error('Failed to fetch blogs');
+      setBanner({ message: 'Failed to fetch blogs', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -210,17 +217,18 @@ export default function BlogsPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success(
-          newStatus === 'published' ? 'Blog published!' : 'Blog unpublished!'
-        );
+        setBanner({
+          message: newStatus === 'published' ? 'Blog published!' : 'Blog unpublished!',
+          type: 'success',
+        });
         fetchBlogs();
         refreshSidebarStats();
       } else {
-        toast.error(data.message || 'Failed to update status');
+        setBanner({ message: data.message || 'Failed to update status', type: 'error' });
       }
     } catch (error) {
       console.error('Status change error:', error);
-      toast.error('Failed to update status');
+      setBanner({ message: 'Failed to update status', type: 'error' });
     } finally {
       setActionLoading(null);
       setOpenDropdown(null);
@@ -241,19 +249,18 @@ export default function BlogsPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success(
-          isPermanentDelete
-            ? 'Blog permanently deleted!'
-            : 'Blog moved to trash!'
-        );
+        setBanner({
+          message: isPermanentDelete ? 'Blog permanently deleted!' : 'Blog moved to trash!',
+          type: 'success',
+        });
         fetchBlogs();
         refreshSidebarStats();
       } else {
-        toast.error(data.message || 'Failed to delete blog');
+        setBanner({ message: data.message || 'Failed to delete blog', type: 'error' });
       }
     } catch (error) {
       console.error('Delete error:', error);
-      toast.error('Failed to delete blog');
+      setBanner({ message: 'Failed to delete blog', type: 'error' });
     } finally {
       setActionLoading(null);
       setShowDeleteModal(false);
@@ -272,15 +279,15 @@ export default function BlogsPage() {
       const data = await res.json();
 
       if (data.success) {
-        toast.success('Blog restored successfully!');
+        setBanner({ message: 'Blog restored successfully!', type: 'success' });
         fetchBlogs();
         refreshSidebarStats();
       } else {
-        toast.error(data.message || 'Failed to restore blog');
+        setBanner({ message: data.message || 'Failed to restore blog', type: 'error' });
       }
     } catch (error) {
       console.error('Restore error:', error);
-      toast.error('Failed to restore blog');
+      setBanner({ message: 'Failed to restore blog', type: 'error' });
     } finally {
       setActionLoading(null);
     }
@@ -323,6 +330,17 @@ export default function BlogsPage() {
 
   return (
     <AdminLayout>
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+            banner.type === 'success'
+              ? 'bg-[#004063] text-white border border-[#029bba]/30'
+              : 'bg-red-600 text-white'
+          }`}
+        >
+          <span>{banner.message}</span>
+        </div>
+      )}
       <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">

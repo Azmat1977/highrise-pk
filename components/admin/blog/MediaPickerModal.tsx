@@ -15,7 +15,6 @@ import {
   AlignLeft,
 } from 'lucide-react';
 import { useDropzone } from 'react-dropzone';
-import toast from 'react-hot-toast';
 
 interface MediaItem {
   _id: string;
@@ -56,6 +55,13 @@ export default function MediaPickerModal({
 }: MediaPickerModalProps) {
   const [media, setMedia] = useState<MediaItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    if (!banner) return;
+    const t = setTimeout(() => setBanner(null), 4000);
+    return () => clearTimeout(t);
+  }, [banner]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [selectedMediaList, setSelectedMediaList] = useState<MediaItem[]>([]);
@@ -83,11 +89,11 @@ export default function MediaPickerModal({
       if (data.success) {
         setMedia(Array.isArray(data.media) ? data.media : []);
       } else {
-        toast.error(data.message || 'Failed to fetch media');
+        setBanner({ message: data.message || 'Failed to fetch media', type: 'error' });
       }
     } catch (error) {
       console.error('Error fetching media:', error);
-      toast.error('Failed to fetch media');
+      setBanner({ message: 'Failed to fetch media', type: 'error' });
     } finally {
       setLoading(false);
     }
@@ -152,7 +158,7 @@ export default function MediaPickerModal({
       const data = await res.json();
 
       if (data.success && data.media) {
-        toast.success('Image uploaded successfully');
+        setBanner({ message: 'Image uploaded successfully', type: 'success' });
         await fetchMedia();
 
         if (multiple) {
@@ -165,11 +171,11 @@ export default function MediaPickerModal({
           setSelectedMedia(data.media);
         }
       } else {
-        toast.error(data.message || 'Failed to upload');
+        setBanner({ message: data.message || 'Failed to upload', type: 'error' });
       }
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload image');
+      setBanner({ message: 'Failed to upload image', type: 'error' });
     } finally {
       setUploading(false);
     }
@@ -258,9 +264,20 @@ export default function MediaPickerModal({
           animate={{ scale: 1, opacity: 1, y: 0 }}
           exit={{ scale: 0.96, opacity: 0, y: 12 }}
           transition={{ duration: 0.2 }}
-          className="bg-white rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl"
+          className="bg-white rounded-3xl w-full max-w-6xl max-h-[92vh] overflow-hidden flex flex-col shadow-2xl relative"
           onClick={(e) => e.stopPropagation()}
         >
+          {banner && (
+            <div
+              className={`absolute top-5 left-1/2 -translate-x-1/2 z-[200] flex items-center gap-2 px-5 py-3 rounded-xl shadow-xl text-sm font-semibold transition-all ${
+                banner.type === 'success'
+                  ? 'bg-[#004063] text-white border border-[#029bba]/30'
+                  : 'bg-red-600 text-white'
+              }`}
+            >
+              <span>{banner.message}</span>
+            </div>
+          )}
           {/* Header */}
           <div className="flex items-center justify-between px-6 py-5 border-b border-gray-200 bg-white">
             <div>
