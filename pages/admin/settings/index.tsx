@@ -5,7 +5,6 @@ import AdminGuard from '@/components/AdminGuard';
 import AdminLayout from '@/components/admin/AdminLayout';
 import { Card } from '@/components/ui/card';
 import ConfirmationModal from '@/components/ui/ConfirmationModal';
-import toast from 'react-hot-toast';
 import {
   Settings,
   Globe,
@@ -310,6 +309,7 @@ function ImageUploadField({
   hint,
   accept = 'image/*',
   folder = 'settings',
+  showNotification,
 }: {
   label: string;
   value: string;
@@ -318,6 +318,7 @@ function ImageUploadField({
   hint?: string;
   accept?: string;
   folder?: string;
+  showNotification?: (message: string, type: 'success' | 'error') => void;
 }) {
   const [uploading, setUploading] = useState(false);
   const [localPreview, setLocalPreview] = useState<string>('');
@@ -332,13 +333,13 @@ function ImageUploadField({
 
     // Validate file type
     if (!file.type.startsWith('image/') && !file.name.endsWith('.ico')) {
-      toast.error('Please select an image file');
+      if (showNotification) showNotification('Please select an image file', 'error');
       return;
     }
 
     // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Image size must be less than 5MB');
+      if (showNotification) showNotification('Image size must be less than 5MB', 'error');
       return;
     }
 
@@ -378,18 +379,18 @@ function ImageUploadField({
         // Update parent state with the Cloudinary URL
         onChange(uploadedUrl);
         setLocalPreview(''); // Clear local preview, use value from parent
-        toast.success('Image uploaded! Click "Save Changes" to save.');
+        if (showNotification) showNotification('Image uploaded! Click "Save Changes" to save.', 'success');
         
         if (onUploadComplete) {
           onUploadComplete();
         }
       } else {
-        toast.error(data.message || 'Failed to upload image');
+        if (showNotification) showNotification(data.message || 'Failed to upload image', 'error');
         setLocalPreview(''); // Clear failed preview
       }
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload image');
+      if (showNotification) showNotification('Failed to upload image', 'error');
       setLocalPreview('');
     } finally {
       setUploading(false);
@@ -406,7 +407,7 @@ function ImageUploadField({
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
-    toast.success('Image removed. Click "Save Changes" to save.');
+    if (showNotification) showNotification('Image removed. Click "Save Changes" to save.', 'success');
   };
 
   const handleUrlChange = (url: string) => {
@@ -541,6 +542,14 @@ function SelectField({
 function SettingsContent() {
   const [settings, setSettings] = useState<SettingsData>(defaultSettings);
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
+
+  const showBanner = (message: string, type: "success" | "error" | "warning" = "success") => {
+    setBanner({ message, type });
+    setTimeout(() => {
+      setBanner((prev) => (prev?.message === message ? null : prev));
+    }, 4000);
+  };
   const [saving, setSaving] = useState(false);
   const [activeTab, setActiveTab] = useState('general');
   const [hasChanges, setHasChanges] = useState(false);
@@ -559,7 +568,7 @@ function SettingsContent() {
       }
     } catch (error) {
       console.error('Error fetching settings:', error);
-      toast.error('Failed to load settings');
+      showBanner('Failed to load settings', 'error');
     } finally {
       setLoading(false);
     }
@@ -607,16 +616,16 @@ function SettingsContent() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Settings saved successfully!');
+        showBanner('Settings saved successfully!', 'success');
         setHasChanges(false);
         if (data.data) {
           setSettings({ ...defaultSettings, ...data.data });
         }
       } else {
-        toast.error(data.message || 'Failed to save settings');
+        showBanner(data.message || 'Failed to save settings', 'error');
       }
     } catch (error) {
-      toast.error('Failed to save settings');
+      showBanner('Failed to save settings', 'error');
     } finally {
       setSaving(false);
     }
@@ -635,15 +644,15 @@ function SettingsContent() {
       const data = await response.json();
 
       if (data.success) {
-        toast.success('Settings reset to defaults!');
+        showBanner('Settings reset to defaults!', 'success');
         setSettings({ ...defaultSettings, ...data.data });
         setHasChanges(false);
         setResetModal(false);
       } else {
-        toast.error(data.message || 'Failed to reset settings');
+        showBanner(data.message || 'Failed to reset settings', 'error');
       }
     } catch (error) {
-      toast.error('Failed to reset settings');
+      showBanner('Failed to reset settings', 'error');
     } finally {
       setResetLoading(false);
     }
@@ -703,6 +712,7 @@ function SettingsContent() {
                 onChange={(v) => updateField('siteLogo', v)}
                 hint="Recommended: PNG or SVG, max 5MB"
                 folder="settings"
+                showNotification={showBanner}
               />
               <ImageUploadField
                 label="Favicon"
@@ -711,6 +721,7 @@ function SettingsContent() {
                 hint="Recommended: ICO or PNG, 32x32 or 64x64 pixels"
                 folder="settings"
                 accept="image/*,.ico"
+                showNotification={showBanner}
               />
             </div>
 
@@ -1125,6 +1136,7 @@ function SettingsContent() {
                     onChange={(v) => updateField('watermark', { ...settings.watermark, logoUrl: v })}
                     hint="Recommended: PNG with transparent background, max 500x200px"
                     folder="general"
+                    showNotification={showBanner}
                   />
                 )}
 
@@ -1352,7 +1364,29 @@ function SettingsContent() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6 relative">
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl transition-all border ${
+            banner.type === 'success'
+              ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+              : banner.type === 'error'
+              ? 'bg-red-50 border-red-200 text-red-800'
+              : 'bg-amber-50 border-amber-200 text-amber-800'
+          }`}
+        >
+          {banner.type === 'success' ? (
+            <CheckCircle className="w-5 h-5 text-emerald-600" />
+          ) : (
+            <X className="w-5 h-5 text-red-600" />
+          )}
+          <span className="text-sm font-semibold">{banner.message}</span>
+          <button onClick={() => setBanner(null)} className="ml-2 hover:opacity-70">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

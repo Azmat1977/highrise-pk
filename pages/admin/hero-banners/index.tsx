@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useRef, useState, useCallback } from "react"
 import AdminGuard from "@/components/AdminGuard";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
-import toast from "react-hot-toast";
 import { getOptimizedImageUrl } from "@/utils/cloudinaryTransform";
 import {
   Image as ImageIcon,
@@ -215,13 +214,9 @@ function ImageUploadZone({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onClick={() => {
-  if (uploading) return;
-  toast.loading("Opening file picker...", { id: "file-picker" });
-  setTimeout(() => {
-    inputRef.current?.click();
-    toast.dismiss("file-picker");
-  }, 100);
-}}
+      if (uploading) return;
+      inputRef.current?.click();
+    }}
       className={`
         relative ${aspectClass} rounded-xl border-2 border-dashed transition-all cursor-pointer
         flex flex-col items-center justify-center gap-3 select-none
@@ -280,6 +275,14 @@ function ImageUploadZone({
 function HeroBannersContent() {
   const [banners, setBanners] = useState<HeroBannerItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [banner, setBanner] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
+
+  const showBanner = (message: string, type: "success" | "error" | "warning" = "success") => {
+    setBanner({ message, type });
+    setTimeout(() => {
+      setBanner((prev) => (prev?.message === message ? null : prev));
+    }, 4000);
+  };
   const [submitting, setSubmitting] = useState(false);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive" | "trash">("all");
@@ -343,11 +346,11 @@ function HeroBannersContent() {
         setBanners(data.banners);
       } else {
         setBanners([]);
-        toast.error(data.message || "Failed to load hero promotions");
+        showBanner(data.message || "Failed to load hero promotions", "error");
       }
     } catch {
       setBanners([]);
-      toast.error("Failed to load hero promotions");
+      showBanner("Failed to load hero promotions", "error");
     } finally {
       setLoading(false);
     }
@@ -372,11 +375,11 @@ function HeroBannersContent() {
   const handleDesktopFileSelect = useCallback(
     async (file: File) => {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error("File size must be under 5MB");
+        showBanner("File size must be under 5MB", "error");
         return;
       }
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        toast.error("Only JPG, PNG, and WebP files are allowed");
+        showBanner("Only JPG, PNG, and WebP files are allowed", "error");
         return;
       }
 
@@ -390,25 +393,25 @@ function HeroBannersContent() {
           setDesktopProgress
         );
         setForm((prev) => ({ ...prev, imageUrl: result.url }));
-        toast.success("Desktop image uploaded successfully");
+        showBanner("Desktop image uploaded successfully", "success");
       } catch (err: any) {
-        toast.error(err?.message || "Failed to upload desktop image");
+        showBanner(err?.message || "Failed to upload desktop image", "error");
       } finally {
         setUploadingDesktop(false);
         setDesktopProgress(0);
       }
     },
-    []
+    [showBanner]
   );
 
   const handleMobileFileSelect = useCallback(
     async (file: File) => {
       if (file.size > 5 * 1024 * 1024) {
-        toast.error("File size must be under 5MB");
+        showBanner("File size must be under 5MB", "error");
         return;
       }
       if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
-        toast.error("Only JPG, PNG, and WebP files are allowed");
+        showBanner("Only JPG, PNG, and WebP files are allowed", "error");
         return;
       }
 
@@ -422,15 +425,15 @@ function HeroBannersContent() {
           setMobileProgress
         );
         setForm((prev) => ({ ...prev, mobileImageUrl: result.url }));
-        toast.success("Mobile image uploaded successfully");
+        showBanner("Mobile image uploaded successfully", "success");
       } catch (err: any) {
-        toast.error(err?.message || "Failed to upload mobile image");
+        showBanner(err?.message || "Failed to upload mobile image", "error");
       } finally {
         setUploadingMobile(false);
         setMobileProgress(0);
       }
     },
-    []
+    [showBanner]
   );
 
   // ── Form helpers ───────────────────────────────────────────────────────────
@@ -442,7 +445,7 @@ function HeroBannersContent() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.imageUrl) {
-      toast.error("Please upload a desktop banner image");
+      showBanner("Please upload a desktop banner image", "error");
       return;
     }
     setSubmitting(true);
@@ -461,20 +464,21 @@ function HeroBannersContent() {
       );
       const data = await res.json();
       if (data.success) {
-        toast.success(
+        showBanner(
           isEditing
             ? "Hero promotion updated successfully"
-            : "Hero promotion created successfully"
+            : "Hero promotion created successfully",
+          "success"
         );
         setForm(defaultForm);
         setEditingBannerId(null);
         setShowCreateForm(false);
         fetchBanners();
       } else {
-        toast.error(data.message || "Failed to save hero promotion");
+        showBanner(data.message || "Failed to save hero promotion", "error");
       }
     } catch {
-      toast.error("Failed to save hero promotion");
+      showBanner("Failed to save hero promotion", "error");
     } finally {
       setSubmitting(false);
     }
@@ -515,13 +519,13 @@ function HeroBannersContent() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(data.message || "Banner status updated");
+        showBanner(data.message || "Banner status updated", "success");
         fetchBanners();
       } else {
-        toast.error(data.message || "Failed to update banner status");
+        showBanner(data.message || "Failed to update banner status", "error");
       }
     } catch {
-      toast.error("Failed to update banner status");
+      showBanner("Failed to update banner status", "error");
     } finally {
       setActionLoadingId(null);
     }
@@ -536,13 +540,13 @@ function HeroBannersContent() {
       );
       const data = await res.json();
       if (data.success) {
-        toast.success(data.message || "Banner restored successfully");
+        showBanner(data.message || "Banner restored successfully", "success");
         fetchBanners();
       } else {
-        toast.error(data.message || "Failed to restore banner");
+        showBanner(data.message || "Failed to restore banner", "error");
       }
     } catch {
-      toast.error("Failed to restore banner");
+      showBanner("Failed to restore banner", "error");
     } finally {
       setActionLoadingId(null);
     }
@@ -577,7 +581,7 @@ function HeroBannersContent() {
       });
       const data = await res.json();
       if (data.success) {
-        toast.success(data.message || "Banner deleted successfully");
+        showBanner(data.message || "Banner deleted successfully", "success");
         if (editingBannerId === bannerId) {
           setEditingBannerId(null);
           setForm(defaultForm);
@@ -588,10 +592,10 @@ function HeroBannersContent() {
         setDeleteMode("trash");
         fetchBanners();
       } else {
-        toast.error(data.message || "Failed to delete banner");
+        showBanner(data.message || "Failed to delete banner", "error");
       }
     } catch {
-      toast.error("Failed to delete banner");
+      showBanner("Failed to delete banner", "error");
     } finally {
       setActionLoadingId(null);
     }
@@ -617,7 +621,29 @@ function HeroBannersContent() {
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6 relative">
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl transition-all border ${
+            banner.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : banner.type === "error"
+              ? "bg-red-50 border-red-200 text-red-800"
+              : "bg-amber-50 border-amber-200 text-amber-800"
+          }`}
+        >
+          {banner.type === "success" ? (
+            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+          ) : (
+            <X className="w-5 h-5 text-red-600" />
+          )}
+          <span className="text-sm font-semibold">{banner.message}</span>
+          <button onClick={() => setBanner(null)} className="ml-2 hover:opacity-70">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       <style jsx global>{`
         @keyframes modalFadeIn {
           from { opacity: 0; transform: scale(0.95); }

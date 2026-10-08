@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import AdminGuard from "@/components/AdminGuard";
 import AdminLayout from "@/components/admin/AdminLayout";
 import { Card } from "@/components/ui/card";
-import toast from "react-hot-toast";
 import {
   Image as ImageIcon,
   UploadCloud,
@@ -59,6 +58,14 @@ const defaultCreateForm: CreateCityForm = {
 function AdminCitiesContent() {
   const [loading, setLoading] = useState(true);
   const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
+  const [banner, setBanner] = useState<{ message: string; type: "success" | "error" | "warning" } | null>(null);
+
+  const showBanner = (message: string, type: "success" | "error" | "warning" = "success") => {
+    setBanner({ message, type });
+    setTimeout(() => {
+      setBanner((prev) => (prev?.message === message ? null : prev));
+    }, 4000);
+  };
   const [uploadingForId, setUploadingForId] = useState<string | null>(null);
 
   const [cities, setCities] = useState<CityItem[]>([]);
@@ -109,7 +116,7 @@ function AdminCitiesContent() {
       const data: CitiesApiResponse = await res.json();
 
       if (!data.success) {
-        toast.error(data.message || "Failed to load cities");
+        showBanner(data.message || "Failed to load cities", "error");
         setCities([]);
         return;
       }
@@ -118,7 +125,7 @@ function AdminCitiesContent() {
       setPagination(data.pagination || { page: nextPage, limit, total: (data.cities || []).length, pages: 1 });
       setPage(data.pagination?.page || nextPage);
     } catch {
-      toast.error("Failed to load cities");
+      showBanner("Failed to load cities", "error");
       setCities([]);
     } finally {
       setLoading(false);
@@ -133,7 +140,7 @@ function AdminCitiesContent() {
   const createCity = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!createForm.name.trim()) {
-      toast.error("City name is required");
+      showBanner("City name is required", "error");
       return;
     }
 
@@ -155,16 +162,16 @@ function AdminCitiesContent() {
 
       const data = await res.json();
       if (!data?.success) {
-        toast.error(data?.message || "Failed to create city");
+        showBanner(data?.message || "Failed to create city", "error");
         return;
       }
 
-      toast.success("City added");
+      showBanner("City added successfully", "success");
       setCreateForm(defaultCreateForm);
       setShowCreateForm(false);
       await fetchCities({ nextPage: 1 });
     } catch {
-      toast.error("Failed to create city");
+      showBanner("Failed to create city", "error");
     } finally {
       setCreating(false);
     }
@@ -226,10 +233,10 @@ function AdminCitiesContent() {
     try {
       const updated = await patchCity(city._id, { isActive: next });
       applyCityFromResponse(updated);
-      toast.success("Status updated");
+      showBanner("Status updated", "success");
     } catch (e: any) {
       setCities((prev) => prev.map((c) => (c._id === city._id ? { ...c, isActive: city.isActive } : c)));
-      toast.error(e?.message || "Update failed");
+      showBanner(e?.message || "Update failed", "error");
     } finally {
       setActionLoadingId(null);
     }
@@ -239,7 +246,7 @@ function AdminCitiesContent() {
     const next = !city.isFeaturedOnHomepage;
 
     if (next && !canFeatureMore()) {
-      toast.error("Only 4 cities can be featured on homepage.");
+      showBanner("Only 4 cities can be featured on homepage.", "error");
       return;
     }
 
@@ -251,14 +258,14 @@ function AdminCitiesContent() {
     try {
       const updated = await patchCity(city._id, { isFeaturedOnHomepage: next });
       applyCityFromResponse(updated);
-      toast.success("Homepage featured updated");
+      showBanner("Homepage featured updated", "success");
     } catch (e: any) {
       setCities((prev) =>
         prev.map((c) =>
           c._id === city._id ? { ...c, isFeaturedOnHomepage: city.isFeaturedOnHomepage } : c
         )
       );
-      toast.error(e?.message || "Update failed");
+      showBanner(e?.message || "Update failed", "error");
     } finally {
       setActionLoadingId(null);
     }
@@ -269,9 +276,9 @@ function AdminCitiesContent() {
     try {
       const updated = await patchCity(city._id, { displayOrder: Number(city.displayOrder || 0) });
       applyCityFromResponse(updated);
-      toast.success("Order updated");
+      showBanner("Order updated", "success");
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      showBanner(e?.message || "Update failed", "error");
       await fetchCities({ nextPage: page });
     } finally {
       setActionLoadingId(null);
@@ -289,7 +296,7 @@ function AdminCitiesContent() {
       if (!file) return;
 
       if (file.size > 5 * 1024 * 1024) {
-        toast.error("City image must be 5MB or smaller");
+        showBanner("City image must be 5MB or smaller", "error");
         return;
       }
 
@@ -321,9 +328,9 @@ function AdminCitiesContent() {
           clearImage: false,
         });
         applyCityFromResponse(updated);
-        toast.success("City image updated");
+        showBanner("City image updated", "success");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to upload city image");
+        showBanner(error instanceof Error ? error.message : "Failed to upload city image", "error");
       } finally {
         setActionLoadingId(null);
         setUploadingForId(null);
@@ -337,15 +344,14 @@ function AdminCitiesContent() {
     if (!city.imageUrl) return;
 
     setActionLoadingId(city._id);
-    // optimistic
     setCities((prev) => prev.map((c) => (c._id === city._id ? { ...c, imageUrl: "" } : c)));
 
     try {
       const updated = await patchCity(city._id, { clearImage: true });
       applyCityFromResponse(updated);
-      toast.success("City image removed");
+      showBanner("City image removed", "success");
     } catch (e: any) {
-      toast.error(e?.message || "Update failed");
+      showBanner(e?.message || "Update failed", "error");
       await fetchCities({ nextPage: page });
     } finally {
       setActionLoadingId(null);
@@ -379,14 +385,14 @@ function AdminCitiesContent() {
 
       const data = await res.json();
       if (!data?.success) {
-        toast.error(data?.message || "Failed to delete city");
+        showBanner(data?.message || "Failed to delete city", "error");
         return;
       }
 
-      toast.success("City deleted");
+      showBanner("City deleted successfully", "success");
       await fetchCities({ nextPage: 1 });
     } catch {
-      toast.error("Failed to delete city");
+      showBanner("Failed to delete city", "error");
     } finally {
       setActionLoadingId(null);
     }
@@ -398,7 +404,29 @@ function AdminCitiesContent() {
   };
 
   return (
-    <div className="p-4 md:p-6 space-y-6">
+    <div className="p-4 md:p-6 space-y-6 relative">
+      {banner && (
+        <div
+          className={`fixed top-5 left-1/2 -translate-x-1/2 z-[300] flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl transition-all border ${
+            banner.type === "success"
+              ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+              : banner.type === "error"
+              ? "bg-red-50 border-red-200 text-red-800"
+              : "bg-amber-50 border-amber-200 text-amber-800"
+          }`}
+        >
+          {banner.type === "success" ? (
+            <ShieldCheck className="w-5 h-5 text-emerald-600" />
+          ) : (
+            <X className="w-5 h-5 text-red-600" />
+          )}
+          <span className="text-sm font-semibold">{banner.message}</span>
+          <button onClick={() => setBanner(null)} className="ml-2 hover:opacity-70">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col xl:flex-row xl:items-start xl:justify-between gap-4">
         <div>
