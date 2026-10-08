@@ -1,34 +1,26 @@
 // components/layout/header.tsx
-// Highrise.pk — Global Header
-// V6.4.3 — Role-aware dropdown + mobile menu
-// Fixed: removed broken /account/settings, no duplication, expanded admin/agent/developer sections
+// Highrise.pk -- Global Header
+// Design System v19 Compliant -- Role-aware dropdown + mobile menu
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  User, LogOut, Plus, UserCircle, Building2, Shield,
-  LayoutDashboard, FolderPlus, Settings, Users, Heart, Home,
-  Menu, X, ChevronDown, CheckCircle, Clock, XCircle,
-  Sparkles, ShieldCheck, Banknote, Construction, Ruler,
-  ArrowRight, Calculator, FileText, MessageSquare, Bot,
-  Building, TrendingUp, BarChart3, Megaphone, Wrench, HardHat,
-} from "lucide-react";
+import { icons } from "@/lib/design-system/icons";
+import { colors } from "@/lib/design-system/tokens";
 import { Button } from "../ui/button";
-import { Modal } from "../ui/modal";
 import { useRouter } from "next/router";
 import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
 import { useSession, signOut } from "next-auth/react";
 import AuthGateModal from "@/components/auth/AuthGateModal";
 import { useFavorites } from "@/hooks/useFavorites";
-import { useCompare }   from "@/hooks/useCompare";
+import { useCompare } from "@/hooks/useCompare";
 
-// ═══════════════════════════════════════════════════════════════
-// 🔒 CONSTANTS
-// ═══════════════════════════════════════════════════════════════
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
-const PRIMARY_COLOR = "#029bba";
+const PRIMARY_COLOR = colors.primary;
 const MAX_DISPLAY_NAME_LEN = 50;
 const SESSION_POLL_INTERVAL = 60000;
 
@@ -111,27 +103,27 @@ function getRoleBadge(
   if (role === "admin") {
     return {
       text: "Admin",
-      bg: "#fef3c7",
-      color: "#d97706",
-      icon: <Shield className="w-3 h-3" />,
+      bg: colors.warningLight,
+      color: colors.warningDark,
+      icon: <icons.Shield className="w-3 h-3" />,
     };
   }
 
-  // ── Verified Owner ──
+  // Verified Owner
   if (isVerifiedOwner) {
     return {
       text: "Verified Owner",
-      bg: "#d1fae5",
-      color: "#059669",
-      icon: <ShieldCheck className="w-3 h-3" />,
+      bg: colors.successLight,
+      color: colors.successDark,
+      icon: <icons.ShieldCheck className="w-3 h-3" />,
     };
   }
   if (ownerStatus === "pending") {
     return {
       text: "Owner (Pending)",
-      bg: "#fef3c7",
-      color: "#d97706",
-      icon: <Clock className="w-3 h-3" />,
+      bg: colors.warningLight,
+      color: colors.warningDark,
+      icon: <icons.Clock className="w-3 h-3" />,
     };
   }
 
@@ -139,32 +131,32 @@ function getRoleBadge(
     if (isDevApproved) {
       return {
         text: "Verified Developer",
-        bg: "#d1fae5",
-        color: "#059669",
-        icon: <CheckCircle className="w-3 h-3" />,
+        bg: colors.successLight,
+        color: colors.successDark,
+        icon: <icons.CheckCircle className="w-3 h-3" />,
       };
     }
     if (devStatus === "pending") {
       return {
         text: "Developer (Pending)",
-        bg: "#fef3c7",
-        color: "#d97706",
-        icon: <Clock className="w-3 h-3" />,
+        bg: colors.warningLight,
+        color: colors.warningDark,
+        icon: <icons.Clock className="w-3 h-3" />,
       };
     }
     if (devStatus === "rejected") {
       return {
         text: "Developer (Rejected)",
-        bg: "#fee2e2",
-        color: "#dc2626",
-        icon: <XCircle className="w-3 h-3" />,
+        bg: colors.errorLight,
+        color: colors.errorDark,
+        icon: <icons.XCircle className="w-3 h-3" />,
       };
     }
     return {
       text: "Developer",
-      bg: `${PRIMARY_COLOR}15`,
-      color: PRIMARY_COLOR,
-      icon: <Building2 className="w-3 h-3" />,
+      bg: colors.primaryLight,
+      color: colors.primary,
+      icon: <icons.Building2 className="w-3 h-3" />,
     };
   }
 
@@ -173,15 +165,15 @@ function getRoleBadge(
       text: "Agent",
       bg: "#fff7ed",
       color: "#ea580c",
-      icon: <Users className="w-3 h-3" />,
+      icon: <icons.Users className="w-3 h-3" />,
     };
   }
 
   return {
     text: "User",
-    bg: "#f3f4f6",
-    color: "#6b7280",
-    icon: <User className="w-3 h-3" />,
+    bg: colors.gray100,
+    color: colors.gray500,
+    icon: <icons.User className="w-3 h-3" />,
   };
 }
 
@@ -502,11 +494,11 @@ export const Header: React.FC = () => {
     { label: "Developers", href: "/developers" },
   ];
 
-  // EXPLORE dropdown items — consolidated secondary nav
+  // EXPLORE dropdown items -- consolidated secondary nav
   const exploreItems = [
-    { label: "Agents",     href: "/agents",     icon: <Users className="w-4 h-4" />,     description: "Find verified property agents" },
-    { label: "SafeDeal",   href: "/safedeal",   icon: <ShieldCheck className="w-4 h-4" />, description: "Secure property transactions" },
-    { label: "Blog",       href: "/blog",       icon: <FileText className="w-4 h-4" />,  description: "Insights & market news" },
+    { label: "Agents",     href: "/agents",     icon: <icons.Users className="w-4 h-4" />,     description: "Find verified property agents" },
+    { label: "SafeDeal",   href: "/safedeal",   icon: <icons.ShieldCheck className="w-4 h-4" />, description: "Secure property transactions" },
+    { label: "Blog",       href: "/blog",       icon: <icons.FileText className="w-4 h-4" />,  description: "Insights & market news" },
   ];
 
   // ═══════════════════════════════════════════════════════════════
@@ -578,16 +570,16 @@ export const Header: React.FC = () => {
                 aria-expanded={isToolsDropdownOpen}
                 aria-haspopup="true"
               >
-                <Sparkles className="w-4 h-4" />
+                <icons.Sparkles className="w-4 h-4" />
                 Tools
-                <ChevronDown className={cx("w-3.5 h-3.5 transition-transform", isToolsDropdownOpen && "rotate-180")} />
+                <icons.ChevronDown className={cx("w-3.5 h-3.5 transition-transform", isToolsDropdownOpen && "rotate-180")} />
               </button>
 
               {isToolsDropdownOpen && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-96 rounded-2xl border-2 border-gray-100 bg-white shadow-2xl overflow-hidden z-[9999]">
                   <div className="px-5 py-3 bg-gradient-to-r from-[#029bba] to-[#004063] text-white">
                     <div className="flex items-center gap-2 mb-1">
-                      <Sparkles className="w-4 h-4 text-[#06b6d4]" />
+                      <icons.Sparkles className="w-4 h-4 text-[#06b6d4]" />
                       <h3 className="font-bold text-sm">Free Intelligence Tools</h3>
                     </div>
                     <p className="text-xs text-white/80">Make smarter property decisions</p>
@@ -595,7 +587,7 @@ export const Header: React.FC = () => {
 
                   <div className="p-2">
                     <ToolMenuItem
-                      icon={<ShieldCheck className="w-5 h-5" />}
+                      icon={<icons.ShieldCheck className="w-5 h-5" />}
                       iconBg="from-[#029bba] to-[#004063]"
                       title="Verify Society NOC"
                       description="Check legal approval + risk alerts"
@@ -604,7 +596,7 @@ export const Header: React.FC = () => {
                       onClick={() => setIsToolsDropdownOpen(false)}
                     />
                     <ToolMenuItem
-                      icon={<Banknote className="w-5 h-5" />}
+                      icon={<icons.Banknote className="w-5 h-5" />}
                       iconBg="from-[#027a94] to-[#003553]"
                       title="Fair Price Estimator"
                       description="Data-driven price verdict engine"
@@ -613,28 +605,28 @@ export const Header: React.FC = () => {
                       onClick={() => setIsToolsDropdownOpen(false)}
                     />
                     <ToolMenuItem
-                      icon={<Construction className="w-5 h-5" />}
+                      icon={<icons.Construction className="w-5 h-5" />}
                       iconBg="from-[#004063] to-[#001f2b]"
                       title="Construction Calculator"
-                      description="14 property types · 10 cities"
+                      description="14 property types | 10 cities"
                       href="/tools/construction-calculator"
                       badge="Industry-First"
                       onClick={() => setIsToolsDropdownOpen(false)}
                     />
                     <ToolMenuItem
-                      icon={<Calculator className="w-5 h-5" />}
+                      icon={<icons.Calculator className="w-5 h-5" />}
                       iconBg="from-[#029bba] to-[#003553]"
                       title="Home Loan Calculator"
-                      description="10 banks · Islamic + Conventional"
+                      description="10 banks | Islamic + Conventional"
                       href="/tools/home-loan-calculator"
                       badge="Industry-First"
                       onClick={() => setIsToolsDropdownOpen(false)}
                     />
                     <ToolMenuItem
-                      icon={<Ruler className="w-5 h-5" />}
+                      icon={<icons.Ruler className="w-5 h-5" />}
                       iconBg="from-[#06b6d4] to-[#029bba]"
                       title="Area Unit Converter"
-                      description="13 units · 3 Marla standards"
+                      description="13 units | 3 Marla standards"
                       href="/tools/area-unit-converter"
                       badge="Most Comprehensive"
                       onClick={() => setIsToolsDropdownOpen(false)}
@@ -647,16 +639,16 @@ export const Header: React.FC = () => {
                       onClick={() => setIsToolsDropdownOpen(false)}
                       className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-bold transition-all shadow-md group"
                     >
-                      <Sparkles className="w-4 h-4" />
+                      <icons.Sparkles className="w-4 h-4" />
                       View All Tools
-                      <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      <icons.ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
                   </div>
                 </div>
               )}
             </div>
 
-            {/* EXPLORE DROPDOWN (NEW — consolidates secondary nav) */}
+            {/* EXPLORE DROPDOWN */}
             <div className="relative" ref={exploreDropdownRef}>
               <button
                 type="button"
@@ -671,14 +663,14 @@ export const Header: React.FC = () => {
                 aria-haspopup="true"
               >
                 Explore
-                <ChevronDown className={cx("w-3.5 h-3.5 transition-transform", isExploreDropdownOpen && "rotate-180")} />
+                <icons.ChevronDown className={cx("w-3.5 h-3.5 transition-transform", isExploreDropdownOpen && "rotate-180")} />
               </button>
 
               {isExploreDropdownOpen && (
                 <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-80 rounded-2xl border-2 border-gray-100 bg-white shadow-2xl overflow-hidden z-[9999]">
                   <div className="px-5 py-3 bg-gradient-to-r from-[#029bba] to-[#004063] text-white">
                     <div className="flex items-center gap-2 mb-1">
-                      <Building2 className="w-4 h-4 text-[#06b6d4]" />
+                      <icons.Building2 className="w-4 h-4 text-[#06b6d4]" />
                       <h3 className="font-bold text-sm">Explore Highrise.pk</h3>
                     </div>
                     <p className="text-xs text-white/80">Discover more of the platform</p>
@@ -718,7 +710,7 @@ export const Header: React.FC = () => {
                               {item.description}
                             </p>
                           </div>
-                          <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] group-hover:translate-x-0.5 transition-all flex-shrink-0 self-center" />
+                          <icons.ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] group-hover:translate-x-0.5 transition-all flex-shrink-0 self-center" />
                         </Link>
                       );
                     })}
@@ -749,7 +741,7 @@ export const Header: React.FC = () => {
                   : ""
               )}
             >
-              <BarChart3
+              <icons.BarChart3
                 className={cx(
                   "w-5 h-5 transition-colors",
                   router.pathname === "/compare"
@@ -777,11 +769,7 @@ export const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* ───────────────
-                SHORTLIST BUTTON — Heart + Counter (Desktop)
-                Always visible (guest + logged-in)
-                Guest count from localStorage, logged-in from DB
-            ──────────────── */}
+            {/* SHORTLIST BUTTON -- Heart + Counter (Desktop) */}
             <Link
               href="/shortlist"
               onClick={handleShortlistClick}
@@ -795,7 +783,7 @@ export const Header: React.FC = () => {
                   : ""
               )}
             >
-              <Heart
+              <icons.Heart
                 className={cx(
                   "w-5 h-5 transition-colors",
                   router.pathname === "/shortlist"
@@ -834,9 +822,9 @@ export const Header: React.FC = () => {
                       className="flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white font-semibold rounded-xl px-5 shadow-lg hover:shadow-xl transition-all"
                       onClick={() => setIsAddListingOpen(!isAddListingOpen)}
                     >
-                      <Plus className="w-4 h-4" />
+                      <icons.Plus className="w-4 h-4" />
                       Add Listing
-                      <ChevronDown className={cx("w-4 h-4 transition-transform", isAddListingOpen && "rotate-180")} />
+                      <icons.ChevronDown className={cx("w-4 h-4 transition-transform", isAddListingOpen && "rotate-180")} />
                     </Button>
 
                     {isAddListingOpen && (
@@ -849,7 +837,7 @@ export const Header: React.FC = () => {
                             onClick={() => setIsAddListingOpen(false)}
                           >
                             <div className="w-10 h-10 rounded-lg bg-[#029bba]/10 flex items-center justify-center group-hover:bg-[#029bba]/20 transition-colors">
-                              <Home className="w-5 h-5 text-[#029bba]" />
+                              <icons.Home className="w-5 h-5 text-[#029bba]" />
                             </div>
                             <div>
                               <p className="font-semibold text-gray-900">Add Property</p>
@@ -862,7 +850,7 @@ export const Header: React.FC = () => {
                             onClick={() => setIsAddListingOpen(false)}
                           >
                             <div className="w-10 h-10 rounded-lg bg-[#029bba]/10 flex items-center justify-center group-hover:bg-[#029bba]/20 transition-colors">
-                              <Building2 className="w-5 h-5 text-[#029bba]" />
+                              <icons.Building2 className="w-5 h-5 text-[#029bba]" />
                             </div>
                             <div>
                               <p className="font-semibold text-gray-900">Add Project</p>
@@ -874,7 +862,6 @@ export const Header: React.FC = () => {
                     )}
                   </div>
                 ) : (
-                  /* Role-aware CTA: developers add projects; others list property */
                   !isAdmin && (
                     isDeveloper ? (
                       <Button
@@ -883,7 +870,7 @@ export const Header: React.FC = () => {
                         className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
                         onClick={() => router.push("/developer/projects/new")}
                       >
-                        <Building2 className="w-4 h-4" />
+                        <icons.Building2 className="w-4 h-4" />
                         Add Project
                       </Button>
                     ) : (
@@ -893,7 +880,7 @@ export const Header: React.FC = () => {
                         className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
                         onClick={() => router.push("/add-property")}
                       >
-                        <Plus className="w-4 h-4" />
+                        <icons.Plus className="w-4 h-4" />
                         List Property
                       </Button>
                     )
@@ -905,7 +892,7 @@ export const Header: React.FC = () => {
             {/* GUEST: Login + List */}
             {!isLoggedIn && (
               <>
-                                <Button
+                <Button
                   type="button"
                   size="sm"
                   className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
@@ -915,7 +902,7 @@ export const Header: React.FC = () => {
                     setIsLoginModalOpen(true);
                   }}
                 >
-                  <Plus className="w-4 h-4" />
+                  <icons.Plus className="w-4 h-4" />
                   List Property
                 </Button>
                 <Button
@@ -924,15 +911,13 @@ export const Header: React.FC = () => {
                   className="hidden md:flex items-center gap-2 text-[15px] text-gray-700 hover:text-[#029bba] font-semibold transition-colors"
                   onClick={() => setIsLoginModalOpen(true)}
                 >
-                  <User className="w-4 h-4" />
+                  <icons.User className="w-4 h-4" />
                   Login
                 </Button>
               </>
             )}
 
-            {/* ═══════════════════════════════════════════════════════════════
-                LOGGED IN: PROFILE DROPDOWN (ROLE-AWARE)
-            ═══════════════════════════════════════════════════════════════ */}
+            {/* LOGGED IN: PROFILE DROPDOWN */}
             {isLoggedIn && (
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-[#029bba] hidden sm:block text-sm">
@@ -946,8 +931,8 @@ export const Header: React.FC = () => {
                       className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-gray-700 hover:text-[#029bba] hover:bg-gray-50 transition-all border-2 border-transparent hover:border-gray-200"
                       aria-label="User menu"
                     >
-                      <UserCircle className="w-5 h-5" />
-                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                      <icons.UserCircle className="w-5 h-5" />
+                      <icons.ChevronDown className="w-4 h-4 text-gray-400" />
                     </button>
                   </DropdownMenu.Trigger>
 
@@ -975,80 +960,76 @@ export const Header: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* ═══════════════════════════════════════════════════════════════
-                        🛡️ ADMIN MENU
-                    ═══════════════════════════════════════════════════════════════ */}
+                    {/* ADMIN MENU */}
                     {isAdmin && (
                       <>
                         <SectionHeader label="Admin Workspace" color="text-amber-600" />
                         <MenuItem
                           href="/admin"
-                          icon={<Shield />}
+                          icon={<icons.Shield />}
                           label="Admin Dashboard"
                           iconColor="text-amber-500"
                           hoverColor="group-hover:text-amber-600"
                         />
 
                         <SectionHeader label="Manage Listings" color="text-amber-600" />
-                        <MenuItem href="/admin/properties" icon={<Home />} label="Manage Properties" />
-                        <MenuItem href="/admin/projects"   icon={<Building />} label="Manage Projects" />
-                        <MenuItem href="/admin/societies"  icon={<Building2 />} label="Manage Societies" />
+                        <MenuItem href="/admin/properties" icon={<icons.Home />} label="Manage Properties" />
+                        <MenuItem href="/admin/projects"   icon={<icons.Building />} label="Manage Projects" />
+                        <MenuItem href="/admin/societies"  icon={<icons.Building2 />} label="Manage Societies" />
 
                         <SectionHeader label="Manage Users" color="text-amber-600" />
-                        <MenuItem href="/admin/developers" icon={<Building2 />} label="Manage Developers" />
-                        <MenuItem href="/admin/agents"     icon={<Users />} label="Manage Agents" />
-                        <MenuItem href="/admin/users"      icon={<UserCircle />} label="Manage Users" />
+                        <MenuItem href="/admin/developers" icon={<icons.Building2 />} label="Manage Developers" />
+                        <MenuItem href="/admin/agents"     icon={<icons.Users />} label="Manage Agents" />
+                        <MenuItem href="/admin/users"      icon={<icons.UserCircle />} label="Manage Users" />
 
-                                                <SectionHeader label="Verifications" color="text-amber-600" />
-                        <MenuItem href="/admin/owners"     icon={<ShieldCheck />} label="Verified Owners" />
-                        <MenuItem href="/admin/providers"  icon={<Wrench />}      label="Service Providers" />
-                        <MenuItem href="/admin/labour"     icon={<HardHat />}     label="Labour Verification" />
+                        <SectionHeader label="Verifications" color="text-amber-600" />
+                        <MenuItem href="/admin/owners"     icon={<icons.ShieldCheck />} label="Verified Owners" />
+                        <MenuItem href="/admin/providers"  icon={<icons.Wrench />}      label="Service Providers" />
+                        <MenuItem href="/admin/labour"     icon={<icons.HardHat />}     label="Labour Verification" />
 
                         <SectionHeader label="SafeDeal & Visits" color="text-amber-600" />
-                        <MenuItem href="/admin/safedeal"   icon={<ShieldCheck />} label="SafeDeal Bookings" />
-                        <MenuItem href="/admin/homevisit"  icon={<Home />}        label="Home Visits" />
+                        <MenuItem href="/admin/safedeal"   icon={<icons.ShieldCheck />} label="SafeDeal Bookings" />
+                        <MenuItem href="/admin/homevisit"  icon={<icons.Home />}        label="Home Visits" />
 
                         <SectionHeader label="CRM & AI" color="text-amber-600" />
-                        <MenuItem href="/admin/leads"  icon={<MessageSquare />} label="Manage Leads" />
+                        <MenuItem href="/admin/leads"  icon={<icons.MessageSquare />} label="Manage Leads" />
                         <MenuItem
                           href="/admin/aleem"
-                          icon={<Bot />}
+                          icon={<icons.Bot />}
                           label="Aleem AI"
                           description="Conversations + analytics"
                           badge={{ text: "AI", color: "#029bba" }}
                         />
 
                         <SectionHeader label="Content & Reports" color="text-amber-600" />
-                        <MenuItem href="/admin/blogs"     icon={<FileText />} label="Blog Manager" />
-                        <MenuItem href="/admin/analytics" icon={<BarChart3 />} label="Analytics" />
-                        <MenuItem href="/admin/campaigns" icon={<Megaphone />} label="Campaigns" />
-                        <MenuItem href="/admin/settings"  icon={<Settings />} label="Admin Settings" />
+                        <MenuItem href="/admin/blogs"     icon={<icons.FileText />} label="Blog Manager" />
+                        <MenuItem href="/admin/analytics" icon={<icons.BarChart3 />} label="Analytics" />
+                        <MenuItem href="/admin/campaigns" icon={<icons.Megaphone />} label="Campaigns" />
+                        <MenuItem href="/admin/settings"  icon={<icons.Settings />} label="Admin Settings" />
                       </>
                     )}
 
-                                        {/* ═══════════════════════════════════════════════════════════════
-                        🛡️ VERIFIED OWNER MENU
-                    ═══════════════════════════════════════════════════════════════ */}
+                    {/* VERIFIED OWNER MENU */}
                     {isVerifiedOwner && !isAdmin && !isAgent && !isDeveloper && (
                       <>
                         <SectionHeader label="Owner Portal" color="#059669" />
                         <MenuItem
                           href="/owner/dashboard"
-                          icon={<LayoutDashboard />}
+                          icon={<icons.LayoutDashboard />}
                           label="Owner Dashboard"
                           iconColor="text-emerald-400"
                           hoverColor="group-hover:text-emerald-600"
                         />
                         <MenuItem
                           href="/owner/listings"
-                          icon={<Home />}
+                          icon={<icons.Home />}
                           label="My Listings"
                           iconColor="text-emerald-400"
                           hoverColor="group-hover:text-emerald-600"
                         />
                         <MenuItem
                           href="/owner/leads"
-                          icon={<MessageSquare />}
+                          icon={<icons.MessageSquare />}
                           label="My Leads"
                           iconColor="text-emerald-400"
                           hoverColor="group-hover:text-emerald-600"
@@ -1061,7 +1042,7 @@ export const Header: React.FC = () => {
                         <SectionHeader label="Owner Verification" color="#d97706" />
                         <MenuItem
                           href="/owner/verify"
-                          icon={<Clock />}
+                          icon={<icons.Clock />}
                           label="Verification Pending"
                           description="Usually 24-48 hours"
                           badge={{ text: "Under Review", color: "#d97706" }}
@@ -1071,29 +1052,27 @@ export const Header: React.FC = () => {
                       </>
                     )}
 
-                    {/* ═══════════════════════════════════════════════════════════════
-                        🏢 AGENT MENU
-                    ═══════════════════════════════════════════════════════════════ */}
+                    {/* AGENT MENU */}
                     {isAgent && (
                       <>
                         <SectionHeader label="Agent Workspace" color="text-orange-600" />
                         <MenuItem
                           href="/agent/dashboard"
-                          icon={<LayoutDashboard />}
+                          icon={<icons.LayoutDashboard />}
                           label="Agent Dashboard"
                           iconColor="text-orange-400"
                           hoverColor="group-hover:text-orange-600"
                         />
                         <MenuItem
                           href="/agent/listings"
-                          icon={<Home />}
+                          icon={<icons.Home />}
                           label="My Listings"
                           iconColor="text-orange-400"
                           hoverColor="group-hover:text-orange-600"
                         />
                         <MenuItem
                           href="/agent/leads"
-                          icon={<MessageSquare />}
+                          icon={<icons.MessageSquare />}
                           label="My Leads"
                           iconColor="text-orange-400"
                           hoverColor="group-hover:text-orange-600"
@@ -1102,14 +1081,14 @@ export const Header: React.FC = () => {
                         <SectionHeader label="Profile" color="text-orange-600" />
                         <MenuItem
                           href="/agent/profile"
-                          icon={<UserCircle />}
+                          icon={<icons.UserCircle />}
                           label="Agent Profile"
                           iconColor="text-orange-400"
                           hoverColor="group-hover:text-orange-600"
                         />
                         <MenuItem
                           href="/add-property"
-                          icon={<Plus />}
+                          icon={<icons.Plus />}
                           label="Add New Property"
                           iconColor="text-orange-400"
                           hoverColor="group-hover:text-orange-600"
@@ -1117,15 +1096,13 @@ export const Header: React.FC = () => {
                       </>
                     )}
 
-                    {/* ═══════════════════════════════════════════════════════════════
-                        🏗️ DEVELOPER MENU
-                    ═══════════════════════════════════════════════════════════════ */}
+                    {/* DEVELOPER MENU */}
                     {isDeveloper && !isAdmin && !isAgent && (
                       <>
                         <SectionHeader label="Developer Workspace" color={PRIMARY_COLOR} />
                         <MenuItem
                           href="/developer/dashboard"
-                          icon={<LayoutDashboard />}
+                          icon={<icons.LayoutDashboard />}
                           label="Developer Dashboard"
                           badge={
                             developerProfile?.status === "pending"
@@ -1135,30 +1112,28 @@ export const Header: React.FC = () => {
                               : undefined
                           }
                         />
-                        <MenuItem href="/developer/projects" icon={<Building />} label="My Projects" />
+                        <MenuItem href="/developer/projects" icon={<icons.Building />} label="My Projects" />
                         {isDevApproved && (
-                          <MenuItem href="/developer/projects/new" icon={<FolderPlus />} label="Add New Project" />
+                          <MenuItem href="/developer/projects/new" icon={<icons.FolderPlus />} label="Add New Project" />
                         )}
-                        <MenuItem href="/developer/leads"     icon={<MessageSquare />} label="My Leads" />
-                        <MenuItem href="/developer/analytics" icon={<TrendingUp />} label="Analytics" />
+                        <MenuItem href="/developer/leads"     icon={<icons.MessageSquare />} label="My Leads" />
+                        <MenuItem href="/developer/analytics" icon={<icons.TrendingUp />} label="Analytics" />
 
                         <SectionHeader label="Company" color={PRIMARY_COLOR} />
-                        <MenuItem href="/developer/profile" icon={<Settings />} label="Company Profile" />
+                        <MenuItem href="/developer/profile" icon={<icons.Settings />} label="Company Profile" />
                       </>
                     )}
 
-                    {/* ═══════════════════════════════════════════════════════════════
-                        👤 REGULAR USER MENU
-                    ═══════════════════════════════════════════════════════════════ */}
+                    {/* REGULAR USER MENU */}
                     {!isAdmin && !isAgent && !isDeveloper && (
                       <>
                         <SectionHeader label="My Account" />
-                        <MenuItem href="/dashboard"        icon={<LayoutDashboard />} label="My Dashboard" />
-                        <MenuItem href="/profile"          icon={<UserCircle />} label="My Profile" />
-                        <MenuItem href="/my-properties"    icon={<Home />} label="My Properties" />
-                        <MenuItem href="/saved-properties" icon={<Heart />} label="Saved Properties" />
+                        <MenuItem href="/dashboard"        icon={<icons.LayoutDashboard />} label="My Dashboard" />
+                        <MenuItem href="/profile"          icon={<icons.UserCircle />} label="My Profile" />
+                        <MenuItem href="/my-properties"    icon={<icons.Home />} label="My Properties" />
+                        <MenuItem href="/saved-properties" icon={<icons.Heart />} label="Saved Properties" />
 
-                                               <SectionHeader label="Upgrade Your Account" color={PRIMARY_COLOR} />
+                        <SectionHeader label="Upgrade Your Account" color={PRIMARY_COLOR} />
 
                         {/* Verified Owner option */}
                         <DropdownMenu.Item asChild>
@@ -1170,12 +1145,12 @@ export const Header: React.FC = () => {
                               transition-all group cursor-pointer outline-none"
                             style={{ color: "#059669" }}
                           >
-                            <ShieldCheck className="w-4 h-4 flex-shrink-0" />
+                            <icons.ShieldCheck className="w-4 h-4 flex-shrink-0" />
                             <div className="flex-1">
                               <p className="font-semibold">List My Property</p>
                               <p className="text-[11px] opacity-80">CNIC verified owner listing</p>
                             </div>
-                            <ArrowRight className="w-4 h-4 flex-shrink-0" />
+                            <icons.ArrowRight className="w-4 h-4 flex-shrink-0" />
                           </Link>
                         </DropdownMenu.Item>
 
@@ -1188,12 +1163,12 @@ export const Header: React.FC = () => {
                               transition-all group cursor-pointer outline-none"
                             style={{ color: "#ea580c" }}
                           >
-                            <Users className="w-4 h-4 flex-shrink-0" />
+                            <icons.Users className="w-4 h-4 flex-shrink-0" />
                             <div className="flex-1">
                               <p className="font-semibold">Become an Agent</p>
                               <p className="text-[11px] opacity-80">List properties professionally</p>
                             </div>
-                            <ArrowRight className="w-4 h-4 flex-shrink-0" />
+                            <icons.ArrowRight className="w-4 h-4 flex-shrink-0" />
                           </Link>
                         </DropdownMenu.Item>
 
@@ -1206,12 +1181,12 @@ export const Header: React.FC = () => {
                               transition-all group cursor-pointer outline-none"
                             style={{ color: PRIMARY_COLOR }}
                           >
-                            <Building2 className="w-4 h-4 flex-shrink-0" />
+                            <icons.Building2 className="w-4 h-4 flex-shrink-0" />
                             <div className="flex-1">
                               <p className="font-semibold">Become a Developer</p>
                               <p className="text-[11px] opacity-80">Create verified projects</p>
                             </div>
-                            <ArrowRight className="w-4 h-4 flex-shrink-0" />
+                            <icons.ArrowRight className="w-4 h-4 flex-shrink-0" />
                           </Link>
                         </DropdownMenu.Item>
 
@@ -1224,12 +1199,12 @@ export const Header: React.FC = () => {
                               transition-all group cursor-pointer outline-none"
                             style={{ color: "#7c3aed" }}
                           >
-                            <Building className="w-4 h-4 flex-shrink-0" />
+                            <icons.Building className="w-4 h-4 flex-shrink-0" />
                             <div className="flex-1">
                               <p className="font-semibold">Register Society</p>
                               <p className="text-[11px] opacity-80">Manage plots & blocks</p>
                             </div>
-                            <ArrowRight className="w-4 h-4 flex-shrink-0" />
+                            <icons.ArrowRight className="w-4 h-4 flex-shrink-0" />
                           </Link>
                         </DropdownMenu.Item>
 
@@ -1242,7 +1217,7 @@ export const Header: React.FC = () => {
                               transition-all group cursor-pointer outline-none"
                             style={{ color: "#6b7280" }}
                           >
-                            <Wrench className="w-4 h-4 flex-shrink-0" />
+                            <icons.Wrench className="w-4 h-4 flex-shrink-0" />
                             <div className="flex-1">
                               <p className="font-semibold">Service Provider</p>
                               <p className="text-[11px] opacity-80">Vendors, contractors, factories</p>
@@ -1262,7 +1237,7 @@ export const Header: React.FC = () => {
                               transition-all group cursor-pointer outline-none"
                             style={{ color: "#6b7280" }}
                           >
-                            <HardHat className="w-4 h-4 flex-shrink-0" />
+                            <icons.HardHat className="w-4 h-4 flex-shrink-0" />
                             <div className="flex-1">
                               <p className="font-semibold">Skilled Labour</p>
                               <p className="text-[11px] opacity-80">Register your trade</p>
@@ -1275,9 +1250,7 @@ export const Header: React.FC = () => {
                       </>
                     )}
 
-                    {/* ═══════════════════════════════════════════════════════════════
-                        LOGOUT (all roles)
-                    ═══════════════════════════════════════════════════════════════ */}
+                    {/* LOGOUT (all roles) */}
                     <DropdownMenu.Separator className="my-2 h-px bg-gray-200" />
 
                     <DropdownMenu.Item
@@ -1289,7 +1262,7 @@ export const Header: React.FC = () => {
                         hover:bg-gradient-to-r hover:from-red-50 hover:to-red-100
                         cursor-pointer transition-all font-semibold group outline-none"
                     >
-                      <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      <icons.LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
                       Log Out
                     </DropdownMenu.Item>
                   </DropdownMenu.Content>
@@ -1297,9 +1270,7 @@ export const Header: React.FC = () => {
               </div>
             )}
 
-            {/* ═══════════════════════════════════════════════════════
-                MOBILE COMPARE BUTTON
-            ═══════════════════════════════════════════════════════ */}
+            {/* MOBILE COMPARE BUTTON */}
             <Link
               href="/compare"
               onClick={handleCompareClick}
@@ -1313,7 +1284,7 @@ export const Header: React.FC = () => {
                   : ""
               )}
             >
-              <BarChart3
+              <icons.BarChart3
                 className={cx(
                   "w-5 h-5 transition-colors",
                   router.pathname === "/compare" || compareCount > 0
@@ -1337,10 +1308,7 @@ export const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* ───────────────
-                MOBILE SHORTLIST BUTTON — Heart + Counter
-                Visible on mobile only (desktop shown above)
-            ──────────────── */}
+            {/* MOBILE SHORTLIST BUTTON */}
             <Link
               href="/shortlist"
               onClick={handleShortlistClick}
@@ -1354,7 +1322,7 @@ export const Header: React.FC = () => {
                   : ""
               )}
             >
-              <Heart
+              <icons.Heart
                 className={cx(
                   "w-5 h-5 transition-colors",
                   router.pathname === "/shortlist"
@@ -1388,8 +1356,8 @@ export const Header: React.FC = () => {
               aria-expanded={isMobileMenuOpen}
             >
               {isMobileMenuOpen
-                ? <X className="w-6 h-6 text-gray-700" />
-                : <Menu className="w-6 h-6 text-gray-700" />}
+                ? <icons.X className="w-6 h-6 text-gray-700" />
+                : <icons.Menu className="w-6 h-6 text-gray-700" />}
             </button>
           </div>
         </div>
@@ -1419,7 +1387,7 @@ export const Header: React.FC = () => {
                     className="p-2 -ml-2 rounded-lg text-white/80 hover:text-white hover:bg-white/10 transition-colors"
                     aria-label="Close menu"
                   >
-                    <X className="w-6 h-6" />
+                    <icons.X className="w-6 h-6" />
                   </button>
                   <Image
                     src="/images/logo.png"
@@ -1469,7 +1437,7 @@ export const Header: React.FC = () => {
                       )}
                       onClick={() => setIsMobileMenuOpen(false)}
                     >
-                      <Home className="w-5 h-5" />
+                      <icons.Home className="w-5 h-5" />
                       {item.label}
                     </Link>
                   ))}
@@ -1487,10 +1455,10 @@ export const Header: React.FC = () => {
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <Sparkles className="w-5 h-5" />
+                        <icons.Sparkles className="w-5 h-5" />
                         Tools
                       </div>
-                      <ChevronDown className={cx("w-4 h-4 transition-transform", isMobileToolsExpanded && "rotate-180")} />
+                      <icons.ChevronDown className={cx("w-4 h-4 transition-transform", isMobileToolsExpanded && "rotate-180")} />
                     </button>
                     <div
                       className={cx(
@@ -1501,28 +1469,28 @@ export const Header: React.FC = () => {
                       <div className="ml-4 space-y-1 pl-3 border-l-2 border-[#029bba]/20">
                         <Link href="/tools/verify-society" onClick={() => setIsMobileMenuOpen(false)}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <ShieldCheck className="w-4 h-4 text-[#029bba]" /> Verify Society NOC
+                          <icons.ShieldCheck className="w-4 h-4 text-[#029bba]" /> Verify Society NOC
                         </Link>
                         <Link href="/tools/price-estimator" onClick={() => setIsMobileMenuOpen(false)}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <Banknote className="w-4 h-4 text-[#029bba]" /> Fair Price Estimator
+                          <icons.Banknote className="w-4 h-4 text-[#029bba]" /> Fair Price Estimator
                         </Link>
                         <Link href="/tools/construction-calculator" onClick={() => setIsMobileMenuOpen(false)}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <Construction className="w-4 h-4 text-[#029bba]" /> Construction Calculator
+                          <icons.Construction className="w-4 h-4 text-[#029bba]" /> Construction Calculator
                         </Link>
                         <Link href="/tools/home-loan-calculator" onClick={() => setIsMobileMenuOpen(false)}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <Calculator className="w-4 h-4 text-[#029bba]" /> Home Loan Calculator
+                          <icons.Calculator className="w-4 h-4 text-[#029bba]" /> Home Loan Calculator
                         </Link>
                         <Link href="/tools/area-unit-converter" onClick={() => setIsMobileMenuOpen(false)}
                           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <Ruler className="w-4 h-4 text-[#029bba]" /> Area Unit Converter
+                          <icons.Ruler className="w-4 h-4 text-[#029bba]" /> Area Unit Converter
                         </Link>
                         <Link href="/tools" onClick={() => setIsMobileMenuOpen(false)}
                           className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold text-[#029bba] bg-[#029bba]/5 hover:bg-[#029bba]/10 transition-all">
-                          <Sparkles className="w-4 h-4" /> View All Tools
-                          <ArrowRight className="w-3.5 h-3.5 ml-auto" />
+                          <icons.Sparkles className="w-4 h-4" /> View All Tools
+                          <icons.ArrowRight className="w-3.5 h-3.5 ml-auto" />
                         </Link>
                       </div>
                     </div>
@@ -1541,10 +1509,10 @@ export const Header: React.FC = () => {
                       )}
                     >
                       <div className="flex items-center gap-3">
-                        <Building2 className="w-5 h-5" />
+                        <icons.Building2 className="w-5 h-5" />
                         Explore
                       </div>
-                      <ChevronDown className={cx("w-4 h-4 transition-transform", isMobileExploreExpanded && "rotate-180")} />
+                      <icons.ChevronDown className={cx("w-4 h-4 transition-transform", isMobileExploreExpanded && "rotate-180")} />
                     </button>
                     <div
                       className={cx(
@@ -1564,138 +1532,135 @@ export const Header: React.FC = () => {
                   </div>
                 </div>
 
-                {/* ═══════════════════════════════════════════
-                    LOGGED IN: ROLE-AWARE MOBILE MENU
-                ═══════════════════════════════════════════════════════════════ */}
+                {/* LOGGED IN: ROLE-AWARE MOBILE MENU */}
                 {isLoggedIn && (
                   <>
-                    {/* Add Listing CTA — not for admin */}
                     {!isAdmin && (
                       <>
                         <div className="my-4 border-t-2 border-gray-100" />
                         <div className="space-y-1">
                           {isDevApproved ? (
                             <>
-                              <MobileLink href="/add-property" icon={<Plus />} label="Add Property"
+                              <MobileLink href="/add-property" icon={<icons.Plus />} label="Add Property"
                                 onClick={() => setIsMobileMenuOpen(false)} variant="primary" />
-                              <MobileLink href="/developer/projects/new" icon={<Building2 />} label="Add Project"
+                              <MobileLink href="/developer/projects/new" icon={<icons.Building2 />} label="Add Project"
                                 onClick={() => setIsMobileMenuOpen(false)} variant="soft" />
                             </>
                           ) : (
-                            <MobileLink href="/add-property" icon={<Plus />} label="List Your Property"
+                            <MobileLink href="/add-property" icon={<icons.Plus />} label="List Your Property"
                               onClick={() => setIsMobileMenuOpen(false)} variant="primary" />
                           )}
                         </div>
                       </>
                     )}
 
-                    {/* ── ADMIN MOBILE ── */}
+                    {/* ADMIN MOBILE */}
                     {isAdmin && (
                       <>
                         <div className="my-4 border-t-2 border-gray-100" />
-                        <MobileSectionHeader label="🛡️ Admin Workspace" color="#d97706" />
+                        <MobileSectionHeader label="Admin Workspace" color="#d97706" />
                         <div className="space-y-1">
-                          <MobileLink href="/admin" icon={<Shield />} label="Admin Dashboard"
+                          <MobileLink href="/admin" icon={<icons.Shield />} label="Admin Dashboard"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin"} />
                         </div>
 
                         <MobileSectionHeader label="Manage Listings" color="#d97706" />
                         <div className="space-y-1">
-                          <MobileLink href="/admin/properties" icon={<Home />} label="Manage Properties"
+                          <MobileLink href="/admin/properties" icon={<icons.Home />} label="Manage Properties"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/properties"} />
-                          <MobileLink href="/admin/projects" icon={<Building />} label="Manage Projects"
+                          <MobileLink href="/admin/projects" icon={<icons.Building />} label="Manage Projects"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/projects"} />
-                          <MobileLink href="/admin/societies" icon={<Building2 />} label="Manage Societies"
+                          <MobileLink href="/admin/societies" icon={<icons.Building2 />} label="Manage Societies"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/societies"} />
                         </div>
 
                         <MobileSectionHeader label="Manage Users" color="#d97706" />
                         <div className="space-y-1">
-                          <MobileLink href="/admin/developers" icon={<Building2 />} label="Manage Developers"
+                          <MobileLink href="/admin/developers" icon={<icons.Building2 />} label="Manage Developers"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/developers"} />
-                          <MobileLink href="/admin/agents" icon={<Users />} label="Manage Agents"
+                          <MobileLink href="/admin/agents" icon={<icons.Users />} label="Manage Agents"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/agents"} />
-                          <MobileLink href="/admin/users" icon={<UserCircle />} label="Manage Users"
+                          <MobileLink href="/admin/users" icon={<icons.UserCircle />} label="Manage Users"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/users"} />
                         </div>
 
                         <MobileSectionHeader label="CRM & AI" color="#d97706" />
                         <div className="space-y-1">
-                          <MobileLink href="/admin/leads" icon={<MessageSquare />} label="Manage Leads"
+                          <MobileLink href="/admin/leads" icon={<icons.MessageSquare />} label="Manage Leads"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/leads"} />
-                          <MobileLink href="/admin/aleem" icon={<Bot />} label="Aleem AI"
+                          <MobileLink href="/admin/aleem" icon={<icons.Bot />} label="Aleem AI"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname.startsWith("/admin/aleem")} />
                         </div>
 
                         <MobileSectionHeader label="Content & Reports" color="#d97706" />
                         <div className="space-y-1">
-                          <MobileLink href="/admin/blogs" icon={<FileText />} label="Blog Manager"
+                          <MobileLink href="/admin/blogs" icon={<icons.FileText />} label="Blog Manager"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname.startsWith("/admin/blogs")} />
-                          <MobileLink href="/admin/analytics" icon={<BarChart3 />} label="Analytics"
+                          <MobileLink href="/admin/analytics" icon={<icons.BarChart3 />} label="Analytics"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/analytics"} />
-                          <MobileLink href="/admin/campaigns" icon={<Megaphone />} label="Campaigns"
+                          <MobileLink href="/admin/campaigns" icon={<icons.Megaphone />} label="Campaigns"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname.startsWith("/admin/campaigns")} />
-                          <MobileLink href="/admin/settings" icon={<Settings />} label="Admin Settings"
+                          <MobileLink href="/admin/settings" icon={<icons.Settings />} label="Admin Settings"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/admin/settings"} />
                         </div>
                       </>
                     )}
 
-                    {/* ── AGENT MOBILE ── */}
+                    {/* AGENT MOBILE */}
                     {isAgent && (
                       <>
                         <div className="my-4 border-t-2 border-gray-100" />
-                        <MobileSectionHeader label="🏢 Agent Workspace" color="#ea580c" />
+                        <MobileSectionHeader label="Agent Workspace" color="#ea580c" />
                         <div className="space-y-1">
-                          <MobileLink href="/agent/dashboard" icon={<LayoutDashboard />} label="Agent Dashboard"
+                          <MobileLink href="/agent/dashboard" icon={<icons.LayoutDashboard />} label="Agent Dashboard"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/agent/dashboard"} />
-                          <MobileLink href="/agent/listings" icon={<Home />} label="My Listings"
+                          <MobileLink href="/agent/listings" icon={<icons.Home />} label="My Listings"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/agent/listings"} />
-                          <MobileLink href="/agent/leads" icon={<MessageSquare />} label="My Leads"
+                          <MobileLink href="/agent/leads" icon={<icons.MessageSquare />} label="My Leads"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/agent/leads"} />
-                          <MobileLink href="/agent/profile" icon={<UserCircle />} label="Agent Profile"
+                          <MobileLink href="/agent/profile" icon={<icons.UserCircle />} label="Agent Profile"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/agent/profile"} />
                         </div>
                       </>
                     )}
 
-                    {/* ── DEVELOPER MOBILE ── */}
+                    {/* DEVELOPER MOBILE */}
                     {isDeveloper && !isAdmin && !isAgent && (
                       <>
                         <div className="my-4 border-t-2 border-gray-100" />
-                        <MobileSectionHeader label="🏗️ Developer Workspace" color={PRIMARY_COLOR} />
+                        <MobileSectionHeader label="Developer Workspace" color={PRIMARY_COLOR} />
                         <div className="space-y-1">
-                          <MobileLink href="/developer/dashboard" icon={<LayoutDashboard />} label="Developer Dashboard"
+                          <MobileLink href="/developer/dashboard" icon={<icons.LayoutDashboard />} label="Developer Dashboard"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/developer/dashboard"} />
-                          <MobileLink href="/developer/projects" icon={<Building />} label="My Projects"
+                          <MobileLink href="/developer/projects" icon={<icons.Building />} label="My Projects"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname.startsWith("/developer/projects")} />
                           {isDevApproved && (
-                            <MobileLink href="/developer/projects/new" icon={<FolderPlus />} label="Add New Project"
+                            <MobileLink href="/developer/projects/new" icon={<icons.FolderPlus />} label="Add New Project"
                               onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/developer/projects/new"} />
                           )}
-                          <MobileLink href="/developer/leads" icon={<MessageSquare />} label="My Leads"
+                          <MobileLink href="/developer/leads" icon={<icons.MessageSquare />} label="My Leads"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/developer/leads"} />
-                          <MobileLink href="/developer/analytics" icon={<TrendingUp />} label="Analytics"
+                          <MobileLink href="/developer/analytics" icon={<icons.TrendingUp />} label="Analytics"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/developer/analytics"} />
-                          <MobileLink href="/developer/profile" icon={<Settings />} label="Company Profile"
+                          <MobileLink href="/developer/profile" icon={<icons.Settings />} label="Company Profile"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/developer/profile"} />
                         </div>
                       </>
                     )}
 
-                    {/* ── USER MOBILE ── */}
+                    {/* USER MOBILE */}
                     {!isAdmin && !isAgent && !isDeveloper && (
                       <>
                         <div className="my-4 border-t-2 border-gray-100" />
                         <MobileSectionHeader label="My Account" color="#6b7280" />
                         <div className="space-y-1">
-                          <MobileLink href="/dashboard" icon={<LayoutDashboard />} label="My Dashboard"
+                          <MobileLink href="/dashboard" icon={<icons.LayoutDashboard />} label="My Dashboard"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/dashboard"} />
-                          <MobileLink href="/profile" icon={<UserCircle />} label="My Profile"
+                          <MobileLink href="/profile" icon={<icons.UserCircle />} label="My Profile"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/profile"} />
-                          <MobileLink href="/my-properties" icon={<Home />} label="My Properties"
+                          <MobileLink href="/my-properties" icon={<icons.Home />} label="My Properties"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/my-properties"} />
-                          <MobileLink href="/saved-properties" icon={<Heart />} label="Saved Properties"
+                          <MobileLink href="/saved-properties" icon={<icons.Heart />} label="Saved Properties"
                             onClick={() => setIsMobileMenuOpen(false)} active={router.pathname === "/saved-properties"} />
                         </div>
 
@@ -1706,34 +1671,34 @@ export const Header: React.FC = () => {
                             onClick={() => setIsMobileMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold bg-gradient-to-r from-orange-50 to-orange-100 text-orange-700 transition-all min-h-[44px]"
                           >
-                            <Users className="w-5 h-5" />
+                            <icons.Users className="w-5 h-5" />
                             <span className="flex-1">Become an Agent</span>
-                            <ArrowRight className="w-4 h-4" />
+                            <icons.ArrowRight className="w-4 h-4" />
                           </Link>
                           <Link
                             href="/onboarding/developer"
                             onClick={() => setIsMobileMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold bg-gradient-to-r from-[#029bba]/10 to-[#029bba]/20 text-[#029bba] transition-all min-h-[44px]"
                           >
-                            <Building2 className="w-5 h-5" />
+                            <icons.Building2 className="w-5 h-5" />
                             <span className="flex-1">Become a Developer</span>
-                            <ArrowRight className="w-4 h-4" />
+                            <icons.ArrowRight className="w-4 h-4" />
                           </Link>
                           <Link
                             href="/onboarding/society"
                             onClick={() => setIsMobileMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold bg-gradient-to-r from-purple-50 to-purple-100 text-purple-700 transition-all min-h-[44px]"
                           >
-                            <Building className="w-5 h-5" />
+                            <icons.Building className="w-5 h-5" />
                             <span className="flex-1">Register Society</span>
-                            <ArrowRight className="w-4 h-4" />
+                            <icons.ArrowRight className="w-4 h-4" />
                           </Link>
                           <Link
                             href="/coming-soon?feature=provider"
                             onClick={() => setIsMobileMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 transition-all min-h-[44px]"
                           >
-                            <Wrench className="w-5 h-5" />
+                            <icons.Wrench className="w-5 h-5" />
                             <span className="flex-1">Service Provider</span>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Soon</span>
                           </Link>
@@ -1742,7 +1707,7 @@ export const Header: React.FC = () => {
                             onClick={() => setIsMobileMenuOpen(false)}
                             className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold bg-gradient-to-r from-gray-50 to-gray-100 text-gray-600 transition-all min-h-[44px]"
                           >
-                            <HardHat className="w-5 h-5" />
+                            <icons.HardHat className="w-5 h-5" />
                             <span className="flex-1">Skilled Labour</span>
                             <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Soon</span>
                           </Link>
@@ -1759,7 +1724,7 @@ export const Header: React.FC = () => {
                       }}
                       className="flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold text-red-600 hover:bg-red-50 active:bg-red-100 transition-all min-h-[44px] w-full"
                     >
-                      <LogOut className="w-5 h-5" />
+                      <icons.LogOut className="w-5 h-5" />
                       Log Out
                     </button>
                   </>
@@ -1776,7 +1741,7 @@ export const Header: React.FC = () => {
                         setIsLoginModalOpen(true);
                       }}
                     >
-                      <User className="w-5 h-5" />
+                      <icons.User className="w-5 h-5" />
                       Login / Sign Up
                     </button>
                     <button
@@ -1786,7 +1751,7 @@ export const Header: React.FC = () => {
                         setIsLoginModalOpen(true);
                       }}
                     >
-                      <Plus className="w-5 h-5" />
+                      <icons.Plus className="w-5 h-5" />
                       List Your Property
                     </button>
                   </>
@@ -1796,7 +1761,7 @@ export const Header: React.FC = () => {
               {/* Footer */}
               <div className="px-6 py-4 mt-4 border-t-2 border-gray-100 bg-gray-50">
                 <p className="text-xs text-gray-500 text-center">
-                  © {new Date().getFullYear()} Highrise.pk
+                  (c) {new Date().getFullYear()} Highrise.pk
                 </p>
                 <p className="text-xs text-gray-400 text-center mt-1">
                   Pakistan&apos;s Trusted Property Platform
@@ -1869,7 +1834,7 @@ const ToolMenuItem: React.FC<ToolMenuItemProps> = ({
           </div>
           <p className="text-xs text-gray-500 truncate">{description}</p>
         </div>
-        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] group-hover:translate-x-0.5 transition-all flex-shrink-0 self-center" />
+        <icons.ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] group-hover:translate-x-0.5 transition-all flex-shrink-0 self-center" />
       </div>
     </Link>
   );

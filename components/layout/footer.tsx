@@ -1,20 +1,13 @@
-// components/layout/Footer.tsx
-// 🏗️ ENTERPRISE FOOTER — HIGHRISE.PK
-// Premium dark navy + brand teal · Real Pakistani contact info
-// Zero banned patterns · Rule 12 brand compliance · Mobile-first responsive
+// components/layout/footer.tsx
+// ENTERPRISE FOOTER -- HIGHRISE.PK
+// Design System v19 Compliant -- Brand tokens and central icon registry
 
 import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
-import {
-  Phone, Mail, MapPin, Facebook, Instagram, Youtube, Twitter,
-  Linkedin, MessageCircle, Send, Loader2, CheckCircle, XCircle,
-  ShieldCheck, Award, Lock, Building2, Briefcase, Newspaper,
-  Sparkles, ArrowRight, Globe, ChevronDown, Home, Users,
-  FileText, HelpCircle, Heart, Banknote, Calculator, Construction,
-  Ruler, Clock, Building,
-} from 'lucide-react';
+import { icons } from '@/lib/design-system/icons';
+import { colors } from '@/lib/design-system/tokens';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -55,12 +48,12 @@ interface Office {
 // ─── Footer Data ──────────────────────────────────────────────────────────────
 
 const TOOLS_LINKS: FooterLink[] = [
-  { label: 'Verify Society NOC', href: '/tools/verify-society', icon: <ShieldCheck className="w-3.5 h-3.5" /> },
-  { label: 'Fair Price Estimator', href: '/tools/price-estimator', icon: <Banknote className="w-3.5 h-3.5" /> },
-  { label: 'Construction Calculator', href: '/tools/construction-calculator', icon: <Construction className="w-3.5 h-3.5" /> },
-  { label: 'Home Loan Calculator', href: '/tools/home-loan-calculator', icon: <Calculator className="w-3.5 h-3.5" /> },
-  { label: 'Area Unit Converter', href: '/tools/area-unit-converter', icon: <Ruler className="w-3.5 h-3.5" /> },
-  { label: 'View All Tools', href: '/tools', icon: <Sparkles className="w-3.5 h-3.5" /> },
+  { label: 'Verify Society NOC', href: '/tools/verify-society', icon: <icons.ShieldCheck className="w-3.5 h-3.5" /> },
+  { label: 'Fair Price Estimator', href: '/tools/price-estimator', icon: <icons.Banknote className="w-3.5 h-3.5" /> },
+  { label: 'Construction Calculator', href: '/tools/construction-calculator', icon: <icons.Construction className="w-3.5 h-3.5" /> },
+  { label: 'Home Loan Calculator', href: '/tools/home-loan-calculator', icon: <icons.Calculator className="w-3.5 h-3.5" /> },
+  { label: 'Area Unit Converter', href: '/tools/area-unit-converter', icon: <icons.Ruler className="w-3.5 h-3.5" /> },
+  { label: 'View All Tools', href: '/tools', icon: <icons.Sparkles className="w-3.5 h-3.5" /> },
 ];
 
 const PROPERTIES_LINKS: FooterLink[] = [
@@ -98,7 +91,7 @@ const OFFICES: Office[] = [
     phone: PRIMARY_PHONE_DISPLAY,
     phoneHref: PRIMARY_PHONE_HREF,
     email: EMAIL,
-    hours: 'Mon-Fri · 9am-6pm',
+    hours: 'Mon-Fri | 9am-6pm',
   },
   {
     city: 'Islamabad',
@@ -106,7 +99,7 @@ const OFFICES: Office[] = [
     phone: SECONDARY_PHONE_DISPLAY,
     phoneHref: SECONDARY_PHONE_HREF,
     email: EMAIL,
-    hours: 'Mon-Fri · 9am-6pm',
+    hours: 'Mon-Fri | 9am-6pm',
   },
   {
     city: 'Karachi',
@@ -114,7 +107,7 @@ const OFFICES: Office[] = [
     phone: PRIMARY_PHONE_DISPLAY,
     phoneHref: PRIMARY_PHONE_HREF,
     email: EMAIL,
-    hours: 'Mon-Fri · 9am-6pm',
+    hours: 'Mon-Fri | 9am-6pm',
   },
 ];
 
@@ -232,9 +225,9 @@ export const Footer: React.FC = () => {
                 onClick={handleWhatsApp}
                 className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors"
               >
-                <MessageCircle className="w-3.5 h-3.5" />
+                <icons.MessageCircle className="w-3.5 h-3.5" />
                 <span>Need help? WhatsApp us instantly</span>
-                <ArrowRight className="w-3 h-3" />
+                <icons.ArrowRight className="w-3 h-3" />
               </button>
             </div>
           </div>
@@ -258,7 +251,7 @@ export const Footer: React.FC = () => {
 
               <p className="text-sm text-white/70 leading-relaxed mb-5">
                 Pakistan&apos;s first <strong className="text-[#06b6d4]">property intelligence platform</strong>.
-                Verify societies, check fair prices, and discover trusted developers — all in one place.
+                Verify societies, check fair prices, and discover trusted developers -- all in one place.
               </p>
 
               {/* Social Icons */}
@@ -269,32 +262,32 @@ export const Footer: React.FC = () => {
                     href="https://www.facebook.com/official.highrise.pk"
                     label="Facebook"
                     brandColor="#1877F2"
-                    icon={<Facebook className="w-4 h-4" />}
+                    icon={<icons.Facebook className="w-4 h-4" />}
                   />
                   <SocialButton
                     href="https://www.instagram.com/officialhighrise.pk/"
                     label="Instagram"
                     brandColor="gradient-instagram"
-                    icon={<Instagram className="w-4 h-4" />}
+                    icon={<icons.Instagram className="w-4 h-4" />}
                   />
                   <SocialButton
                     href="https://www.youtube.com/@officialhighrise"
                     label="YouTube"
                     brandColor="#FF0000"
-                    icon={<Youtube className="w-4 h-4" />}
+                    icon={<icons.Youtube className="w-4 h-4" />}
                   />
                   <SocialButton
                     href="#"
                     label="Twitter (coming soon)"
                     brandColor="#000000"
-                    icon={<Twitter className="w-4 h-4" />}
+                    icon={<icons.Twitter className="w-4 h-4" />}
                     disabled
                   />
                   <SocialButton
                     href="#"
                     label="LinkedIn (coming soon)"
                     brandColor="#0A66C2"
-                    icon={<Linkedin className="w-4 h-4" />}
+                    icon={<icons.Linkedin className="w-4 h-4" />}
                     disabled
                   />
                 </div>
@@ -305,40 +298,40 @@ export const Footer: React.FC = () => {
                 onClick={handleWhatsApp}
                 className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#25D366] hover:bg-[#1da851] text-white text-sm font-semibold shadow-lg transition-colors"
               >
-                <MessageCircle className="w-4 h-4" />
+                <icons.MessageCircle className="w-4 h-4" />
                 Chat on WhatsApp
               </button>
             </div>
 
-            {/* ─── Tools (2 cols) ─── */}
+            {/* Tools (2 cols) */}
             <FooterLinksColumn
               title="Free Tools"
-              icon={<Sparkles className="w-4 h-4 text-[#06b6d4]" />}
+              icon={<icons.Sparkles className="w-4 h-4 text-[#06b6d4]" />}
               links={TOOLS_LINKS}
               isActiveLink={isActiveLink}
               highlightLast
             />
 
-            {/* ─── Properties (2 cols) ─── */}
+            {/* Properties (2 cols) */}
             <FooterLinksColumn
               title="Properties"
-              icon={<Home className="w-4 h-4 text-[#06b6d4]" />}
+              icon={<icons.Home className="w-4 h-4 text-[#06b6d4]" />}
               links={PROPERTIES_LINKS}
               isActiveLink={isActiveLink}
             />
 
-            {/* ─── Company (2 cols) ─── */}
+            {/* Company (2 cols) */}
             <FooterLinksColumn
               title="Company"
-              icon={<Building2 className="w-4 h-4 text-[#06b6d4]" />}
+              icon={<icons.Building2 className="w-4 h-4 text-[#06b6d4]" />}
               links={COMPANY_LINKS}
               isActiveLink={isActiveLink}
             />
 
-            {/* ─── Newsletter (3 cols) ─── */}
+            {/* Newsletter (3 cols) */}
             <div className="lg:col-span-3">
               <h3 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
-                <Mail className="w-4 h-4 text-[#06b6d4]" />
+                <icons.Mail className="w-4 h-4 text-[#06b6d4]" />
                 Stay Updated
               </h3>
               <p className="text-xs text-white/70 leading-relaxed mb-4">
@@ -347,7 +340,7 @@ export const Footer: React.FC = () => {
 
               <form onSubmit={handleNewsletterSubmit} className="space-y-2">
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
+                  <icons.Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
                   <input
                     type="email"
                     value={email}
@@ -365,9 +358,9 @@ export const Footer: React.FC = () => {
                   className="w-full h-11 rounded-xl bg-gradient-to-r from-[#029bba] to-[#06b6d4] hover:from-[#06b6d4] hover:to-[#029bba] text-white text-sm font-semibold transition-all shadow-lg disabled:opacity-60 flex items-center justify-center gap-2"
                 >
                   {submitting ? (
-                    <><Loader2 className="w-4 h-4 animate-spin" />Subscribing...</>
+                    <><icons.Loader2 className="w-4 h-4 animate-spin" />Subscribing...</>
                   ) : (
-                    <><Send className="w-4 h-4" />Subscribe</>
+                    <><icons.Send className="w-4 h-4" />Subscribe</>
                   )}
                 </button>
 
@@ -377,27 +370,27 @@ export const Footer: React.FC = () => {
                     banner.type === 'already' ? 'bg-[#029bba]/10 border-[#029bba] text-[#06b6d4]' :
                     'bg-[#ef4444]/10 border-[#ef4444] text-red-400'
                   }`}>
-                    {banner.type === 'success' && <CheckCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
-                    {banner.type === 'already' && <Mail className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
-                    {banner.type === 'error' && <XCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
+                    {banner.type === 'success' && <icons.CheckCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
+                    {banner.type === 'already' && <icons.Mail className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
+                    {banner.type === 'error' && <icons.XCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />}
                     <span className="flex-1 font-medium">{banner.message}</span>
                   </div>
                 )}
               </form>
 
               <p className="text-[10px] text-white/40 mt-3 leading-relaxed">
-                🔒 We respect your privacy. Unsubscribe anytime.
+                We respect your privacy. Unsubscribe anytime.
               </p>
             </div>
           </div>
         </div>
 
-        {/* ─── OFFICES SECTION ── */}
+        {/* OFFICES SECTION */}
         <div className="border-t border-white/10 bg-white/[0.02]">
           <div className="container mx-auto px-4 py-8">
             <div className="text-center mb-6">
               <h3 className="text-sm font-bold text-white mb-1 flex items-center justify-center gap-2">
-                <Building className="w-4 h-4 text-[#06b6d4]" />
+                <icons.Building className="w-4 h-4 text-[#06b6d4]" />
                 Our Offices Across Pakistan
               </h3>
               <p className="text-xs text-white/60">Visit us or call the office nearest to you</p>
@@ -411,7 +404,7 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* ─── TRUST BADGES ── */}
+        {/* TRUST BADGES */}
         <div className="border-t border-white/10">
           <div className="container mx-auto px-4 py-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4">
@@ -419,24 +412,24 @@ export const Footer: React.FC = () => {
                 Trust & Security
               </div>
               <div className="flex flex-wrap items-center justify-center gap-2">
-                <TrustBadge icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SECP Registered" />
-                <TrustBadge icon={<FileText className="w-3.5 h-3.5" />} label="FBR Compliant" />
-                <TrustBadge icon={<Award className="w-3.5 h-3.5" />} label="PTA Verified" />
-                <TrustBadge icon={<Lock className="w-3.5 h-3.5" />} label="AES-256 Encrypted" />
-                <TrustBadge icon={<ShieldCheck className="w-3.5 h-3.5" />} label="SSL Secured" />
+                <TrustBadge icon={<icons.ShieldCheck className="w-3.5 h-3.5" />} label="SECP Registered" />
+                <TrustBadge icon={<icons.FileText className="w-3.5 h-3.5" />} label="FBR Compliant" />
+                <TrustBadge icon={<icons.Award className="w-3.5 h-3.5" />} label="PTA Verified" />
+                <TrustBadge icon={<icons.Lock className="w-3.5 h-3.5" />} label="AES-256 Encrypted" />
+                <TrustBadge icon={<icons.ShieldCheck className="w-3.5 h-3.5" />} label="SSL Secured" />
               </div>
             </div>
           </div>
         </div>
 
-        {/* ─── BOTTOM BAR ── */}
+        {/* BOTTOM BAR */}
         <div className="border-t border-white/10 bg-[#001120]">
           <div className="container mx-auto px-4 py-5">
             <div className="flex flex-col md:flex-row items-center justify-between gap-4 text-xs">
 
               {/* Left: Copyright */}
               <div className="text-white/60 text-center md:text-left">
-                <span>© {FOUNDED_YEAR}-{currentYear} </span>
+                <span>(c) {FOUNDED_YEAR}-{currentYear} </span>
                 <strong className="text-white">Highrise.pk (Pvt) Ltd.</strong>
                 <span> All rights reserved.</span>
               </div>
@@ -444,11 +437,11 @@ export const Footer: React.FC = () => {
               {/* Center: Legal Links */}
               <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-white/60">
                 <Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy</Link>
-                <span className="text-white/20">·</span>
+                <span className="text-white/20">|</span>
                 <Link href="/terms-of-service" className="hover:text-white transition-colors">Terms</Link>
-                <span className="text-white/20">·</span>
+                <span className="text-white/20">|</span>
                 <Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link>
-                <span className="text-white/20">·</span>
+                <span className="text-white/20">|</span>
                 <Link href="/sitemap.xml" className="hover:text-white transition-colors">Sitemap</Link>
               </div>
 
@@ -459,13 +452,13 @@ export const Footer: React.FC = () => {
                   className="inline-flex items-center gap-1 hover:text-white transition-colors"
                   title="Language selector (coming soon)"
                 >
-                  <Globe className="w-3.5 h-3.5" />
+                  <icons.Globe className="w-3.5 h-3.5" />
                   <span>English</span>
-                  <ChevronDown className="w-3 h-3" />
+                  <icons.ChevronDown className="w-3 h-3" />
                 </button>
-                <span className="text-white/20">·</span>
+                <span className="text-white/20">|</span>
                 <span className="inline-flex items-center gap-1">
-                  Made with <Heart className="w-3 h-3 text-[#ef4444] fill-current" /> in Pakistan 🇵🇰
+                  Made with <icons.Heart className="w-3 h-3 text-[#ef4444] fill-current" /> in Pakistan
                 </span>
               </div>
             </div>
@@ -589,7 +582,7 @@ function FooterLinksColumn({
                 )}
                 <span>{link.label}</span>
                 {isLast && (
-                  <ArrowRight className="w-3 h-3 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
+                  <icons.ArrowRight className="w-3 h-3 ml-0.5 group-hover:translate-x-0.5 transition-transform" />
                 )}
               </Link>
             </li>
@@ -600,7 +593,7 @@ function FooterLinksColumn({
   );
 }
 
-// ─── Sub-Component: Office Card ───────────────────────────────────────────────
+// Office Card Sub-Component
 
 interface OfficeCardProps {
   office: Office;
@@ -617,7 +610,7 @@ function OfficeCard({ office }: OfficeCardProps): React.ReactElement {
     >
       <div className="flex items-start justify-between mb-3">
         <h4 className="font-bold text-white text-base flex items-center gap-1.5">
-          <MapPin className="w-4 h-4 text-[#06b6d4]" />
+          <icons.MapPin className="w-4 h-4 text-[#06b6d4]" />
           {office.city}
         </h4>
         {office.isHQ && (
@@ -629,7 +622,7 @@ function OfficeCard({ office }: OfficeCardProps): React.ReactElement {
 
       <div className="space-y-2 text-xs">
         <div className="flex items-start gap-2 text-white/70">
-          <MapPin className="w-3 h-3 flex-shrink-0 mt-0.5 text-white/40" />
+          <icons.MapPin className="w-3 h-3 flex-shrink-0 mt-0.5 text-white/40" />
           <span className="leading-snug">{office.address}</span>
         </div>
 
@@ -637,7 +630,7 @@ function OfficeCard({ office }: OfficeCardProps): React.ReactElement {
           href={`tel:${office.phoneHref}`}
           className="flex items-center gap-2 text-white/70 hover:text-[#06b6d4] transition-colors group"
         >
-          <Phone className="w-3 h-3 flex-shrink-0 text-white/40 group-hover:text-[#06b6d4]" />
+          <icons.Phone className="w-3 h-3 flex-shrink-0 text-white/40 group-hover:text-[#06b6d4]" />
           <span>{office.phone}</span>
         </a>
 
@@ -645,12 +638,12 @@ function OfficeCard({ office }: OfficeCardProps): React.ReactElement {
           href={`mailto:${office.email}`}
           className="flex items-center gap-2 text-white/70 hover:text-[#06b6d4] transition-colors group truncate"
         >
-          <Mail className="w-3 h-3 flex-shrink-0 text-white/40 group-hover:text-[#06b6d4]" />
+          <icons.Mail className="w-3 h-3 flex-shrink-0 text-white/40 group-hover:text-[#06b6d4]" />
           <span className="truncate">{office.email}</span>
         </a>
 
         <div className="flex items-center gap-2 text-white/60">
-          <Clock className="w-3 h-3 flex-shrink-0 text-white/40" />
+          <icons.Clock className="w-3 h-3 flex-shrink-0 text-white/40" />
           <span>{office.hours}</span>
         </div>
       </div>

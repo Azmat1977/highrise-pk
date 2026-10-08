@@ -88,6 +88,8 @@ import {
   UserPlus,
   UserCheck,
   UserX,
+  UserCircle,
+  LayoutDashboard,
   Lock,
   Unlock,
   Key,
@@ -178,6 +180,7 @@ import {
   ClipboardList,
   Folder,
   FolderOpen,
+  FolderPlus,
   Paperclip,
   Link,
 
@@ -195,7 +198,7 @@ import {
   QrCode,
   Verified,
 
-  // Misc
+  // Misc & Social
   HelpCircle,
   Lightbulb,
   Rocket,
@@ -213,6 +216,13 @@ import {
   HeartPulse,
   HardHat,
   Wrench,
+  Construction,
+  Bot,
+  Facebook,
+  Instagram,
+  Youtube,
+  Twitter,
+  Linkedin,
   Cog,
   Power,
   ToggleLeft,
@@ -317,6 +327,8 @@ export const icons = {
   UserPlus,
   UserCheck,
   UserX,
+  UserCircle,
+  LayoutDashboard,
   Lock,
   Unlock,
   Key,
@@ -406,6 +418,7 @@ export const icons = {
   ClipboardList,
   Folder,
   FolderOpen,
+  FolderPlus,
   Paperclip,
   Link,
 
@@ -420,7 +433,7 @@ export const icons = {
   QrCode,
   Verified,
 
-  // Misc
+  // Misc & Social
   HelpCircle,
   Lightbulb,
   Rocket,
@@ -438,6 +451,13 @@ export const icons = {
   HeartPulse,
   HardHat,
   Wrench,
+  Construction,
+  Bot,
+  Facebook,
+  Instagram,
+  Youtube,
+  Twitter,
+  Linkedin,
   Cog,
   Power,
   ToggleLeft,
