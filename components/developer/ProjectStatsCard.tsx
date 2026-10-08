@@ -1,30 +1,13 @@
 // components/developer/ProjectStatsCard.tsx
+// Design System v19 Compliant -- Central icon registry and color tokens bound
 import React from 'react';
 import Link from 'next/link';
-import {
-  Building2,
-  Home,
-  TrendingUp,
-  Eye,
-  MessageSquare,
-  Users,
-  CheckCircle2,
-  Clock,
-  AlertTriangle,
-  XCircle,
-  ArrowRight,
-  ArrowUpRight,
-  ArrowDownRight,
-  BarChart3,
-  Target,
-  DollarSign,
-  Layers,
-  PlusCircle,
-} from 'lucide-react';
+import { icons } from '@/lib/design-system/icons';
+import { colors } from '@/lib/design-system/tokens';
 
-// ════════════════════════════════════════════════════
+// ============================================================================
 // TYPES
-// ════════════════════════════════════════════════════
+// ============================================================================
 
 export interface ProjectStats {
   totalProjects:       number;
@@ -93,7 +76,7 @@ function TrendIndicator({ value }: { value?: number }): React.ReactElement | nul
   if (value > 0) {
     return (
       <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-emerald-600">
-        <ArrowUpRight className="w-3 h-3" />
+        <icons.ArrowUpRight className="w-3 h-3" />
         {Math.abs(value).toFixed(1)}%
       </span>
     );
@@ -102,7 +85,7 @@ function TrendIndicator({ value }: { value?: number }): React.ReactElement | nul
   if (value < 0) {
     return (
       <span className="inline-flex items-center gap-0.5 text-xs font-semibold text-red-500">
-        <ArrowDownRight className="w-3 h-3" />
+        <icons.ArrowDownRight className="w-3 h-3" />
         {Math.abs(value).toFixed(1)}%
       </span>
     );
@@ -113,9 +96,9 @@ function TrendIndicator({ value }: { value?: number }): React.ReactElement | nul
   );
 }
 
-// ════════════════════════════════════════════════════
+// ============================================================================
 // STAT CARD ITEM (reusable)
-// ════════════════════════════════════════════════════
+// ============================================================================
 
 interface StatItemProps {
   label:     string;
@@ -171,7 +154,7 @@ function StatItem({
 
       {/* Arrow for linked items */}
       {href && (
-        <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba]
+        <icons.ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba]
                                transition-colors flex-shrink-0" />
       )}
     </div>
@@ -184,9 +167,9 @@ function StatItem({
   return content;
 }
 
-// ════════════════════════════════════════════════════
+// ============================================================================
 // UNIT STATUS BAR
-// ════════════════════════════════════════════════════
+// ============================================================================
 
 function UnitStatusBar({
   available,
@@ -259,9 +242,9 @@ function UnitStatusBar({
   );
 }
 
-// ════════════════════════════════════════════════════
+// ============================================================================
 // PROJECT STATUS PILLS
-// ════════════════════════════════════════════════════
+// ============================================================================
 
 function ProjectStatusPills({
   stats,
@@ -272,35 +255,35 @@ function ProjectStatusPills({
     {
       label: 'Verified',
       count: stats.verifiedProjects,
-      icon:  <CheckCircle2 className="w-3 h-3" />,
+      icon:  <icons.CheckCircle2 className="w-3 h-3" />,
       bg:    'bg-emerald-100',
       text:  'text-emerald-700',
     },
     {
       label: 'Active',
       count: stats.activeProjects,
-      icon:  <Building2 className="w-3 h-3" />,
+      icon:  <icons.Building2 className="w-3 h-3" />,
       bg:    'bg-blue-100',
       text:  'text-blue-700',
     },
     {
       label: 'Pending',
       count: stats.pendingProjects,
-      icon:  <Clock className="w-3 h-3" />,
+      icon:  <icons.Clock className="w-3 h-3" />,
       bg:    'bg-amber-100',
       text:  'text-amber-700',
     },
     {
       label: 'Draft',
       count: stats.draftProjects,
-      icon:  <Layers className="w-3 h-3" />,
+      icon:  <icons.Layers className="w-3 h-3" />,
       bg:    'bg-gray-100',
       text:  'text-gray-600',
     },
     {
       label: 'Rejected',
       count: stats.rejectedProjects,
-      icon:  <XCircle className="w-3 h-3" />,
+      icon:  <icons.XCircle className="w-3 h-3" />,
       bg:    'bg-red-100',
       text:  'text-red-600',
     },
@@ -324,9 +307,9 @@ function ProjectStatusPills({
   );
 }
 
-// ════════════════════════════════════════════════════
+// ============================================================================
 // SIDEBAR VARIANT
-// ════════════════════════════════════════════════════
+// ============================================================================
 
 function SidebarStats({
   stats,
@@ -381,7 +364,7 @@ function SidebarStats({
       <div className="space-y-2">
         <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
           <span className="text-xs text-gray-500 flex items-center gap-1.5">
-            <Eye className="w-3 h-3" /> Views
+            <icons.Eye className="w-3 h-3" /> Views
           </span>
           <span className="text-xs font-bold text-gray-700">
             {formatNumber(stats.totalViews)}
@@ -389,7 +372,7 @@ function SidebarStats({
         </div>
         <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
           <span className="text-xs text-gray-500 flex items-center gap-1.5">
-            <MessageSquare className="w-3 h-3" /> Inquiries
+            <icons.MessageSquare className="w-3 h-3" /> Inquiries
           </span>
           <span className="text-xs font-bold text-gray-700">
             {formatNumber(stats.totalInquiries)}
@@ -397,7 +380,7 @@ function SidebarStats({
         </div>
         <div className="flex items-center justify-between py-1.5 border-b border-gray-50">
           <span className="text-xs text-gray-500 flex items-center gap-1.5">
-            <Target className="w-3 h-3" /> Conversion
+            <icons.Target className="w-3 h-3" /> Conversion
           </span>
           <span className="text-xs font-bold text-gray-700">
             {stats.conversionRate.toFixed(1)}%
@@ -405,7 +388,7 @@ function SidebarStats({
         </div>
         <div className="flex items-center justify-between py-1.5">
           <span className="text-xs text-gray-500 flex items-center gap-1.5">
-            <DollarSign className="w-3 h-3" /> Revenue
+            <icons.DollarSign className="w-3 h-3" /> Revenue
           </span>
           <span className="text-xs font-bold text-gray-700">
             {formatPKR(stats.totalRevenue)}
@@ -416,9 +399,9 @@ function SidebarStats({
   );
 }
 
-// ════════════════════════════════════════════════════
+// ============================================================================
 // COMPACT VARIANT
-// ════════════════════════════════════════════════════
+// ============================================================================
 
 function CompactStats({
   stats,
@@ -432,7 +415,7 @@ function CompactStats({
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <h3 className="font-bold text-sm text-[#004063] flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-[#029bba]" />
+          <icons.BarChart3 className="w-4 h-4 text-[#029bba]" />
           Quick Stats
         </h3>
         <Link
@@ -440,7 +423,7 @@ function CompactStats({
           className="text-xs font-semibold text-[#029bba] hover:underline
                      flex items-center gap-1"
         >
-          View All <ArrowRight className="w-3 h-3" />
+          View All <icons.ArrowRight className="w-3 h-3" />
         </Link>
       </div>
 
@@ -475,35 +458,35 @@ function CompactStats({
   );
 }
 
-// ════════════════════════════════════════════════════
+// ============================================================================
 // FULL VARIANT (DEFAULT)
-// ════════════════════════════════════════════════════
+// ============================================================================
 
 export default function ProjectStatsCard({
   stats,
   variant   = 'full',
   className = '',
 }: ProjectStatsCardProps): React.ReactElement {
-  // ── Sidebar variant ──
+  // Sidebar variant
   if (variant === 'sidebar') {
     return <SidebarStats stats={stats} className={className} />;
   }
 
-  // ── Compact variant ──
+  // Compact variant
   if (variant === 'compact') {
     return <CompactStats stats={stats} className={className} />;
   }
 
-  // ── Empty state ──
+  // Empty state
   if (stats.totalProjects === 0) {
     return (
       <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center ${className}`}>
-        <Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+        <icons.Building2 className="w-12 h-12 text-gray-300 mx-auto mb-3" />
         <h3 className="font-bold text-lg text-gray-700 mb-1">
           Koi Project Nahi Hai
         </h3>
         <p className="text-sm text-gray-400 mb-4 max-w-sm mx-auto">
-          Apna pehla project add karein aur yahan par sab stats dikhenge — views, leads, sales sab kuch.
+          Apna pehla project add karein aur yahan par sab stats dikhenge -- views, leads, sales sab kuch.
         </p>
         <Link
           href="/developer/projects/new"
@@ -513,21 +496,21 @@ export default function ProjectStatsCard({
                      hover:from-[#02a8c9] hover:to-[#028aaa]
                      hover:shadow-lg transition-all duration-200"
         >
-          <PlusCircle className="w-4 h-4" />
+          <icons.PlusCircle className="w-4 h-4" />
           Add First Project
         </Link>
       </div>
     );
   }
 
-  // ── Full variant ──
+  // Full variant
   return (
     <div className={`bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden ${className}`}>
       {/* Header */}
       <div className="px-5 pt-5 pb-3 border-b border-gray-50">
         <div className="flex items-center justify-between">
           <h3 className="font-bold text-base text-[#004063] flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-[#029bba]" />
+            <icons.BarChart3 className="w-5 h-5 text-[#029bba]" />
             Project Overview
           </h3>
           <Link
@@ -535,7 +518,7 @@ export default function ProjectStatsCard({
             className="text-xs font-semibold text-[#029bba] hover:underline
                        flex items-center gap-1"
           >
-            Detailed Analytics <ArrowRight className="w-3 h-3" />
+            Detailed Analytics <icons.ArrowRight className="w-3 h-3" />
           </Link>
         </div>
 
@@ -549,7 +532,7 @@ export default function ProjectStatsCard({
           <StatItem
             label="Total Projects"
             value={stats.totalProjects}
-            icon={<Building2 className="w-5 h-5" />}
+            icon={<icons.Building2 className="w-5 h-5" />}
             iconBg="bg-blue-50"
             iconColor="text-blue-600"
             href="/developer/projects"
@@ -557,14 +540,14 @@ export default function ProjectStatsCard({
           <StatItem
             label="Total Units"
             value={stats.totalUnits}
-            icon={<Home className="w-5 h-5" />}
+            icon={<icons.Home className="w-5 h-5" />}
             iconBg="bg-purple-50"
             iconColor="text-purple-600"
           />
           <StatItem
             label="Total Views"
             value={stats.totalViews}
-            icon={<Eye className="w-5 h-5" />}
+            icon={<icons.Eye className="w-5 h-5" />}
             iconBg="bg-cyan-50"
             iconColor="text-cyan-600"
             trend={stats.viewsTrend}
@@ -573,7 +556,7 @@ export default function ProjectStatsCard({
           <StatItem
             label="Inquiries"
             value={stats.totalInquiries}
-            icon={<MessageSquare className="w-5 h-5" />}
+            icon={<icons.MessageSquare className="w-5 h-5" />}
             iconBg="bg-amber-50"
             iconColor="text-amber-600"
             trend={stats.inquiriesTrend}
@@ -582,7 +565,7 @@ export default function ProjectStatsCard({
           <StatItem
             label="Active Leads"
             value={stats.totalLeads}
-            icon={<Users className="w-5 h-5" />}
+            icon={<icons.Users className="w-5 h-5" />}
             iconBg="bg-emerald-50"
             iconColor="text-emerald-600"
             trend={stats.leadsTrend}
@@ -591,7 +574,7 @@ export default function ProjectStatsCard({
           <StatItem
             label="Conversion Rate"
             value={`${stats.conversionRate.toFixed(1)}%`}
-            icon={<Target className="w-5 h-5" />}
+            icon={<icons.Target className="w-5 h-5" />}
             iconBg="bg-pink-50"
             iconColor="text-pink-600"
             subtitle={`${stats.soldUnits} sold of ${stats.totalUnits}`}
@@ -612,7 +595,7 @@ export default function ProjectStatsCard({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-green-50 flex items-center justify-center">
-                  <DollarSign className="w-4 h-4 text-green-600" />
+                  <icons.DollarSign className="w-4 h-4 text-green-600" />
                 </div>
                 <div>
                   <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide">

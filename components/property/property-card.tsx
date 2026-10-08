@@ -1,38 +1,12 @@
 // components/property/property-card.tsx
+// Design System v19 Compliant -- Bound central icon lookup and theme colors
 
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { getSession } from 'next-auth/react';
-import {
-  Heart,
-  MapPin,
-  Building,
-  BedDouble,
-  Bath,
-  Car,
-  ImageOff,
-  ChevronLeft,
-  ChevronRight,
-  Camera,
-  Video,
-  CheckCircle,
-  Flame,
-  Star,
-  Clock,
-  Phone,
-  MessageCircle,
-  Eye,
-  X,
-  LogIn,
-  UserPlus,
-  Lock,
-  TrendingDown,
-  Shield,
-  BarChart3,
-  Check,
-} from 'lucide-react';
-
+import { icons } from '@/lib/design-system/icons';
+import { colors } from '@/lib/design-system/tokens';
 import { useCompare } from '@/hooks/useCompare';
 import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 
@@ -145,7 +119,8 @@ interface PropertyCardProps {
 // Design System
 // ============================================
 
-const PRIMARY_COLOR = '#029bba';
+const PRIMARY_COLOR = colors.primary;
+
 
 // ============================================
 // Helpers (Enterprise-grade normalization)
@@ -317,12 +292,12 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage,
           className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors z-10"
           aria-label="Close modal"
         >
-          <X className="w-5 h-5" />
+          <icons.X className="w-5 h-5" />
         </button>
 
         <div className="pt-8 pb-4 px-6 text-center">
           <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-100 to-pink-100 flex items-center justify-center">
-            <Heart className="w-8 h-8 text-red-500" />
+            <icons.Heart className="w-8 h-8 text-red-500" />
           </div>
           <h3 className="text-xl font-bold text-gray-900 mb-2">Save Your Favorites</h3>
           <p className="text-sm text-gray-500">Login to save properties and access them anytime from any device</p>
@@ -334,7 +309,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage,
               <img src={propertyImage} alt={propertyTitle} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" loading="lazy" />
             ) : (
               <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                <ImageOff className="w-6 h-6 text-gray-400" />
+                <icons.ImageOff className="w-6 h-6 text-gray-400" />
               </div>
             )}
 
@@ -351,7 +326,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage,
             href="/login"
             className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white rounded-xl font-semibold hover:from-[#017a8a] hover:to-[#015a6a] transition-all shadow-lg shadow-[#029bba]/25"
           >
-            <LogIn className="w-5 h-5" />
+            <icons.LogIn className="w-5 h-5" />
             Login to Save
           </a>
 
@@ -359,7 +334,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage,
             href="/login?mode=signup"
             className="flex items-center justify-center gap-2 w-full py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:border-[#029bba] hover:text-[#029bba] transition-all"
           >
-            <UserPlus className="w-5 h-5" />
+            <icons.UserPlus className="w-5 h-5" />
             Create Account
           </a>
 
@@ -370,7 +345,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage,
 
         <div className="px-6 pb-6">
           <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
-            <Lock className="w-3 h-3" />
+            <icons.Lock className="w-3 h-3" />
             <span>Your data is secure with us</span>
           </div>
         </div>
@@ -814,7 +789,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                 />
               ) : (
                 <div className="w-full h-full flex flex-col items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200">
-                  <ImageOff className="w-12 h-12 text-gray-300 mb-2" />
+                  <icons.ImageOff className="w-12 h-12 text-gray-300 mb-2" />
                   <span className="text-sm text-gray-400">No Image Available</span>
                 </div>
               )}
@@ -829,7 +804,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                     aria-label="Previous image"
                     type="button"
                   >
-                    <ChevronLeft className="w-4 h-4" />
+                    <icons.ChevronLeft className="w-4 h-4" />
                   </button>
                   <button
                     onClick={handleNextImage}
@@ -837,7 +812,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                     aria-label="Next image"
                     type="button"
                   >
-                    <ChevronRight className="w-4 h-4" />
+                    <icons.ChevronRight className="w-4 h-4" />
                   </button>
                 </>
               )}
@@ -869,21 +844,21 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
                 {isHot && (
                   <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow-lg">
-                    <Flame className="w-3 h-3" />
+                    <icons.Flame className="w-3 h-3" />
                     HOT
                   </span>
                 )}
 
                 {isFeaturedProp && !isHot && (
                   <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow-lg">
-                    <Star className="w-3 h-3 fill-current" />
+                    <icons.Star className="w-3 h-3 fill-current" />
                     Featured
                   </span>
                 )}
 
                 {hasPriceDrop && (
                   <span className="inline-flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow-lg">
-                    <TrendingDown className="w-3 h-3" />
+                    <icons.TrendingDown className="w-3 h-3" />
                     {priceChange.changePercent}% OFF
                   </span>
                 )}
@@ -893,7 +868,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               <div className="absolute bottom-3 left-3 flex items-center gap-2">
                 {isVerified && (
                   <span className="inline-flex items-center gap-1 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-lg shadow-lg">
-                    <CheckCircle className="w-3 h-3" />
+                    <icons.CheckCircle className="w-3 h-3" />
                     Verified
                   </span>
                 )}
@@ -907,13 +882,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               <div className="absolute bottom-3 right-3 flex items-center gap-2">
                 {imageCount > 0 && (
                   <span className="inline-flex items-center gap-1 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">
-                    <Camera className="w-3 h-3" />
+                    <icons.Camera className="w-3 h-3" />
                     {imageCount}
                   </span>
                 )}
                 {hasVideo && (
                   <span className="inline-flex items-center gap-1 bg-black/60 text-white text-xs px-2 py-1 rounded-lg">
-                    <Video className="w-3 h-3" />
+                    <icons.Video className="w-3 h-3" />
                   </span>
                 )}
               </div>
@@ -926,13 +901,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               </h3>
 
               <div className="flex items-center text-sm text-gray-500 mb-3">
-                <MapPin className="w-4 h-4 mr-1.5 text-gray-400" />
+                <icons.MapPin className="w-4 h-4 mr-1.5 text-gray-400" />
                 <span className="line-clamp-1">{city}</span>
               </div>
 
               <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center text-sm text-gray-600">
-                  <Building className="w-4 h-4 mr-1.5 text-gray-400" />
+                  <icons.Building className="w-4 h-4 mr-1.5 text-gray-400" />
                   <span className="font-medium">{propertyType}</span>
                 </div>
 
@@ -942,7 +917,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               <div className="flex items-center gap-4 mb-4">
                 {bedrooms > 0 && (
                   <div className="flex items-center text-sm text-gray-600">
-                    <BedDouble className="w-4 h-4 mr-1.5 text-gray-400" />
+                    <icons.BedDouble className="w-4 h-4 mr-1.5 text-gray-400" />
                     <span>
                       {bedrooms} {bedrooms === 1 ? 'Bed' : 'Beds'}
                     </span>
@@ -951,7 +926,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
                 {bathrooms > 0 && (
                   <div className="flex items-center text-sm text-gray-600">
-                    <Bath className="w-4 h-4 mr-1.5 text-gray-400" />
+                    <icons.Bath className="w-4 h-4 mr-1.5 text-gray-400" />
                     <span>
                       {bathrooms} {bathrooms === 1 ? 'Bath' : 'Baths'}
                     </span>
@@ -960,7 +935,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
                 {hasParking && (
                   <div className="flex items-center text-sm text-gray-600">
-                    <Car className="w-4 h-4 mr-1.5 text-gray-400" />
+                    <icons.Car className="w-4 h-4 mr-1.5 text-gray-400" />
                     <span>Parking</span>
                   </div>
                 )}
@@ -1000,7 +975,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                       type="button"
                       aria-label="Call"
                     >
-                      <Phone className="w-4 h-4" />
+                      <icons.Phone className="w-4 h-4" />
                       Call
                     </button>
                   )}
@@ -1012,7 +987,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                       type="button"
                       aria-label="WhatsApp"
                     >
-                      <MessageCircle className="w-4 h-4" />
+                      <icons.MessageCircle className="w-4 h-4" />
                       WhatsApp
                     </button>
                   )}
@@ -1033,9 +1008,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                   aria-label={isCompared ? 'Remove from compare' : 'Add to compare'}
                 >
                   {isCompared ? (
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <icons.Check className="w-3.5 h-3.5 text-emerald-600" />
                   ) : (
-                    <BarChart3 className="w-3.5 h-3.5 text-[#029bba]" />
+                    <icons.BarChart3 className="w-3.5 h-3.5 text-[#029bba]" />
                   )}
                   {isCompared ? 'Added to Compare' : 'Add to Compare'}
                 </button>
@@ -1046,13 +1021,13 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                 <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-100">
                   {timeAgo && (
                     <div className="flex items-center">
-                      <Clock className="w-3 h-3 mr-1" />
+                      <icons.Clock className="w-3 h-3 mr-1" />
                       Listed {timeAgo}
                     </div>
                   )}
                   {property.views !== undefined && property.views > 0 && (
                     <div className="flex items-center">
-                      <Eye className="w-3 h-3 mr-1" />
+                      <icons.Eye className="w-3 h-3 mr-1" />
                       {Number(property.views).toLocaleString('en-PK')} views
                     </div>
                   )}
@@ -1072,28 +1047,26 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
           aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
           type="button"
         >
-          <Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''} ${favoriteLoading ? 'animate-pulse' : ''}`} />
+          <icons.Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''} ${favoriteLoading ? 'animate-pulse' : ''}`} />
         </button>
       </div>
 
-      {/* ═══════════════════════════════════════════
-          🍞 TOAST NOTIFICATION
-      ═══════════════════════════════════════════ */}
+      {/* TOAST NOTIFICATION -- Rule Set A compliant absolute top banner placement */}
       {mounted && toast && (
-        <div className="fixed bottom-6 right-6 z-[99999] pointer-events-none">
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[300] pointer-events-none">
           <div
-            className={`px-6 py-4 rounded-2xl shadow-2xl backdrop-blur-xl border flex items-center gap-3 ${
+            className={`px-6 py-3 rounded-xl shadow-2xl backdrop-blur-xl border flex items-center gap-3 animate-in fade-in slide-in-from-top-4 duration-300 ${
               toast.type === 'success'
-                ? 'bg-green-500/95 border-green-400/50 text-white'
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
                 : toast.type === 'error'
-                ? 'bg-red-500/95 border-red-400/50 text-white'
-                : 'bg-[#029bba]/95 border-[#029bba]/50 text-white'
+                ? 'bg-red-50 border-red-200 text-red-800'
+                : 'bg-blue-50 border-blue-200 text-blue-800'
             }`}
           >
-            {toast.type === 'success' && <CheckCircle className="w-5 h-5" />}
-            {toast.type === 'error' && <X className="w-5 h-5" />}
-            {toast.type === 'info' && <Shield className="w-5 h-5" />}
-            <span className="font-medium text-sm">{toast.message}</span>
+            {toast.type === 'success' && <icons.CheckCircle className="w-5 h-5 text-emerald-600" />}
+            {toast.type === 'error' && <icons.X className="w-5 h-5 text-red-600" />}
+            {toast.type === 'info' && <icons.Shield className="w-5 h-5 text-blue-600" />}
+            <span className="font-semibold text-sm">{toast.message}</span>
           </div>
         </div>
       )}
