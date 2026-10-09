@@ -639,28 +639,39 @@ async function handleGet(
     };
   }
 
-  // Property taxonomy: explicit types win; otherwise a discovery group expands
-  // to every canonical type in that group. This prevents `plots` being mapped to
-  // the legacy residential bucket and losing plot inventory.
+  // Property taxonomy: Match both raw UI strings (e.g. "Upper Portion") and canonical types
   const requestedGroup = propertyCategoryRaw && propertyCategoryRaw !== 'all'
     ? normalizeDiscoveryGroup(propertyCategoryRaw)
     : null;
-  const explicitType = normalizePropertyType(propertyTypeRaw);
-  const selectedTypes = propertyTypesRaw.length > 0
-    ? propertyTypesRaw
-    : explicitType ? [explicitType]
-    : requestedGroup ? propertyTypesForDiscoveryGroup(requestedGroup)
-    : [];
 
-  if (selectedTypes.length > 0) {
+  const rawRequestedTypes = Array.from(
+    new Set(
+      [propertyTypeRaw, ...propertyTypesRaw]
+        .map((s) => String(s ?? '').trim())
+        .filter(Boolean)
+    )
+  );
+
+  const canonicalTypes = parsePropertyTypeList(rawRequestedTypes);
+  const groupTypes = requestedGroup ? propertyTypesForDiscoveryGroup(requestedGroup) : [];
+
+  const allMatchingTypeStrings = Array.from(
+    new Set([
+      ...rawRequestedTypes,
+      ...canonicalTypes,
+      ...groupTypes,
+    ])
+  );
+
+  if (allMatchingTypeStrings.length > 0) {
     baseFilter.propertyType = {
-      $in: selectedTypes.map((t) => new RegExp(`^${escapeRegExp(t)}$`, 'i')),
+      $in: allMatchingTypeStrings.map((t) => new RegExp(`^${escapeRegExp(t)}$`, 'i')),
     };
   }
 
   // Persisted category is kept only as a compatibility filter when no canonical
   // type/group expansion is available.
-  if (!selectedTypes.length && requestedGroup && requestedGroup !== 'plots') {
+  if (!allMatchingTypeStrings.length && requestedGroup && requestedGroup !== 'plots') {
     baseFilter.propertyCategory = requestedGroup;
   }
 

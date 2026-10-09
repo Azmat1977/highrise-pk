@@ -1,8 +1,12 @@
+//C:\dev\highrise-pk\lib\property\publicProperty.ts
 import type { FilterQuery } from 'mongoose';
 import type { IProperty } from '@/models/Property';
 
 export const PUBLIC_PROPERTY_FILTER: FilterQuery<IProperty> = Object.freeze({
-  'verification.status': 'verified',
+  $or: [
+    { 'verification.status': { $in: ['verified', 'approved'] } },
+    { status: { $in: ['verified', 'approved'] } },
+  ],
   isDeleted: { $ne: true },
   isFlagged: { $ne: true },
 });

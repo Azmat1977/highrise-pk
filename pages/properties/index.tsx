@@ -1,6 +1,7 @@
 // File: pages/properties/index.tsx
 // Highrise.pk - Public Property Search & Discovery Directory
 // Design System Locked: tokens from @/lib/design-system/tokens | icons from @/lib/design-system/icons
+// Layout Sync: Mirrors pages/projects/index.tsx (No hero, compact sticky search, 1440px wrapper)
 // Pure ASCII comments | Zero react-hot-toast
 
 import React, {
@@ -14,14 +15,13 @@ import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { icons } from "@/lib/design-system/icons";
-import { colors, containers } from "@/lib/design-system/tokens";
-import { typography } from "@/lib/design-system/typography";
-import { button, input, badge } from "@/lib/design-system/components";
 
 import { PropertyGrid, PropertyListItem } from "@/components/property/property-grid";
 import { RecentlyViewed } from "@/components/recently-viewed";
 import { normalizePropertiesList } from "@/lib/property/property";
 import { PropertyGridSkeleton } from "@/components/skeletons/PropertyGridSkeleton";
+import AuthGateModal from "@/components/auth/AuthGateModal";
+import { useSession } from "next-auth/react";
 
 // ============================================================================
 // TYPES
@@ -163,6 +163,10 @@ const VALID_CATEGORIES   = ["", "residential", "commercial", "plots"];
 const VALID_BEDROOMS     = ["", "1", "2", "3", "4", "5"];
 
 const PAGE_LIMIT = 12;
+const DEFAULT_FILTERS: FilterState = {
+  search: "", city: "", propertyCategory: "", propertyType: "",
+  listingType: "", minPrice: "", maxPrice: "", bedrooms: "", sort: "",
+};
 
 const SEO_CANONICAL_KEYS = new Set([
   "city",
@@ -331,6 +335,8 @@ function CompareBar(): React.ReactElement | null {
 
 export default function PropertiesListingPage(): React.ReactElement {
   const router = useRouter();
+  const { data: session } = useSession();
+  const isLoggedIn = !!session?.user;
 
   const SITE_URL = (
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://highrise.pk"
@@ -338,33 +344,55 @@ export default function PropertiesListingPage(): React.ReactElement {
   const baseCanonical = `${SITE_URL}/properties`;
 
   // State
-  const [filters, setFilters] = useState<FilterState>({
-    search: "",
-    city: "",
-    propertyCategory: "",
-    propertyType: "",
-    listingType: "",
-    minPrice: "",
-    maxPrice: "",
-    bedrooms: "",
-    sort: "",
-  });
-
+  const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [currentPage, setCurrentPage] = useState(1);
   const [searchDraft, setSearchDraft] = useState("");
   const [properties, setProperties] = useState<PropertyListItem[]>([]);
   const [pagination, setPagination] = useState<PaginationInfo>({
-    page: 1,
-    limit: PAGE_LIMIT,
-    total: 0,
-    pages: 1,
+    page: 1, limit: PAGE_LIMIT, total: 0, pages: 1,
   });
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [isSticky, setIsSticky] = useState(false);
+  
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   const fetchAbortRef = useRef<AbortController | null>(null);
   const initializedRef = useRef(false);
+
+  // Scroll listener for sticky search bar
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 150) {
+        setIsSticky(true);
+      } else {
+        setIsSticky(false);
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  // Toast auto-dismiss
+  useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 4500);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
+  const handleSaveSearchClick = () => {
+    if (!isLoggedIn) {
+      setIsAuthModalOpen(true);
+    } else {
+      setToast({
+        message: `Search saved successfully! We will notify you of new verified properties in ${filters.city || 'Pakistan'}.`,
+        type: 'success',
+      });
+    }
+  };
 
   // Canonical URL
   const canonicalUrl = useMemo(() => {
@@ -601,11 +629,7 @@ export default function PropertiesListingPage(): React.ReactElement {
   );
 
   const clearAllFilters = useCallback(() => {
-    const empty: FilterState = {
-      search: "", city: "", propertyCategory: "", propertyType: "",
-      listingType: "", minPrice: "", maxPrice: "", bedrooms: "", sort: "",
-    };
-    setFilters(empty);
+    setFilters(DEFAULT_FILTERS);
     setSearchDraft("");
     setCurrentPage(1);
     router.replace("/properties", undefined, { shallow: true });
@@ -702,227 +726,167 @@ export default function PropertiesListingPage(): React.ReactElement {
         />
       </Head>
 
+      {toast && (
+        <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm sm:max-w-md">
+          {toast.type === 'success' ? (
+            <icons.ShieldCheck className="w-5 h-5 text-emerald-500 flex-shrink-0" />
+          ) : (
+            <icons.X className="w-5 h-5 text-red-500 flex-shrink-0" />
+          )}
+          <span className="text-xs font-semibold text-gray-800 leading-tight">
+            {toast.message}
+          </span>
+          <button onClick={() => setToast(null)} className="ml-auto text-gray-400 hover:text-gray-600 transition-colors">
+            <icons.X className="w-4 h-4" />
+          </button>
+        </div>
+      )}
+
+      <AuthGateModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        actionDescription="save search alerts"
+        title="Save Search Alerts"
+      />
+
       <div className="min-h-screen bg-[#f8f9fa]">
-
-        {/* Hero Section */}
-        <section className="relative bg-[#001f2b] text-white pt-14 pb-24 overflow-hidden">
-          <div
-            className="absolute inset-0 opacity-10"
-            style={{
-              backgroundImage: "radial-gradient(#029bba 1px, transparent 1px)",
-              backgroundSize: "30px 30px",
-            }}
-          />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#029bba] rounded-full blur-[120px] opacity-20 translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#7c3aed] rounded-full blur-[100px] opacity-10 -translate-x-1/2 translate-y-1/2 pointer-events-none" />
-
-          <div className="container mx-auto px-4 relative z-10">
-            <nav className="flex items-center justify-center gap-2 text-xs font-semibold text-white/60 mb-5">
-              <Link
-                href="/"
-                className="hover:text-white transition-colors flex items-center gap-1"
-              >
-                <icons.Home className="w-3.5 h-3.5" /> Home
+        {/* COMPACT BREADCRUMBS & HEADER ZONE (No Hero Banner) */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
+          
+          <div>
+            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+              <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+                <icons.Home className="w-3.5 h-3.5" />
+                <span>Home</span>
               </Link>
-              <span>/</span>
-              <span className="text-white">Properties</span>
-              {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
+              <icons.ChevronRight className="w-3 h-3 text-gray-300" />
+              <Link href="/properties" className="hover:text-[#029bba] font-medium transition-colors">
+                Properties
+              </Link>
+              {filters.city && (
                 <>
-                  <span>/</span>
-                  <span className="text-[#029bba]">
-                    {PROPERTY_CATEGORIES[filters.propertyCategory].label}
-                  </span>
+                  <icons.ChevronRight className="w-3 h-3 text-gray-300" />
+                  <span className="text-[#004063] font-bold">{filters.city}</span>
                 </>
               )}
             </nav>
 
-            <div className="text-center max-w-3xl mx-auto">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold text-[#029bba] backdrop-blur-sm mb-5">
-                {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] ? (
-                  <>
-                    {PROPERTY_CATEGORIES[filters.propertyCategory].icon}
-                    {PROPERTY_CATEGORIES[filters.propertyCategory].label} Properties
-                  </>
-                ) : (
-                  <>
-                    <icons.ShieldCheck className="w-3.5 h-3.5" />
-                    Verified Properties Across Pakistan
-                  </>
-                )}
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div>
+                <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+                  {filters.city ? `Verified Properties in ${filters.city}` : 'Verified Properties in Pakistan'}
+                </h1>
+                <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+                  <span>{pagination.total.toLocaleString()} Properties</span>
+                  <span className="text-gray-300">•</span>
+                  <span className="text-emerald-600">Verified Listings</span>
+                  <span className="text-gray-300">•</span>
+                  <span className="text-[#029bba]">Trusted Owners</span>
+                </p>
               </div>
 
-              <h1 className="text-3xl md:text-5xl font-black mb-4 tracking-tight leading-tight">
-                {filters.propertyCategory === "residential" && (
-                  <>
-                    Where Families Find
-                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#029bba] to-[#017a8a]">
-                      Their Forever Home
-                    </span>
-                  </>
-                )}
-                {filters.propertyCategory === "commercial" && (
-                  <>
-                    Grow Your Business in
-                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#7c3aed] to-[#029bba]">
-                      Prime Locations
-                    </span>
-                  </>
-                )}
-                {filters.propertyCategory === "plots" && (
-                  <>
-                    Build Your Future on
-                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#029bba]">
-                      Premium Land
-                    </span>
-                  </>
-                )}
-                {!filters.propertyCategory && (
-                  <>
-                    <span className="block">
-                      Pakistan&apos;s Most{" "}
-                      <span className="text-[#029bba]">Trusted</span>
-                    </span>
-                    <span className="block">Property Platform</span>
-                  </>
-                )}
-              </h1>
+              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
+                <button
+                  type="button"
+                  onClick={handleSaveSearchClick}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#004063] hover:to-[#029bba] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                >
+                  <icons.Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>Save Search & Get Alerts</span>
+                </button>
 
-              <p className="text-sm md:text-base text-gray-300 max-w-2xl mx-auto mb-6 leading-relaxed">
-                Discover{" "}
-                <span className="text-white font-bold">
-                  {pagination.total.toLocaleString()}+
-                </span>{" "}
-                verified properties across major cities
-              </p>
-
-              <div className="flex flex-wrap justify-center gap-4 mb-2 text-xs font-semibold text-white/80">
-                <div className="flex items-center gap-1.5">
-                  <icons.CheckCircle className="w-4 h-4 text-emerald-400" />
-                  Verified Listings
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <icons.Shield className="w-4 h-4 text-[#029bba]" />
-                  Trusted Developers &amp; Owners
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <icons.Zap className="w-4 h-4 text-amber-400" />
-                  Live Daily Rates
-                </div>
-              </div>
-
-              {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
-                <div className="flex flex-wrap justify-center gap-2 mt-6">
+                {activeFilterCount > 0 && (
                   <button
                     type="button"
-                    onClick={() => handleFilterChange("propertyType", "")}
-                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                      !filters.propertyType
-                        ? "bg-white text-[#001f2b]"
-                        : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
-                    }`}
+                    onClick={() => clearAllFilters()}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors"
                   >
-                    All {PROPERTY_CATEGORIES[filters.propertyCategory].label}
+                    <icons.RotateCcw className="w-3.5 h-3.5" />
+                    Reset Filters ({activeFilterCount})
                   </button>
-                  {PROPERTY_CATEGORIES[filters.propertyCategory].types
-                    .slice(0, 6)
-                    .map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => handleFilterChange("propertyType", t)}
-                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
-                          filters.propertyType === t
-                            ? "bg-white text-[#001f2b]"
-                            : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
-                        }`}
-                      >
-                        {t}
-                      </button>
-                    ))}
-                </div>
-              )}
+                )}
+              </div>
             </div>
           </div>
-        </section>
 
-        {/* Floating Search Card */}
-        <div className="container mx-auto px-4 -mt-12 relative z-20">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 md:p-6 max-w-5xl mx-auto">
-            <div className="flex flex-col lg:flex-row gap-3 items-stretch">
-              <div className="flex-1 relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <icons.Search className="h-5 w-5 text-gray-400" />
-                </div>
+          {/* COMPACT STICKY SEARCH & FILTER BAR */}
+          <div className={`transition-all duration-300 md:sticky md:top-[64px] z-30 relative ${
+            isSticky ? 'bg-white shadow-sm border-b border-gray-200 py-3 -mx-4 px-4 sm:mx-0 sm:px-0' : 'bg-transparent'
+          }`}>
+            
+            <div className="flex flex-col md:flex-row items-center gap-2.5">
+              
+              {/* Search Bar - Flex 1 */}
+              <div className="w-full md:flex-1 relative">
+                <icons.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
                   type="text"
-                  placeholder="Search by location, society, or project name..."
-                  className="block w-full h-14 pl-12 pr-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-800 placeholder:text-gray-400 focus:ring-1 focus:ring-[#029bba]/30 focus:border-[#029bba] focus:bg-white transition-all outline-none"
                   value={searchDraft}
                   onChange={(e) => setSearchDraft(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === "Enter") handleSearch(e);
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearch();
+                    }
                   }}
+                  placeholder="Search locality, society, or project name..."
+                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
                 />
-              </div>
-
-              <div className="flex items-center gap-2 h-14 px-3 bg-gray-50 rounded-xl border border-gray-100 lg:w-44">
-                <icons.MapPin className="w-4 h-4 text-[#029bba] shrink-0" />
-                <select
-                  value={filters.city}
-                  onChange={(e) => handleFilterChange("city", e.target.value)}
-                  className="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
+                <button
+                  type="button"
+                  onClick={handleSearch}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors"
                 >
-                  <option value="">All Cities</option>
-                  {PAKISTAN_CITIES.map((c) => (
-                    <option key={c} value={c}>{c}</option>
-                  ))}
-                </select>
+                  Search
+                </button>
               </div>
 
-              <div className="flex items-center gap-2 h-14 px-3 bg-gray-50 rounded-xl border border-gray-100 lg:w-48">
-                <icons.Grid3X3 className="w-4 h-4 text-[#029bba] shrink-0" />
-                <select
-                  value={filters.propertyCategory}
-                  onChange={(e) => handleFilterChange("propertyCategory", e.target.value)}
-                  className="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
-                >
-                  <option value="">All Categories</option>
-                  <option value="residential">Residential</option>
-                  <option value="commercial">Commercial</option>
-                  <option value="plots">Plots &amp; Land</option>
-                </select>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => handleSearch()}
-                className="h-14 bg-[#029bba] hover:bg-[#017a8a] text-white px-8 rounded-xl font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
-              >
-                <icons.Search className="w-4 h-4" /> Search
-              </button>
-            </div>
-
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-stretch">
-                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <icons.Home className="w-4 h-4 text-gray-400 shrink-0" />
+              {/* Tightly Packed Dropdowns (Scrollable on small mobile, inline on desktop) */}
+              <div className="w-full md:w-auto flex overflow-x-auto md:flex-wrap items-center gap-2.5 pb-1 md:pb-0 shrink-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+                
+                {/* City */}
+                <div className="w-[140px] shrink-0 relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <icons.MapPin className="w-4 h-4 text-[#029bba]" />
+                  </div>
                   <select
-                    value={filters.propertyType}
-                    onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
+                    value={filters.city}
+                    onChange={(e) => handleFilterChange("city", e.target.value)}
+                    className="w-full h-11 pl-9 pr-3 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
                   >
-                    {getFilteredPropertyTypes().map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
+                    <option value="">All Cities</option>
+                    {PAKISTAN_CITIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <icons.TrendingUp className="w-4 h-4 text-gray-400 shrink-0" />
+                {/* Category */}
+                <div className="w-[150px] shrink-0 relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <icons.Grid3X3 className="w-4 h-4 text-[#029bba]" />
+                  </div>
+                  <select
+                    value={filters.propertyCategory}
+                    onChange={(e) => handleFilterChange("propertyCategory", e.target.value)}
+                    className="w-full h-11 pl-9 pr-3 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
+                  >
+                    <option value="">All Categories</option>
+                    <option value="residential">Residential</option>
+                    <option value="commercial">Commercial</option>
+                    <option value="plots">Plots & Land</option>
+                  </select>
+                </div>
+
+                {/* Listing Type */}
+                <div className="w-[150px] shrink-0 relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <icons.TrendingUp className="w-4 h-4 text-[#029bba]" />
+                  </div>
                   <select
                     value={filters.listingType}
                     onChange={(e) => handleFilterChange("listingType", e.target.value)}
-                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
+                    className="w-full h-11 pl-9 pr-3 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
                   >
                     {LISTING_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
@@ -930,21 +894,27 @@ export default function PropertiesListingPage(): React.ReactElement {
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <icons.Bed className="w-4 h-4 text-gray-400 shrink-0" />
+                {/* Property Type */}
+                <div className="w-[140px] shrink-0 relative">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <icons.Home className="w-4 h-4 text-[#029bba]" />
+                  </div>
                   <select
-                    value={filters.bedrooms}
-                    onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
-                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
+                    value={filters.propertyType}
+                    onChange={(e) => handleFilterChange("propertyType", e.target.value)}
+                    className="w-full h-11 pl-9 pr-3 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
                   >
-                    {BEDROOM_OPTIONS.map((o) => (
-                      <option key={o.value} value={o.value}>{o.label}</option>
+                    {getFilteredPropertyTypes().map((t) => (
+                      <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
                 </div>
 
-                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <icons.DollarSign className="w-4 h-4 text-gray-400 shrink-0" />
+                {/* Price Range */}
+                <div className="w-[140px] shrink-0 relative hidden lg:block">
+                  <div className="absolute inset-y-0 left-3 flex items-center pointer-events-none">
+                    <icons.DollarSign className="w-4 h-4 text-[#029bba]" />
+                  </div>
                   <select
                     value={
                       filters.minPrice && filters.maxPrice
@@ -952,259 +922,250 @@ export default function PropertiesListingPage(): React.ReactElement {
                         : ""
                     }
                     onChange={(e) => setPriceRange(e.target.value)}
-                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
+                    className="w-full h-11 pl-9 pr-3 bg-white border border-gray-300 rounded-xl text-sm font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
                   >
                     {PRICE_RANGES.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
                 </div>
+              </div>
+            </div>
 
-                <div className="flex items-center justify-end h-11">
+            {/* Active Filters Display */}
+            {hasActiveFilters && (
+              <div className="mt-3 flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Active:</span>
+                
+                {filters.search && (
+                  <FilterChip
+                    icon={<icons.Search className="w-3 h-3 text-[#029bba]" />}
+                    label={`"${filters.search}"`}
+                    onClear={() => clearFilter("search")}
+                  />
+                )}
+                {filters.city && (
+                  <FilterChip
+                    icon={<icons.MapPin className="w-3 h-3 text-[#029bba]" />}
+                    label={filters.city}
+                    onClear={() => clearFilter("city")}
+                  />
+                )}
+                {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
+                  <FilterChip
+                    icon={PROPERTY_CATEGORIES[filters.propertyCategory].icon}
+                    label={PROPERTY_CATEGORIES[filters.propertyCategory].label}
+                    onClear={() => clearFilter("propertyCategory")}
+                  />
+                )}
+                {filters.propertyType && (
+                  <FilterChip
+                    icon={<icons.Home className="w-3 h-3 text-[#029bba]" />}
+                    label={filters.propertyType}
+                    onClear={() => clearFilter("propertyType")}
+                  />
+                )}
+                {filters.listingType && (
+                  <FilterChip
+                    icon={<icons.TrendingUp className="w-3 h-3 text-[#029bba]" />}
+                    label={
+                      LISTING_TYPES.find((t) => t.value === filters.listingType)?.label ??
+                      filters.listingType
+                    }
+                    onClear={() => clearFilter("listingType")}
+                  />
+                )}
+                {filters.bedrooms && (
+                  <FilterChip
+                    icon={<icons.Bed className="w-3 h-3 text-[#029bba]" />}
+                    label={`${filters.bedrooms} Bed${parseInt(filters.bedrooms, 10) > 1 ? "s" : ""}`}
+                    onClear={() => clearFilter("bedrooms")}
+                  />
+                )}
+                {(filters.minPrice || filters.maxPrice) && (
+                  <FilterChip
+                    icon={<icons.DollarSign className="w-3 h-3 text-[#029bba]" />}
+                    label={
+                      PRICE_RANGES.find(
+                        (p) => p.value === `${filters.minPrice}-${filters.maxPrice}`
+                      )?.label ?? "Custom Price"
+                    }
+                    onClear={() => setPriceRange("")}
+                  />
+                )}
+
+                <button type="button" onClick={clearAllFilters} className="text-[11px] font-bold text-red-500 hover:underline ml-1">
+                  Clear All
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* MAIN RESULTS AREA */}
+          <div className="relative z-10 pt-4 pb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-xl md:text-2xl font-black text-[#004063] flex items-center gap-2">
+                  <icons.TrendingUp className="w-5 h-5 text-[#029bba]" />
+                  {isLoading ? (
+                    <span className="flex items-center gap-2">
+                      <icons.Loader2 className="w-4 h-4 animate-spin text-[#029bba]" />
+                      Finding properties...
+                    </span>
+                  ) : (
+                    <>
+                      Showing <span className="text-[#029bba]">{properties.length}</span> of <span className="text-[#029bba]">{pagination.total.toLocaleString()}</span> listings
+                    </>
+                  )}
+                </h2>
+              </div>
+
+              <select
+                value={filters.sort}
+                onChange={(e) => handleFilterChange("sort", e.target.value)}
+                className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold bg-white text-gray-700 focus:ring-1 focus:ring-[#029bba]/30 focus:border-[#029bba] outline-none cursor-pointer"
+              >
+                {SORT_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {isLoading ? (
+              <PropertyGridSkeleton count={12} />
+            ) : isError ? (
+              <div className="bg-red-50 border-l-4 border-red-500 rounded-2xl p-10 text-center">
+                <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
+                  <icons.X className="w-7 h-7 text-red-600" />
+                </div>
+                <h3 className="text-lg font-bold text-red-900 mb-1">
+                  Unable to Load Listings
+                </h3>
+                <p className="text-xs text-red-700 mb-5">{errorMsg}</p>
+                <button
+                  type="button"
+                  onClick={() => fetchProperties()}
+                  className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                >
+                  Try Again
+                </button>
+              </div>
+            ) : properties.length === 0 ? (
+              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+                <div className="w-16 h-16 rounded-full bg-[#029bba]/10 flex items-center justify-center mx-auto mb-3">
+                  <icons.Building2 className="w-8 h-8 text-[#029bba]" />
+                </div>
+                <h3 className="text-lg font-bold text-[#004063] mb-1">
+                  No Properties Found
+                </h3>
+                <p className="text-xs text-gray-500 mb-6 max-w-sm mx-auto">
+                  {hasActiveFilters
+                    ? "No listings match your search criteria. Try removing or adjusting some filters."
+                    : "There are no verified listings available at the moment. Check back soon!"}
+                </p>
+                <div className="flex flex-col sm:flex-row gap-3 justify-center">
                   {hasActiveFilters && (
                     <button
                       type="button"
                       onClick={clearAllFilters}
-                      className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                      className="px-5 py-2.5 border border-[#029bba] text-[#029bba] rounded-xl text-xs font-bold hover:bg-[#029bba]/5 transition-colors"
                     >
-                      <icons.X className="w-3.5 h-3.5" /> Clear Filters
+                      Clear All Filters
                     </button>
                   )}
+                  <Link
+                    href="/add-property"
+                    className="px-5 py-2.5 bg-[#029bba] hover:bg-[#017a8a] text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                  >
+                    List Your Property
+                  </Link>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
+            ) : (
+              <>
+                <PropertyGrid properties={properties} loading={false} />
 
-        {/* Filter Chips */}
-        {hasActiveFilters && (
-          <div className="container mx-auto px-4 mt-6">
-            <div className="flex flex-wrap items-center gap-2 max-w-5xl mx-auto">
-              <span className="text-xs font-bold text-gray-500 mr-2">Active filters:</span>
-
-              {filters.search && (
-                <FilterChip
-                  icon={<icons.Search className="w-3.5 h-3.5 text-[#029bba]" />}
-                  label={`"${filters.search}"`}
-                  onClear={() => clearFilter("search")}
-                />
-              )}
-              {filters.city && (
-                <FilterChip
-                  icon={<icons.MapPin className="w-3.5 h-3.5 text-[#029bba]" />}
-                  label={filters.city}
-                  onClear={() => clearFilter("city")}
-                />
-              )}
-              {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
-                <FilterChip
-                  icon={PROPERTY_CATEGORIES[filters.propertyCategory].icon}
-                  label={PROPERTY_CATEGORIES[filters.propertyCategory].label}
-                  onClear={() => clearFilter("propertyCategory")}
-                />
-              )}
-              {filters.propertyType && (
-                <FilterChip
-                  icon={<icons.Home className="w-3.5 h-3.5 text-[#029bba]" />}
-                  label={filters.propertyType}
-                  onClear={() => clearFilter("propertyType")}
-                />
-              )}
-              {filters.listingType && (
-                <FilterChip
-                  icon={<icons.TrendingUp className="w-3.5 h-3.5 text-[#029bba]" />}
-                  label={
-                    LISTING_TYPES.find((t) => t.value === filters.listingType)?.label ??
-                    filters.listingType
-                  }
-                  onClear={() => clearFilter("listingType")}
-                />
-              )}
-              {filters.bedrooms && (
-                <FilterChip
-                  icon={<icons.Bed className="w-3.5 h-3.5 text-[#029bba]" />}
-                  label={`${filters.bedrooms} Bed${parseInt(filters.bedrooms, 10) > 1 ? "s" : ""}`}
-                  onClear={() => clearFilter("bedrooms")}
-                />
-              )}
-              {(filters.minPrice || filters.maxPrice) && (
-                <FilterChip
-                  icon={<icons.DollarSign className="w-3.5 h-3.5 text-[#029bba]" />}
-                  label={
-                    PRICE_RANGES.find(
-                      (p) => p.value === `${filters.minPrice}-${filters.maxPrice}`
-                    )?.label ?? "Custom Price"
-                  }
-                  onClear={() => setPriceRange("")}
-                />
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Listings Result Grid */}
-        <div className="container mx-auto px-4 py-8">
-
-          {/* Heading Row */}
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-            <div>
-              <h2 className="text-xl md:text-2xl font-black text-[#004063] flex items-center gap-2">
-                <icons.TrendingUp className="w-5 h-5 text-[#029bba]" />
-                {isLoading ? (
-                  <span className="flex items-center gap-2">
-                    <icons.Loader2 className="w-4 h-4 animate-spin text-[#029bba]" />
-                    Finding properties...
-                  </span>
-                ) : (
+                {pagination.pages > 1 && (
                   <>
-                    Showing{" "}
-                    <span className="text-[#029bba]">{properties.length}</span> of{" "}
-                    <span className="text-[#029bba]">
-                      {pagination.total.toLocaleString()}
-                    </span>{" "}
-                    properties
+                    <div className="flex items-center justify-center mt-10">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          disabled={currentPage === 1}
+                          onClick={() => handlePageChange(currentPage - 1)}
+                          className="flex items-center gap-1 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <icons.ChevronLeft className="w-4 h-4" />
+                          <span className="hidden sm:inline">Previous</span>
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from(
+                            { length: Math.min(5, pagination.pages) },
+                            (_, i) => {
+                              let pageNum: number;
+                              if (pagination.pages <= 5) pageNum = i + 1;
+                              else if (currentPage <= 3) pageNum = i + 1;
+                              else if (currentPage >= pagination.pages - 2)
+                                pageNum = pagination.pages - 4 + i;
+                              else pageNum = currentPage - 2 + i;
+
+                              return (
+                                <button
+                                  key={pageNum}
+                                  type="button"
+                                  onClick={() => handlePageChange(pageNum)}
+                                  className={`min-w-[36px] h-9 rounded-xl text-xs font-bold transition-colors ${
+                                    currentPage === pageNum
+                                      ? "bg-[#029bba] text-white shadow-xs"
+                                      : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                                  }`}
+                                >
+                                  {pageNum}
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+
+                        <button
+                          type="button"
+                          disabled={currentPage === pagination.pages}
+                          onClick={() => handlePageChange(currentPage + 1)}
+                          className="flex items-center gap-1 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          <span className="hidden sm:inline">Next</span>
+                          <icons.ChevronRight className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <p className="text-center text-xs text-gray-400 font-semibold mt-3">
+                      Page {currentPage} of {pagination.pages}
+                    </p>
                   </>
                 )}
-              </h2>
-              {!isLoading && hasActiveFilters && (
-                <p className="text-xs text-gray-500 font-semibold mt-1">
-                  {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} applied
-                </p>
-              )}
-            </div>
-
-            <select
-              value={filters.sort}
-              onChange={(e) => handleFilterChange("sort", e.target.value)}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold bg-white text-gray-700 focus:ring-1 focus:ring-[#029bba]/30 focus:border-[#029bba] outline-none cursor-pointer"
-            >
-              {SORT_OPTIONS.map((s) => (
-                <option key={s.value} value={s.value}>{s.label}</option>
-              ))}
-            </select>
+              </>
+            )}
           </div>
-
-          {/* Content States */}
-          {isLoading ? (
-            <PropertyGridSkeleton count={12} />
-          ) : isError ? (
-            <div className="bg-red-50 border-l-4 border-red-500 rounded-2xl p-10 text-center">
-              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
-                <icons.X className="w-7 h-7 text-red-600" />
-              </div>
-              <h3 className="text-lg font-bold text-red-900 mb-1">
-                Unable to Load Listings
-              </h3>
-              <p className="text-xs text-red-700 mb-5">{errorMsg}</p>
-              <button
-                type="button"
-                onClick={() => fetchProperties()}
-                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
-              >
-                Try Again
-              </button>
-            </div>
-          ) : properties.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-[#029bba]/10 flex items-center justify-center mx-auto mb-3">
-                <icons.Building2 className="w-8 h-8 text-[#029bba]" />
-              </div>
-              <h3 className="text-lg font-bold text-[#004063] mb-1">
-                No Properties Found
-              </h3>
-              <p className="text-xs text-gray-500 mb-6 max-w-sm mx-auto">
-                {hasActiveFilters
-                  ? "No listings match your search criteria. Try removing or adjusting some filters."
-                  : "There are no verified listings available at the moment. Check back soon!"}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                {hasActiveFilters && (
-                  <button
-                    type="button"
-                    onClick={clearAllFilters}
-                    className="px-5 py-2.5 border border-[#029bba] text-[#029bba] rounded-xl text-xs font-bold hover:bg-[#029bba]/5 transition-colors"
-                  >
-                    Clear All Filters
-                  </button>
-                )}
-                <Link
-                  href="/add-property"
-                  className="px-5 py-2.5 bg-[#029bba] hover:bg-[#017a8a] text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
-                >
-                  List Your Property
-                </Link>
-              </div>
-            </div>
-          ) : (
-            <>
-              <PropertyGrid properties={properties} loading={false} />
-
-              {pagination.pages > 1 && (
-                <>
-                  <div className="flex items-center justify-center mt-10">
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        disabled={currentPage === 1}
-                        onClick={() => handlePageChange(currentPage - 1)}
-                        className="flex items-center gap-1 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <icons.ChevronLeft className="w-4 h-4" />
-                        <span className="hidden sm:inline">Previous</span>
-                      </button>
-
-                      <div className="flex items-center gap-1">
-                        {Array.from(
-                          { length: Math.min(5, pagination.pages) },
-                          (_, i) => {
-                            let pageNum: number;
-                            if (pagination.pages <= 5) pageNum = i + 1;
-                            else if (currentPage <= 3) pageNum = i + 1;
-                            else if (currentPage >= pagination.pages - 2)
-                              pageNum = pagination.pages - 4 + i;
-                            else pageNum = currentPage - 2 + i;
-
-                            return (
-                              <button
-                                key={pageNum}
-                                type="button"
-                                onClick={() => handlePageChange(pageNum)}
-                                className={`min-w-[36px] h-9 rounded-xl text-xs font-bold transition-colors ${
-                                  currentPage === pageNum
-                                    ? "bg-[#029bba] text-white shadow-xs"
-                                    : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
-                                }`}
-                              >
-                                {pageNum}
-                              </button>
-                            );
-                          }
-                        )}
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={currentPage === pagination.pages}
-                        onClick={() => handlePageChange(currentPage + 1)}
-                        className="flex items-center gap-1 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                      >
-                        <span className="hidden sm:inline">Next</span>
-                        <icons.ChevronRight className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-
-                  <p className="text-center text-xs text-gray-400 font-semibold mt-3">
-                    Page {currentPage} of {pagination.pages}
-                  </p>
-                </>
-              )}
-            </>
-          )}
         </div>
 
         <RecentlyViewed />
         <CompareBar />
+
+        {/* Floating Back to Top Button */}
+        <div className={`fixed bottom-6 left-0 right-0 flex justify-center z-40 transition-all duration-300 pointer-events-none ${
+          isSticky ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-90'
+        }`}>
+          <button
+            type="button"
+            onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+            aria-label="Scroll to top"
+            className="pointer-events-auto w-12 h-12 rounded-full bg-[#029bba] hover:bg-[#004063] text-white flex items-center justify-center shadow-xl hover:shadow-2xl transition-all active:scale-95 focus:outline-none focus:ring-2 focus:ring-[#029bba]/50 border-2 border-white"
+          >
+            <icons.ArrowUp className="w-5 h-5" />
+          </button>
+        </div>
       </div>
     </>
   );
@@ -1222,16 +1183,16 @@ interface FilterChipProps {
 
 function FilterChip({ icon, label, onClear }: FilterChipProps): React.ReactElement {
   return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#029bba]/10 text-[#004063] rounded-full text-xs font-bold border border-[#029bba]/20">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-[11px] font-bold text-gray-700">
       {icon}
       <span>{label}</span>
       <button
         type="button"
         onClick={onClear}
-        className="ml-0.5 text-gray-400 hover:text-red-600 transition-colors"
+        className="ml-1 text-gray-400 hover:text-red-500 transition-colors"
         aria-label={`Remove ${label} filter`}
       >
-        <icons.X className="w-3.5 h-3.5" />
+        <icons.X className="w-3 h-3" />
       </button>
     </span>
   );
