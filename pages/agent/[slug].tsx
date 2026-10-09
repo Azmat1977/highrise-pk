@@ -577,7 +577,7 @@ function InsightCard({ agent }: { agent: PublicAgent }) {
         {hasReviews && (
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <span className="text-xs font-semibold text-gray-600 font-bold">Client Rating</span>
+              <span className="text-xs text-gray-600 font-bold">Client Rating</span>
               <span className="text-sm font-black text-gray-900">
                 {agent.ratings!.averageRating.toFixed(1)}/5
               </span>
@@ -598,7 +598,7 @@ function InsightCard({ agent }: { agent: PublicAgent }) {
         {responsePct > 0 && (
           <div>
             <div className="flex justify-between items-center mb-1.5">
-              <span className="text-xs font-semibold text-gray-600 font-bold">Response Rate</span>
+              <span className="text-xs text-gray-600 font-bold">Response Rate</span>
               <span className="text-sm font-black text-gray-900">{responsePct}%</span>
             </div>
             <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
