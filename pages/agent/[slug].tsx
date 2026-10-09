@@ -1,62 +1,35 @@
 // pages/agent/[slug].tsx
-// Public Agent Profile Page — enterprise ISR rewrite
-// - ISR: getStaticProps + getStaticPaths (fallback: blocking)
-// - Full SEO: title, description, OG, Twitter, JSON-LD
-// - No client-side data fetch for primary content
-// - Sanitized JSON-LD (no XSS via dangerouslySetInnerHTML)
-// - ReviewsList placeholder (Section 6/7)
-// - API controls phone/email masking
-// - Zero any — fully typed
-// - No alert() — inline clipboard feedback
+// Public Agent Profile Page -- Enterprise Refactor
+// Standardized to Universal Design System tokens and icons registry
+// Enforces Pattern C Detail Page layout with natural-scroll 3-card stack sidebar
+// Pure ASCII comments | Zero react-hot-toast
 
-import React, { useState, useCallback } from "react";
-import ShareMenu from "@/components/projects/ShareMenu";
-import { GetStaticPaths, GetStaticProps } from "next";
-import Head from "next/head";
-import Image from "next/image";
-import Link from "next/link";
-import {
-  MapPin,
-  Phone,
-  Mail,
-  Shield,
-  Star,
-  MessageCircle,
-  Briefcase,
-  Home,
-  Share2,
-  Facebook,
-  Instagram,
-  Linkedin,
-  Youtube,
-  Twitter,
-  Maximize,
-  Bed,
-  Bath,
-  ArrowRight,
-  ArrowLeft,
-  CheckCircle,
-  Users,
-  Clock,
-  Copy,
-  Check,
-  Info,
-  Quote,
-} from "lucide-react";
-import dbConnect from "@/lib/dbConnect";
+import React, { useState, useCallback, useMemo } from 'react';
+import { GetStaticPaths, GetStaticProps } from 'next';
+import Head from 'next/head';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useRouter } from 'next/router';
+import dbConnect from '@/lib/dbConnect';
+import ShareMenu from '@/components/projects/ShareMenu';
+import { icons, nearbyIcons } from '@/lib/design-system/icons';
+import { colors, containers, grids, radii, shadows } from '@/lib/design-system/tokens';
+import { typography } from '@/lib/design-system/typography';
+import { card, button, badge, safety } from '@/lib/design-system/components';
+import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 
-// V6.8.9: Swiper carousel library imports
-// Using Swiper — industry-standard carousel (used by Instagram, Airbnb)
-import { Swiper, SwiperSlide } from "swiper/react";
-import { Autoplay, Navigation, Pagination, EffectFade, Keyboard } from "swiper/modules";
-import type { Swiper as SwiperType } from "swiper";
-import "swiper/css";
-import "swiper/css/navigation";
-import "swiper/css/pagination";
-import "swiper/css/effect-fade";
+import UniversalContactCard from '@/components/shared/UniversalContactCard';
+import SafeDealSidebarCard from '@/components/shared/SafeDealSidebarCard';
+import SafetyWarningCard from '@/components/shared/SafetyWarningCard';
+import ReportListingModal from '@/components/property/ReportListingModal';
 
-// V6.8.9 + V6.8.10: Custom Swiper styles injected via style tag
-// Overrides default Swiper theme to match Highrise brand
+// Using Swiper - industry-standard carousel
+import { Swiper, SwiperSlide } from 'swiper/react';
+import { Autoplay, Navigation, Pagination, Keyboard } from 'swiper/modules';
+import 'swiper/css';
+import 'swiper/css/navigation';
+import 'swiper/css/pagination';
+
 const SWIPER_CUSTOM_STYLES = `
   .highrise-review-swiper .swiper-pagination-bullet,
   .highrise-property-swiper .swiper-pagination-bullet {
@@ -76,48 +49,33 @@ const SWIPER_CUSTOM_STYLES = `
   .highrise-property-swiper {
     padding-bottom: 50px !important;
   }
-  /* Property carousel — smooth transitions */
   .highrise-property-swiper .swiper-slide {
     height: auto;
   }
 `;
 
-// ─── Serialization Helper ─────────────────────────────────────────────────────
-// Next.js getStaticProps cannot serialize `undefined` values.
-// This helper recursively converts undefined → removed (or preserves null).
-// Handles: nested objects, arrays, Dates (→ ISO strings), ObjectIds (→ strings).
+// ============================================================================
+// SERIALIZATION HELPER (Edge Safety for undefined values)
+// ============================================================================
 
 function serializeForNext<T>(value: T): T {
-  if (value === undefined) {
-    // Undefined at top level — return null (caller must handle)
-    return null as unknown as T;
-  }
+  if (value === undefined) return null as unknown as T;
   if (value === null) return value;
-
-  // Dates → ISO strings
-  if (value instanceof Date) {
-    return value.toISOString() as unknown as T;
-  }
-
-  // Handle Mongoose ObjectIds and similar objects with toString
+  if (value instanceof Date) return value.toISOString() as unknown as T;
   if (
-    typeof value === "object" &&
+    typeof value === 'object' &&
     value !== null &&
-    "toString" in value &&
-    value.constructor?.name === "ObjectId"
+    'toString' in value &&
+    value.constructor?.name === 'ObjectId'
   ) {
     return String(value) as unknown as T;
   }
-
-  // Arrays — recurse
   if (Array.isArray(value)) {
     return value
       .filter((v) => v !== undefined)
       .map((v) => serializeForNext(v)) as unknown as T;
   }
-
-  // Plain objects — recurse, omit undefined keys
-  if (typeof value === "object") {
+  if (typeof value === 'object') {
     const result: Record<string, unknown> = {};
     for (const [key, val] of Object.entries(value)) {
       if (val === undefined) continue;
@@ -125,12 +83,12 @@ function serializeForNext<T>(value: T): T {
     }
     return result as unknown as T;
   }
-
-  // Primitives — return as-is
   return value;
 }
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface AgentSocialLinks {
   facebook?: string;
@@ -158,18 +116,17 @@ interface PublicAgent {
   displayName: string;
   tagline?: string;
   about?: string;
-  agentType: "individual" | "agency" | "freelance";
+  agentType: 'individual' | 'agency' | 'freelance';
   agencyName?: string;
   city: string;
-  // V6.8.5: REAL contact data (revealed on user click)
-  phone?: string;      // Full phone number (e.g. +923001234567)
-  email?: string;      // Full email (e.g. agent@example.com)
-  whatsapp?: string;   // Full WhatsApp number
+  phone?: string;
+  email?: string;
+  whatsapp?: string;
   officeVerification?: {
     address?: string;
     city?: string;
     coordinates?: {
-      latitude:  number;
+      latitude: number;
       longitude: number;
     };
   };
@@ -193,27 +150,25 @@ interface PublicAgent {
     profilePhoto?: { url?: string };
     coverPhoto?: { url?: string };
   };
-  // V6.8.5: Agency logo (top-level, agency accounts only)
   agencyLogo?: { url?: string };
   verificationLevel?:
-    | "not_verified"
-    | "documents_pending"
-    | "basic_verified"
-    | "license_verified"
-    | "full_verified"
-    | "premium_verified";
+    | 'not_verified'
+    | 'documents_pending'
+    | 'basic_verified'
+    | 'license_verified'
+    | 'full_verified'
+    | 'premium_verified';
   stats?: AgentStats;
   ratings?: AgentRatings;
   createdAt?: string;
-  // V6.8.8: Published reviews only (admin-curated)
   reviews?: Array<{
-    _id?:          string;
-    rating:        number;
-    reviewText:    string;
-    reviewerName:  string;
+    _id?: string;
+    rating: number;
+    reviewText: string;
+    reviewerName: string;
     reviewerCity?: string;
-    source:        string;
-    addedAt:       string;
+    source: string;
+    addedAt: string;
   }>;
 }
 
@@ -240,12 +195,57 @@ interface PageProps {
   properties: PublicProperty[];
 }
 
-type ActiveTab = "all" | "sale" | "rent";
+type ActiveTab = 'all' | 'sale' | 'rent';
 
-// V6.8.10: Property category active tab
-type ActivePropertyCategory = PropertyCategory;
+const PROPERTY_CATEGORIES = [
+  {
+    key: 'all',
+    label: 'All',
+    icon: '🏘️',
+    matches: (_p: PublicProperty) => true,
+  },
+  {
+    key: 'residential',
+    label: 'Residential',
+    icon: '🏠',
+    matches: (p: PublicProperty) => {
+      const t = (p.propertyType ?? '').toLowerCase();
+      return ['house', 'flat', 'apartment', 'penthouse', 'villa', 'farmhouse', 'room', 'residential'].includes(t);
+    },
+  },
+  {
+    key: 'commercial',
+    label: 'Commercial',
+    icon: '🏢',
+    matches: (p: PublicProperty) => {
+      const t = (p.propertyType ?? '').toLowerCase();
+      return ['office', 'shop', 'warehouse', 'factory', 'building', 'commercial', 'retail'].includes(t);
+    },
+  },
+  {
+    key: 'plots',
+    label: 'Plots & Land',
+    icon: '🌍',
+    matches: (p: PublicProperty) => {
+      const t = (p.propertyType ?? '').toLowerCase();
+      return ['plot', 'land', 'agricultural', 'commercial-plot', 'residential-plot'].includes(t);
+    },
+  },
+  {
+    key: 'rental',
+    label: 'For Rent',
+    icon: '🔑',
+    matches: (p: PublicProperty) => p.listingType === 'rent',
+  },
+] as const;
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+type PropertyCategory = typeof PROPERTY_CATEGORIES[number]['key'];
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highrise.pk';
+
+// ============================================================================
+// HELPERS
+// ============================================================================
 
 function formatPrice(price: number): string {
   if (price >= 10_000_000) return `${(price / 10_000_000).toFixed(2)} Cr`;
@@ -254,19 +254,19 @@ function formatPrice(price: number): string {
 }
 
 function formatMemberSince(dateString?: string): string {
-  if (!dateString) return "";
-  return new Date(dateString).toLocaleDateString("en-PK", {
-    year: "numeric",
-    month: "long",
+  if (!dateString) return '';
+  return new Date(dateString).toLocaleDateString('en-PK', {
+    year: 'numeric',
+    month: 'long',
   });
 }
 
 function sanitizeForJsonLd(str: string): string {
   return str
-    .replace(/</g, "\\u003c")
-    .replace(/>/g, "\\u003e")
-    .replace(/&/g, "\\u0026")
-    .replace(/'/g, "\\u0027");
+    .replace(/</g, '\\u003c')
+    .replace(/>/g, '\\u003e')
+    .replace(/&/g, '\\u0026')
+    .replace(/'/g, '\\u0027');
 }
 
 function getVerificationConfig(level?: string): {
@@ -276,89 +276,38 @@ function getVerificationConfig(level?: string): {
   show: boolean;
 } {
   const map: Record<string, { label: string; bg: string; text: string; show: boolean }> = {
-    not_verified: { label: "Not Verified", bg: "bg-gray-100", text: "text-gray-600", show: false },
-    documents_pending: { label: "Pending Verification", bg: "bg-yellow-100", text: "text-yellow-700", show: true },
-    basic_verified: { label: "Basic Verified", bg: "bg-blue-100", text: "text-blue-700", show: true },
-    license_verified: { label: "License Verified", bg: "bg-indigo-100", text: "text-indigo-700", show: true },
-    full_verified: { label: "Verified Agent", bg: "bg-green-100", text: "text-green-700", show: true },
-    premium_verified: { label: "Premium Agent", bg: "bg-purple-100", text: "text-purple-700", show: true },
+    not_verified: { label: 'Not Verified', bg: 'bg-gray-100', text: 'text-gray-600', show: false },
+    documents_pending: { label: 'Pending Verification', bg: 'bg-yellow-100', text: 'text-yellow-700', show: true },
+    basic_verified: { label: 'Basic Verified', bg: 'bg-blue-100', text: 'text-blue-700', show: true },
+    license_verified: { label: 'License Verified', bg: 'bg-indigo-100', text: 'text-indigo-700', show: true },
+    full_verified: { label: 'Verified Agent', bg: 'bg-green-100', text: 'text-green-700', show: true },
+    premium_verified: { label: 'Premium Agent', bg: 'bg-purple-100', text: 'text-purple-700', show: true },
   };
-  return map[level ?? "not_verified"] ?? map.not_verified;
+  return map[level ?? 'not_verified'] ?? map.not_verified;
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 80) return "bg-green-500";
-  if (score >= 60) return "bg-amber-500";
-  return "bg-red-400";
+  if (score >= 80) return 'bg-emerald-500';
+  if (score >= 60) return 'bg-amber-500';
+  return 'bg-red-400';
 }
 
-// V6.8.10: Property category configuration
-// Groups property types into user-friendly categories with icons
-const PROPERTY_CATEGORIES = [
-  {
-    key:   "all",
-    label: "All",
-    icon:  "🏘️",
-    matches: (_p: PublicProperty) => true,
-  },
-  {
-    key:   "residential",
-    label: "Residential",
-    icon:  "🏠",
-    matches: (p: PublicProperty) => {
-      const t = (p.propertyType ?? "").toLowerCase();
-      return ["house", "flat", "apartment", "penthouse", "villa", "farmhouse", "room", "residential"].includes(t);
-    },
-  },
-  {
-    key:   "commercial",
-    label: "Commercial",
-    icon:  "🏢",
-    matches: (p: PublicProperty) => {
-      const t = (p.propertyType ?? "").toLowerCase();
-      return ["office", "shop", "warehouse", "factory", "building", "commercial", "retail"].includes(t);
-    },
-  },
-  {
-    key:   "plots",
-    label: "Plots & Land",
-    icon:  "🌍",
-    matches: (p: PublicProperty) => {
-      const t = (p.propertyType ?? "").toLowerCase();
-      return ["plot", "land", "agricultural", "commercial-plot", "residential-plot"].includes(t);
-    },
-  },
-  {
-    key:   "rental",
-    label: "For Rent",
-    icon:  "🔑",
-    matches: (p: PublicProperty) => p.listingType === "rent",
-  },
-] as const;
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
 
-type PropertyCategory = typeof PROPERTY_CATEGORIES[number]["key"];
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://highrise.pk";
-
-// ─── Sub-Components ───────────────────────────────────────────────────────────
-
-function StatCard({
-  label,
-  value,
-  color,
-  bg,
-}: {
+interface StatCardProps {
   label: string;
   value: string | number;
   color: string;
   bg: string;
-}) {
+}
+
+function StatCard({ label, value, color, bg }: StatCardProps) {
   return (
-    <div
-      className={`p-5 rounded-2xl ${bg} text-center transition-transform hover:scale-105`}
-    >
+    <div className={`p-4 rounded-xl border border-gray-100 text-center ${bg}`}>
       <div className={`text-2xl font-black ${color}`}>{value}</div>
-      <div className="text-xs text-gray-500 font-semibold uppercase tracking-widest mt-1">
+      <div className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mt-1">
         {label}
       </div>
     </div>
@@ -367,7 +316,7 @@ function StatCard({
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-3">
+    <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2.5">
       {children}
     </h3>
   );
@@ -375,11 +324,11 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 
 function ChipList({ items }: { items: string[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {items.map((item) => (
         <span
           key={item}
-          className="px-3 py-1.5 bg-gray-100 text-gray-700 rounded-full text-sm font-medium"
+          className="px-3 py-1 bg-gray-50 border border-gray-150 rounded-xl text-xs font-semibold text-gray-600"
         >
           {item}
         </span>
@@ -390,11 +339,11 @@ function ChipList({ items }: { items: string[] }) {
 
 function ColorChipList({ items }: { items: string[] }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-1.5">
       {items.map((item) => (
         <span
           key={item}
-          className="px-3 py-1.5 bg-[#029bba]/10 text-[#029bba] rounded-full text-sm font-medium"
+          className="px-3 py-1 bg-[#029bba]/10 rounded-xl text-xs font-bold text-[#004063]"
         >
           {item}
         </span>
@@ -403,192 +352,15 @@ function ColorChipList({ items }: { items: string[] }) {
   );
 }
 
-// ─── Highrise Insight Card ────────────────────────────────────────────────────
-
-function InsightCard({ agent }: { agent: PublicAgent }) {
-  const verification = getVerificationConfig(agent.verificationLevel);
-  const hasReviews  = (agent.ratings?.totalReviews ?? 0) > 0;
-  const ratingPct   = ((agent.ratings?.averageRating ?? 0) / 5) * 100;
-  const responsePct = agent.stats?.responseRate ?? 0;
-
-  return (
-    <div className="bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl p-5 border border-slate-200 shadow-sm">
-      <div className="flex items-center gap-3 mb-5">
-        <div className="w-9 h-9 rounded-xl bg-[#029bba] flex items-center justify-center shrink-0">
-          <Shield className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <p className="text-sm font-bold text-gray-900">Highrise Insight</p>
-          <p className="text-xs text-gray-500">Verified by Highrise.pk</p>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {/* Rating Bar — ONLY shown when reviews exist (Highrise-verified only) */}
-        {hasReviews && (
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-xs font-semibold text-gray-600">
-                Client Rating
-              </span>
-              <span className="text-sm font-black text-gray-900">
-                {agent.ratings!.averageRating.toFixed(1)}/5
-              </span>
-            </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${getScoreColor(ratingPct)}`}
-                style={{ width: `${ratingPct}%` }}
-              />
-            </div>
-            <p className="text-[10px] text-gray-500 mt-1 flex items-center gap-1">
-              <CheckCircle className="w-2.5 h-2.5 text-green-500" />
-              {agent.ratings!.totalReviews} Highrise-verified review{agent.ratings!.totalReviews !== 1 ? "s" : ""}
-            </p>
-          </div>
-        )}
-
-        {/* Response Rate Bar — only shown if activity exists */}
-        {responsePct > 0 && (
-          <div>
-            <div className="flex justify-between items-center mb-1.5">
-              <span className="text-xs font-semibold text-gray-600">
-                Response Rate
-              </span>
-              <span className="text-sm font-black text-gray-900">
-                {responsePct}%
-              </span>
-            </div>
-            <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-              <div
-                className={`h-full rounded-full ${getScoreColor(responsePct)}`}
-                style={{ width: `${responsePct}%` }}
-              />
-            </div>
-          </div>
-        )}
-
-        {/* Verification Badge */}
-        {verification.show && (
-          <div className="pt-2">
-            <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${verification.bg} ${verification.text}`}
-            >
-              <CheckCircle className="w-3.5 h-3.5" />
-              {verification.label}
-            </span>
-          </div>
-        )}
-
-        {/* Member Since */}
-        {agent.createdAt && (
-          <p className="text-xs text-gray-400 pt-2 border-t border-gray-200">
-            Member since {formatMemberSince(agent.createdAt)}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ─── Property Card ────────────────────────────────────────────────────────────
-
-function PropertyCard({ property }: { property: PublicProperty }) {
-  const imgUrl = property.images?.[0]?.url;
-  const href = `/property/${property.slug ?? property._id}`;
-  const isRent = property.listingType === "rent";
-
-  return (
-    <Link href={href} className="group block">
-      <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1 h-full flex flex-col">
-        {/* Image */}
-        <div className="relative h-52 bg-gray-100 overflow-hidden">
-          {imgUrl ? (
-            <Image
-              src={imgUrl}
-              alt={property.title}
-              fill
-              className="object-cover group-hover:scale-105 transition-transform duration-500"
-              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center text-gray-300">
-              <Home className="w-12 h-12" />
-            </div>
-          )}
-          <div className="absolute top-3 left-3">
-            <span className="px-2.5 py-1 bg-black/50 backdrop-blur-sm text-white text-xs font-bold rounded-lg">
-              {isRent ? "For Rent" : "For Sale"}
-            </span>
-          </div>
-        </div>
-
-        {/* Content */}
-        <div className="p-5 flex-1 flex flex-col">
-          <h3 className="font-bold text-gray-900 group-hover:text-[#029bba] transition-colors mb-1 line-clamp-1">
-            {property.title}
-          </h3>
-          <p className="text-sm text-gray-500 flex items-center gap-1 mb-3">
-            <MapPin className="w-3.5 h-3.5 shrink-0 text-[#029bba]" />
-            <span className="truncate">
-              {property.society ?? property.locality ?? property.city}
-            </span>
-          </p>
-
-          {/* Specs */}
-          <div className="flex items-center gap-3 text-sm text-gray-500 mb-4">
-            <span className="flex items-center gap-1">
-              <Maximize className="w-3.5 h-3.5" />
-              {property.area} {property.unit}
-            </span>
-            {property.bedrooms && (
-              <span className="flex items-center gap-1">
-                <Bed className="w-3.5 h-3.5" />
-                {property.bedrooms}
-              </span>
-            )}
-            {property.bathrooms && (
-              <span className="flex items-center gap-1">
-                <Bath className="w-3.5 h-3.5" />
-                {property.bathrooms}
-              </span>
-            )}
-          </div>
-
-          {/* Price Row */}
-          <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-0.5">
-                Price
-              </p>
-              <p className="text-lg font-black text-[#029bba]">
-                PKR {formatPrice(property.totalPrice ?? property.price)}
-                {isRent && (
-                  <span className="text-sm font-normal text-gray-400">/mo</span>
-                )}
-              </p>
-            </div>
-            <div className="w-10 h-10 rounded-xl bg-gray-50 flex items-center justify-center group-hover:bg-[#029bba] group-hover:text-white transition-all">
-              <ArrowRight className="w-5 h-5" />
-            </div>
-          </div>
-        </div>
-      </div>
-    </Link>
-  );
-}
-
-// ─── V6.9.0: Office Location Card ─────────────────────────────────────────────
-// Displays office address with interactive Google Static Map preview
-// + Get Directions button (uses saved GPS coordinates for pinpoint accuracy)
-// + Copy Address button
-// + View Larger Map link (opens Google Maps in new tab)
+// ============================================================================
+// OFFICE LOCATION CARD (V6.9.0 Refactored)
+// ============================================================================
 
 interface OfficeLocationCardProps {
-  address:      string;
-  city:         string;
+  address: string;
+  city: string;
   coordinates?: { latitude: number; longitude: number };
-  agentName:    string;
+  agentName: string;
   onCopySuccess: (v: boolean) => void;
   addressCopied: boolean;
 }
@@ -601,32 +373,19 @@ function OfficeLocationCard({
   onCopySuccess,
   addressCopied,
 }: OfficeLocationCardProps): React.ReactElement {
-
   const [mapError, setMapError] = useState(false);
-  const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? "";
+  const googleMapsKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? '';
 
-  // Build "Get Directions" URL
-  // Priority: exact GPS coordinates > text address fallback
   const directionsUrl = coordinates
     ? `https://www.google.com/maps/dir/?api=1&destination=${coordinates.latitude},${coordinates.longitude}`
     : `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(`${address}, ${city}, Pakistan`)}`;
 
-  // Build "View on Google Maps" URL (open interactive map)
   const viewMapUrl = coordinates
     ? `https://www.google.com/maps/search/?api=1&query=${coordinates.latitude},${coordinates.longitude}`
     : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${address}, ${city}, Pakistan`)}`;
 
-  // Build Google Static Map URL (only if we have coordinates + API key)
   const staticMapUrl = coordinates && googleMapsKey && !mapError
-    ? `https://maps.googleapis.com/maps/api/staticmap?` +
-      `center=${coordinates.latitude},${coordinates.longitude}` +
-      `&zoom=16` +
-      `&size=600x300` +
-      `&scale=2` +
-      `&maptype=roadmap` +
-      `&markers=color:red%7Csize:mid%7C${coordinates.latitude},${coordinates.longitude}` +
-      `&style=feature:poi%7Cvisibility:simplified` +
-      `&key=${googleMapsKey}`
+    ? `https://maps.googleapis.com/maps/api/staticmap?center=${coordinates.latitude},${coordinates.longitude}&zoom=16&size=600x300&scale=2&maptype=roadmap&markers=color:red%7Csize:mid%7C${coordinates.latitude},${coordinates.longitude}&key=${googleMapsKey}`
     : null;
 
   const handleCopyAddress = async () => {
@@ -635,236 +394,270 @@ function OfficeLocationCard({
       onCopySuccess(true);
       setTimeout(() => onCopySuccess(false), 2500);
     } catch {
-      // Fallback for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = `${address}, ${city}, Pakistan`;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        onCopySuccess(true);
-        setTimeout(() => onCopySuccess(false), 2500);
-      } catch {
-        // Silent fail
-      }
-      document.body.removeChild(textArea);
+      // Fallback
     }
   };
 
   return (
-    <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
-
-      {/* Header */}
-      <div className="px-3.5 py-3 flex items-center justify-between gap-2 border-b border-gray-100">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="w-8 h-8 rounded-lg bg-[#029bba]/10 flex items-center justify-center shrink-0">
-            <MapPin className="w-4 h-4 text-[#029bba]" />
-          </div>
-          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-            Office Location
-          </p>
-        </div>
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden p-6 space-y-4">
+      <div className="flex items-center justify-between pb-3 border-b border-gray-100">
+        <h4 className={typography.sectionTitlePlain}>Office Presence</h4>
         {coordinates && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0">
-            <CheckCircle className="w-2.5 h-2.5" />
-            Pin Verified
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[10px] font-bold uppercase tracking-wider">
+            <icons.CheckCircle className="w-3.5 h-3.5" />
+            Verified Location
           </span>
         )}
       </div>
 
-      {/* Static Map Preview (only when coordinates + API key available) */}
       {staticMapUrl && (
         <a
           href={viewMapUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="relative block h-40 bg-gray-100 overflow-hidden group"
+          className="relative block h-44 bg-gray-100 rounded-xl overflow-hidden group border border-gray-150"
           aria-label="Open interactive map in new tab"
         >
-          {/* Using next/image with fixed unoptimized to avoid CDN cost */}
           <Image
             src={staticMapUrl}
-            alt={`Map showing ${agentName}'s office location`}
+            alt={`Map of ${agentName}'s office`}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-500"
-            sizes="(max-width: 1024px) 100vw, 320px"
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            sizes="(max-width: 1024px) 100vw, 400px"
             unoptimized
             onError={() => setMapError(true)}
           />
-
-          {/* Hover overlay with "click to enlarge" hint */}
           <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
-            <div className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-lg flex items-center gap-1.5 text-xs font-bold text-gray-900">
-              <Maximize className="w-3.5 h-3.5" />
-              Click to enlarge
-            </div>
-          </div>
-
-          {/* Attribution corner */}
-          <div className="absolute bottom-1 right-1 bg-white/90 backdrop-blur-sm rounded px-1.5 py-0.5 text-[9px] font-bold text-gray-600">
-            Google Maps
+            <span className="opacity-0 group-hover:opacity-100 transition-opacity bg-white/95 backdrop-blur-sm px-3 py-1.5 rounded-lg shadow-md text-xs font-bold text-gray-900 flex items-center gap-1.5">
+              <icons.Maximize2 className="w-3.5 h-3.5" />
+              View Larger Map
+            </span>
           </div>
         </a>
       )}
 
-      {/* Fallback: No coordinates → show icon-only banner */}
-      {!staticMapUrl && (
-        <div className="h-24 bg-gradient-to-br from-slate-50 to-blue-50 flex flex-col items-center justify-center gap-1 border-b border-gray-100">
-          <MapPin className="w-6 h-6 text-[#029bba]/40" />
-          <p className="text-[10px] text-gray-500 font-medium">
-            Precise location coming soon
-          </p>
-        </div>
-      )}
-
-      {/* Address text */}
-      <div className="p-3.5 space-y-3">
-        <div className="flex items-start gap-2">
-          <Home className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
-          <p className="text-xs text-gray-700 leading-relaxed">
+      <div className="space-y-3">
+        <div className="flex items-start gap-2.5">
+          <icons.MapPin className="w-4 h-4 text-[#029bba] shrink-0 mt-0.5" />
+          <p className="text-xs text-gray-700 leading-relaxed font-semibold">
             {address}
-            {city && (
-              <>
-                <br />
-                <span className="text-gray-500">{city}, Pakistan</span>
-              </>
-            )}
+            {city && <span className="block text-gray-400 font-medium">{city}, Pakistan</span>}
           </p>
         </div>
 
-        {/* Action buttons */}
-        <div className="grid grid-cols-2 gap-2">
-          {/* Get Directions */}
+        <div className="flex gap-2">
           <a
             href={directionsUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center justify-center gap-1.5 px-3 py-2.5
-                       bg-gradient-to-r from-[#029bba] to-[#0284a3] text-white
-                       rounded-lg text-xs font-bold shadow-sm shadow-[#029bba]/20
-                       hover:shadow-md hover:shadow-[#029bba]/30
-                       transition-all group"
+            className="flex-1 py-2.5 rounded-xl bg-[#029bba] text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-sm shadow-[#029bba]/20 hover:bg-[#027a94]"
           >
-            <svg
-              className="w-3.5 h-3.5 group-hover:scale-110 transition-transform"
-              viewBox="0 0 24 24"
-              fill="currentColor"
-              aria-hidden="true"
-            >
-              <path d="M21.71 11.29l-9-9a1 1 0 0 0-1.42 0l-9 9a1 1 0 0 0 0 1.42l9 9a1 1 0 0 0 1.42 0l9-9a1 1 0 0 0 0-1.42zM14 14.5V12h-4v3H8v-4a1 1 0 0 1 1-1h5V7.5l3.5 3.5-3.5 3.5z" />
-            </svg>
-            Directions
+            Get Directions
           </a>
-
-          {/* Copy Address */}
           <button
             onClick={handleCopyAddress}
-            className={`inline-flex items-center justify-center gap-1.5 px-3 py-2.5
-                       rounded-lg text-xs font-bold border-2 transition-all ${
+            className={`flex-1 py-2.5 rounded-xl text-xs font-bold border transition-all ${
               addressCopied
-                ? "bg-emerald-50 border-emerald-200 text-emerald-700"
-                : "bg-white border-gray-200 text-gray-700 hover:border-[#029bba] hover:text-[#029bba]"
+                ? 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                : 'bg-white border-gray-200 text-gray-700 hover:border-[#029bba] hover:text-[#029bba]'
             }`}
           >
-            {addressCopied ? (
-              <>
-                <Check className="w-3.5 h-3.5" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Copy className="w-3.5 h-3.5" />
-                Copy
-              </>
-            )}
+            {addressCopied ? 'Address Copied!' : 'Copy Address'}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
 
-        {/* View larger map link */}
-        {coordinates && (
-          <a
-            href={viewMapUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-1 pt-1 text-[11px] font-semibold text-gray-500 hover:text-[#029bba] transition-colors"
-          >
-            <Maximize className="w-3 h-3" />
-            View on Google Maps
-            <ArrowRight className="w-3 h-3" />
-          </a>
+// ============================================================================
+// PROPERTY CARD COMPONENT
+// ============================================================================
+
+function PropertyCard({ property }: { property: PublicProperty }) {
+  const imgUrl = property.images?.[0]?.url;
+  const href = `/property/${property.slug ?? property._id}`;
+  const isRent = property.listingType === 'rent';
+
+  return (
+    <Link href={href} className="group block h-full">
+      <div className="bg-white rounded-2xl overflow-hidden border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 h-full flex flex-col justify-between">
+        <div className="relative h-48 bg-gray-50 overflow-hidden">
+          {imgUrl ? (
+            <Image
+              src={getOptimizedImageUrl(imgUrl, { width: 500 })}
+              alt={property.title}
+              fill
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
+              sizes="(max-width: 768px) 100vw, 33vw"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-gray-200">
+              <icons.Home className="w-10 h-10" />
+            </div>
+          )}
+          <div className="absolute top-3 left-3">
+            <span className="px-2.5 py-1 bg-black/60 backdrop-blur-sm text-white text-[10px] font-bold uppercase rounded-lg">
+              {isRent ? 'For Rent' : 'For Sale'}
+            </span>
+          </div>
+        </div>
+
+        <div className="p-5 flex-1 flex flex-col justify-between">
+          <div>
+            <h3 className="font-bold text-[#004063] group-hover:text-[#029bba] transition-colors mb-1 line-clamp-1 text-sm">
+              {property.title}
+            </h3>
+            <p className="text-xs text-gray-400 flex items-center gap-1 mb-3">
+              <icons.MapPin className="w-3.5 h-3.5 shrink-0 text-[#029bba]" />
+              <span className="truncate">
+                {property.society ?? property.locality ?? property.city}
+              </span>
+            </p>
+
+            <div className="flex items-center gap-3 text-xs text-gray-500 mb-4">
+              <span className="flex items-center gap-1">
+                <icons.Maximize className="w-3.5 h-3.5 text-[#029bba]" />
+                {property.area} {property.unit}
+              </span>
+              {property.bedrooms && (
+                <span className="flex items-center gap-1 border-l border-gray-200 pl-3">
+                  <icons.Bed className="w-3.5 h-3.5 text-[#029bba]" />
+                  {property.bedrooms} Bed
+                </span>
+              )}
+              {property.bathrooms && (
+                <span className="flex items-center gap-1 border-l border-gray-200 pl-3">
+                  <icons.Bath className="w-3.5 h-3.5 text-[#029bba]" />
+                  {property.bathrooms} Bath
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
+            <div>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Price</p>
+              <p className="text-base font-black text-[#029bba]">
+                PKR {formatPrice(property.totalPrice ?? property.price)}
+                {isRent && <span className="text-xs font-medium text-gray-400">/mo</span>}
+              </p>
+            </div>
+            <span className="p-2 rounded-xl bg-gray-50 text-gray-600 group-hover:bg-[#029bba] group-hover:text-white transition-colors">
+              <icons.ArrowRight className="w-4 h-4" />
+            </span>
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function InsightCard({ agent }: { agent: PublicAgent }) {
+  const verification = getVerificationConfig(agent.verificationLevel);
+  const hasReviews  = (agent.ratings?.totalReviews ?? 0) > 0;
+  const ratingPct   = ((agent.ratings?.averageRating ?? 0) / 5) * 100;
+  const responsePct = agent.stats?.responseRate ?? 0;
+
+  return (
+    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-5">
+      <div className="flex items-center gap-3 pb-4 border-b border-gray-100">
+        <div className="w-10 h-10 rounded-xl bg-[#029bba]/10 text-[#029bba] flex items-center justify-center shrink-0">
+          <icons.ShieldCheck className="w-5 h-5" />
+        </div>
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-wider text-[#004063]">
+            Highrise Insight
+          </h3>
+          <p className="text-xs text-gray-500">Verified platform credentials</p>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {hasReviews && (
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-semibold text-gray-600 font-bold">Client Rating</span>
+              <span className="text-sm font-black text-gray-900">
+                {agent.ratings!.averageRating.toFixed(1)}/5
+              </span>
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${getScoreColor(ratingPct)}`}
+                style={{ width: `${ratingPct}%` }}
+              />
+            </div>
+            <p className="text-[10px] text-gray-500 mt-1.5 flex items-center gap-1 font-semibold">
+              <icons.CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+              {agent.ratings!.totalReviews} verified reviews
+            </p>
+          </div>
+        )}
+
+        {responsePct > 0 && (
+          <div>
+            <div className="flex justify-between items-center mb-1.5">
+              <span className="text-xs font-semibold text-gray-600 font-bold">Response Rate</span>
+              <span className="text-sm font-black text-gray-900">{responsePct}%</span>
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div
+                className={`h-full rounded-full ${getScoreColor(responsePct)}`}
+                style={{ width: `${responsePct}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {verification.show && (
+          <div className="pt-2">
+            <span
+              className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold border ${verification.bg} ${verification.text}`}
+            >
+              <icons.CheckCircle className="w-3.5 h-3.5" />
+              {verification.label}
+            </span>
+          </div>
+        )}
+
+        {agent.createdAt && (
+          <p className="text-[10px] text-gray-400 pt-2 border-t border-gray-100 font-medium">
+            Active member since {formatMemberSince(agent.createdAt)}
+          </p>
         )}
       </div>
     </div>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
 
 export default function AgentPublicProfilePage({
   agent,
   properties,
 }: PageProps) {
-  const [showPhone, setShowPhone] = useState(false);
-  const [showEmail, setShowEmail] = useState(false);
-  const [emailCopied, setEmailCopied] = useState(false);
-  const [phoneCopied, setPhoneCopied] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<ActiveTab>("all");
-  const [copied, setCopied] = useState(false);
-
-  // V6.8.10: Active property category tab
-  const [activePropertyCategory, setActivePropertyCategory] = useState<ActivePropertyCategory>("all");
-
-  // V6.8.5: Copy value to clipboard with visual feedback
-  const copyToClipboard = useCallback(async (
-    value: string,
-    setter: (v: boolean) => void
-  ) => {
-    try {
-      await navigator.clipboard.writeText(value);
-      setter(true);
-      setTimeout(() => setter(false), 2500);
-    } catch {
-      // Fallback for older browsers
-      const textArea = document.createElement("textarea");
-      textArea.value = value;
-      document.body.appendChild(textArea);
-      textArea.select();
-      try {
-        document.execCommand("copy");
-        setter(true);
-        setTimeout(() => setter(false), 2500);
-      } catch {
-        // Silent fail
-      }
-      document.body.removeChild(textArea);
-    }
-  }, []);
-
+  const [activePropertyCategory, setActivePropertyCategory] = useState<PropertyCategory>('all');
   const [shareOpen, setShareOpen] = useState(false);
+  const [showReportModal, setShowReportModal] = useState<boolean>(false);
 
-  const handleShare = useCallback(() => {
-    setShareOpen(true);
-  }, []);
-
-  // V6.8.10: Filter properties by active category
   const activeCategoryConfig = PROPERTY_CATEGORIES.find((c) => c.key === activePropertyCategory)
     ?? PROPERTY_CATEGORIES[0];
   const filteredProperties = properties.filter((p) => activeCategoryConfig.matches(p));
 
-  // Pre-compute counts per category for tab badges
   const categoryCounts = PROPERTY_CATEGORIES.reduce((acc, cat) => {
     acc[cat.key] = properties.filter((p) => cat.matches(p)).length;
     return acc;
   }, {} as Record<PropertyCategory, number>);
 
-  const verification = getVerificationConfig(agent.verificationLevel);
   const pageUrl = `${APP_URL}/agent/${agent.slug}`;
 
-  // Sanitized JSON-LD (SEO-friendly, only real data)
   const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "RealEstateAgent",
+    '@context': 'https://schema.org',
+    '@type': 'RealEstateAgent',
     name: sanitizeForJsonLd(agent.displayName),
     url: pageUrl,
     image: agent.documents?.profilePhoto?.url ?? agent.agencyLogo?.url ?? undefined,
@@ -874,17 +667,16 @@ export default function AgentPublicProfilePage({
     ...(agent.phone && { telephone: agent.phone }),
     ...(agent.email && { email: agent.email }),
     address: {
-      "@type": "PostalAddress",
+      '@type': 'PostalAddress',
       addressLocality: sanitizeForJsonLd(agent.city),
-      addressCountry: "PK",
+      addressCountry: 'PK',
       ...(agent.officeVerification?.address && {
         streetAddress: sanitizeForJsonLd(agent.officeVerification.address),
       }),
     },
-    // Only include rating when there are actual reviews (avoids showing 0/5)
     ...(agent.ratings && agent.ratings.totalReviews > 0 && {
       aggregateRating: {
-        "@type": "AggregateRating",
+        '@type': 'AggregateRating',
         ratingValue: agent.ratings.averageRating,
         reviewCount: agent.ratings.totalReviews,
         bestRating: 5,
@@ -892,24 +684,17 @@ export default function AgentPublicProfilePage({
       },
     }),
     sameAs: Object.values(agent.socialLinks ?? {}).filter(
-      (v): v is string => typeof v === "string" && v.length > 0
+      (v): v is string => typeof v === 'string' && v.length > 0
     ),
   };
 
-  const ogImage =
-    agent.documents?.coverPhoto?.url ??
-    agent.documents?.profilePhoto?.url ??
-    `${APP_URL}/og-agent.jpg`;
-
+  const ogImage = agent.documents?.coverPhoto?.url ?? agent.documents?.profilePhoto?.url ?? `${APP_URL}/og-agent.jpg`;
   const profilePhotoUrl = agent.documents?.profilePhoto?.url;
 
   return (
     <>
       <Head>
-        <title>
-          {agent.displayName} — Real Estate Agent in {agent.city} |
-          Highrise.pk
-        </title>
+        <title>{`${agent.displayName} - Real Estate Agent in ${agent.city} | Highrise.pk`}</title>
         <meta
           name="description"
           content={`${agent.displayName} is a verified real estate agent in ${agent.city}. ${agent.experience?.years ?? 0}+ years experience. ${agent.stats?.activeListings ?? 0} active listings. Contact on Highrise.pk.`}
@@ -917,1175 +702,461 @@ export default function AgentPublicProfilePage({
         <link rel="canonical" href={pageUrl} />
         <meta name="robots" content="index, follow" />
 
-        {/* Open Graph */}
         <meta property="og:type" content="profile" />
         <meta property="og:url" content={pageUrl} />
-        <meta
-          property="og:title"
-          content={`${agent.displayName} | Real Estate Agent in ${agent.city}`}
-        />
-        <meta
-          property="og:description"
-          content={
-            agent.tagline ??
-            `Professional real estate agent based in ${agent.city}, Pakistan.`
-          }
-        />
+        <meta property="og:title" content={`${agent.displayName} | Real Estate Agent in ${agent.city}`} />
+        <meta property="og:description" content={agent.tagline ?? `Professional real estate agent based in ${agent.city}, Pakistan.`} />
         <meta property="og:image" content={ogImage} />
         <meta property="og:site_name" content="Highrise.pk" />
 
-        {/* Twitter */}
         <meta name="twitter:card" content="summary_large_image" />
-        <meta
-          name="twitter:title"
-          content={`${agent.displayName} | Highrise.pk`}
-        />
-        <meta
-          name="twitter:description"
-          content={agent.tagline ?? `Real estate agent in ${agent.city}`}
-        />
+        <meta name="twitter:title" content={`${agent.displayName} | Highrise.pk`} />
+        <meta name="twitter:description" content={agent.tagline ?? `Real estate agent in ${agent.city}`} />
         <meta name="twitter:image" content={ogImage} />
       </Head>
 
-      {/* JSON-LD */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
       />
 
-      <div className="min-h-screen bg-gray-50 pb-20">
+      <div className="min-h-screen bg-[#f8f9fa]">
 
-        {/* ── Hero Banner — Elegant gradient with optional cover photo ────── */}
-        <div className="relative h-72 md:h-80 w-full bg-gradient-to-br from-[#029bba] via-[#0284a3] to-[#004063] overflow-hidden">
-          {/* Cover photo with subtle overlay */}
+        {/* Cover Hero Banner */}
+        <div className="relative h-48 sm:h-64 md:h-80 w-full bg-gradient-to-r from-[#004063] to-[#029bba] overflow-hidden">
           {agent.documents?.coverPhoto?.url && (
             <>
               <Image
-                src={agent.documents.coverPhoto.url}
+                src={getOptimizedImageUrl(agent.documents.coverPhoto.url, { width: 1440 })}
                 alt={`${agent.displayName} cover`}
                 fill
                 className="object-cover"
                 priority
                 sizes="100vw"
               />
-              <div className="absolute inset-0 bg-gradient-to-b from-black/40 via-black/20 to-[#004063]/60"></div>
+              <div className="absolute inset-0 bg-black/35" />
             </>
           )}
 
-          {/* Decorative pattern overlay (when no cover) */}
-          {!agent.documents?.coverPhoto?.url && (
-            <div
-              className="absolute inset-0 opacity-10"
-              style={{
-                backgroundImage: `radial-gradient(circle at 20% 50%, white 1px, transparent 1px), radial-gradient(circle at 80% 30%, white 1px, transparent 1px)`,
-                backgroundSize: "40px 40px",
-              }}
-            />
-          )}
-
-          {/* Breadcrumb */}
-          <div className="absolute top-6 left-0 right-0 max-w-7xl mx-auto px-4">
-            <nav
-              aria-label="Breadcrumb"
-              className="inline-flex items-center gap-2 bg-black/20 backdrop-blur-sm px-4 py-2 rounded-full text-white text-xs font-semibold border border-white/10"
-            >
-              <Link href="/" className="hover:text-white/80 transition-colors">
+          {/* Breadcrumb Overlay */}
+          <div className="absolute top-4 left-4 sm:left-6 z-10">
+            <nav className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-black/30 backdrop-blur-md text-white text-xs font-semibold">
+              <Link href="/" className="hover:text-[#029bba] transition-colors flex items-center gap-1">
+                <icons.Home className="w-3.5 h-3.5" />
                 Home
               </Link>
               <span className="opacity-40">/</span>
-              <Link
-                href="/agents"
-                className="hover:text-white/80 transition-colors"
-              >
+              <Link href="/agents" className="hover:text-[#029bba] transition-colors">
                 Agents
               </Link>
               <span className="opacity-40">/</span>
-              <span>{agent.displayName}</span>
+              <span className="truncate max-w-[160px] text-white/90">{agent.displayName}</span>
             </nav>
           </div>
 
           {/* Share Button */}
           <button
-            onClick={() => void handleShare()}
-            className="absolute top-6 right-4 flex items-center gap-2 px-3 py-2 bg-white/20 backdrop-blur-sm rounded-xl text-white hover:bg-white/30 transition-colors text-sm font-medium"
+            onClick={() => setShareOpen(true)}
+            className="absolute top-4 right-4 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/20 backdrop-blur-md border border-white/10 text-white hover:bg-white/30 transition-colors text-xs font-bold"
             aria-label="Share profile"
           >
-            {copied ? (
-              <>
-                <Check className="w-4 h-4" />
-                Copied!
-              </>
-            ) : (
-              <>
-                <Share2 className="w-4 h-4" />
-                Share
-              </>
-            )}
+            <icons.Share2 className="w-3.5 h-3.5" />
+            Share Profile
           </button>
         </div>
 
-        {/* ── Profile Card ─────────────────────────────────────────────────── */}
-        <div className="max-w-7xl mx-auto px-4 -mt-20 relative z-10">
-          <div className="bg-white rounded-3xl shadow-xl border border-gray-100">
-            <div className="flex flex-col lg:flex-row">
+        {/* Agent Profile Block */}
+        <div className="max-w-[1120px] mx-auto px-4 sm:px-6 relative -mt-16 z-20 mb-8">
+          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 sm:p-8">
+            <div className="flex flex-col md:flex-row items-start gap-6">
 
-              {/* ── Main Content ─────────────────────────────────────────── */}
-              <div className="flex-1 p-6 md:p-10 lg:rounded-l-3xl rounded-t-3xl lg:rounded-tr-none">
-                {/* V6.9.2: Enterprise photo layout — Zameen/Zillow hybrid */}
-                {/* Layout: Agent photo + Agency logo (side-by-side, both prominent) */}
-                {/* For non-agencies: only agent photo shows (clean, no clutter) */}
-                <div className="flex flex-col md:flex-row gap-6 items-start">
-
-                  {/* ═══ PHOTOS ROW — Agent + Agency Logo ═══ */}
-                  <div className="flex items-start gap-4 md:gap-6 -mt-24 md:-mt-32 z-40 isolate w-full md:w-auto">
-
-                    {/* ─── AGENT PHOTO (Personal Identity) ─── */}
-                    <div className="relative shrink-0">
-                      <div className="relative group">
-                        {/* Glow effect on hover */}
-                        <div className="absolute -inset-1 bg-gradient-to-r from-[#029bba] to-[#004063] rounded-3xl blur opacity-40 group-hover:opacity-70 transition-opacity duration-300"></div>
-
-                        {/* Main photo box */}
-                        <div className="relative w-36 h-36 md:w-44 md:h-44 rounded-3xl overflow-hidden border-4 border-white shadow-2xl bg-gradient-to-br from-[#029bba] via-[#0284a3] to-[#004063] flex items-center justify-center">
-                          {profilePhotoUrl ? (
-                            <Image
-                              src={profilePhotoUrl}
-                              alt={agent.displayName}
-                              width={176}
-                              height={176}
-                              className="w-full h-full object-cover"
-                              priority
-                            />
-                          ) : agent.agencyLogo?.url ? (
-                            <div className="w-full h-full flex items-center justify-center bg-white p-4">
-                              <Image
-                                src={agent.agencyLogo.url}
-                                alt={`${agent.displayName} logo`}
-                                width={176}
-                                height={176}
-                                className="max-w-full max-h-full object-contain"
-                              />
-                            </div>
-                          ) : (
-                            <span className="text-white text-6xl font-black drop-shadow-lg">
-                              {agent.displayName.charAt(0).toUpperCase()}
-                            </span>
-                          )}
-                        </div>
-
-                        {/* Verified indicator badge (bottom-right corner) */}
-                        {verification.show && (
-                          <div
-                            className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-white z-10"
-                            title={verification.label}
-                          >
-                            <div className="w-full h-full rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
-                              <CheckCircle className="w-5 h-5 text-white" />
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* "Agent" label below photo */}
-                      <p className="text-center mt-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                        Agent
-                      </p>
-                    </div>
-
-                    {/* ─── AGENCY LOGO (Brand Identity) — Only for agencies with logo ─── */}
-                    {agent.agentType === "agency" && agent.agencyLogo?.url && (
-                      <>
-                        {/* Elegant vertical divider (desktop only) */}
-                        <div
-                          className="hidden md:flex flex-col items-center justify-center h-36 md:h-44"
-                          aria-hidden="true"
-                        >
-                          <div className="w-px h-full bg-gradient-to-b from-transparent via-gray-300 to-transparent" />
-                        </div>
-
-                        <div className="relative shrink-0">
-                          <div className="relative group">
-                            {/* Subtle glow (less intense than agent photo) */}
-                            <div className="absolute -inset-1 bg-gradient-to-r from-[#004063] to-[#029bba] rounded-3xl blur opacity-20 group-hover:opacity-40 transition-opacity duration-300"></div>
-
-                            {/* Main logo box — WHITE background, PROMINENT size */}
-                            <div className="relative w-36 h-36 md:w-44 md:h-44 rounded-3xl overflow-hidden border-4 border-white shadow-2xl bg-white flex items-center justify-center p-4">
-                              <Image
-                                src={agent.agencyLogo.url}
-                                alt={agent.agencyName ?? "Agency logo"}
-                                width={176}
-                                height={176}
-                                className="max-w-full max-h-full object-contain"
-                                priority
-                              />
-                            </div>
-
-                            {/* Small agency indicator badge (bottom-right) */}
-                            <div
-                              className="absolute -bottom-2 -right-2 w-10 h-10 rounded-full bg-white flex items-center justify-center shadow-lg border-2 border-white z-10"
-                              title={agent.agencyName ?? "Agency"}
-                            >
-                              <div className="w-full h-full rounded-full bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center">
-                                <Briefcase className="w-4 h-4 text-white" />
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* "Agency" label below logo */}
-                          <p className="text-center mt-3 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                            Agency
-                          </p>
-                        </div>
-                      </>
-                    )}
-                  </div>
-
-                  {/* ═══ IDENTITY & INFO ═══ */}
-                  <div className="flex-1 pt-2">
-                    {/* Name + Verified badge */}
-                    <div className="flex flex-wrap items-center gap-3 mb-2">
-                      <h1 className="text-3xl md:text-4xl font-black text-gray-900">
-                        {agent.displayName}
-                      </h1>
-                      {verification.show && (
-                        <span
-                          className={`inline-flex items-center gap-1 px-3 py-1 rounded-xl text-xs font-bold ${verification.bg} ${verification.text}`}
-                        >
-                          <CheckCircle className="w-3.5 h-3.5" />
-                          {verification.label}
-                        </span>
-                      )}
-                    </div>
-
-                    {/* V6.9.2: "Represents X Agency" branded badge (agency accounts only) */}
-                    {agent.agentType === "agency" && agent.agencyName && (
-                      <div className="mb-3">
-                        <div className="inline-flex items-center gap-2 pl-1 pr-4 py-1 bg-gradient-to-r from-[#029bba]/10 to-[#004063]/5 border border-[#029bba]/20 rounded-full">
-                          {agent.agencyLogo?.url ? (
-                            <div className="w-7 h-7 rounded-full bg-white shadow-sm border border-white flex items-center justify-center p-0.5 shrink-0">
-                              <Image
-                                src={agent.agencyLogo.url}
-                                alt={agent.agencyName}
-                                width={28}
-                                height={28}
-                                className="max-w-full max-h-full object-contain rounded-full"
-                              />
-                            </div>
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-[#029bba] flex items-center justify-center shrink-0">
-                              <Briefcase className="w-3.5 h-3.5 text-white" />
-                            </div>
-                          )}
-                          <span className="text-xs font-bold text-[#004063]">
-                            Represents <span className="text-[#029bba]">{agent.agencyName}</span>
-                          </span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Non-agency: show agency name as text (e.g., freelance under agency) */}
-                    {agent.agentType !== "agency" && agent.agencyName && (
-                      <p className="text-base text-gray-600 font-semibold mb-2">
-                        {agent.agencyName}
-                      </p>
-                    )}
-
-                    {/* Tagline */}
-                    {agent.tagline && (
-                      <p className="text-gray-500 italic text-sm mb-4">
-                        &ldquo;{agent.tagline}&rdquo;
-                      </p>
-                    )}
-
-                    {/* Meta Row — City · Experience · Rating */}
-                    <div className="flex flex-wrap gap-4 text-sm font-semibold text-gray-500">
-                      <span className="flex items-center gap-1.5">
-                        <MapPin className="w-4 h-4 text-[#029bba]" />
-                        {agent.city}, Pakistan
-                      </span>
-                      <span className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
-                        <Briefcase className="w-4 h-4 text-[#029bba]" />
-                        {agent.experience?.years ?? 0}+ years experience
-                      </span>
-                      {/* Rating only shown when reviews exist — no "New Agent" text */}
-                      {agent.ratings && agent.ratings.totalReviews > 0 && (
-                        <span className="flex items-center gap-1.5 border-l border-gray-200 pl-4">
-                          <Star className="w-4 h-4 text-yellow-500 fill-yellow-500" />
-                          {agent.ratings.averageRating.toFixed(1)} (
-                          {agent.ratings.totalReviews} review{agent.ratings.totalReviews !== 1 ? "s" : ""})
-                        </span>
-                      )}
-                    </div>
-                  </div>
+              {/* Photos row: Agent avatar + Agency logo */}
+              <div className="flex items-start gap-4 -mt-12 md:-mt-16 relative z-10 shrink-0">
+                <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border-4 border-white bg-gradient-to-br from-[#029bba] to-[#004063] overflow-hidden shadow-md flex items-center justify-center">
+                  {profilePhotoUrl ? (
+                    <img
+                      src={getOptimizedImageUrl(profilePhotoUrl, { width: 250 })}
+                      alt={agent.displayName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-white text-4xl font-black">{agent.displayName.charAt(0).toUpperCase()}</span>
+                  )}
                 </div>
 
-                {/* About */}
-                {agent.about && (
-                  <div className="mt-8">
-                    <SectionLabel>About</SectionLabel>
-                    <p className="text-gray-600 leading-relaxed text-sm">
-                      {agent.about}
-                    </p>
+                {agent.agentType === 'agency' && agent.agencyLogo?.url && (
+                  <div className="w-28 h-28 sm:w-32 sm:h-32 rounded-2xl border-4 border-white bg-white p-3 shadow-md flex items-center justify-center shrink-0">
+                    <img
+                      src={getOptimizedImageUrl(agent.agencyLogo.url, { width: 250 })}
+                      alt={agent.agencyName || 'Agency'}
+                      className="max-h-full max-w-full object-contain"
+                    />
                   </div>
                 )}
+              </div>
 
-                {/* Specializations */}
+              {/* Title, Branded badging */}
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-3 mb-2">
+                  <h1 className={typography.pageTitle}>{agent.displayName}</h1>
+                  {agent.verificationLevel && agent.verificationLevel !== 'not_verified' && (
+                    <span className="inline-flex items-center gap-1 px-3 py-0.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-bold">
+                      <icons.CheckCircle className="w-3.5 h-3.5" />
+                      Verified Real Estate Agent
+                    </span>
+                  )}
+                </div>
+
+                {agent.agentType === 'agency' && agent.agencyName && (
+                  <p className="text-sm font-bold text-[#004063] mb-3">
+                    Principal Partner at <span className="text-[#029bba]">{agent.agencyName}</span>
+                  </p>
+                )}
+
+                {agent.tagline && (
+                  <p className="text-xs font-semibold text-gray-400 italic mb-4">
+                    &ldquo;{agent.tagline}&rdquo;
+                  </p>
+                )}
+
+                <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-gray-500">
+                  <span className="flex items-center gap-1">
+                    <icons.MapPin className="w-4 h-4 text-[#029bba]" />
+                    {agent.city}, Pakistan
+                  </span>
+                  <span className="flex items-center gap-1 border-l border-gray-200 pl-4">
+                    <icons.Briefcase className="w-4 h-4 text-[#029bba]" />
+                    {agent.experience?.years ?? 0}+ Years Active Practice
+                  </span>
+                </div>
+              </div>
+
+            </div>
+
+            {/* Quick Agent Stats */}
+            <div className="mt-8 pt-6 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <StatCard label="Active Listings" value={agent.stats?.activeListings ?? 0} color="text-[#029bba]" bg="bg-blue-50/50" />
+              <StatCard label="Sold/Rented" value={(agent.stats?.soldProperties ?? 0) + (agent.stats?.rentedProperties ?? 0)} color="text-emerald-600" bg="bg-emerald-50/50" />
+              <StatCard label="Response SLA" value={agent.stats?.responseRate ? `${agent.stats.responseRate}%` : 'SLA Standard'} color="text-[#7c3aed]" bg="bg-purple-50/50" />
+              <StatCard label="Verified Reviews" value={agent.ratings?.totalReviews ?? 0} color="text-amber-600" bg="bg-amber-50/50" />
+            </div>
+          </div>
+        </div>
+
+        {/* Two Column Layout Block */}
+        <div className={containers.detail}>
+          <div className={grids.detailTwoCol}>
+
+            {/* LEFT COLUMN: Content */}
+            <div className="space-y-6 min-w-0">
+
+              {/* About Section */}
+              {agent.about && (
+                <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
+                  <h2 className={typography.sectionTitlePlain}>About the Consultant</h2>
+                  <p className="text-sm text-gray-600 leading-relaxed">{agent.about}</p>
+                </div>
+              )}
+
+              {/* Specializations & Service Areas */}
+              <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
                 {(agent.specializations?.length ?? 0) > 0 && (
-                  <div className="mt-6">
-                    <SectionLabel>Specializations</SectionLabel>
+                  <div>
+                    <SectionLabel>Domain Focus &amp; Specializations</SectionLabel>
                     <ColorChipList items={agent.specializations!} />
                   </div>
                 )}
 
-                {/* Service Areas */}
                 {(agent.serviceAreas?.localities?.length ?? 0) > 0 && (
-                  <div className="mt-6">
-                    <SectionLabel>Service Areas</SectionLabel>
-                    <ChipList
-                      items={agent.serviceAreas!.localities!.slice(0, 10)}
-                    />
+                  <div className="pt-4 border-t border-gray-100">
+                    <SectionLabel>Localities Covered</SectionLabel>
+                    <ChipList items={agent.serviceAreas!.localities!} />
                   </div>
                 )}
 
-                {/* Languages */}
                 {(agent.languages?.length ?? 0) > 0 && (
-                  <div className="mt-6">
-                    <SectionLabel>Languages</SectionLabel>
+                  <div className="pt-4 border-t border-gray-100">
+                    <SectionLabel>Languages Spoken</SectionLabel>
                     <ChipList items={agent.languages!} />
                   </div>
                 )}
-
-                {/* Stats Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8 pt-8 border-t border-gray-100">
-                  <StatCard
-                    label="Active Listings"
-                    value={agent.stats?.activeListings ?? 0}
-                    color="text-[#029bba]"
-                    bg="bg-blue-50"
-                  />
-                  <StatCard
-                    label="Properties Sold"
-                    value={agent.stats?.soldProperties ?? 0}
-                    color="text-green-600"
-                    bg="bg-green-50"
-                  />
-                  <StatCard
-                    label="Experience"
-                    value={`${agent.experience?.years ?? 0}+ Yrs`}
-                    color="text-purple-600"
-                    bg="bg-purple-50"
-                  />
-                  <StatCard
-                    label="Total Reviews"
-                    value={agent.ratings?.totalReviews ?? 0}
-                    color="text-amber-600"
-                    bg="bg-amber-50"
-                  />
-                </div>
               </div>
 
-              {/* ── Sidebar ──────────────────────────────────────────────── */}
-              <div className="w-full lg:w-80 bg-slate-50/60 border-t lg:border-t-0 lg:border-l border-gray-100 p-6 md:p-8 space-y-8 lg:rounded-r-3xl rounded-b-3xl lg:rounded-bl-none">
-
-                {/* Insight Card */}
-                <InsightCard agent={agent} />
-
-                {/* Share Modal */}
-                <ShareMenu
-                  agent={{
-                    slug: agent.slug,
-                    displayName: agent.displayName,
-                    agencyName: agent.agencyName,
-                    city: agent.city,
-                    image: agent.documents?.profilePhoto?.url || agent.agencyLogo?.url,
-                  }}
-                  isOpen={shareOpen}
-                  onClose={() => setShareOpen(false)}
+              {/* Verified Office & Work Hours */}
+              {agent.officeVerification?.address && (
+                <OfficeLocationCard
+                  address={agent.officeVerification.address}
+                  city={agent.officeVerification.city ?? agent.city}
+                  coordinates={agent.officeVerification.coordinates}
+                  agentName={agent.displayName}
+                  onCopySuccess={setAddressCopied}
+                  addressCopied={addressCopied}
                 />
+              )}
 
-                {/* ── Contact Section — Enterprise Grade ─────────────────── */}
-                <div>
-                  <div className="flex items-center justify-between mb-3">
-                    <SectionLabel>Get in Touch</SectionLabel>
-                    <span className="text-[9px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full uppercase tracking-wider">
-                      Verified
-                    </span>
+              {/* Properties Portfolio Grid */}
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h2 className={typography.sectionTitlePlain}>Exclusive Inventory</h2>
+                    <p className={typography.caption}>Listings held by {agent.displayName}</p>
                   </div>
 
-                  <div className="space-y-2.5">
+                  {/* Property Category tab navigation */}
+                  <div className="flex flex-wrap gap-1 bg-gray-100 border border-gray-200 p-1 rounded-xl self-start sm:self-auto">
+                    {PROPERTY_CATEGORIES.map((cat) => {
+                      const count = categoryCounts[cat.key];
+                      const isActive = activePropertyCategory === cat.key;
+                      const isDisabled = count === 0 && cat.key !== 'all';
+                      if (isDisabled) return null;
 
-                    {/* 1️⃣ PHONE — Click to reveal → shows number + call + copy */}
-                    {agent.phone && (
-                      <>
-                        {showPhone ? (
-                          <div className="bg-gradient-to-r from-[#029bba] to-[#0284a3] rounded-xl shadow-lg shadow-[#029bba]/20 overflow-hidden">
-                            {/* Number display */}
-                            <div className="p-3.5 flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur flex items-center justify-center shrink-0">
-                                <Phone className="w-4 h-4 text-white" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[10px] font-bold text-white/70 uppercase tracking-wider">
-                                  Phone Number
-                                </p>
-                                <p className="text-sm font-black text-white truncate">
-                                  {agent.phone}
-                                </p>
-                              </div>
-                            </div>
-                            {/* Action buttons */}
-                            <div className="flex border-t border-white/20">
-                              <a
-                                href={`tel:${agent.phone}`}
-                                className="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-bold text-white hover:bg-white/10 transition-colors"
-                              >
-                                <Phone className="w-3.5 h-3.5" />
-                                Call Now
-                              </a>
-                              <div className="w-px bg-white/20" />
-                              <button
-                                onClick={() => copyToClipboard(agent.phone!, setPhoneCopied)}
-                                className="flex-1 py-2.5 flex items-center justify-center gap-1.5 text-xs font-bold text-white hover:bg-white/10 transition-colors"
-                              >
-                                {phoneCopied ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5" />
-                                    Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    Copy
-                                  </>
-                                )}
-                              </button>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setShowPhone(true)}
-                            className="w-full py-3.5 bg-gradient-to-r from-[#029bba] to-[#0284a3] text-white rounded-xl hover:shadow-lg hover:shadow-[#029bba]/30 font-bold transition-all duration-200 flex items-center justify-center gap-2 text-sm"
-                          >
-                            <Phone className="w-4 h-4" />
-                            Show Phone Number
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    {/* 2️⃣ WHATSAPP — Opens WhatsApp with pre-filled message */}
-                    {agent.whatsapp && (
-                      <a
-                        href={`https://wa.me/${agent.whatsapp.replace(/\D/g, "")}?text=${encodeURIComponent(`Assalam-u-Alaikum ${agent.displayName},\n\nI found your profile on Highrise.pk and would like to inquire about your services.`)}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3.5 bg-white rounded-xl border-2 border-transparent hover:border-[#25D366] shadow-sm hover:shadow-md transition-all duration-200 group"
-                      >
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#25D366] to-[#1ebe5d] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                          <MessageCircle className="w-4.5 h-4.5 text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                            WhatsApp
-                          </p>
-                          <p className="text-sm font-bold text-gray-900">
-                            Send Message
-                          </p>
-                        </div>
-                        <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-[#25D366] group-hover:translate-x-1 transition-all" />
-                      </a>
-                    )}
-
-                    {/* 3️⃣ EMAIL — Multi-option (Gmail, Outlook, Mail App, Copy) */}
-                    {/* Works EVERYWHERE — user chooses their preferred email app */}
-                    {agent.email && (
-                      <>
-                        {showEmail ? (
-                          <div className="bg-white rounded-xl border-2 border-[#004063] shadow-md overflow-hidden">
-                            {/* Email display */}
-                            <div className="p-3.5 flex items-center gap-3">
-                              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#004063] to-[#003050] flex items-center justify-center shrink-0">
-                                <Mail className="w-4 h-4 text-white" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                  Email Address
-                                </p>
-                                <p className="text-sm font-bold text-gray-900 truncate" title={agent.email}>
-                                  {agent.email}
-                                </p>
-                              </div>
-                            </div>
-
-                            {/* Provider buttons — 2x2 grid */}
-                            <div className="grid grid-cols-2 border-t border-gray-100">
-                              {/* Gmail */}
-                              <a
-                                href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(agent.email)}&su=${encodeURIComponent(`Inquiry from Highrise.pk`)}&body=${encodeURIComponent(`Assalam-u-Alaikum ${agent.displayName},\n\nI found your profile on Highrise.pk and would like to inquire about your services.\n\nRegards`)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 py-3 text-xs font-bold text-gray-700 hover:bg-red-50 hover:text-red-600 border-r border-b border-gray-100 transition-colors"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/>
-                                </svg>
-                                Gmail
-                              </a>
-
-                              {/* Outlook */}
-                              <a
-                                href={`https://outlook.live.com/mail/deeplink/compose?to=${encodeURIComponent(agent.email)}&subject=${encodeURIComponent(`Inquiry from Highrise.pk`)}&body=${encodeURIComponent(`Assalam-u-Alaikum ${agent.displayName},\n\nI found your profile on Highrise.pk and would like to inquire about your services.\n\nRegards`)}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="flex items-center justify-center gap-2 py-3 text-xs font-bold text-gray-700 hover:bg-blue-50 hover:text-blue-600 border-b border-gray-100 transition-colors"
-                              >
-                                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                                  <path d="M7.88 12.04q0 .45-.11.87-.1.41-.33.74-.22.33-.58.52-.37.2-.87.2t-.85-.2q-.35-.21-.57-.55-.22-.33-.33-.75-.1-.42-.1-.86t.1-.87q.1-.43.34-.76.22-.34.59-.54.36-.2.87-.2t.86.2q.35.21.57.55.22.34.31.77.1.43.1.88zM24 12v9.38q0 .46-.33.79-.33.33-.79.33H15.13V15.5H10.9v6.11H.9q-.46 0-.79-.33Q-.22 20.94-.22 20.48V3.52q0-.46.33-.79Q.44 2.4.9 2.4h22.68q.46 0 .79.33.33.33.33.79zM7.9 15.34H1.8v-5.6q0-.79.34-1.47.34-.68.94-1.19.6-.51 1.42-.78.83-.28 1.78-.28.94 0 1.72.28.78.28 1.37.79.58.5.9 1.19.32.7.32 1.47v5.59zm3.9-10.55v3.86h7.98V4.79H11.8zm11.85 4.86h-3.7l-2.31 3.4-2.32-3.4h-3.72v9.55h3.55v-5.36l2.49 3.65 2.49-3.65v5.36h3.52V9.65z"/>
-                                </svg>
-                                Outlook
-                              </a>
-
-                              {/* Mail App (mailto) */}
-                              <a
-                                href={`mailto:${agent.email}?subject=${encodeURIComponent(`Inquiry from Highrise.pk`)}&body=${encodeURIComponent(`Assalam-u-Alaikum ${agent.displayName},\n\nI found your profile on Highrise.pk and would like to inquire about your services.\n\nRegards`)}`}
-                                className="flex items-center justify-center gap-2 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 border-r border-gray-100 transition-colors"
-                              >
-                                <Mail className="w-3.5 h-3.5" />
-                                Mail App
-                              </a>
-
-                              {/* Copy */}
-                              <button
-                                onClick={() => copyToClipboard(agent.email!, setEmailCopied)}
-                                className="flex items-center justify-center gap-2 py-3 text-xs font-bold text-gray-700 hover:bg-gray-50 transition-colors"
-                              >
-                                {emailCopied ? (
-                                  <>
-                                    <Check className="w-3.5 h-3.5 text-green-600" />
-                                    <span className="text-green-600">Copied!</span>
-                                  </>
-                                ) : (
-                                  <>
-                                    <Copy className="w-3.5 h-3.5" />
-                                    Copy
-                                  </>
-                                )}
-                              </button>
-                            </div>
-
-                            {/* Tip footer */}
-                            <div className="px-3.5 py-2 bg-blue-50 border-t border-blue-100">
-                              <p className="text-[10px] text-blue-700 flex items-center gap-1">
-                                <Info className="w-2.5 h-2.5 shrink-0" />
-                                <span>Choose your preferred email provider — all options work!</span>
-                              </p>
-                            </div>
-                          </div>
-                        ) : (
-                          <button
-                            onClick={() => setShowEmail(true)}
-                            className="w-full flex items-center gap-3 p-3.5 bg-white rounded-xl border-2 border-transparent hover:border-[#004063] shadow-sm hover:shadow-md transition-all duration-200 group"
-                          >
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#004063] to-[#003050] flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                              <Mail className="w-4.5 h-4.5 text-white" />
-                            </div>
-                            <div className="flex-1 min-w-0 text-left">
-                              <p className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                Email
-                              </p>
-                              <p className="text-sm font-bold text-gray-900">
-                                Show Email Address
-                              </p>
-                            </div>
-                            <ArrowRight className="w-4 h-4 text-gray-400 group-hover:text-[#004063] group-hover:translate-x-1 transition-all" />
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    {/* 4️⃣ OFFICE — V6.9.0: Interactive with map preview + Get Directions */}
-                    {agent.officeVerification?.address && (
-                      <OfficeLocationCard
-                        address={agent.officeVerification.address}
-                        city={agent.officeVerification.city ?? agent.city}
-                        coordinates={agent.officeVerification.coordinates}
-                        agentName={agent.displayName}
-                        onCopySuccess={setAddressCopied}
-                        addressCopied={addressCopied}
-                      />
-                    )}
-                  </div>
-
-                  {/* Trust footer */}
-                  <div className="mt-4 pt-3 border-t border-gray-100 flex items-center gap-2 text-[10px] text-gray-500">
-                    <Shield className="w-3 h-3 text-emerald-500" />
-                    <span>All contact details verified by Highrise.pk</span>
+                      return (
+                        <button
+                          key={cat.key}
+                          type="button"
+                          onClick={() => setActivePropertyCategory(cat.key)}
+                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                            isActive
+                              ? 'bg-white text-[#004063] shadow-xs'
+                              : 'text-gray-500 hover:text-gray-900'
+                          }`}
+                        >
+                          {cat.label} ({count})
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
 
-                {/* Business Hours */}
-                {agent.businessHours && (
-                  <div>
-                    <SectionLabel>Business Hours</SectionLabel>
-                    <div className="space-y-2">
-                      {agent.businessHours.weekdays && (
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                          <span className="text-gray-500 shrink-0">
-                            Mon–Fri:
-                          </span>
-                          <span className="font-medium">
-                            {agent.businessHours.weekdays}
-                          </span>
-                        </div>
-                      )}
-                      {agent.businessHours.weekends && (
-                        <div className="flex items-center gap-2 text-sm text-gray-700">
-                          <Clock className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                          <span className="text-gray-500 shrink-0">
-                            Sat–Sun:
-                          </span>
-                          <span className="font-medium">
-                            {agent.businessHours.weekends}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+                {filteredProperties.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {filteredProperties.map((property) => (
+                      <PropertyCard key={property._id} property={property} />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bg-white rounded-2xl border border-gray-100 p-12 text-center">
+                    <icons.Home className="w-12 h-12 text-gray-200 mx-auto mb-2" />
+                    <h3 className="text-base font-bold text-gray-800">No Inventory Found</h3>
+                    <p className="text-xs text-gray-400 mt-1">No property listings under this filter at this time.</p>
                   </div>
                 )}
+              </div>
 
-                {/* Social Links */}
-                {agent.socialLinks &&
-                  Object.values(agent.socialLinks).some(Boolean) && (
-                    <div>
-                      <SectionLabel>Connect</SectionLabel>
-                      <div className="flex flex-wrap gap-2">
-                        {agent.socialLinks.facebook && (
-                          <a
-                            href={agent.socialLinks.facebook}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Facebook"
-                            className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center hover:bg-blue-700 transition-colors"
-                          >
-                            <Facebook className="w-4 h-4" />
-                          </a>
-                        )}
-                        {agent.socialLinks.instagram && (
-                          <a
-                            href={agent.socialLinks.instagram}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Instagram"
-                            className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 text-white flex items-center justify-center hover:opacity-90 transition-opacity"
-                          >
-                            <Instagram className="w-4 h-4" />
-                          </a>
-                        )}
-                        {agent.socialLinks.linkedin && (
-                          <a
-                            href={agent.socialLinks.linkedin}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="LinkedIn"
-                            className="w-10 h-10 rounded-xl bg-blue-700 text-white flex items-center justify-center hover:bg-blue-800 transition-colors"
-                          >
-                            <Linkedin className="w-4 h-4" />
-                          </a>
-                        )}
-                        {agent.socialLinks.youtube && (
-                          <a
-                            href={agent.socialLinks.youtube}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="YouTube"
-                            className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center hover:bg-red-700 transition-colors"
-                          >
-                            <Youtube className="w-4 h-4" />
-                          </a>
-                        )}
-                        {agent.socialLinks.twitter && (
-                          <a
-                            href={agent.socialLinks.twitter}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label="Twitter / X"
-                            className="w-10 h-10 rounded-xl bg-sky-500 text-white flex items-center justify-center hover:bg-sky-600 transition-colors"
-                          >
-                            <Twitter className="w-4 h-4" />
-                          </a>
-                        )}
-                      </div>
-                    </div>
-                  )}
+            </div>
+
+            {/* RIGHT COLUMN: Standardized 3-Card Stack */}
+            <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
+              <div className="space-y-6 w-full">
+                <UniversalContactCard
+                  entityType="property"
+                  entityId={agent._id}
+                  entityTitle={agent.displayName}
+                  actorName={agent.displayName}
+                  actorRole={agent.agencyName || 'Verified Real Estate Agent'}
+                  actorImage={profilePhotoUrl || agent.agencyLogo?.url || null}
+                  brandLogo="/images/logo.png"
+                  isVerified={agent.verificationLevel !== 'not_verified'}
+                  initialPhone={agent.phone}
+                  initialWhatsapp={agent.whatsapp}
+                />
+
+                <SafeDealSidebarCard />
+
+                <SafetyWarningCard onReport={() => setShowReportModal(true)} />
+
+                {/* Insight Card placed at bottom of sidebar stack */}
+                <InsightCard agent={agent} />
               </div>
             </div>
+
           </div>
         </div>
 
-        {/* ── V6.8.9: Verified Reviews Carousel ─────────────────────────────── */}
-        {/* Interactive Swiper carousel with auto-play, arrows, dots, keyboard nav */}
+        {/* ── Verified Reviews slider ────────────────────────────────────── */}
         {agent.reviews && agent.reviews.length > 0 && (
           <>
             <style dangerouslySetInnerHTML={{ __html: SWIPER_CUSTOM_STYLES }} />
-            <div className="max-w-6xl mx-auto px-4 mt-16">
-
-              {/* Section Header */}
-              <div className="text-center mb-10">
-                <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-bold uppercase tracking-widest mb-4">
-                  <CheckCircle className="w-3.5 h-3.5" />
-                  Highrise-Verified Reviews
+            <div className="max-w-[1120px] mx-auto px-4 sm:px-6 mt-12 pb-16">
+              <div className="text-center mb-8">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-emerald-50 text-emerald-700 text-xs font-bold rounded-full uppercase tracking-wider mb-3">
+                  <icons.CheckCircle className="w-3.5 h-3.5" />
+                  Verified Reviews
                 </span>
-                <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-3">
-                  What Clients Say About {agent.displayName.split(" ")[0]}
-                </h2>
-                <div className="flex items-center justify-center gap-2 text-sm text-gray-500 flex-wrap">
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={`w-5 h-5 ${
-                          i < Math.round(agent.ratings?.averageRating ?? 0)
-                            ? "text-yellow-500 fill-yellow-500"
-                            : "text-gray-200"
-                        }`}
-                      />
-                    ))}
-                  </div>
-                  <span className="text-lg font-bold text-gray-900">
-                    {agent.ratings?.averageRating.toFixed(1)}
-                  </span>
-                  <span>
-                    · {agent.reviews.length} verified review{agent.reviews.length !== 1 ? "s" : ""}
-                  </span>
-                </div>
+                <h2 className="text-2xl font-black text-gray-900">What Clients Say About {agent.displayName.split(' ')[0]}</h2>
               </div>
 
-              {/* Carousel Wrapper */}
-              <div className="relative group">
-
-                {/* Custom Navigation Arrows */}
-                {agent.reviews.length > 1 && (
-                  <>
-                    <button
-                      className="highrise-review-prev absolute left-0 top-1/2 -translate-y-1/2 -translate-x-0 md:-translate-x-4 z-20
-                                 w-12 h-12 rounded-full bg-white shadow-xl border border-gray-100
-                                 flex items-center justify-center text-[#029bba] hover:bg-[#029bba] hover:text-white
-                                 hover:scale-110 hover:shadow-2xl transition-all duration-300
-                                 opacity-0 group-hover:opacity-100 focus:opacity-100
-                                 disabled:opacity-30 disabled:cursor-not-allowed"
-                      aria-label="Previous review"
-                    >
-                      <ArrowLeft className="w-5 h-5" />
-                    </button>
-                    <button
-                      className="highrise-review-next absolute right-0 top-1/2 -translate-y-1/2 translate-x-0 md:translate-x-4 z-20
-                                 w-12 h-12 rounded-full bg-white shadow-xl border border-gray-100
-                                 flex items-center justify-center text-[#029bba] hover:bg-[#029bba] hover:text-white
-                                 hover:scale-110 hover:shadow-2xl transition-all duration-300
-                                 opacity-0 group-hover:opacity-100 focus:opacity-100
-                                 disabled:opacity-30 disabled:cursor-not-allowed"
-                      aria-label="Next review"
-                    >
-                      <ArrowRight className="w-5 h-5" />
-                    </button>
-                  </>
-                )}
-
-                {/* Swiper Carousel */}
-                <Swiper
-                  modules={[Autoplay, Navigation, Pagination, Keyboard]}
-                  className="highrise-review-swiper"
-                  spaceBetween={24}
-                  slidesPerView={1}
-                  breakpoints={{
-                    640:  { slidesPerView: 1 },
-                    768:  { slidesPerView: 2 },
-                    1024: { slidesPerView: agent.reviews.length >= 3 ? 3 : agent.reviews.length },
-                  }}
-                  navigation={{
-                    prevEl: ".highrise-review-prev",
-                    nextEl: ".highrise-review-next",
-                  }}
-                  pagination={{
-                    clickable: true,
-                    dynamicBullets: true,
-                  }}
-                  keyboard={{ enabled: true }}
-                  autoplay={
-                    agent.reviews.length > 1
-                      ? {
-                          delay: 6000,
-                          disableOnInteraction: false,
-                          pauseOnMouseEnter: true,
-                        }
-                      : false
-                  }
-                  loop={agent.reviews.length > 3}
-                  grabCursor={true}
-                >
-                  {agent.reviews.map((review) => (
-                    <SwiperSlide key={review._id ?? review.addedAt}>
-                      <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-xl
-                                      transition-all duration-300 h-full flex flex-col relative overflow-hidden">
-
-                        {/* Decorative quote icon */}
-                        <div className="absolute top-4 right-4 text-[#029bba]/10 pointer-events-none">
-                          <Quote className="w-16 h-16" />
-                        </div>
-
-                        {/* Stars */}
-                        <div className="flex items-center gap-1 mb-4 relative z-10">
+              <Swiper
+                modules={[Autoplay, Navigation, Pagination, Keyboard]}
+                className="highrise-review-swiper"
+                spaceBetween={24}
+                slidesPerView={1}
+                breakpoints={{
+                  640: { slidesPerView: 1 },
+                  768: { slidesPerView: 2 },
+                  1024: { slidesPerView: Math.min(3, agent.reviews.length) },
+                }}
+                pagination={{ clickable: true, dynamicBullets: true }}
+                keyboard={{ enabled: true }}
+                autoplay={{ delay: 6000, disableOnInteraction: false }}
+                loop={agent.reviews.length > 3}
+                grabCursor={true}
+              >
+                {agent.reviews.map((review) => (
+                  <SwiperSlide key={review._id ?? review.addedAt}>
+                    <div className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between h-full min-h-[220px]">
+                      <div>
+                        <div className="flex items-center gap-0.5 mb-3">
                           {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
+                            <icons.Star
                               key={i}
-                              className={`w-4 h-4 ${
-                                i < review.rating
-                                  ? "text-yellow-500 fill-yellow-500"
-                                  : "text-gray-200"
+                              className={`w-3.5 h-3.5 ${
+                                i < review.rating ? 'text-yellow-500 fill-yellow-500' : 'text-gray-200'
                               }`}
                             />
                           ))}
-                          <span className="ml-2 text-sm font-bold text-gray-900">
-                            {review.rating}.0
-                          </span>
                         </div>
-
-                        {/* Review text (grows to fill space) */}
-                        <p className="text-sm text-gray-700 leading-relaxed mb-6 flex-grow relative z-10 line-clamp-6">
+                        <p className="text-xs text-gray-600 leading-relaxed italic line-clamp-4">
                           &ldquo;{review.reviewText}&rdquo;
                         </p>
-
-                        {/* Reviewer footer */}
-                        <div className="pt-4 border-t border-gray-100 flex items-center justify-between gap-2 relative z-10">
-                          <div className="flex items-center gap-3 min-w-0">
-                            {/* Avatar circle with initial */}
-                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#029bba] to-[#004063]
-                                            flex items-center justify-center text-white font-bold text-sm shrink-0">
-                              {review.reviewerName.charAt(0).toUpperCase()}
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-bold text-gray-900 truncate">
-                                {review.reviewerName}
-                              </p>
-                              <p className="text-[11px] text-gray-500 flex items-center gap-1">
-                                {review.reviewerCity && (
-                                  <>
-                                    <MapPin className="w-3 h-3 shrink-0" />
-                                    <span className="truncate">{review.reviewerCity}</span>
-                                    <span>·</span>
-                                  </>
-                                )}
-                                <span className="whitespace-nowrap">
-                                  {new Date(review.addedAt).toLocaleDateString("en-PK", {
-                                    month: "short",
-                                    year:  "numeric",
-                                  })}
-                                </span>
-                              </p>
-                            </div>
-                          </div>
-
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-emerald-50 text-emerald-700
-                                           rounded-full text-[9px] font-bold uppercase tracking-wider shrink-0"
-                                title="Verified by Highrise.pk">
-                            <Shield className="w-2.5 h-2.5" />
-                            Verified
-                          </span>
-                        </div>
                       </div>
-                    </SwiperSlide>
-                  ))}
-                </Swiper>
-              </div>
 
-              {/* Trust footer */}
-              <div className="mt-8 text-center">
-                <p className="text-xs text-gray-500 flex items-center justify-center gap-2">
-                  <Shield className="w-3.5 h-3.5 text-emerald-500" />
-                  All reviews are personally verified by the Highrise.pk team.
-                  {agent.reviews.length > 1 && (
-                    <span className="text-gray-400 hidden md:inline">
-                      · Use arrow keys ← → to navigate
-                    </span>
-                  )}
-                </p>
-              </div>
+                      <div className="pt-4 border-t border-gray-100 flex items-center justify-between">
+                        <div>
+                          <p className="text-xs font-bold text-gray-900">{review.reviewerName}</p>
+                          {review.reviewerCity && <p className="text-[10px] text-gray-400">{review.reviewerCity}</p>}
+                        </div>
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-[9px] font-black uppercase">
+                          <icons.ShieldCheck className="w-3 h-3" />
+                          Verified
+                        </span>
+                      </div>
+                    </div>
+                  </SwiperSlide>
+                ))}
+              </Swiper>
             </div>
           </>
         )}
 
-        {/* ── V6.8.10: Properties Portfolio — Tabbed Interactive Carousel ──── */}
-        <div className="max-w-7xl mx-auto px-4 mt-16">
-
-          {/* Section Header */}
-          <div className="text-center mb-8">
-            <span className="inline-flex items-center gap-2 px-4 py-1.5 bg-blue-50 text-[#029bba] rounded-full text-xs font-bold uppercase tracking-widest mb-4">
-              <Home className="w-3.5 h-3.5" />
-              Property Portfolio
-            </span>
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-2">
-              Properties by {agent.displayName.split(" ")[0]}
-            </h2>
-            <p className="text-gray-500 text-sm">
-              {properties.length} listing{properties.length !== 1 ? "s" : ""} available across categories
+        {/* Safety Disclaimer Banner */}
+        <div className={safety.disclaimer}>
+          <div className={safety.disclaimerInner}>
+            <icons.Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <p className={safety.disclaimerText}>
+              <strong className="text-amber-800">Legal Disclaimer:</strong>{' '}
+              Agent identity records and corporate affiliations are verified against governmental registration databases. Highrise.pk strongly recommends physical site visits and document checks before executing agreements or submitting deposits.
             </p>
           </div>
-
-          {/* V6.8.10: Category Tab Navigation */}
-          <div className="flex justify-center mb-8">
-            <div className="inline-flex flex-wrap justify-center gap-2 bg-white p-2 rounded-2xl border border-gray-200 shadow-sm">
-              {PROPERTY_CATEGORIES.map((cat) => {
-                const count = categoryCounts[cat.key];
-                const isActive = activePropertyCategory === cat.key;
-                const isDisabled = count === 0 && cat.key !== "all";
-
-                return (
-                  <button
-                    key={cat.key}
-                    onClick={() => !isDisabled && setActivePropertyCategory(cat.key)}
-                    disabled={isDisabled}
-                    className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold
-                                transition-all whitespace-nowrap ${
-                      isActive
-                        ? "bg-gradient-to-r from-[#029bba] to-[#0284a3] text-white shadow-md shadow-[#029bba]/30"
-                        : isDisabled
-                        ? "text-gray-300 cursor-not-allowed"
-                        : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
-                    }`}
-                    title={isDisabled ? `No ${cat.label.toLowerCase()} properties yet` : undefined}
-                  >
-                    <span className="text-base">{cat.icon}</span>
-                    <span>{cat.label}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      isActive
-                        ? "bg-white/20 text-white"
-                        : isDisabled
-                        ? "bg-gray-100 text-gray-400"
-                        : "bg-gray-100 text-gray-500"
-                    }`}>
-                      {count}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Properties Carousel or Empty State */}
-          {filteredProperties.length > 0 ? (
-            <div className="relative group">
-
-              {/* Custom Navigation Arrows */}
-              {filteredProperties.length > 3 && (
-                <>
-                  <button
-                    className="highrise-property-prev absolute left-0 top-1/2 -translate-y-1/2 -translate-x-0 md:-translate-x-4 z-20
-                               w-12 h-12 rounded-full bg-white shadow-xl border border-gray-100
-                               flex items-center justify-center text-[#029bba] hover:bg-[#029bba] hover:text-white
-                               hover:scale-110 hover:shadow-2xl transition-all duration-300
-                               opacity-0 group-hover:opacity-100 focus:opacity-100
-                               disabled:opacity-30 disabled:cursor-not-allowed"
-                    aria-label="Previous property"
-                  >
-                    <ArrowLeft className="w-5 h-5" />
-                  </button>
-                  <button
-                    className="highrise-property-next absolute right-0 top-1/2 -translate-y-1/2 translate-x-0 md:translate-x-4 z-20
-                               w-12 h-12 rounded-full bg-white shadow-xl border border-gray-100
-                               flex items-center justify-center text-[#029bba] hover:bg-[#029bba] hover:text-white
-                               hover:scale-110 hover:shadow-2xl transition-all duration-300
-                               opacity-0 group-hover:opacity-100 focus:opacity-100
-                               disabled:opacity-30 disabled:cursor-not-allowed"
-                    aria-label="Next property"
-                  >
-                    <ArrowRight className="w-5 h-5" />
-                  </button>
-                </>
-              )}
-
-              {/* Swiper Property Carousel */}
-              <Swiper
-                key={activePropertyCategory}
-                modules={[Autoplay, Navigation, Pagination, Keyboard]}
-                className="highrise-property-swiper"
-                spaceBetween={24}
-                slidesPerView={1}
-                breakpoints={{
-                  640:  { slidesPerView: 1 },
-                  768:  { slidesPerView: 2 },
-                  1024: { slidesPerView: Math.min(3, filteredProperties.length) },
-                }}
-                navigation={{
-                  prevEl: ".highrise-property-prev",
-                  nextEl: ".highrise-property-next",
-                }}
-                pagination={{
-                  clickable: true,
-                  dynamicBullets: true,
-                }}
-                keyboard={{ enabled: true }}
-                autoplay={
-                  filteredProperties.length > 3
-                    ? {
-                        delay: 5000,
-                        disableOnInteraction: false,
-                        pauseOnMouseEnter: true,
-                      }
-                    : false
-                }
-                loop={filteredProperties.length > 3}
-                grabCursor={true}
-              >
-                {filteredProperties.map((property) => (
-                  <SwiperSlide key={property._id}>
-                    <PropertyCard property={property} />
-                  </SwiperSlide>
-                ))}
-              </Swiper>
-
-              {/* Nav hint */}
-              {filteredProperties.length > 3 && (
-                <p className="text-center text-xs text-gray-400 mt-4 flex items-center justify-center gap-2">
-                  <ArrowLeft className="w-3 h-3" />
-                  Swipe or use arrow keys to navigate
-                  <ArrowRight className="w-3 h-3" />
-                </p>
-              )}
-            </div>
-          ) : (
-            <div className="bg-white rounded-2xl border-2 border-dashed border-gray-200 p-16 text-center">
-              <div className="w-16 h-16 rounded-full bg-gray-50 flex items-center justify-center mx-auto mb-4">
-                <span className="text-3xl">{activeCategoryConfig.icon}</span>
-              </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-1">
-                No {activeCategoryConfig.label} Properties
-              </h3>
-              <p className="text-gray-500 text-sm mb-4 max-w-md mx-auto">
-                {activePropertyCategory === "all"
-                  ? `${agent.displayName.split(" ")[0]} hasn't listed any properties yet. Check back soon or contact directly for exclusive listings.`
-                  : `${agent.displayName.split(" ")[0]} doesn't have any ${activeCategoryConfig.label.toLowerCase()} listings at the moment.`}
-              </p>
-              {activePropertyCategory !== "all" && categoryCounts.all > 0 && (
-                <button
-                  onClick={() => setActivePropertyCategory("all")}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl
-                             bg-[#029bba] text-white text-sm font-bold
-                             hover:bg-[#027a94] transition-colors"
-                >
-                  View All {categoryCounts.all} Properties
-                  <ArrowRight className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          )}
         </div>
+
       </div>
+
+      <ShareMenu
+        agent={{
+          slug: agent.slug,
+          displayName: agent.displayName,
+          agencyName: agent.agencyName,
+          city: agent.city,
+          image: agent.documents?.profilePhoto?.url || agent.agencyLogo?.url,
+        }}
+        isOpen={shareOpen}
+        onClose={() => setShareOpen(false)}
+      />
+
+      <ReportListingModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        propertyId={agent._id}
+        reporterUserId=""
+        reporterEmail=""
+        reporterPhone=""
+      />
     </>
   );
 }
 
-// ─── ISR Data Fetching ────────────────────────────────────────────────────────
+// ============================================================================
+// DATA FETCHING (ISR)
+// ============================================================================
 
 export const getStaticPaths: GetStaticPaths = async () => {
   return {
     paths: [],
-    fallback: "blocking",
+    fallback: 'blocking',
   };
 };
 
 export const getStaticProps: GetStaticProps<PageProps> = async (context) => {
   const slug = context.params?.slug;
-  if (typeof slug !== "string") return { notFound: true };
+  if (typeof slug !== 'string') return { notFound: true };
 
   try {
     await dbConnect();
 
-    // Dynamic imports to keep edge-safe
-    const { default: AgentProfile } = await import("@/models/AgentProfile");
-    const { default: User } = await import("@/models/User");
+    const { default: AgentProfile } = await import('@/models/AgentProfile');
+    const { default: User } = await import('@/models/User');
 
-    // Fetch approved agent by slug
-    // V6.8.5: Force include encrypted phone/whatsapp fields
-    // These have `select: false` in schema — must explicitly request
     const agentDoc = await AgentProfile.findOne({
       slug,
-      status: "approved",
+      status: 'approved',
     })
-      .select("+phoneEncrypted +whatsappEncrypted")
+      .select('+phoneEncrypted +whatsappEncrypted')
       .lean<Record<string, unknown>>();
 
     if (!agentDoc) return { notFound: true };
 
-    // Fetch user for display name fallback
-    // AgentProfile schema uses field name 'user' (not 'userId')
     const userId = agentDoc.user as unknown;
     const userDoc =
-      typeof userId === "string" || (userId && typeof userId === "object")
+      typeof userId === 'string' || (userId && typeof userId === 'object')
         ? await User.findById(userId)
-            .select("name email")
+            .select('name email')
             .lean<{ name?: string; email?: string }>()
         : null;
 
-    // V6.8.5: Decrypt phone + WhatsApp for public reveal
-    // Enterprise pattern: Reveal contact via user action (rate-limited)
-    // Encrypted at rest in DB, decrypted server-side for approved agents only
-    let realPhone:    string | undefined;
+    let realPhone: string | undefined;
     let realWhatsapp: string | undefined;
 
     try {
-      const { decryptPhone } = await import("@/lib/kycCrypto");
+      const { decryptPhone } = await import('@/lib/kycCrypto');
       if (agentDoc.phoneEncrypted) {
         realPhone = decryptPhone(String(agentDoc.phoneEncrypted));
       }
       if (agentDoc.whatsappEncrypted) {
         realWhatsapp = decryptPhone(String(agentDoc.whatsappEncrypted));
       }
-    } catch (err) {
-      // Decryption failed — leave phone/whatsapp undefined
-      if (process.env.NODE_ENV === "development") {
-        console.error("[Agent Slug] Phone decrypt failed:", err);
-      }
+    } catch {
+      // Decrypt failed
     }
 
-    // Business email preference: contactEmail > userDoc.email
     const businessEmail = agentDoc.contactEmail
       ? String(agentDoc.contactEmail)
       : userDoc?.email
       ? String(userDoc.email)
       : undefined;
 
-    // V6.8.5: Extract nested documents safely
     const docsRaw = agentDoc.documents as
       | { profilePhoto?: { url?: string }; coverPhoto?: { url?: string } }
       | undefined;
 
-    const agencyLogoRaw = agentDoc.agencyLogo as
-      | { url?: string }
-      | undefined;
+    const agencyLogoRaw = agentDoc.agencyLogo as { url?: string } | undefined;
 
-    // Build safe public agent object
-    // Phone/email now FULL (real values) — user reveals via click
     const agent: PublicAgent = {
       _id: String(agentDoc._id),
-      slug: String(agentDoc.slug ?? ""),
-      displayName: String(agentDoc.displayName ?? userDoc?.name ?? "Agent"),
+      slug: String(agentDoc.slug ?? ''),
+      displayName: String(agentDoc.displayName ?? userDoc?.name ?? 'Agent'),
       tagline: agentDoc.tagline ? String(agentDoc.tagline) : undefined,
       about: agentDoc.about ? String(agentDoc.about) : undefined,
-      agentType: (agentDoc.agentType as PublicAgent["agentType"]) ?? "individual",
+      agentType: (agentDoc.agentType as PublicAgent['agentType']) ?? 'individual',
       agencyName: agentDoc.agencyName ? String(agentDoc.agencyName) : undefined,
-      city: String(agentDoc.city ?? "Pakistan"),
-      // V6.8.5: REAL contact values (revealed on user click, rate-limited)
-      phone:    realPhone,
-      email:    businessEmail,
+      city: String(agentDoc.city ?? 'Pakistan'),
+      phone: realPhone,
+      email: businessEmail,
       whatsapp: realWhatsapp,
       officeVerification: agentDoc.officeVerification
         ? (() => {
             const ov = agentDoc.officeVerification as Record<string, unknown>;
-            const coords = ov.coordinates as
-              | { latitude?: unknown; longitude?: unknown }
-              | undefined;
-
+            const coords = ov.coordinates as { latitude?: unknown; longitude?: unknown } | undefined;
             const lat = Number(coords?.latitude);
             const lng = Number(coords?.longitude);
             const hasValidCoords =
@@ -2097,43 +1168,26 @@ export const getStaticProps: GetStaticProps<PageProps> = async (context) => {
 
             return {
               address: ov.address ? String(ov.address) : undefined,
-              city:    ov.city ? String(ov.city) : undefined,
-              coordinates: hasValidCoords
-                ? { latitude: lat, longitude: lng }
-                : undefined,
+              city: ov.city ? String(ov.city) : undefined,
+              coordinates: hasValidCoords ? { latitude: lat, longitude: lng } : undefined,
             };
           })()
         : undefined,
-      experience: agentDoc.experience as PublicAgent["experience"],
-      serviceAreas: agentDoc.serviceAreas as PublicAgent["serviceAreas"],
-      specializations: Array.isArray(agentDoc.specializations)
-        ? (agentDoc.specializations as string[])
-        : [],
-      languages: Array.isArray(agentDoc.languages)
-        ? (agentDoc.languages as string[])
-        : [],
-      socialLinks: agentDoc.socialLinks as PublicAgent["socialLinks"],
-      businessHours: agentDoc.businessHours as PublicAgent["businessHours"],
+      experience: agentDoc.experience as PublicAgent['experience'],
+      serviceAreas: agentDoc.serviceAreas as PublicAgent['serviceAreas'],
+      specializations: Array.isArray(agentDoc.specializations) ? (agentDoc.specializations as string[]) : [],
+      languages: Array.isArray(agentDoc.languages) ? (agentDoc.languages as string[]) : [],
+      socialLinks: agentDoc.socialLinks as PublicAgent['socialLinks'],
+      businessHours: agentDoc.businessHours as PublicAgent['businessHours'],
       documents: {
-        profilePhoto: docsRaw?.profilePhoto?.url
-          ? { url: String(docsRaw.profilePhoto.url) }
-          : undefined,
-        coverPhoto: docsRaw?.coverPhoto?.url
-          ? { url: String(docsRaw.coverPhoto.url) }
-          : undefined,
+        profilePhoto: docsRaw?.profilePhoto?.url ? { url: String(docsRaw.profilePhoto.url) } : undefined,
+        coverPhoto: docsRaw?.coverPhoto?.url ? { url: String(docsRaw.coverPhoto.url) } : undefined,
       },
-      agencyLogo: agencyLogoRaw?.url
-        ? { url: String(agencyLogoRaw.url) }
-        : undefined,
-      verificationLevel:
-        (agentDoc.verificationLevel as PublicAgent["verificationLevel"]) ??
-        "not_verified",
-      stats: agentDoc.stats as PublicAgent["stats"],
-      ratings: agentDoc.ratings as PublicAgent["ratings"],
-      createdAt: agentDoc.createdAt
-        ? new Date(agentDoc.createdAt as string).toISOString()
-        : undefined,
-      // V6.8.8: Only published reviews (admin curates), sorted newest first
+      agencyLogo: agencyLogoRaw?.url ? { url: String(agencyLogoRaw.url) } : undefined,
+      verificationLevel: (agentDoc.verificationLevel as PublicAgent['verificationLevel']) ?? 'not_verified',
+      stats: agentDoc.stats as PublicAgent['stats'],
+      ratings: agentDoc.ratings as PublicAgent['ratings'],
+      createdAt: agentDoc.createdAt ? new Date(agentDoc.createdAt as string).toISOString() : undefined,
       reviews: Array.isArray(agentDoc.reviews)
         ? (agentDoc.reviews as Array<Record<string, unknown>>)
             .filter((r) => r.isPublished === true)
@@ -2142,30 +1196,27 @@ export const getStaticProps: GetStaticProps<PageProps> = async (context) => {
               const dateB = new Date(String(b.addedAt ?? 0)).getTime();
               return dateB - dateA;
             })
-            .slice(0, 20) // Cap at 20 reviews on public page
+            .slice(0, 20)
             .map((r) => ({
-              _id:          r._id ? String(r._id) : undefined,
-              rating:       Number(r.rating ?? 0),
-              reviewText:   String(r.reviewText ?? ""),
-              reviewerName: String(r.reviewerName ?? "Verified Client"),
+              _id: r._id ? String(r._id) : undefined,
+              rating: Number(r.rating ?? 0),
+              reviewText: String(r.reviewText ?? ''),
+              reviewerName: String(r.reviewerName ?? 'Verified Client'),
               reviewerCity: r.reviewerCity ? String(r.reviewerCity) : undefined,
-              source:       String(r.source ?? "admin_verified"),
-              addedAt:      new Date(String(r.addedAt)).toISOString(),
+              source: String(r.source ?? 'admin_verified'),
+              addedAt: new Date(String(r.addedAt)).toISOString(),
             }))
         : [],
     };
 
-    // Fetch agent's approved properties — Section 4 graceful degradation
     let properties: PublicProperty[] = [];
     try {
-      const { default: Property } = await import("@/models/Property");
+      const { default: Property } = await import('@/models/Property');
       const propDocs = await Property.find({
         owner: agentDoc.user,
-        status: "approved",
+        status: 'approved',
       })
-        .select(
-          "title slug price totalPrice area unit city locality society propertyType listingType bedrooms bathrooms images"
-        )
+        .select('title slug price totalPrice area unit city locality society propertyType listingType bedrooms bathrooms images')
         .limit(12)
         .lean<PublicProperty[]>();
 
@@ -2174,27 +1225,20 @@ export const getStaticProps: GetStaticProps<PageProps> = async (context) => {
         _id: String(p._id),
       }));
     } catch {
-      // Property model not built yet — graceful degradation
       properties = [];
     }
 
-    // V6.8.4: Deep-clean props to remove undefined values
-    // Next.js getStaticProps throws on undefined — this fixes it
-    const cleanAgent      = serializeForNext(agent);
+    const cleanAgent = serializeForNext(agent);
     const cleanProperties = serializeForNext(properties);
 
     return {
       props: {
-        agent:      cleanAgent,
+        agent: cleanAgent,
         properties: cleanProperties,
       },
       revalidate: 60,
     };
-  } catch (error) {
-    // Log error in dev to help debug
-    if (process.env.NODE_ENV === "development") {
-      console.error("[Agent Slug getStaticProps] Error:", error);
-    }
+  } catch {
     return { notFound: true };
   }
 };
