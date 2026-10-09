@@ -1,6 +1,7 @@
 // File: pages/properties/index.tsx
-// CREATE NEW — Public ISR-friendly property listing with CSR filters
-// Replaces pages/properties.tsx (which must be DELETED after this deploys)
+// Highrise.pk - Public Property Search & Discovery Directory
+// Design System Locked: tokens from @/lib/design-system/tokens | icons from @/lib/design-system/icons
+// Pure ASCII comments | Zero react-hot-toast
 
 import React, {
   useState,
@@ -12,32 +13,19 @@ import React, {
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Home,
-  Building2,
-  Search,
-  MapPin,
-  X,
-  ShieldCheck,
-  TrendingUp,
-  DollarSign,
-  Maximize,
-  BedDouble,
-  Grid3X3,
-  CheckCircle,
-  Shield,
-  Zap,
-  Loader2,
-} from "lucide-react";
+import { icons } from "@/lib/design-system/icons";
+import { colors, containers } from "@/lib/design-system/tokens";
+import { typography } from "@/lib/design-system/typography";
+import { button, input, badge } from "@/lib/design-system/components";
 
 import { PropertyGrid, PropertyListItem } from "@/components/property/property-grid";
 import { RecentlyViewed } from "@/components/recently-viewed";
 import { normalizePropertiesList } from "@/lib/property/property";
 import { PropertyGridSkeleton } from "@/components/skeletons/PropertyGridSkeleton";
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface FilterState {
   search: string;
@@ -68,7 +56,9 @@ interface PropertiesApiResponse {
 
 type FilterKey = keyof FilterState;
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
 const PAKISTAN_CITIES = [
   "Islamabad",  "Rawalpindi", "Lahore",     "Karachi",    "Faisalabad",
@@ -86,7 +76,7 @@ const PROPERTY_CATEGORIES: Record<
 > = {
   residential: {
     label: "Residential",
-    icon: <Home className="w-4 h-4" />,
+    icon: <icons.Home className="w-4 h-4" />,
     types: [
       "House", "Apartment", "Upper Portion", "Lower Portion",
       "Farm House", "Room", "Penthouse", "Villa",
@@ -94,12 +84,12 @@ const PROPERTY_CATEGORIES: Record<
   },
   commercial: {
     label: "Commercial",
-    icon: <Building2 className="w-4 h-4" />,
+    icon: <icons.Building2 className="w-4 h-4" />,
     types: ["Office", "Shop", "Warehouse", "Factory", "Building", "Plaza"],
   },
   plots: {
     label: "Plots",
-    icon: <Maximize className="w-4 h-4" />,
+    icon: <icons.Maximize className="w-4 h-4" />,
     types: [
       "Residential Plot", "Commercial Plot", "Agricultural Land",
       "Industrial Land", "Plot File",
@@ -140,10 +130,10 @@ const LISTING_TYPES = [
 const PRICE_RANGES = [
   { value: "",                     label: "Any Price",        min: "",          max: ""          },
   { value: "0-5000000",            label: "Under 50 Lac",     min: "0",         max: "5000000"   },
-  { value: "5000000-10000000",     label: "50 Lac – 1 Crore", min: "5000000",   max: "10000000"  },
-  { value: "10000000-30000000",    label: "1 – 3 Crore",      min: "10000000",  max: "30000000"  },
-  { value: "30000000-50000000",    label: "3 – 5 Crore",      min: "30000000",  max: "50000000"  },
-  { value: "50000000-100000000",   label: "5 – 10 Crore",     min: "50000000",  max: "100000000" },
+  { value: "5000000-10000000",     label: "50 Lac - 1 Crore", min: "5000000",   max: "10000000"  },
+  { value: "10000000-30000000",    label: "1 - 3 Crore",      min: "10000000",  max: "30000000"  },
+  { value: "30000000-50000000",    label: "3 - 5 Crore",      min: "30000000",  max: "50000000"  },
+  { value: "50000000-100000000",   label: "5 - 10 Crore",     min: "50000000",  max: "100000000" },
   { value: "100000000-999999999",  label: "10 Crore+",        min: "100000000", max: "999999999" },
 ];
 
@@ -182,7 +172,9 @@ const SEO_CANONICAL_KEYS = new Set([
   "sort",
 ]);
 
-// ─── Sanitizers (defense-in-depth) ───────────────────────────────────────────
+// ============================================================================
+// SANITIZERS (Defense in depth)
+// ============================================================================
 
 function clampText(v: unknown, max: number): string {
   const s = typeof v === "string" ? v.trim() : "";
@@ -208,7 +200,9 @@ const ALL_TYPE_VALUES = [
 
 const CITIES_ALLOW = ["", ...PAKISTAN_CITIES];
 
-// ─── Fetch helpers ────────────────────────────────────────────────────────────
+// ============================================================================
+// FETCH HELPERS
+// ============================================================================
 
 async function safeJson<T = unknown>(res: Response): Promise<T> {
   const text = await res.text();
@@ -228,7 +222,6 @@ async function fetchWithTimeout(
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    // Merge a parent signal if provided
     const signal = init?.signal
       ? mergeSignals(init.signal, controller.signal)
       : controller.signal;
@@ -250,7 +243,9 @@ function mergeSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
   return controller.signal;
 }
 
-// ─── Compare Bar (API-driven — no localStorage) ──────────────────────────────
+// ============================================================================
+// COMPARE BAR COMPONENT (API driven, no localStorage)
+// ============================================================================
 
 interface CompareBarItem {
   _id: string;
@@ -288,7 +283,6 @@ function CompareBar(): React.ReactElement | null {
     return () => controller.abort();
   }, [loadCompare]);
 
-  // Re-fetch on route change (user may have added items elsewhere)
   useEffect(() => {
     const onRouteChange = () => {
       const c = new AbortController();
@@ -308,13 +302,13 @@ function CompareBar(): React.ReactElement | null {
         <div className="flex items-center gap-4 bg-white border-2 border-[#029bba]/20 rounded-full shadow-xl px-6 py-3 backdrop-blur-sm">
           <div className="flex items-center gap-2">
             <div className="p-1.5 bg-[#029bba]/10 rounded-full">
-              <Maximize className="w-5 h-5 text-[#029bba]" />
+              <icons.Maximize className="w-5 h-5 text-[#029bba]" />
             </div>
-            <span className="text-sm font-medium text-[#333333]">
+            <span className="text-sm font-medium text-gray-800">
               Comparing{" "}
               <span className="text-[#029bba] font-bold text-base">{count}</span>{" "}
               properties
-              <span className="text-[#666666] hidden sm:inline"> / 4 max</span>
+              <span className="text-gray-400 hidden sm:inline"> / 4 max</span>
             </span>
           </div>
           <button
@@ -323,7 +317,7 @@ function CompareBar(): React.ReactElement | null {
             className="bg-gradient-to-r from-[#029bba] to-[#017a8a] hover:opacity-90 text-white text-sm font-semibold px-5 py-2 rounded-full shadow-md transition-opacity flex items-center gap-2"
           >
             View Comparison
-            <ChevronRight className="w-4 h-4" />
+            <icons.ChevronRight className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -331,18 +325,19 @@ function CompareBar(): React.ReactElement | null {
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
 
 export default function PropertiesListingPage(): React.ReactElement {
   const router = useRouter();
 
-  // SEO base URL
   const SITE_URL = (
     process.env.NEXT_PUBLIC_SITE_URL ?? "https://highrise.pk"
   ).replace(/\/+$/, "");
   const baseCanonical = `${SITE_URL}/properties`;
 
-  // ── State ──────────────────────────────────────────────────────────────────
+  // State
   const [filters, setFilters] = useState<FilterState>({
     search: "",
     city: "",
@@ -367,12 +362,11 @@ export default function PropertiesListingPage(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(true);
   const [isError, setIsError] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  const [showMobileFilters, setShowMobileFilters] = useState(false);
 
   const fetchAbortRef = useRef<AbortController | null>(null);
   const initializedRef = useRef(false);
 
-  // ── Canonical URL (only allowlist keys) ───────────────────────────────────
+  // Canonical URL
   const canonicalUrl = useMemo(() => {
     const params = new URLSearchParams();
     Object.entries(filters).forEach(([k, v]) => {
@@ -383,7 +377,6 @@ export default function PropertiesListingPage(): React.ReactElement {
     return qs ? `${baseCanonical}?${qs}` : baseCanonical;
   }, [filters, baseCanonical]);
 
-  // ── Filter helpers ─────────────────────────────────────────────────────────
   const hasActiveFilters = useMemo(() => {
     const { sort, ...rest } = filters;
     void sort;
@@ -397,9 +390,6 @@ export default function PropertiesListingPage(): React.ReactElement {
   }, [filters]);
 
   const getPropertyTypesForQuery = useCallback((): string[] => {
-    // Category-only discovery is sent through propertyCategory so the API can
-    // expand the canonical Residential / Commercial / Plots discovery group.
-    // propertyTypes is reserved for an explicitly selected type.
     if (filters.propertyType) return [filters.propertyType];
     return [];
   }, [filters.propertyType]);
@@ -415,21 +405,20 @@ export default function PropertiesListingPage(): React.ReactElement {
     return ALL_PROPERTY_TYPES;
   }, [filters.propertyCategory]);
 
-  // ── URL sync (read params on load + when router.query changes) ───────────
   useEffect(() => {
     if (!router.isReady) return;
 
     const q = router.query;
     const safeFilters: FilterState = {
-      search:           clampText(q.search,        80),
-      city:             clampEnum(q.city,          CITIES_ALLOW),
+      search: clampText(q.search, 80),
+      city: clampEnum(q.city, CITIES_ALLOW),
       propertyCategory: clampEnum(q.propertyCategory, VALID_CATEGORIES),
-      propertyType:     clampEnum(q.propertyType,  ALL_TYPE_VALUES),
-      listingType:      clampEnum(q.listingType,   VALID_LISTING_TYPES),
-      minPrice:         clampText(String(q.minPrice ?? "").replace(/[^\d]/g, ""), 12),
-      maxPrice:         clampText(String(q.maxPrice ?? "").replace(/[^\d]/g, ""), 12),
-      bedrooms:         clampEnum(q.bedrooms,      VALID_BEDROOMS),
-      sort:             clampEnum(q.sort,          VALID_SORTS),
+      propertyType: clampEnum(q.propertyType, ALL_TYPE_VALUES),
+      listingType: clampEnum(q.listingType, VALID_LISTING_TYPES),
+      minPrice: clampText(String(q.minPrice ?? "").replace(/[^\d]/g, ""), 12),
+      maxPrice: clampText(String(q.maxPrice ?? "").replace(/[^\d]/g, ""), 12),
+      bedrooms: clampEnum(q.bedrooms, VALID_BEDROOMS),
+      sort: clampEnum(q.sort, VALID_SORTS),
     };
 
     setFilters(safeFilters);
@@ -441,22 +430,20 @@ export default function PropertiesListingPage(): React.ReactElement {
     initializedRef.current = true;
   }, [router.isReady, router.query]);
 
-  // ── URL update (shallow, after filter change) ─────────────────────────────
   const updateURL = useCallback(
     (next: FilterState, page = 1) => {
       const params = new URLSearchParams();
 
-      // Re-sanitize before writing URL
       const safe: FilterState = {
-        search:           clampText(next.search,        80),
-        city:             clampEnum(next.city,          CITIES_ALLOW),
+        search: clampText(next.search, 80),
+        city: clampEnum(next.city, CITIES_ALLOW),
         propertyCategory: clampEnum(next.propertyCategory, VALID_CATEGORIES),
-        propertyType:     clampEnum(next.propertyType,  ALL_TYPE_VALUES),
-        listingType:      clampEnum(next.listingType,   VALID_LISTING_TYPES),
-        minPrice:         clampText(String(next.minPrice).replace(/[^\d]/g, ""), 12),
-        maxPrice:         clampText(String(next.maxPrice).replace(/[^\d]/g, ""), 12),
-        bedrooms:         clampEnum(next.bedrooms,      VALID_BEDROOMS),
-        sort:             clampEnum(next.sort,          VALID_SORTS),
+        propertyType: clampEnum(next.propertyType, ALL_TYPE_VALUES),
+        listingType: clampEnum(next.listingType, VALID_LISTING_TYPES),
+        minPrice: clampText(String(next.minPrice).replace(/[^\d]/g, ""), 12),
+        maxPrice: clampText(String(next.maxPrice).replace(/[^\d]/g, ""), 12),
+        bedrooms: clampEnum(next.bedrooms, VALID_BEDROOMS),
+        sort: clampEnum(next.sort, VALID_SORTS),
       };
 
       Object.entries(safe).forEach(([k, v]) => {
@@ -472,11 +459,9 @@ export default function PropertiesListingPage(): React.ReactElement {
     [router]
   );
 
-  // ── Fetch (always client-side; respects URL filters) ──────────────────────
   const fetchProperties = useCallback(async () => {
     if (!initializedRef.current) return;
 
-    // Abort any in-flight request
     if (fetchAbortRef.current) {
       fetchAbortRef.current.abort();
     }
@@ -490,27 +475,26 @@ export default function PropertiesListingPage(): React.ReactElement {
     try {
       const params = new URLSearchParams();
 
-      const safeSearch       = clampText(filters.search,                                                80);
-      const safeCity         = clampEnum(filters.city,                                                  CITIES_ALLOW);
-      const safeListingType  = clampEnum(filters.listingType,                                           VALID_LISTING_TYPES);
-      const safeBedrooms     = clampEnum(filters.bedrooms,                                              VALID_BEDROOMS);
-      const safeSort         = clampEnum(filters.sort,                                                  VALID_SORTS);
-      const safePage         = clampInt(currentPage, 1, 500);
+      const safeSearch = clampText(filters.search, 80);
+      const safeCity = clampEnum(filters.city, CITIES_ALLOW);
+      const safeListingType = clampEnum(filters.listingType, VALID_LISTING_TYPES);
+      const safeBedrooms = clampEnum(filters.bedrooms, VALID_BEDROOMS);
+      const safeSort = clampEnum(filters.sort, VALID_SORTS);
+      const safePage = clampInt(currentPage, 1, 500);
 
-      if (safeSearch)       params.append("search",       safeSearch);
-      if (safeCity)         params.append("city",         safeCity);
-
+      if (safeSearch) params.append("search", safeSearch);
+      if (safeCity) params.append("city", safeCity);
 
       const safePropertyCategory = clampEnum(filters.propertyCategory, VALID_CATEGORIES);
       if (safePropertyCategory) params.append("propertyCategory", safePropertyCategory);
       const types = getPropertyTypesForQuery();
       types.slice(0, 12).forEach((t) => params.append("propertyTypes", clampText(t, 40)));
 
-      if (safeListingType)  params.append("listingType",  safeListingType);
-      if (filters.minPrice) params.append("minPrice",     clampText(filters.minPrice, 12));
-      if (filters.maxPrice) params.append("maxPrice",     clampText(filters.maxPrice, 12));
-      if (safeBedrooms)     params.append("bedrooms",     safeBedrooms);
-      if (safeSort)         params.append("sort",         safeSort);
+      if (safeListingType) params.append("listingType", safeListingType);
+      if (filters.minPrice) params.append("minPrice", clampText(filters.minPrice, 12));
+      if (filters.maxPrice) params.append("maxPrice", clampText(filters.maxPrice, 12));
+      if (safeBedrooms) params.append("bedrooms", safeBedrooms);
+      if (safeSort) params.append("sort", safeSort);
 
       params.append("page", String(safePage));
       params.append("limit", String(PAGE_LIMIT));
@@ -528,11 +512,10 @@ export default function PropertiesListingPage(): React.ReactElement {
         throw new Error(`Request failed (${res.status})`);
       }
 
-      // Handle both array and object response shapes
       if (Array.isArray(data)) {
         setProperties(normalizePropertiesList(data));
         setPagination({
-          page:  1,
+          page: 1,
           limit: PAGE_LIMIT,
           total: data.length,
           pages: 1,
@@ -542,7 +525,7 @@ export default function PropertiesListingPage(): React.ReactElement {
         setProperties(normalizePropertiesList(list));
         setPagination(
           data?.pagination ?? {
-            page:  safePage,
+            page: safePage,
             limit: PAGE_LIMIT,
             total: list.length,
             pages: 1,
@@ -575,7 +558,6 @@ export default function PropertiesListingPage(): React.ReactElement {
     getPropertyTypesForQuery,
   ]);
 
-  // Trigger fetch on filter/page change
   useEffect(() => {
     fetchProperties();
     return () => {
@@ -583,11 +565,9 @@ export default function PropertiesListingPage(): React.ReactElement {
     };
   }, [fetchProperties]);
 
-  // ── Filter handlers ────────────────────────────────────────────────────────
   const handleFilterChange = useCallback(
     (key: FilterKey, value: string) => {
       const next: FilterState = { ...filters, [key]: value };
-      // Reset propertyType when category changes
       if (key === "propertyCategory") next.propertyType = "";
       setFilters(next);
       setCurrentPage(1);
@@ -658,18 +638,18 @@ export default function PropertiesListingPage(): React.ReactElement {
     [filters, pagination.pages, updateURL]
   );
 
-  // ── SEO ───────────────────────────────────────────────────────────────────
   const pageTitle = useMemo(() => {
     if (filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory]) {
-      return `${PROPERTY_CATEGORIES[filters.propertyCategory].label} in Pakistan | Highrise.pk`;
+      return `${PROPERTY_CATEGORIES[filters.propertyCategory].label} Properties in Pakistan | Highrise.pk`;
     }
-    return "Properties in Pakistan | Buy, Rent & Installments | Highrise.pk";
+    return "Properties in Pakistan | Buy, Rent and Installments | Highrise.pk";
   }, [filters.propertyCategory]);
+
   const pageDescription = useMemo(() => {
     if (hasActiveFilters) {
-      return "Browse verified properties in Pakistan with your selected filters. Find homes, plots & commercial listings on Highrise.pk.";
+      return "Browse verified properties in Pakistan with your selected filters. Find homes, plots, and commercial listings on Highrise.pk.";
     }
-    return "Browse verified properties for sale, rent & installments across Pakistan. Filter by city, type, price, and bedrooms on Highrise.pk.";
+    return "Browse verified properties for sale, rent, and installments across Pakistan. Filter by city, type, price, and bedrooms on Highrise.pk.";
   }, [hasActiveFilters]);
 
   const isDeepFiltered =
@@ -679,7 +659,6 @@ export default function PropertiesListingPage(): React.ReactElement {
     Boolean(filters.bedrooms) ||
     currentPage > 1;
 
-  // CollectionPage & BreadcrumbList Schema for Directory SEO
   const directoryJsonLd = useMemo(() => {
     return [
       {
@@ -705,7 +684,6 @@ export default function PropertiesListingPage(): React.ReactElement {
     ];
   }, [pageTitle, pageDescription, canonicalUrl, baseCanonical, SITE_URL]);
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <>
       <Head>
@@ -726,9 +704,8 @@ export default function PropertiesListingPage(): React.ReactElement {
 
       <div className="min-h-screen bg-[#f8f9fa]">
 
-        {/* ── HERO ──────────────────────────────────────────────────────── */}
-        <section className="relative bg-[#001f2b] text-white pt-16 pb-24 overflow-hidden">
-          {/* Dot pattern */}
+        {/* Hero Section */}
+        <section className="relative bg-[#001f2b] text-white pt-14 pb-24 overflow-hidden">
           <div
             className="absolute inset-0 opacity-10"
             style={{
@@ -736,25 +713,23 @@ export default function PropertiesListingPage(): React.ReactElement {
               backgroundSize: "30px 30px",
             }}
           />
-          {/* Glow orbs */}
           <div className="absolute top-0 right-0 w-96 h-96 bg-[#029bba] rounded-full blur-[120px] opacity-20 translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-500 rounded-full blur-[100px] opacity-10 -translate-x-1/2 translate-y-1/2 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#7c3aed] rounded-full blur-[100px] opacity-10 -translate-x-1/2 translate-y-1/2 pointer-events-none" />
 
           <div className="container mx-auto px-4 relative z-10">
-            {/* Breadcrumb */}
-            <nav className="flex items-center justify-center gap-2 text-sm text-white/60 mb-5">
+            <nav className="flex items-center justify-center gap-2 text-xs font-semibold text-white/60 mb-5">
               <Link
                 href="/"
                 className="hover:text-white transition-colors flex items-center gap-1"
               >
-                <Home className="w-4 h-4" /> Home
+                <icons.Home className="w-3.5 h-3.5" /> Home
               </Link>
               <span>/</span>
               <span className="text-white">Properties</span>
               {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
                 <>
                   <span>/</span>
-                  <span className="text-[#4dd6f5]">
+                  <span className="text-[#029bba]">
                     {PROPERTY_CATEGORIES[filters.propertyCategory].label}
                   </span>
                 </>
@@ -762,8 +737,7 @@ export default function PropertiesListingPage(): React.ReactElement {
             </nav>
 
             <div className="text-center max-w-3xl mx-auto">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-medium text-[#4dd6f5] backdrop-blur-sm mb-5">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-bold text-[#029bba] backdrop-blur-sm mb-5">
                 {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] ? (
                   <>
                     {PROPERTY_CATEGORIES[filters.propertyCategory].icon}
@@ -771,18 +745,17 @@ export default function PropertiesListingPage(): React.ReactElement {
                   </>
                 ) : (
                   <>
-                    <ShieldCheck size={14} />
+                    <icons.ShieldCheck className="w-3.5 h-3.5" />
                     Verified Properties Across Pakistan
                   </>
                 )}
               </div>
 
-              {/* Heading */}
-              <h1 className="text-4xl md:text-5xl font-extrabold mb-5 tracking-tight leading-tight">
+              <h1 className="text-3xl md:text-5xl font-black mb-4 tracking-tight leading-tight">
                 {filters.propertyCategory === "residential" && (
                   <>
                     Where Families Find
-                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#029bba] to-[#4dd6f5]">
+                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#029bba] to-[#017a8a]">
                       Their Forever Home
                     </span>
                   </>
@@ -790,7 +763,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                 {filters.propertyCategory === "commercial" && (
                   <>
                     Grow Your Business in
-                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-purple-400 to-pink-400">
+                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-[#7c3aed] to-[#029bba]">
                       Prime Locations
                     </span>
                   </>
@@ -798,7 +771,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                 {filters.propertyCategory === "plots" && (
                   <>
                     Build Your Future on
-                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-400">
+                    <span className="block text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-[#029bba]">
                       Premium Land
                     </span>
                   </>
@@ -814,44 +787,35 @@ export default function PropertiesListingPage(): React.ReactElement {
                 )}
               </h1>
 
-              {/* Subtitle */}
-              <p className="text-base md:text-lg text-gray-300 max-w-2xl mx-auto mb-7 leading-relaxed">
+              <p className="text-sm md:text-base text-gray-300 max-w-2xl mx-auto mb-6 leading-relaxed">
                 Discover{" "}
-                <span className="text-white font-semibold">
+                <span className="text-white font-bold">
                   {pagination.total.toLocaleString()}+
                 </span>{" "}
-                verified properties — all in one place
+                verified properties across major cities
               </p>
 
-              {/* Trust row */}
-              <div className="flex flex-wrap justify-center gap-4 mb-2">
-                <div className="flex items-center gap-2 text-white/70 text-sm">
-                  <div className="w-5 h-5 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <CheckCircle className="w-3 h-3 text-green-400" />
-                  </div>
+              <div className="flex flex-wrap justify-center gap-4 mb-2 text-xs font-semibold text-white/80">
+                <div className="flex items-center gap-1.5">
+                  <icons.CheckCircle className="w-4 h-4 text-emerald-400" />
                   Verified Listings
                 </div>
-                <div className="flex items-center gap-2 text-white/70 text-sm">
-                  <div className="w-5 h-5 rounded-full bg-[#029bba]/20 flex items-center justify-center">
-                    <Shield className="w-3 h-3 text-[#4dd6f5]" />
-                  </div>
-                  Trusted Developers
+                <div className="flex items-center gap-1.5">
+                  <icons.Shield className="w-4 h-4 text-[#029bba]" />
+                  Trusted Developers &amp; Owners
                 </div>
-                <div className="flex items-center gap-2 text-white/70 text-sm">
-                  <div className="w-5 h-5 rounded-full bg-amber-500/20 flex items-center justify-center">
-                    <Zap className="w-3 h-3 text-amber-400" />
-                  </div>
-                  Updated Daily
+                <div className="flex items-center gap-1.5">
+                  <icons.Zap className="w-4 h-4 text-amber-400" />
+                  Live Daily Rates
                 </div>
               </div>
 
-              {/* Quick type pills (when category active) */}
               {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
                 <div className="flex flex-wrap justify-center gap-2 mt-6">
                   <button
                     type="button"
                     onClick={() => handleFilterChange("propertyType", "")}
-                    className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                    className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
                       !filters.propertyType
                         ? "bg-white text-[#001f2b]"
                         : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
@@ -866,7 +830,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                         key={t}
                         type="button"
                         onClick={() => handleFilterChange("propertyType", t)}
-                        className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
+                        className={`px-4 py-1.5 rounded-full text-xs font-bold transition-colors ${
                           filters.propertyType === t
                             ? "bg-white text-[#001f2b]"
                             : "bg-white/10 text-white hover:bg-white/20 border border-white/20"
@@ -881,21 +845,18 @@ export default function PropertiesListingPage(): React.ReactElement {
           </div>
         </section>
 
-        {/* ── FLOATING SEARCH CARD ───────────────────────────────────────── */}
+        {/* Floating Search Card */}
         <div className="container mx-auto px-4 -mt-12 relative z-20">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 md:p-6 max-w-5xl mx-auto animate-fadeIn">
-
-            {/* Primary row */}
+          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 p-4 md:p-6 max-w-5xl mx-auto">
             <div className="flex flex-col lg:flex-row gap-3 items-stretch">
-              {/* Search input */}
               <div className="flex-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                  <Search className="h-5 w-5 text-gray-400" />
+                  <icons.Search className="h-5 w-5 text-gray-400" />
                 </div>
                 <input
                   type="text"
-                  placeholder="Search by location, society, or developer..."
-                  className="block w-full h-14 pl-12 pr-4 bg-gray-50 border border-gray-100 rounded-xl text-[#333333] placeholder-gray-400 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:bg-white transition-all"
+                  placeholder="Search by location, society, or project name..."
+                  className="block w-full h-14 pl-12 pr-4 bg-gray-50 border border-gray-100 rounded-xl text-sm font-semibold text-gray-800 placeholder:text-gray-400 focus:ring-1 focus:ring-[#029bba]/30 focus:border-[#029bba] focus:bg-white transition-all outline-none"
                   value={searchDraft}
                   onChange={(e) => setSearchDraft(e.target.value)}
                   onKeyDown={(e) => {
@@ -904,13 +865,12 @@ export default function PropertiesListingPage(): React.ReactElement {
                 />
               </div>
 
-              {/* City */}
-              <div className="flex items-center gap-2 h-14 px-3 bg-gray-50 rounded-xl border border-gray-100 lg:w-40">
-                <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 h-14 px-3 bg-gray-50 rounded-xl border border-gray-100 lg:w-44">
+                <icons.MapPin className="w-4 h-4 text-[#029bba] shrink-0" />
                 <select
                   value={filters.city}
                   onChange={(e) => handleFilterChange("city", e.target.value)}
-                  className="w-full bg-transparent border-none text-sm text-[#333333] focus:ring-0 focus:outline-none cursor-pointer"
+                  className="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
                 >
                   <option value="">All Cities</option>
                   {PAKISTAN_CITIES.map((c) => (
@@ -919,41 +879,37 @@ export default function PropertiesListingPage(): React.ReactElement {
                 </select>
               </div>
 
-              {/* Category */}
-              <div className="flex items-center gap-2 h-14 px-3 bg-gray-50 rounded-xl border border-gray-100 lg:w-44">
-                <Grid3X3 className="w-4 h-4 text-gray-400 flex-shrink-0" />
+              <div className="flex items-center gap-2 h-14 px-3 bg-gray-50 rounded-xl border border-gray-100 lg:w-48">
+                <icons.Grid3X3 className="w-4 h-4 text-[#029bba] shrink-0" />
                 <select
                   value={filters.propertyCategory}
                   onChange={(e) => handleFilterChange("propertyCategory", e.target.value)}
-                  className="w-full bg-transparent border-none text-sm text-[#333333] focus:ring-0 focus:outline-none cursor-pointer"
+                  className="w-full bg-transparent border-none text-xs font-bold text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
                 >
                   <option value="">All Categories</option>
                   <option value="residential">Residential</option>
                   <option value="commercial">Commercial</option>
-                  <option value="plots">Plots</option>
+                  <option value="plots">Plots &amp; Land</option>
                 </select>
               </div>
 
-              {/* Search button */}
               <button
                 type="button"
                 onClick={() => handleSearch()}
-                className="h-14 bg-[#029bba] hover:bg-[#017a8a] text-white px-8 rounded-xl font-semibold transition-colors shadow-md flex items-center justify-center gap-2 whitespace-nowrap"
+                className="h-14 bg-[#029bba] hover:bg-[#017a8a] text-white px-8 rounded-xl font-bold text-sm transition-colors shadow-sm flex items-center justify-center gap-2 whitespace-nowrap"
               >
-                <Search className="w-5 h-5" /> Search
+                <icons.Search className="w-4 h-4" /> Search
               </button>
             </div>
 
-            {/* Sub-filter row */}
             <div className="mt-4 pt-4 border-t border-gray-100">
               <div className="grid grid-cols-2 md:grid-cols-5 gap-3 items-stretch">
-                {/* Type */}
-                <div className="flex items-center gap-2 h-12 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <Home className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <icons.Home className="w-4 h-4 text-gray-400 shrink-0" />
                   <select
                     value={filters.propertyType}
                     onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-                    className="w-full bg-transparent border-none text-sm text-[#333333] focus:ring-0 focus:outline-none cursor-pointer"
+                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
                   >
                     {getFilteredPropertyTypes().map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
@@ -961,13 +917,12 @@ export default function PropertiesListingPage(): React.ReactElement {
                   </select>
                 </div>
 
-                {/* Listing type */}
-                <div className="flex items-center gap-2 h-12 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <TrendingUp className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <icons.TrendingUp className="w-4 h-4 text-gray-400 shrink-0" />
                   <select
                     value={filters.listingType}
                     onChange={(e) => handleFilterChange("listingType", e.target.value)}
-                    className="w-full bg-transparent border-none text-sm text-[#333333] focus:ring-0 focus:outline-none cursor-pointer"
+                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
                   >
                     {LISTING_TYPES.map((t) => (
                       <option key={t.value} value={t.value}>{t.label}</option>
@@ -975,13 +930,12 @@ export default function PropertiesListingPage(): React.ReactElement {
                   </select>
                 </div>
 
-                {/* Bedrooms */}
-                <div className="flex items-center gap-2 h-12 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <BedDouble className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <icons.Bed className="w-4 h-4 text-gray-400 shrink-0" />
                   <select
                     value={filters.bedrooms}
                     onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
-                    className="w-full bg-transparent border-none text-sm text-[#333333] focus:ring-0 focus:outline-none cursor-pointer"
+                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
                   >
                     {BEDROOM_OPTIONS.map((o) => (
                       <option key={o.value} value={o.value}>{o.label}</option>
@@ -989,9 +943,8 @@ export default function PropertiesListingPage(): React.ReactElement {
                   </select>
                 </div>
 
-                {/* Price range */}
-                <div className="flex items-center gap-2 h-12 px-3 bg-gray-50 rounded-xl border border-gray-100">
-                  <DollarSign className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div className="flex items-center gap-2 h-11 px-3 bg-gray-50 rounded-xl border border-gray-100">
+                  <icons.DollarSign className="w-4 h-4 text-gray-400 shrink-0" />
                   <select
                     value={
                       filters.minPrice && filters.maxPrice
@@ -999,7 +952,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                         : ""
                     }
                     onChange={(e) => setPriceRange(e.target.value)}
-                    className="w-full bg-transparent border-none text-sm text-[#333333] focus:ring-0 focus:outline-none cursor-pointer"
+                    className="w-full bg-transparent border-none text-xs font-medium text-gray-700 focus:ring-0 focus:outline-none cursor-pointer"
                   >
                     {PRICE_RANGES.map((r) => (
                       <option key={r.value} value={r.value}>{r.label}</option>
@@ -1007,15 +960,14 @@ export default function PropertiesListingPage(): React.ReactElement {
                   </select>
                 </div>
 
-                {/* Clear all */}
-                <div className="flex items-center justify-end h-12">
+                <div className="flex items-center justify-end h-11">
                   {hasActiveFilters && (
                     <button
                       type="button"
                       onClick={clearAllFilters}
-                      className="inline-flex items-center gap-1.5 text-sm text-[#666666] hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
+                      className="inline-flex items-center gap-1.5 text-xs font-bold text-gray-500 hover:text-red-600 px-3 py-2 rounded-lg hover:bg-red-50 transition-colors"
                     >
-                      <X className="w-4 h-4" /> Clear All
+                      <icons.X className="w-3.5 h-3.5" /> Clear Filters
                     </button>
                   )}
                 </div>
@@ -1024,22 +976,22 @@ export default function PropertiesListingPage(): React.ReactElement {
           </div>
         </div>
 
-        {/* ── ACTIVE FILTER CHIPS ────────────────────────────────────────── */}
+        {/* Filter Chips */}
         {hasActiveFilters && (
           <div className="container mx-auto px-4 mt-6">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-sm text-[#666666] mr-2">Active filters:</span>
+            <div className="flex flex-wrap items-center gap-2 max-w-5xl mx-auto">
+              <span className="text-xs font-bold text-gray-500 mr-2">Active filters:</span>
 
               {filters.search && (
                 <FilterChip
-                  icon={<Search className="w-3.5 h-3.5" />}
+                  icon={<icons.Search className="w-3.5 h-3.5 text-[#029bba]" />}
                   label={`"${filters.search}"`}
                   onClear={() => clearFilter("search")}
                 />
               )}
               {filters.city && (
                 <FilterChip
-                  icon={<MapPin className="w-3.5 h-3.5" />}
+                  icon={<icons.MapPin className="w-3.5 h-3.5 text-[#029bba]" />}
                   label={filters.city}
                   onClear={() => clearFilter("city")}
                 />
@@ -1053,14 +1005,14 @@ export default function PropertiesListingPage(): React.ReactElement {
               )}
               {filters.propertyType && (
                 <FilterChip
-                  icon={<Home className="w-3.5 h-3.5" />}
+                  icon={<icons.Home className="w-3.5 h-3.5 text-[#029bba]" />}
                   label={filters.propertyType}
                   onClear={() => clearFilter("propertyType")}
                 />
               )}
               {filters.listingType && (
                 <FilterChip
-                  icon={<TrendingUp className="w-3.5 h-3.5" />}
+                  icon={<icons.TrendingUp className="w-3.5 h-3.5 text-[#029bba]" />}
                   label={
                     LISTING_TYPES.find((t) => t.value === filters.listingType)?.label ??
                     filters.listingType
@@ -1070,14 +1022,14 @@ export default function PropertiesListingPage(): React.ReactElement {
               )}
               {filters.bedrooms && (
                 <FilterChip
-                  icon={<BedDouble className="w-3.5 h-3.5" />}
+                  icon={<icons.Bed className="w-3.5 h-3.5 text-[#029bba]" />}
                   label={`${filters.bedrooms} Bed${parseInt(filters.bedrooms, 10) > 1 ? "s" : ""}`}
                   onClear={() => clearFilter("bedrooms")}
                 />
               )}
               {(filters.minPrice || filters.maxPrice) && (
                 <FilterChip
-                  icon={<DollarSign className="w-3.5 h-3.5" />}
+                  icon={<icons.DollarSign className="w-3.5 h-3.5 text-[#029bba]" />}
                   label={
                     PRICE_RANGES.find(
                       (p) => p.value === `${filters.minPrice}-${filters.maxPrice}`
@@ -1090,18 +1042,18 @@ export default function PropertiesListingPage(): React.ReactElement {
           </div>
         )}
 
-        {/* ── MAIN CONTENT ───────────────────────────────────────────────── */}
-        <div className="container mx-auto px-4 py-12">
+        {/* Listings Result Grid */}
+        <div className="container mx-auto px-4 py-8">
 
-          {/* Header row */}
+          {/* Heading Row */}
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
             <div>
-              <h2 className="text-xl md:text-2xl font-bold text-[#004063] flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-[#029bba]" />
+              <h2 className="text-xl md:text-2xl font-black text-[#004063] flex items-center gap-2">
+                <icons.TrendingUp className="w-5 h-5 text-[#029bba]" />
                 {isLoading ? (
                   <span className="flex items-center gap-2">
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    Loading properties...
+                    <icons.Loader2 className="w-4 h-4 animate-spin text-[#029bba]" />
+                    Finding properties...
                   </span>
                 ) : (
                   <>
@@ -1115,17 +1067,16 @@ export default function PropertiesListingPage(): React.ReactElement {
                 )}
               </h2>
               {!isLoading && hasActiveFilters && (
-                <p className="text-sm text-[#666666] mt-1">
+                <p className="text-xs text-gray-500 font-semibold mt-1">
                   {activeFilterCount} filter{activeFilterCount > 1 ? "s" : ""} applied
                 </p>
               )}
             </div>
 
-            {/* Sort */}
             <select
               value={filters.sort}
               onChange={(e) => handleFilterChange("sort", e.target.value)}
-              className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:ring-2 focus:ring-[#029bba]/20 focus:border-[#029bba] outline-none cursor-pointer"
+              className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold bg-white text-gray-700 focus:ring-1 focus:ring-[#029bba]/30 focus:border-[#029bba] outline-none cursor-pointer"
             >
               {SORT_OPTIONS.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
@@ -1133,54 +1084,54 @@ export default function PropertiesListingPage(): React.ReactElement {
             </select>
           </div>
 
-          {/* States */}
+          {/* Content States */}
           {isLoading ? (
             <PropertyGridSkeleton count={12} />
           ) : isError ? (
-            <div className="bg-[#fef2f2] border-l-4 border-[#ef4444] rounded-2xl p-12 text-center">
-              <div className="w-16 h-16 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-4">
-                <X className="w-8 h-8 text-red-500" />
+            <div className="bg-red-50 border-l-4 border-red-500 rounded-2xl p-10 text-center">
+              <div className="w-14 h-14 rounded-full bg-red-100 flex items-center justify-center mx-auto mb-3">
+                <icons.X className="w-7 h-7 text-red-600" />
               </div>
-              <h3 className="text-xl font-semibold text-red-800 mb-2">
-                Failed to Load Properties
+              <h3 className="text-lg font-bold text-red-900 mb-1">
+                Unable to Load Listings
               </h3>
-              <p className="text-red-600 mb-6">{errorMsg}</p>
+              <p className="text-xs text-red-700 mb-5">{errorMsg}</p>
               <button
                 type="button"
                 onClick={() => fetchProperties()}
-                className="px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-colors"
+                className="px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
               >
                 Try Again
               </button>
             </div>
           ) : properties.length === 0 ? (
-            <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-12 text-center">
-              <div className="w-20 h-20 rounded-full bg-[#029bba]/10 flex items-center justify-center mx-auto mb-4">
-                <Building2 className="w-10 h-10 text-[#029bba]" />
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+              <div className="w-16 h-16 rounded-full bg-[#029bba]/10 flex items-center justify-center mx-auto mb-3">
+                <icons.Building2 className="w-8 h-8 text-[#029bba]" />
               </div>
-              <h3 className="text-xl font-semibold text-[#004063] mb-2">
+              <h3 className="text-lg font-bold text-[#004063] mb-1">
                 No Properties Found
               </h3>
-              <p className="text-[#666666] mb-6 max-w-md mx-auto">
+              <p className="text-xs text-gray-500 mb-6 max-w-sm mx-auto">
                 {hasActiveFilters
-                  ? "No properties match your current filters. Try adjusting your search criteria."
-                  : "There are no properties listed yet. Be the first to add one!"}
+                  ? "No listings match your search criteria. Try removing or adjusting some filters."
+                  : "There are no verified listings available at the moment. Check back soon!"}
               </p>
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 {hasActiveFilters && (
                   <button
                     type="button"
                     onClick={clearAllFilters}
-                    className="px-6 py-3 border-2 border-[#029bba] text-[#029bba] rounded-xl font-medium hover:bg-[#029bba] hover:text-white transition-colors"
+                    className="px-5 py-2.5 border border-[#029bba] text-[#029bba] rounded-xl text-xs font-bold hover:bg-[#029bba]/5 transition-colors"
                   >
                     Clear All Filters
                   </button>
                 )}
                 <Link
                   href="/add-property"
-                  className="px-6 py-3 bg-[#029bba] hover:bg-[#017a8a] text-white rounded-xl font-medium transition-colors"
+                  className="px-5 py-2.5 bg-[#029bba] hover:bg-[#017a8a] text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
                 >
-                  Add Property
+                  List Your Property
                 </Link>
               </div>
             </div>
@@ -1188,18 +1139,17 @@ export default function PropertiesListingPage(): React.ReactElement {
             <>
               <PropertyGrid properties={properties} loading={false} />
 
-              {/* Pagination */}
               {pagination.pages > 1 && (
                 <>
                   <div className="flex items-center justify-center mt-10">
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5">
                       <button
                         type="button"
                         disabled={currentPage === 1}
                         onClick={() => handlePageChange(currentPage - 1)}
-                        className="flex items-center gap-1 px-4 py-2.5 rounded-xl border border-gray-300 text-[#333333] hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="flex items-center gap-1 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
-                        <ChevronLeft className="w-4 h-4" />
+                        <icons.ChevronLeft className="w-4 h-4" />
                         <span className="hidden sm:inline">Previous</span>
                       </button>
 
@@ -1219,10 +1169,10 @@ export default function PropertiesListingPage(): React.ReactElement {
                                 key={pageNum}
                                 type="button"
                                 onClick={() => handlePageChange(pageNum)}
-                                className={`min-w-[40px] h-10 rounded-xl text-sm font-medium transition-colors ${
+                                className={`min-w-[36px] h-9 rounded-xl text-xs font-bold transition-colors ${
                                   currentPage === pageNum
-                                    ? "bg-[#029bba] text-white shadow-md"
-                                    : "bg-white border border-gray-300 text-[#333333] hover:bg-gray-50 hover:border-gray-400"
+                                    ? "bg-[#029bba] text-white shadow-xs"
+                                    : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
                                 }`}
                               >
                                 {pageNum}
@@ -1236,15 +1186,15 @@ export default function PropertiesListingPage(): React.ReactElement {
                         type="button"
                         disabled={currentPage === pagination.pages}
                         onClick={() => handlePageChange(currentPage + 1)}
-                        className="flex items-center gap-1 px-4 py-2.5 rounded-xl border border-gray-300 text-[#333333] hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="flex items-center gap-1 px-3.5 py-2 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                       >
                         <span className="hidden sm:inline">Next</span>
-                        <ChevronRight className="w-4 h-4" />
+                        <icons.ChevronRight className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
 
-                  <p className="text-center text-sm text-[#666666] mt-4">
+                  <p className="text-center text-xs text-gray-400 font-semibold mt-3">
                     Page {currentPage} of {pagination.pages}
                   </p>
                 </>
@@ -1253,7 +1203,6 @@ export default function PropertiesListingPage(): React.ReactElement {
           )}
         </div>
 
-        {/* ── Recently viewed + compare ─────────────────────────────────── */}
         <RecentlyViewed />
         <CompareBar />
       </div>
@@ -1261,7 +1210,9 @@ export default function PropertiesListingPage(): React.ReactElement {
   );
 }
 
-// ─── Filter Chip Subcomponent ────────────────────────────────────────────────
+// ============================================================================
+// FILTER CHIP SUBCOMPONENT
+// ============================================================================
 
 interface FilterChipProps {
   icon: React.ReactElement;
@@ -1271,16 +1222,16 @@ interface FilterChipProps {
 
 function FilterChip({ icon, label, onClear }: FilterChipProps): React.ReactElement {
   return (
-    <span className="inline-flex items-center gap-1 px-3 py-1.5 bg-[#029bba]/10 text-[#029bba] rounded-full text-sm font-medium">
+    <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-[#029bba]/10 text-[#004063] rounded-full text-xs font-bold border border-[#029bba]/20">
       {icon}
-      {label}
+      <span>{label}</span>
       <button
         type="button"
         onClick={onClear}
-        className="ml-1 hover:text-red-600 transition-colors"
+        className="ml-0.5 text-gray-400 hover:text-red-600 transition-colors"
         aria-label={`Remove ${label} filter`}
       >
-        <X className="w-3.5 h-3.5" />
+        <icons.X className="w-3.5 h-3.5" />
       </button>
     </span>
   );
