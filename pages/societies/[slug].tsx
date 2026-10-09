@@ -1,61 +1,29 @@
 // pages/societies/[slug].tsx
-// Highrise.pk — Society Public Intelligence Report
-// ISR: revalidate every 60 seconds
-// Full intelligence report: scores, NOC, risk alerts, block rates,
-// infrastructure, livability, related societies
-// NO framer-motion | NO as any | NO ui/* imports
+// Highrise.pk - Society Public Intelligence Report
+// Design System Locked: tokens from @/lib/design-system/tokens | icons from @/lib/design-system/icons
+// Pattern C Compliant: 2-column fluid left + natural scroll 3-card sidebar stack | Pure ASCII comments
 
-import type {
-  GetStaticPaths,
-  GetStaticProps,
-  InferGetStaticPropsType,
-} from 'next';
-import type { ReactElement } from 'react';
+import type { GetStaticPaths, GetStaticProps } from 'next';
+import React, { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import AleemWidget from '@/components/aleem/AleemWidget';
-import {
-  MapPin,
-  Shield,
-  ShieldCheck,
-  ShieldX,
-  ShieldAlert,
-  AlertTriangle,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Building2,
-  TrendingUp,
-  Award,
-  FileText,
-  ChevronRight,
-  Eye,
-  BadgeCheck,
-  Activity,
-  ExternalLink,
-  Banknote,
-  Home,
-  Info,
-  Star,
-  Zap,
-  Droplets,
-  Flame,
-  Wifi,
-  Navigation,
-  Trees,
-  GraduationCap,
-  HeartPulse,
-  ShoppingBag,
-  Bus,
-  Lock,
-  CalendarDays,
-  ArrowLeft,
-  MessageCircle,
-} from 'lucide-react';
+import { icons } from '@/lib/design-system/icons';
+import { colors, containers, grids, radii, shadows } from '@/lib/design-system/tokens';
+import { typography } from '@/lib/design-system/typography';
+import { card, button, badge, safety } from '@/lib/design-system/components';
+import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 
-// ─── Types (mirrors API response shape) ──────────────────────────────────────
+import UniversalContactCard from '@/components/shared/UniversalContactCard';
+import SafeDealSidebarCard from '@/components/shared/SafeDealSidebarCard';
+import SafetyWarningCard from '@/components/shared/SafetyWarningCard';
+import ReportListingModal from '@/components/property/ReportListingModal';
+
+// ============================================================================
+// TYPES
+// ============================================================================
 
 interface RiskAlert {
   _id: string;
@@ -99,7 +67,7 @@ interface SocietyDetail {
   fullAddress?: string;
   coordinates?: {
     type: 'Point';
-    coordinates: [number, number];   // [lng, lat]
+    coordinates: [number, number];
   };
   nocStatus: string;
   nocNumber?: string;
@@ -178,63 +146,65 @@ interface PageProps {
   relatedSocieties: RelatedSociety[];
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
+// ============================================================================
+// CONSTANTS
+// ============================================================================
 
 const NOC_CONFIG: Record<string, {
   label: string;
   color: string;
   bg: string;
   border: string;
-  icon: ReactElement;
+  icon: React.ReactElement;
 }> = {
   approved: {
     label: 'NOC Approved',
     color: 'text-[#10b981]',
     bg: 'bg-[#f0fdf4]',
-    border: 'border-[#10b981]',
-    icon: <ShieldCheck className="w-5 h-5" />,
+    border: 'border-emerald-200',
+    icon: <icons.ShieldCheck className="w-4 h-4" />,
   },
   pending: {
     label: 'NOC Pending',
     color: 'text-[#f59e0b]',
     bg: 'bg-[#fef3c7]',
-    border: 'border-[#f59e0b]',
-    icon: <Clock className="w-5 h-5" />,
+    border: 'border-amber-200',
+    icon: <icons.Clock className="w-4 h-4" />,
   },
   under_review: {
     label: 'Under Review',
     color: 'text-[#f59e0b]',
     bg: 'bg-[#fef3c7]',
-    border: 'border-[#f59e0b]',
-    icon: <Clock className="w-5 h-5" />,
+    border: 'border-amber-200',
+    icon: <icons.Clock className="w-4 h-4" />,
   },
   illegal: {
     label: 'Declared Illegal',
     color: 'text-[#ef4444]',
     bg: 'bg-[#fef2f2]',
-    border: 'border-[#ef4444]',
-    icon: <ShieldX className="w-5 h-5" />,
+    border: 'border-red-200',
+    icon: <icons.XCircle className="w-4 h-4" />,
   },
   disputed: {
     label: 'Disputed',
     color: 'text-[#ef4444]',
     bg: 'bg-[#fef2f2]',
-    border: 'border-[#ef4444]',
-    icon: <ShieldAlert className="w-5 h-5" />,
+    border: 'border-red-200',
+    icon: <icons.AlertTriangle className="w-4 h-4" />,
   },
   cancelled: {
     label: 'NOC Cancelled',
     color: 'text-[#ef4444]',
     bg: 'bg-[#fef2f2]',
-    border: 'border-[#ef4444]',
-    icon: <XCircle className="w-5 h-5" />,
+    border: 'border-red-200',
+    icon: <icons.XCircle className="w-4 h-4" />,
   },
   expired: {
     label: 'NOC Expired',
     color: 'text-[#f59e0b]',
     bg: 'bg-[#fef3c7]',
-    border: 'border-[#f59e0b]',
-    icon: <AlertTriangle className="w-5 h-5" />,
+    border: 'border-amber-200',
+    icon: <icons.AlertTriangle className="w-4 h-4" />,
   },
 };
 
@@ -248,25 +218,25 @@ const RISK_CONFIG: Record<string, {
     label: 'Safe Investment',
     color: 'text-[#10b981]',
     bg: 'bg-[#f0fdf4]',
-    border: 'border-[#10b981]',
+    border: 'border-emerald-200',
   },
   caution: {
     label: 'Proceed with Caution',
     color: 'text-[#f59e0b]',
     bg: 'bg-[#fef3c7]',
-    border: 'border-[#f59e0b]',
+    border: 'border-amber-200',
   },
   high_risk: {
-    label: 'High Risk',
+    label: 'High Risk Alert',
     color: 'text-[#ef4444]',
     bg: 'bg-[#fef2f2]',
-    border: 'border-[#ef4444]',
+    border: 'border-red-200',
   },
   avoid: {
-    label: 'Avoid',
-    color: 'text-white',
-    bg: 'bg-[#ef4444]',
-    border: 'border-[#ef4444]',
+    label: 'Avoid Investment',
+    color: 'text-red-700',
+    bg: 'bg-red-50',
+    border: 'border-red-300',
   },
 };
 
@@ -280,25 +250,25 @@ const SEVERITY_CONFIG: Record<string, {
     label: 'Low',
     color: 'text-[#f59e0b]',
     bg: 'bg-[#fef3c7]',
-    border: 'border-[#f59e0b]',
+    border: 'border-amber-200',
   },
   medium: {
     label: 'Medium',
-    color: 'text-[#f97316]',
+    color: 'text-orange-700',
     bg: 'bg-orange-50',
-    border: 'border-orange-400',
+    border: 'border-orange-200',
   },
   high: {
     label: 'High',
     color: 'text-[#ef4444]',
     bg: 'bg-[#fef2f2]',
-    border: 'border-[#ef4444]',
+    border: 'border-red-200',
   },
   critical: {
     label: 'Critical',
-    color: 'text-white',
-    bg: 'bg-[#ef4444]',
-    border: 'border-[#ef4444]',
+    color: 'text-red-700',
+    bg: 'bg-red-50',
+    border: 'border-red-300',
   },
 };
 
@@ -313,14 +283,16 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 const LITIGATION_LABELS: Record<string, { label: string; color: string }> = {
-  none: { label: 'No Litigation', color: 'text-[#10b981]' },
-  minor: { label: 'Minor Dispute', color: 'text-[#f59e0b]' },
-  major: { label: 'Major Litigation', color: 'text-[#ef4444]' },
-  court_ordered_stop: { label: 'Court-Ordered Stop', color: 'text-[#ef4444]' },
-  resolved: { label: 'Resolved', color: 'text-[#10b981]' },
+  none: { label: 'No Litigation Record', color: 'text-[#10b981]' },
+  minor: { label: 'Minor Boundary Dispute', color: 'text-[#f59e0b]' },
+  major: { label: 'Active Major Litigation', color: 'text-[#ef4444]' },
+  court_ordered_stop: { label: 'Court-Ordered Stop Work', color: 'text-[#ef4444]' },
+  resolved: { label: 'Resolved Case', color: 'text-[#10b981]' },
 };
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// ============================================================================
+// HELPERS
+// ============================================================================
 
 function getScoreColor(score: number): string {
   if (score >= 75) return 'text-[#10b981]';
@@ -336,7 +308,7 @@ function getScoreBg(score: number): string {
 
 function formatPKR(value: number): string {
   if (value >= 10_000_000) return `${(value / 10_000_000).toFixed(1)} Cr`;
-  if (value >= 100_000) return `${(value / 100_000).toFixed(1)} L`;
+  if (value >= 100_000) return `${(value / 100_000).toFixed(1)} Lakh`;
   if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
   return String(value);
 }
@@ -350,30 +322,32 @@ function formatDate(iso: string | undefined): string {
   });
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ============================================================================
+// SUB-COMPONENTS
+// ============================================================================
 
 interface ScoreBarProps {
   label: string;
   score: number;
-  icon?: ReactElement;
+  icon?: React.ReactElement;
 }
 
-function ScoreBar({ label, score, icon }: ScoreBarProps): ReactElement {
+function ScoreBar({ label, score, icon }: ScoreBarProps): React.ReactElement {
   return (
     <div className="flex items-center gap-3">
       {icon && (
-        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center flex-shrink-0 text-gray-500">
+        <div className="w-8 h-8 rounded-lg bg-gray-50 flex items-center justify-center shrink-0 text-[#029bba]">
           {icon}
         </div>
       )}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-medium text-gray-600">{label}</span>
-          <span className={`text-xs font-bold ${getScoreColor(score)}`}>{score}/100</span>
+          <span className="text-xs font-bold text-gray-700">{label}</span>
+          <span className={`text-xs font-black ${getScoreColor(score)}`}>{score}/100</span>
         </div>
         <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
           <div
-            className={`h-full ${getScoreBg(score)} rounded-full transition-all duration-700`}
+            className={`h-full ${getScoreBg(score)} rounded-full transition-all duration-500`}
             style={{ width: `${score}%` }}
           />
         </div>
@@ -386,59 +360,60 @@ interface RelatedSocietyCardProps {
   society: RelatedSociety;
 }
 
-function RelatedSocietyCard({ society }: RelatedSocietyCardProps): ReactElement {
-  const risk = RISK_CONFIG[society.overallRiskLevel] ?? RISK_CONFIG.caution;
+function RelatedSocietyCard({ society }: RelatedSocietyCardProps): React.ReactElement {
   return (
-    <Link href={`/societies/${society.slug}`}>
-      <div className="group flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-[#029bba]/5 hover:border-[#029bba]/20 border border-transparent transition-all cursor-pointer">
-        <div className="w-12 h-12 rounded-xl bg-gray-200 overflow-hidden flex-shrink-0 relative">
+    <Link href={`/societies/${society.slug}`} className="block">
+      <div className="group flex items-center gap-3 p-3 bg-gray-50 hover:bg-[#029bba]/5 rounded-xl border border-gray-150 hover:border-[#029bba]/30 transition-all cursor-pointer">
+        <div className="w-12 h-12 rounded-lg bg-gray-200 overflow-hidden shrink-0 relative">
           {society.featuredImage ? (
             <Image
-              src={society.featuredImage}
+              src={getOptimizedImageUrl(society.featuredImage, { width: 150 })}
               alt={society.name}
               fill
               className="object-cover"
               sizes="48px"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <Building2 className="w-6 h-6 text-gray-400" />
+            <div className="w-full h-full flex items-center justify-center text-gray-300">
+              <icons.Building2 className="w-6 h-6" />
             </div>
           )}
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-semibold text-gray-800 group-hover:text-[#029bba] transition-colors truncate">
+          <p className="text-sm font-bold text-gray-800 group-hover:text-[#029bba] transition-colors truncate">
             {society.name}
           </p>
-          <p className="text-xs text-gray-500 truncate">{society.areaName}, {society.city}</p>
+          <p className="text-[11px] text-gray-400 truncate">{society.areaName}, {society.city}</p>
         </div>
-        <div className="flex-shrink-0 text-right">
-          <div className={`text-lg font-extrabold ${getScoreColor(society.overallScore)}`}>
+        <div className="shrink-0 text-right">
+          <div className={`text-base font-black ${getScoreColor(society.overallScore)}`}>
             {society.overallScore}
           </div>
-          <div className="text-[9px] text-gray-400 uppercase tracking-wide">/100</div>
+          <div className="text-[9px] text-gray-400 font-bold uppercase tracking-wide">/100</div>
         </div>
       </div>
     </Link>
   );
 }
 
-// ─── Main Page ────────────────────────────────────────────────────────────────
+// ============================================================================
+// MAIN PAGE COMPONENT
+// ============================================================================
 
 export default function SocietyDetailPage({
   society,
   relatedCounts,
   relatedSocieties,
-}: InferGetStaticPropsType<typeof getStaticProps>): ReactElement {
+}: PageProps): React.ReactElement {
   const router = useRouter();
+  const [showReportModal, setShowReportModal] = useState<boolean>(false);
 
-  // ISR fallback — show skeleton while page generates
   if (router.isFallback) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#029bba] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 text-sm">Loading society report...</p>
+      <div className="min-h-screen bg-[#f8f9fa] flex items-center justify-center">
+        <div className="text-center space-y-3">
+          <icons.Loader2 className="w-10 h-10 border-4 border-[#029bba] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm font-semibold text-gray-500">Loading society intelligence report...</p>
         </div>
       </div>
     );
@@ -453,7 +428,7 @@ export default function SocietyDetailPage({
   const resolvedAlerts = society.riskAlerts.filter((a) => a.isResolved);
 
   const canonicalUrl = `https://highrise.pk/societies/${society.slug}`;
-  const pageTitle = society.seoTitle || `${society.name} — NOC Status, Scores & Intelligence Report | Highrise.pk`;
+  const pageTitle = society.seoTitle || `${society.name} - NOC Status, Scores & Intelligence Report | Highrise.pk`;
   const pageDescription = society.seoDescription ||
     `${society.name} in ${society.areaName}, ${society.city}. NOC ${society.nocStatus}. Overall score: ${society.scores.overall}/100. Check legal status, risk alerts, pricing, and infrastructure.`;
 
@@ -510,15 +485,13 @@ export default function SocietyDetailPage({
         />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f8f9fa]">
 
-        {/* ── Hero ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] pt-10 pb-0 overflow-hidden">
-          {/* BG decoration */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#029bba]/10 rounded-full blur-3xl -translate-y-1/3 translate-x-1/4" />
+        {/* Cover Hero Block */}
+        <section className="relative bg-gradient-to-r from-[#004063] to-[#002842] pt-10 pb-0 overflow-hidden">
+          <div className="absolute inset-0 pointer-events-none opacity-[0.03]">
             <div
-              className="absolute inset-0 opacity-[0.03]"
+              className="absolute inset-0"
               style={{
                 backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
                 backgroundSize: '32px 32px',
@@ -526,128 +499,112 @@ export default function SocietyDetailPage({
             />
           </div>
 
-          <div className="container mx-auto px-4 relative z-10">
+          <div className="max-w-[1120px] mx-auto px-4 sm:px-6 relative z-10">
             {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-xs text-white/40 mb-6" aria-label="Breadcrumb">
-              <Link href="/" className="hover:text-white/70 transition-colors">Home</Link>
-              <ChevronRight className="w-3 h-3" />
-              <Link href="/societies" className="hover:text-white/70 transition-colors">Societies</Link>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-white/70 truncate max-w-[200px]">{society.name}</span>
+            <nav className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md text-white text-[11px] font-bold uppercase tracking-wider mb-6 border border-white/10" aria-label="Breadcrumb">
+              <Link href="/" className="hover:text-white/80 transition-colors">Home</Link>
+              <icons.ChevronRight className="w-3 h-3 opacity-50" />
+              <Link href="/societies" className="hover:text-white/80 transition-colors">Societies</Link>
+              <icons.ChevronRight className="w-3 h-3 opacity-50" />
+              <span className="text-white/90 truncate max-w-[200px]">{society.name}</span>
             </nav>
 
-            {/* Back button */}
-            <Link
-              href="/societies"
-              className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm mb-6 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-              Back to Societies
-            </Link>
-
-            <div className="max-w-4xl">
-              {/* Badges row */}
-              <div className="flex flex-wrap items-center gap-2 mb-4">
+            <div className="max-w-4xl space-y-4">
+              <div className="flex flex-wrap items-center gap-2">
                 {society.isVerifiedByHighrise && (
-                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#029bba] text-white text-xs font-bold">
-                    <BadgeCheck className="w-3.5 h-3.5" />
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#029bba] text-white text-xs font-bold shadow-sm">
+                    <icons.BadgeCheck className="w-3.5 h-3.5" />
                     Highrise Verified
                   </span>
                 )}
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/80 text-xs font-medium">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-white text-xs font-bold border border-white/10">
                   {categoryLabel}
                 </span>
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 text-white/80 text-xs font-medium">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/15 text-white text-xs font-bold border border-white/10">
                   {society.approvalAuthority}
                 </span>
               </div>
 
-              {/* Title */}
-              <h1 className="text-3xl md:text-4xl font-bold text-white mb-3 leading-tight">
+              <h1 className="text-3xl md:text-4xl font-black text-white leading-tight">
                 {society.name}
               </h1>
 
-              {/* Location + meta */}
-              <div className="flex flex-wrap items-center gap-4 text-white/70 text-sm mb-6">
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 flex-shrink-0" />
+              <div className="flex flex-wrap items-center gap-5 text-white/70 text-xs font-semibold mb-6">
+                <span className="flex items-center gap-1">
+                  <icons.MapPin className="w-4 h-4 text-[#029bba]" />
                   {society.areaName}, {society.city}
                 </span>
                 {society.launchYear && (
-                  <span className="flex items-center gap-1.5">
-                    <CalendarDays className="w-4 h-4 flex-shrink-0" />
-                    Est. {society.launchYear}
+                  <span className="flex items-center gap-1">
+                    <icons.Calendar className="w-4 h-4 text-[#029bba]" />
+                    Established {society.launchYear}
                   </span>
                 )}
-                <span className="flex items-center gap-1.5">
-                  <Eye className="w-4 h-4 flex-shrink-0" />
-                  {society.viewCount.toLocaleString()} views
+                <span className="flex items-center gap-1">
+                  <icons.Eye className="w-4 h-4 text-[#029bba]" />
+                  {society.viewCount.toLocaleString()} Views
                 </span>
               </div>
 
-              {/* NOC + Risk status row */}
-              <div className="flex flex-wrap items-center gap-3 mb-8">
-                {/* NOC badge */}
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${noc.bg} ${noc.border} ${noc.color} text-sm font-bold`}>
+              {/* NOC / Status badges */}
+              <div className="flex flex-wrap items-center gap-3 pb-8">
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${noc.bg} ${noc.border} ${noc.color} text-xs font-bold shadow-xs`}>
                   {noc.icon}
                   {noc.label}
                 </div>
 
-                {/* Risk badge */}
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${risk.bg} ${risk.border} ${risk.color} text-sm font-bold`}>
-                  <Shield className="w-4 h-4" />
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${risk.bg} ${risk.border} ${risk.color} text-xs font-bold shadow-xs`}>
+                  <icons.Shield className="w-4 h-4" />
                   {risk.label}
                 </div>
 
-                {/* Active alerts warning */}
                 {activeAlerts.length > 0 && (
-                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#ef4444]/20 border border-[#ef4444]/40 text-[#ef4444] text-sm font-bold animate-pulse">
-                    <AlertTriangle className="w-4 h-4" />
-                    {activeAlerts.length} Active Alert{activeAlerts.length > 1 ? 's' : ''}
+                  <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-bold animate-pulse">
+                    <icons.AlertTriangle className="w-4 h-4" />
+                    {activeAlerts.length} Active Compliance Risk Alert{activeAlerts.length > 1 ? 's' : ''}
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Hero image strip */}
+            {/* Featured Hero Banner Image */}
             {society.featuredImage && (
-              <div className="relative h-64 md:h-80 rounded-t-3xl overflow-hidden mt-4">
+              <div className="relative h-64 md:h-80 rounded-t-2xl overflow-hidden border-t border-x border-white/10">
                 <Image
-                  src={society.featuredImage}
+                  src={getOptimizedImageUrl(society.featuredImage, { width: 1200 })}
                   alt={society.name}
                   fill
                   className="object-cover"
                   priority
-                  sizes="(max-width: 768px) 100vw, 1200px"
+                  sizes="(max-width: 1024px) 100vw, 1120px"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-[#001f2b]/60 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-                {/* Overall score overlay */}
-                <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-2xl px-4 py-3 shadow-xl">
-                  <div className={`text-4xl font-extrabold ${getScoreColor(society.scores.overall)}`}>
+                <div className="absolute bottom-4 right-4 bg-white/95 backdrop-blur-sm rounded-xl px-4 py-3 shadow-md text-center">
+                  <div className={`text-4xl font-black ${getScoreColor(society.scores.overall)}`}>
                     {society.scores.overall}
                   </div>
-                  <div className="text-xs font-bold text-gray-500 uppercase tracking-wide">/100 Overall</div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mt-0.5">Overall Score</p>
                 </div>
               </div>
             )}
           </div>
         </section>
 
-        {/* ── Main content ── */}
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid lg:grid-cols-3 gap-8">
+        {/* Two-Column Pattern C Detail Page Structure */}
+        <div className={containers.detail}>
+          <div className={grids.detailTwoCol}>
 
-            {/* ── Left column (main) ── */}
-            <div className="lg:col-span-2 space-y-8">
+            {/* LEFT COLUMN: Main Intelligence Content */}
+            <div className="space-y-6 min-w-0">
 
-              {/* ── Active Risk Alerts ── */}
+              {/* Risk Alerts Panel */}
               {activeAlerts.length > 0 && (
-                <div className="bg-[#fef2f2] border border-[#ef4444]/30 rounded-2xl overflow-hidden">
-                  <div className="bg-[#ef4444] px-6 py-3 flex items-center gap-2">
-                    <AlertTriangle className="w-5 h-5 text-white" />
-                    <h2 className="text-sm font-bold text-white uppercase tracking-wide">
-                      Active Risk Alerts ({activeAlerts.length})
+                <div className="bg-red-50 border border-red-200 rounded-2xl overflow-hidden">
+                  <div className="bg-[#ef4444] px-6 py-3.5 flex items-center gap-2">
+                    <icons.AlertTriangle className="w-5 h-5 text-white" />
+                    <h2 className="text-sm font-bold text-white uppercase tracking-wider">
+                      Active Compliance Risk Alerts ({activeAlerts.length})
                     </h2>
                   </div>
                   <div className="p-6 space-y-4">
@@ -658,17 +615,17 @@ export default function SocietyDetailPage({
                           key={alert._id}
                           className={`p-4 rounded-xl border-l-4 ${sev.border} ${sev.bg}`}
                         >
-                          <div className="flex items-start justify-between gap-3 mb-1">
-                            <p className={`text-sm font-bold ${sev.color}`}>{alert.title}</p>
-                            <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${sev.border} ${sev.color} ${sev.bg}`}>
+                          <div className="flex items-start justify-between gap-3 mb-1.5">
+                            <p className="text-sm font-bold text-gray-900 leading-snug">{alert.title}</p>
+                            <span className={`shrink-0 text-[10px] font-bold px-2 py-0.5 rounded-full border ${sev.border} ${sev.color} ${sev.bg} uppercase tracking-wider`}>
                               {sev.label}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-700 mb-2">{alert.message}</p>
-                          <div className="flex flex-wrap gap-3 text-xs text-gray-500">
-                            {alert.issuedBy && <span>Issued by: <strong>{alert.issuedBy}</strong></span>}
-                            {alert.referenceNo && <span>Ref: <strong>{alert.referenceNo}</strong></span>}
-                            <span>{formatDate(alert.date)}</span>
+                          <p className="text-xs text-gray-600 leading-relaxed mb-2">{alert.message}</p>
+                          <div className="flex flex-wrap gap-3 text-[10px] text-gray-400 font-bold uppercase tracking-wider">
+                            {alert.issuedBy && <span>Authority: {alert.issuedBy}</span>}
+                            {alert.referenceNo && <span>Ref #: {alert.referenceNo}</span>}
+                            <span>Date: {formatDate(alert.date)}</span>
                           </div>
                         </div>
                       );
@@ -677,55 +634,142 @@ export default function SocietyDetailPage({
                 </div>
               )}
 
-              {/* ── Description ── */}
+              {/* About / Description */}
               {society.description && (
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6">
-                  <h2 className="text-lg font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <Info className="w-5 h-5 text-[#029bba]" />
-                    About {society.name}
-                  </h2>
-                  <p className="text-gray-600 leading-relaxed text-sm">{society.description}</p>
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 space-y-4">
+                  <h2 className={typography.sectionTitlePlain}>Intelligence Profile</h2>
+                  <p className="text-sm text-gray-600 leading-relaxed">{society.description}</p>
 
-                  {/* Stats row */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-5 border-t border-gray-100">
+                  {/* Fact Grid */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-5 border-t border-gray-100">
                     {society.totalPlots && (
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-gray-800">{society.totalPlots.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Total Plots</p>
+                      <div>
+                        <p className="text-xl font-black text-[#004063]">{society.totalPlots.toLocaleString()}</p>
+                        <p className="text-xs text-gray-400 font-medium">Total Plots</p>
                       </div>
                     )}
                     {society.totalPhases && (
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-gray-800">{society.totalPhases}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Phases</p>
+                      <div>
+                        <p className="text-xl font-black text-[#004063]">{society.totalPhases}</p>
+                        <p className="text-xs text-gray-400 font-medium">Phases</p>
                       </div>
                     )}
                     {society.possessionPercentage !== undefined && (
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-gray-800">{society.possessionPercentage}%</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Possession</p>
+                      <div>
+                        <p className="text-xl font-black text-[#004063]">{society.possessionPercentage}%</p>
+                        <p className="text-xs text-gray-400 font-medium">Possession Delivery</p>
                       </div>
                     )}
                     {society.expectedCompletionYear && (
-                      <div className="text-center">
-                        <p className="text-xl font-bold text-gray-800">{society.expectedCompletionYear}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">Expected Completion</p>
+                      <div>
+                        <p className="text-xl font-black text-[#004063]">{society.expectedCompletionYear}</p>
+                        <p className="text-xs text-gray-400 font-medium">Expected Completion</p>
                       </div>
                     )}
                   </div>
                 </div>
               )}
 
-              {/* ── Intelligence Scores ── */}
+              {/* NOC & Authority Framework Section */}
+              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 space-y-5">
+                <h2 className={typography.sectionTitlePlain}>Legal &amp; Regulatory Framework</h2>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-xs font-semibold text-gray-600">
+                  <div className="space-y-1">
+                    <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">NOC Status</p>
+                    <div className="flex items-center gap-1.5 pt-0.5">
+                      <span className={`inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold border ${noc.bg} ${noc.border} ${noc.color}`}>
+                        {noc.icon} {noc.label}
+                      </span>
+                    </div>
+                  </div>
+
+                  {society.nocNumber && (
+                    <div className="space-y-1">
+                      <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">NOC reference number</p>
+                      <p className="font-mono text-sm text-gray-800 pt-0.5">{society.nocNumber}</p>
+                    </div>
+                  )}
+
+                  {society.nocDate && (
+                    <div className="space-y-1">
+                      <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">NOC approval date</p>
+                      <p className="text-sm text-gray-800 pt-0.5">{formatDate(society.nocDate)}</p>
+                    </div>
+                  )}
+
+                  {society.nocExpiryDate && (
+                    <div className="space-y-1">
+                      <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">NOC expiry date</p>
+                      <p className={`text-sm ${society.isNOCValid ? 'text-gray-800' : 'text-red-600 font-black'} pt-0.5`}>
+                        {formatDate(society.nocExpiryDate)}
+                        {!society.isNOCValid && ' (Expired)'}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">Statutory Authority</p>
+                    <p className="text-sm text-[#029bba] pt-0.5">{society.approvalAuthority}</p>
+                  </div>
+
+                  {society.developmentAuthority && (
+                    <div className="space-y-1">
+                      <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">Development Body</p>
+                      <p className="text-sm text-gray-800 pt-0.5">{society.developmentAuthority}</p>
+                    </div>
+                  )}
+
+                  {society.registrationNo && (
+                    <div className="space-y-1">
+                      <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">Registration CUIN/No.</p>
+                      <p className="font-mono text-sm text-gray-800 pt-0.5">{society.registrationNo}</p>
+                    </div>
+                  )}
+
+                  <div className="space-y-1">
+                    <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">Litigation Status</p>
+                    <p className={`text-sm ${litigation.color} pt-0.5`}>{litigation.label}</p>
+                  </div>
+                </div>
+
+                {society.litigationNote && (
+                  <div className="p-4 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2.5">
+                    <icons.AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-900 leading-relaxed font-semibold">{society.litigationNote}</p>
+                  </div>
+                )}
+              </div>
+
+              {/* Developer Credentials */}
+              {society.developerName && (
+                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-6 space-y-3">
+                  <p className="text-gray-400 font-bold uppercase text-[9px] tracking-wider leading-none">Housing Society Developer</p>
+                  <h3 className="text-base font-black text-[#004063] leading-none">{society.developerName}</h3>
+                  {society.developerWebsite && (
+                    <a
+                      href={society.developerWebsite}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 text-xs text-[#029bba] font-bold hover:underline"
+                    >
+                      <icons.ExternalLink className="w-4 h-4" />
+                      Visit Developer Website
+                    </a>
+                  )}
+                </div>
+              )}
+
+              {/* Overall Intelligence Metrics */}
               <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="bg-gray-50 border-b border-gray-100 px-6 py-4 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-[#029bba]" />
-                  <h2 className="text-base font-bold text-gray-900">Intelligence Scores</h2>
+                  <icons.Activity className="w-5 h-5 text-[#029bba]" />
+                  <h2 className="text-base font-bold text-gray-900">Highrise Intelligence Ratings</h2>
                 </div>
                 <div className="p-6">
-                  {/* Overall score hero */}
+                  {/* Circle score hero */}
                   <div className="flex items-center gap-6 mb-6 pb-6 border-b border-gray-100">
-                    <div className="relative w-20 h-20 flex-shrink-0">
+                    <div className="relative w-20 h-20 shrink-0">
                       <svg className="w-20 h-20 -rotate-90" viewBox="0 0 80 80">
                         <circle cx="40" cy="40" r="34" fill="none" stroke="#f3f4f6" strokeWidth="10" />
                         <circle
@@ -743,11 +787,11 @@ export default function SocietyDetailPage({
                       </div>
                     </div>
                     <div>
-                      <p className="text-sm text-gray-500 mb-1">Overall Score</p>
-                      <p className={`text-xl font-bold ${risk.color}`}>{risk.label}</p>
+                      <p className="text-xs text-gray-500 mb-1">Overall Delivery Score</p>
+                      <p className={`text-lg font-black ${risk.color}`}>{risk.label}</p>
                       {society.lastVerifiedAt && (
-                        <p className="text-xs text-gray-400 mt-1">
-                          Last verified: {formatDate(society.lastVerifiedAt)}
+                        <p className="text-xs text-gray-400 mt-1 font-semibold">
+                          Last audited: {formatDate(society.lastVerifiedAt)}
                         </p>
                       )}
                     </div>
@@ -755,65 +799,65 @@ export default function SocietyDetailPage({
 
                   {/* Individual scores */}
                   <div className="space-y-4">
-                    <ScoreBar label="Legal Score" score={society.scores.legal} icon={<Shield className="w-4 h-4" />} />
-                    <ScoreBar label="Growth Score" score={society.scores.growth} icon={<TrendingUp className="w-4 h-4" />} />
-                    <ScoreBar label="Infrastructure Score" score={society.scores.infrastructure} icon={<Building2 className="w-4 h-4" />} />
-                    <ScoreBar label="Possession Score" score={society.scores.possession} icon={<CheckCircle className="w-4 h-4" />} />
-                    <ScoreBar label="Livability Score" score={society.scores.livability} icon={<Home className="w-4 h-4" />} />
+                    <ScoreBar label="Legal Integrity Score" score={society.scores.legal} icon={<icons.Shield className="w-4 h-4" />} />
+                    <ScoreBar label="Capital Growth Potential" score={society.scores.growth} icon={<icons.TrendingUp className="w-4 h-4" />} />
+                    <ScoreBar label="Development Infrastructure" score={society.scores.infrastructure} icon={<icons.Building className="w-4 h-4" />} />
+                    <ScoreBar label="Possession Delivery Track" score={society.scores.possession} icon={<icons.CheckCircle className="w-4 h-4" />} />
+                    <ScoreBar label="Social Livability Quotient" score={society.scores.livability} icon={<icons.Home className="w-4 h-4" />} />
                   </div>
                 </div>
               </div>
 
-              {/* ── Infrastructure Details ── */}
+              {/* Infrastructure details */}
               <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="bg-gray-50 border-b border-gray-100 px-6 py-4 flex items-center gap-2">
-                  <Zap className="w-5 h-5 text-[#029bba]" />
-                  <h2 className="text-base font-bold text-gray-900">Infrastructure Breakdown</h2>
+                  <icons.Zap className="w-5 h-5 text-[#029bba]" />
+                  <h2 className="text-base font-bold text-gray-900">Infrastructure Matrix</h2>
                 </div>
                 <div className="p-6 space-y-4">
-                  <ScoreBar label="Electricity" score={society.infrastructureDetails.electricity} icon={<Zap className="w-4 h-4" />} />
-                  <ScoreBar label="Gas" score={society.infrastructureDetails.gas} icon={<Flame className="w-4 h-4" />} />
-                  <ScoreBar label="Water Supply" score={society.infrastructureDetails.water} icon={<Droplets className="w-4 h-4" />} />
-                  <ScoreBar label="Sewerage" score={society.infrastructureDetails.sewerage} icon={<Navigation className="w-4 h-4" />} />
-                  <ScoreBar label="Internet / Fibre" score={society.infrastructureDetails.internet} icon={<Wifi className="w-4 h-4" />} />
-                  <ScoreBar label="Roads" score={society.infrastructureDetails.roads} icon={<Navigation className="w-4 h-4" />} />
+                  <ScoreBar label="Electricity Grid Delivery" score={society.infrastructureDetails.electricity} icon={<icons.Zap className="w-4 h-4" />} />
+                  <ScoreBar label="Sui Gas Network" score={society.infrastructureDetails.gas} icon={<icons.Flame className="w-4 h-4" />} />
+                  <ScoreBar label="Potable Water Supply" score={society.infrastructureDetails.water} icon={<icons.Droplets className="w-4 h-4" />} />
+                  <ScoreBar label="Underground Sewerage System" score={society.infrastructureDetails.sewerage} icon={<icons.Navigation className="w-4 h-4" />} />
+                  <ScoreBar label="Fiber Broadband / Internet" score={society.infrastructureDetails.internet} icon={<icons.Globe className="w-4 h-4" />} />
+                  <ScoreBar label="Paved Carpeted Road Infrastructure" score={society.infrastructureDetails.roads} icon={<icons.Navigation className="w-4 h-4" />} />
                 </div>
               </div>
 
-              {/* ── Livability Details ── */}
+              {/* Livability details */}
               <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                 <div className="bg-gray-50 border-b border-gray-100 px-6 py-4 flex items-center gap-2">
-                  <Home className="w-5 h-5 text-[#029bba]" />
-                  <h2 className="text-base font-bold text-gray-900">Livability Breakdown</h2>
+                  <icons.Home className="w-5 h-5 text-[#029bba]" />
+                  <h2 className="text-base font-bold text-gray-900">Livability Matrix</h2>
                 </div>
                 <div className="p-6 space-y-4">
-                  <ScoreBar label="Schools & Education" score={society.livabilityDetails.schools} icon={<GraduationCap className="w-4 h-4" />} />
-                  <ScoreBar label="Hospitals & Healthcare" score={society.livabilityDetails.hospitals} icon={<HeartPulse className="w-4 h-4" />} />
-                  <ScoreBar label="Markets & Shopping" score={society.livabilityDetails.markets} icon={<ShoppingBag className="w-4 h-4" />} />
-                  <ScoreBar label="Transport Access" score={society.livabilityDetails.transport} icon={<Bus className="w-4 h-4" />} />
-                  <ScoreBar label="Security" score={society.livabilityDetails.security} icon={<Shield className="w-4 h-4" />} />
-                  <ScoreBar label="Parks & Recreation" score={society.livabilityDetails.parks} icon={<Trees className="w-4 h-4" />} />
+                  <ScoreBar label="Accredited Schools &amp; Education" score={society.livabilityDetails.schools} icon={<icons.GraduationCap className="w-4 h-4" />} />
+                  <ScoreBar label="Hospitals &amp; Clinical Facilities" score={society.livabilityDetails.hospitals} icon={<icons.HeartPulse className="w-4 h-4" />} />
+                  <ScoreBar label="Shopping Plazas &amp; Markets" score={society.livabilityDetails.markets} icon={<icons.ShoppingBag className="w-4 h-4" />} />
+                  <ScoreBar label="Public Transit &amp; Road Access" score={society.livabilityDetails.transport} icon={<icons.Bus className="w-4 h-4" />} />
+                  <ScoreBar label="Security Personnel &amp; CCTV Guarding" score={society.livabilityDetails.security} icon={<icons.Shield className="w-4 h-4" />} />
+                  <ScoreBar label="Public Parks &amp; Green Belts" score={society.livabilityDetails.parks} icon={<icons.Trees className="w-4 h-4" />} />
                 </div>
               </div>
 
-              {/* ── Block / Phase Pricing ── */}
+              {/* Pricing breakdown */}
               {society.blockRates.length > 0 && (
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                   <div className="bg-gray-50 border-b border-gray-100 px-6 py-4 flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <Banknote className="w-5 h-5 text-[#029bba]" />
-                      <h2 className="text-base font-bold text-gray-900">Block-wise Pricing</h2>
+                      <icons.Banknote className="w-5 h-5 text-[#029bba]" />
+                      <h2 className="text-base font-bold text-gray-900">Sector / Block Indicative Pricing</h2>
                     </div>
                     {(society.priceChangeYoY !== undefined || society.rentalYield !== undefined) && (
-                      <div className="flex items-center gap-4 text-xs">
+                      <div className="flex items-center gap-4 text-xs font-semibold">
                         {society.priceChangeYoY !== undefined && (
-                          <span className={`font-semibold ${society.priceChangeYoY >= 0 ? 'text-[#10b981]' : 'text-[#ef4444]'}`}>
-                            {society.priceChangeYoY >= 0 ? '+' : ''}{society.priceChangeYoY}% YoY
+                          <span className={society.priceChangeYoY >= 0 ? 'text-emerald-600' : 'text-red-600'}>
+                            {society.priceChangeYoY >= 0 ? '+' : ''}{society.priceChangeYoY}% YoY Growth
                           </span>
                         )}
                         {society.rentalYield !== undefined && (
-                          <span className="font-semibold text-[#029bba]">
-                            {society.rentalYield}% Yield
+                          <span className="text-[#029bba]">
+                            {society.rentalYield}% Rental Yield
                           </span>
                         )}
                       </div>
@@ -822,22 +866,22 @@ export default function SocietyDetailPage({
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
                       <thead>
-                        <tr className="border-b border-gray-100">
-                          <th className="text-left px-5 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Block</th>
-                          <th className="text-left px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Plot Size</th>
-                          <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Min Price</th>
-                          <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Max Price</th>
-                          <th className="text-right px-4 py-3 text-xs font-semibold text-gray-500 uppercase tracking-wide">Per Marla</th>
+                        <tr className="border-b border-gray-100 text-xs text-gray-400 font-bold uppercase tracking-wider">
+                          <th className="text-left px-5 py-3 font-bold">Sector/Block</th>
+                          <th className="text-left px-4 py-3 font-bold">Plot Category</th>
+                          <th className="text-right px-4 py-3 font-bold">Min Value</th>
+                          <th className="text-right px-4 py-3 font-bold">Max Value</th>
+                          <th className="text-right px-4 py-3 font-bold">Per Marla Rate</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-50">
+                      <tbody className="divide-y divide-gray-50 text-xs">
                         {society.blockRates.map((rate, idx) => (
                           <tr key={idx} className="hover:bg-gray-50/50 transition-colors">
-                            <td className="px-5 py-3 font-semibold text-gray-800">{rate.blockName}</td>
-                            <td className="px-4 py-3 text-gray-600">{rate.plotSize}</td>
-                            <td className="px-4 py-3 text-right text-gray-700">PKR {formatPKR(rate.minPrice)}</td>
-                            <td className="px-4 py-3 text-right text-gray-700">PKR {formatPKR(rate.maxPrice)}</td>
-                            <td className="px-4 py-3 text-right text-[#029bba] font-semibold">
+                            <td className="px-5 py-3 font-bold text-gray-800">{rate.blockName}</td>
+                            <td className="px-4 py-3 text-gray-600 font-semibold">{rate.plotSize}</td>
+                            <td className="px-4 py-3 text-right text-gray-700 font-bold">PKR {formatPKR(rate.minPrice)}</td>
+                            <td className="px-4 py-3 text-right text-gray-700 font-bold">PKR {formatPKR(rate.maxPrice)}</td>
+                            <td className="px-4 py-3 text-right text-[#029bba] font-bold">
                               {rate.pricePerMarla ? `PKR ${formatPKR(rate.pricePerMarla)}` : '—'}
                             </td>
                           </tr>
@@ -845,35 +889,30 @@ export default function SocietyDetailPage({
                       </tbody>
                     </table>
                   </div>
-                  <div className="px-5 py-3 bg-gray-50 border-t border-gray-100">
-                    <p className="text-[11px] text-gray-400">
-                      Prices are indicative market rates. Verify directly before any transaction.
-                    </p>
-                  </div>
                 </div>
               )}
 
-              {/* ── Resolved Alerts (collapsed) ── */}
+              {/* Resolved Alerts */}
               {resolvedAlerts.length > 0 && (
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                   <div className="bg-gray-50 border-b border-gray-100 px-6 py-4 flex items-center gap-2">
-                    <CheckCircle className="w-5 h-5 text-[#10b981]" />
+                    <icons.CheckCircle className="w-5 h-5 text-emerald-600" />
                     <h2 className="text-base font-bold text-gray-900">
-                      Resolved Alerts ({resolvedAlerts.length})
+                      Resolved Compliance Alerts ({resolvedAlerts.length})
                     </h2>
                   </div>
                   <div className="p-6 space-y-3">
                     {resolvedAlerts.map((alert) => (
-                      <div key={alert._id} className="p-3 bg-gray-50 rounded-xl opacity-70">
-                        <div className="flex items-center justify-between gap-2 mb-1">
-                          <p className="text-sm font-semibold text-gray-700">{alert.title}</p>
-                          <span className="text-[10px] font-semibold text-[#10b981] bg-green-50 px-2 py-0.5 rounded-full">
+                      <div key={alert._id} className="p-4 bg-gray-50 rounded-xl border border-gray-150">
+                        <div className="flex items-center justify-between gap-2 mb-1.5">
+                          <p className="text-sm font-bold text-gray-800">{alert.title}</p>
+                          <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 border border-emerald-200 rounded-full uppercase">
                             Resolved
                           </span>
                         </div>
-                        <p className="text-xs text-gray-500">{alert.message}</p>
+                        <p className="text-xs text-gray-500 leading-relaxed">{alert.message}</p>
                         {alert.resolvedNote && (
-                          <p className="text-xs text-[#10b981] mt-1">✓ {alert.resolvedNote}</p>
+                          <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Resolution update: {alert.resolvedNote}</p>
                         )}
                       </div>
                     ))}
@@ -881,13 +920,13 @@ export default function SocietyDetailPage({
                 </div>
               )}
 
-              {/* ── Documents ── */}
+              {/* Official legal documents */}
               {society.documents.length > 0 && (
                 <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
                   <div className="bg-gray-50 border-b border-gray-100 px-6 py-4 flex items-center gap-2">
-                    <FileText className="w-5 h-5 text-[#029bba]" />
+                    <icons.FileText className="w-5 h-5 text-[#029bba]" />
                     <h2 className="text-base font-bold text-gray-900">
-                      Official Documents ({society.documents.length})
+                      Official Authority Postings ({society.documents.length})
                     </h2>
                   </div>
                   <div className="p-6 grid sm:grid-cols-2 gap-3">
@@ -897,20 +936,20 @@ export default function SocietyDetailPage({
                         href={doc.url}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl hover:bg-[#029bba]/5 hover:border-[#029bba]/20 border border-transparent transition-all group"
+                        className="flex items-center gap-3 p-3.5 bg-gray-50 rounded-xl hover:bg-[#029bba]/5 hover:border-[#029bba]/30 border border-transparent hover:border-gray-100 transition-all group"
                       >
-                        <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 flex items-center justify-center flex-shrink-0 group-hover:bg-[#029bba] transition-colors">
-                          <FileText className="w-4 h-4 text-[#029bba] group-hover:text-white transition-colors" />
+                        <div className="w-9 h-9 rounded-lg bg-[#029bba]/10 flex items-center justify-center shrink-0 group-hover:bg-[#029bba] transition-colors">
+                          <icons.FileText className="w-4 h-4 text-[#029bba] group-hover:text-white transition-colors" />
                         </div>
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-semibold text-gray-800 truncate group-hover:text-[#029bba] transition-colors">
+                          <p className="text-sm font-bold text-gray-800 truncate group-hover:text-[#029bba] transition-colors">
                             {doc.title}
                           </p>
-                          <p className="text-[10px] text-gray-400 capitalize">
+                          <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">
                             {doc.type.replace('_', ' ')}
                           </p>
                         </div>
-                        <ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] flex-shrink-0 transition-colors" />
+                        <icons.ExternalLink className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] shrink-0 transition-colors" />
                       </a>
                     ))}
                   </div>
@@ -919,254 +958,162 @@ export default function SocietyDetailPage({
 
             </div>
 
-            {/* ── Right column (sidebar) ── */}
-            <div className="space-y-6">
+            {/* RIGHT COLUMN: Standardized 3-Card Sidebar Stack */}
+            <div className="relative min-w-0 w-full max-w-[340px] justify-self-end">
+              <div className="space-y-6 w-full">
+                <UniversalContactCard
+                  entityType="project"
+                  entityId={society._id}
+                  entityTitle={society.name}
+                  actorName="Highrise Society Desk"
+                  actorRole="Compliance &amp; Advisory Desk"
+                  brandLogo="/images/logo.png"
+                  isVerified={society.isVerifiedByHighrise}
+                />
 
-              {/* ── Legal Summary Card ── */}
-              <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                <div className="bg-gray-50 border-b border-gray-100 px-5 py-4 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-[#029bba]" />
-                  <h2 className="text-sm font-bold text-gray-700">Legal Status</h2>
-                </div>
-                <div className="p-5 space-y-4">
-                  {/* NOC */}
-                  <div>
-                    <p className="text-xs text-gray-400 mb-1.5">NOC Status</p>
-                    <div className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border ${noc.bg} ${noc.border} ${noc.color} text-xs font-bold`}>
-                      {noc.icon}
-                      {noc.label}
-                    </div>
-                  </div>
+                <SafeDealSidebarCard />
 
-                  {/* NOC details */}
-                  {society.nocNumber && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">NOC Number</p>
-                      <p className="text-sm font-mono font-semibold text-gray-800">{society.nocNumber}</p>
-                    </div>
-                  )}
-                  {society.nocDate && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">NOC Date</p>
-                      <p className="text-sm font-semibold text-gray-800">{formatDate(society.nocDate)}</p>
-                    </div>
-                  )}
-                  {society.nocExpiryDate && (
-                    <div>
-                      <p className="text-xs text-gray-400 mb-1">NOC Expiry</p>
-                      <p className={`text-sm font-semibold ${society.isNOCValid ? 'text-gray-800' : 'text-[#ef4444]'}`}>
-                        {formatDate(society.nocExpiryDate)}
-                        {!society.isNOCValid && ' ⚠️ Expired'}
-                      </p>
-                    </div>
-                  )}
+                <SafetyWarningCard onReport={() => setShowReportModal(true)} />
 
-                  {/* Divider */}
-                  <div className="border-t border-gray-100 pt-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Authority</span>
-                      <span className="text-xs font-semibold text-[#029bba]">{society.approvalAuthority}</span>
+                {/* Available Listings Quick Navigation Card */}
+                {(relatedCounts.properties > 0 || relatedCounts.projects > 0) && (
+                  <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
+                    <div className="bg-gray-50 border-b border-gray-100 px-5 py-4 flex items-center gap-2">
+                      <icons.Home className="w-4 h-4 text-[#029bba]" />
+                      <h2 className="text-sm font-bold text-gray-700">Available Listings</h2>
                     </div>
-                    {society.developmentAuthority && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Dev. Authority</span>
-                        <span className="text-xs font-semibold text-gray-700">{society.developmentAuthority}</span>
-                      </div>
-                    )}
-                    {society.registrationNo && (
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs text-gray-500">Reg. No.</span>
-                        <span className="text-xs font-mono font-semibold text-gray-700">{society.registrationNo}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs text-gray-500">Litigation</span>
-                      <span className={`text-xs font-semibold ${litigation.color}`}>{litigation.label}</span>
-                    </div>
-                  </div>
-
-                  {society.litigationNote && (
-                    <div className="p-3 bg-amber-50 border border-amber-200 rounded-xl">
-                      <p className="text-xs text-amber-800">{society.litigationNote}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* ── Developer Info ── */}
-              {society.developerName && (
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="bg-gray-50 border-b border-gray-100 px-5 py-4 flex items-center gap-2">
-                    <Building2 className="w-4 h-4 text-[#029bba]" />
-                    <h2 className="text-sm font-bold text-gray-700">Developer</h2>
-                  </div>
-                  <div className="p-5">
-                    <p className="text-sm font-semibold text-gray-800 mb-2">{society.developerName}</p>
-                    {society.developerWebsite && (
-                      <a
-                        href={society.developerWebsite}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 text-xs text-[#029bba] hover:underline"
-                      >
-                        <ExternalLink className="w-3.5 h-3.5" />
-                        Visit Website
-                      </a>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Related listings count ── */}
-              {(relatedCounts.properties > 0 || relatedCounts.projects > 0) && (
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="bg-gray-50 border-b border-gray-100 px-5 py-4 flex items-center gap-2">
-                    <Home className="w-4 h-4 text-[#029bba]" />
-                    <h2 className="text-sm font-bold text-gray-700">Available Listings</h2>
-                  </div>
-                  <div className="p-5 space-y-3">
-                    {relatedCounts.properties > 0 && (
-                      <Link href={`/properties?society=${encodeURIComponent(society.name)}`}>
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-[#029bba]/5 transition-colors cursor-pointer group">
-                          <span className="text-sm font-medium text-gray-700 group-hover:text-[#029bba]">
-                            Properties
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-[#029bba]">
-                              {relatedCounts.properties}
+                    <div className="p-5 space-y-3">
+                      {relatedCounts.properties > 0 && (
+                        <Link href={`/properties?society=${encodeURIComponent(society.name)}`}>
+                          <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl hover:bg-[#029bba]/5 border border-transparent hover:border-gray-100 transition-all cursor-pointer group">
+                            <span className="text-xs font-bold text-gray-700 group-hover:text-[#029bba]">
+                              Active Properties
                             </span>
-                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba]" />
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-[#029bba]">
+                                {relatedCounts.properties} Listings
+                              </span>
+                              <icons.ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] transition-colors" />
+                            </div>
                           </div>
-                        </div>
-                      </Link>
-                    )}
-                    {relatedCounts.projects > 0 && (
-                      <Link href={`/projects?area=${encodeURIComponent(society.areaName)}`}>
-                        <div className="flex items-center justify-between p-3 bg-gray-50 rounded-xl hover:bg-[#029bba]/5 transition-colors cursor-pointer group">
-                          <span className="text-sm font-medium text-gray-700 group-hover:text-[#029bba]">
-                            Projects
-                          </span>
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold text-[#029bba]">
-                              {relatedCounts.projects}
+                        </Link>
+                      )}
+                      {relatedCounts.projects > 0 && (
+                        <Link href={`/projects?area=${encodeURIComponent(society.areaName)}`}>
+                          <div className="flex items-center justify-between p-3.5 bg-gray-50 rounded-xl hover:bg-[#029bba]/5 border border-transparent hover:border-gray-100 transition-all cursor-pointer group">
+                            <span className="text-xs font-bold text-gray-700 group-hover:text-[#029bba]">
+                              Underway Projects
                             </span>
-                            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba]" />
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-black text-[#029bba]">
+                                {relatedCounts.projects} Projects
+                              </span>
+                              <icons.ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] transition-colors" />
+                            </div>
                           </div>
-                        </div>
-                      </Link>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* ── Contact CTA ── */}
-              <div className="bg-gradient-to-br from-[#029bba] to-[#004063] rounded-2xl p-6 text-white">
-                <MessageCircle className="w-8 h-8 text-white/80 mb-3" />
-                <h3 className="font-bold text-lg mb-2">Interested in {society.name}?</h3>
-                <p className="text-white/80 text-sm mb-4">
-                  Our property experts can help you find the right plot or property in this society.
-                </p>
-                <Link href="/contact">
-                  <button className="w-full py-2.5 rounded-xl bg-white text-[#004063] font-bold text-sm hover:bg-gray-100 transition-colors">
-                    Contact Our Team
-                  </button>
-                </Link>
-                <p className="text-center text-white/50 text-[10px] mt-3 flex items-center justify-center gap-1">
-                  <Lock className="w-3 h-3" />
-                  No spam · Free consultation
-                </p>
-              </div>
-
-              {/* ── Disclaimer ── */}
-              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-                <div className="flex items-start gap-2">
-                  <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-800 leading-relaxed">
-                    <strong>Always verify independently.</strong> Data is aggregated from public sources and may not reflect the latest developments. Consult {society.approvalAuthority} directly before any investment decision.
-                  </p>
-                </div>
-              </div>
-
-              {/* ── Related Societies ── */}
-              {relatedSocieties.length > 0 && (
-                <div className="bg-white border border-gray-100 rounded-2xl shadow-sm overflow-hidden">
-                  <div className="bg-gray-50 border-b border-gray-100 px-5 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Award className="w-4 h-4 text-[#029bba]" />
-                      <h2 className="text-sm font-bold text-gray-700">Similar in {society.city}</h2>
+                        </Link>
+                      )}
                     </div>
-                    <Link href={`/societies?city=${encodeURIComponent(society.city)}`}>
-                      <span className="text-xs text-[#029bba] font-medium hover:underline">See all</span>
-                    </Link>
                   </div>
-                  <div className="p-4 space-y-2">
-                    {relatedSocieties.map((s) => (
-                      <RelatedSocietyCard key={s._id} society={s} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
+                )}
+              </div>
             </div>
+
           </div>
+
+          {/* Similar Societies inside same City */}
+          {relatedSocieties.length > 0 && (
+            <div className="mt-12 pt-8 border-t border-gray-100 space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className={typography.sectionTitlePlain}>Similar Societies in {society.city}</h2>
+                  <p className={typography.caption}>Explore alternative investment prospects</p>
+                </div>
+                <Link href={`/societies?city=${encodeURIComponent(society.city)}`}>
+                  <span className="text-xs text-[#029bba] font-bold hover:underline">View All Societies</span>
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                {relatedSocieties.map((s) => (
+                  <RelatedSocietyCard key={s._id} society={s} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* ── Bottom CTA ── */}
-        <section className="bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-14">
-          <div className="container mx-auto px-4 text-center">
-            <h2 className="text-2xl font-bold text-white mb-3">
-              Want to invest in <span className="text-[#06b6d4]">{society.city}</span>?
+        {/* Global bottom Call-To-Action */}
+        <section className="bg-gradient-to-r from-[#004063] to-[#002842] py-14 mt-12">
+          <div className="container mx-auto px-4 text-center max-w-2xl space-y-5">
+            <h2 className="text-2xl font-black text-white leading-tight">
+              Investigating property options in {society.city}?
             </h2>
-            <p className="text-white/70 mb-6 max-w-xl mx-auto text-sm">
-              Browse all verified societies, check risk alerts, and compare prices before making any decision.
+            <p className="text-white/70 text-sm leading-relaxed max-w-lg mx-auto">
+              Inspect verified master-plans, risk reports, and block pricing trends across all societies on Pakistan's smartest real estate index.
             </p>
-            <div className="flex flex-wrap items-center justify-center gap-3">
+            <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
               <Link href="/societies">
-                <button className="px-5 py-2.5 rounded-xl bg-white text-[#004063] font-bold text-sm hover:bg-gray-100 transition-colors inline-flex items-center gap-2">
-                  <Building2 className="w-4 h-4" />
-                  All Societies
+                <button className="px-5 py-2.5 rounded-xl bg-white text-[#004063] font-bold text-xs hover:bg-gray-100 transition-colors inline-flex items-center gap-2">
+                  <icons.Building2 className="w-4 h-4 text-[#029bba]" />
+                  All Housing Schemes
                 </button>
               </Link>
               <Link href="/risk-alerts">
-                <button className="px-5 py-2.5 rounded-xl bg-white/15 border-2 border-white/30 text-white font-bold text-sm hover:bg-white/25 transition-colors inline-flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4" />
+                <button className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-xs hover:bg-white/20 transition-colors inline-flex items-center gap-2">
+                  <icons.AlertTriangle className="w-4 h-4 text-[#f59e0b]" />
                   Risk Alert Board
-                </button>
-              </Link>
-              <Link href="/tools/price-estimator">
-                <button className="px-5 py-2.5 rounded-xl bg-white/15 border-2 border-white/30 text-white font-bold text-sm hover:bg-white/25 transition-colors inline-flex items-center gap-2">
-                  <Banknote className="w-4 h-4" />
-                  Fair Price Check
                 </button>
               </Link>
             </div>
           </div>
         </section>
 
+        {/* Bottom Safety Disclaimer Banner */}
+        <div className={safety.disclaimer}>
+          <div className={safety.disclaimerInner}>
+            <icons.Shield className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <p className={safety.disclaimerText}>
+              <strong className="text-amber-800">Legal Notice:</strong>{' '}
+              All housing society metrics, litigation records, and NOC statuses are collected from statutory public notices (CDA, LDA, RDA, KDA, etc.). Investors must execute comprehensive legal due diligence before making advance deposits or financial commitments.
+            </p>
+          </div>
+        </div>
+
       </div>
-      {/* Aria AI — society context */}
+
       <AleemWidget
         context={{
-          type:             'society',
-          id:               society._id,
-          slug:             society.slug,
-          title:            society.name,
-          city:             society.city,
-          nocStatus:        society.nocStatus,
-          overallScore:     society.scores.overall,
+          type: 'society',
+          id: society._id,
+          slug: society.slug,
+          title: society.name,
+          city: society.city,
+          nocStatus: society.nocStatus,
+          overallScore: society.scores.overall,
           overallRiskLevel: society.overallRiskLevel,
-          canonicalUrl:     canonicalUrl,
+          canonicalUrl: canonicalUrl,
         }}
+      />
+
+      <ReportListingModal
+        open={showReportModal}
+        onClose={() => setShowReportModal(false)}
+        propertyId={society._id}
+        reporterUserId=""
+        reporterEmail=""
+        reporterPhone=""
       />
     </>
   );
 }
 
-// ─── ISR: getStaticPaths ──────────────────────────────────────────────────────
+// ============================================================================
+// DATA FETCHING (ISR)
+// ============================================================================
 
 export const getStaticPaths: GetStaticPaths = async () => {
   try {
-    // Only pre-render verified + published societies at build time
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
     const res = await fetch(`${baseUrl}/api/societies?limit=100&nocStatus=approved&sortBy=overallScore`);
 
@@ -1185,21 +1132,16 @@ export const getStaticPaths: GetStaticPaths = async () => {
 
     return {
       paths,
-      fallback: 'blocking', // Other slugs generate on first request
+      fallback: 'blocking',
     };
   } catch {
     return { paths: [], fallback: 'blocking' };
   }
 };
 
-// ─── ISR: getStaticProps ──────────────────────────────────────────────────────
-
 export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
   const slug = typeof params?.slug === 'string' ? params.slug : '';
-
-  if (!slug) {
-    return { notFound: true };
-  }
+  if (!slug) return { notFound: true };
 
   try {
     const baseUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
@@ -1229,7 +1171,7 @@ export const getStaticProps: GetStaticProps<PageProps> = async ({ params }) => {
         relatedCounts: data.data.relatedCounts,
         relatedSocieties: data.data.relatedSocieties,
       },
-      revalidate: 60, // ISR: regenerate every 60 seconds
+      revalidate: 60,
     };
   } catch {
     return { notFound: true };
