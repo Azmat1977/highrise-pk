@@ -50,8 +50,11 @@ interface SecurityLogEntry {
 interface StatsResponse {
   success: boolean;
   stats?: {
-    // ── Sidebar badge counts ──
+    // Sidebar badge counts
     propertiesPendingApproval: number;
+    propertiesVerified: number;
+    propertiesRejected: number;
+    propertiesDraft: number;
     projectsPendingApproval: number;
     developerVerificationsPending: number;
     agentVerificationsPending: number;
@@ -306,11 +309,14 @@ export default async function handler(
     // TODO markers show exactly where to wire when model is built
 
     const [
-      // Properties (Section 4 — not built yet)
+      // Properties
       totalProperties,
       propertiesPendingApproval,
+      propertiesVerified,
+      propertiesRejected,
+      propertiesDraft,
 
-      // Projects (Section 5 — not built yet)
+      // Projects
       projectsPendingApproval,
 
       // Developers
@@ -360,7 +366,7 @@ export default async function handler(
       // Society onboarding applications
       societyApplicantsPending,
     ] = await Promise.all([
-      // ── Properties ──
+      // Properties
       safeCount(() => Property.countDocuments({ isDeleted: { $ne: true } })),
       safeCount(() =>
         Property.countDocuments({
@@ -372,8 +378,34 @@ export default async function handler(
           ],
         })
       ),
+      safeCount(() =>
+        Property.countDocuments({
+          isDeleted: { $ne: true },
+          $or: [
+            { status: "approved" },
+            { status: "verified" },
+            { "verification.status": "approved" },
+            { "verification.status": "verified" },
+          ],
+        })
+      ),
+      safeCount(() =>
+        Property.countDocuments({
+          isDeleted: { $ne: true },
+          $or: [
+            { status: "rejected" },
+            { "verification.status": "rejected" },
+          ],
+        })
+      ),
+      safeCount(() =>
+        Property.countDocuments({
+          isDeleted: { $ne: true },
+          status: "draft",
+        })
+      ),
 
-      // ── Projects ──
+      // Projects
       safeCount(() =>
         Projects.countDocuments({
           isDeleted: { $ne: true },
@@ -696,6 +728,9 @@ export default async function handler(
 
         // Overview
         totalProperties,
+        propertiesVerified,
+        propertiesRejected,
+        propertiesDraft,
         totalUsers,
         verifiedDevelopers,
         verifiedAgents,
