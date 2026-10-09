@@ -39,7 +39,7 @@ import {
   formatDetailPrice,
   toProjectListing,
 } from '@/types/projectDetail';
-import StickyContactForm from '@/components/project-detail/StickyContactForm';
+import UniversalContactCard from '@/components/shared/UniversalContactCard';
 import ShareMenu from '@/components/projects/ShareMenu';
 import { useFavorites } from '@/hooks/useFavorites';
 
@@ -512,23 +512,33 @@ export default function ProjectMediaExplorer({
 
           {/* Right CTA — always visible */}
           <div className="w-full lg:sticky lg:top-0">
-            <StickyContactForm
-              projectId={project._id}
-              projectName={project.projectName}
-              developerName={
+            <UniversalContactCard
+              entityType="project"
+              entityId={project._id}
+              entityTitle={project.projectName}
+              actorName={
                 project.developerProfile?.companyName ||
-                project.developerProfile?.name
+                project.developerProfile?.name ||
+                'Highrise Developer'
               }
-              developerPhone={
-                (project as any)?.contactDetails?.primaryPhone ||
-                (project as any)?.contactDetails?.whatsappNumber ||
-                (project as any)?.developerProfile?.contactNumber ||
-                (project as any)?.developerProfile?.whatsappNumber
-              }
+              actorRole="Project Developer"
+              brandLogo="/images/logo.png"
               isVerified={Boolean(
                 project.isVerified || project.verificationPanel?.verifiedAt
               )}
-              entityLabel="project"
+              initialPhone={
+                (project as any).contactDetails?.primaryPhone ||
+                (project as any).developerProfile?.contactNumber
+              }
+              initialWhatsapp={
+                (project as any).contactDetails?.whatsappNumber ||
+                (project as any).developerProfile?.whatsappNumber
+              }
+              developerId={
+                (project.developerProfile as any)?._id ||
+                (project.developerProfile as any)?.id ||
+                (project as any)?.developer
+              }
             />
           </div>
         </div>
