@@ -21,6 +21,7 @@ import type {
   UtilityStatus,
 } from '@/models/Property';
 import { PropertyHelpers } from '@/models/Property';
+import User from '@/models/User';
 import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import { hasUsablePropertyLocation, normalizePropertyMutationInput } from '@/lib/property/propertyNormalization';
 import { validatePropertyMediaInput, validatePropertyFloorPlanInput } from '@/lib/property/propertyMedia';
@@ -80,6 +81,8 @@ interface MongoFilter {
   isFlagged?:              { $ne: boolean };
   'verification.status':   VerificationStatus;
   isFeatured?:             boolean;
+  isPromoted?:             boolean;
+  owner?:                  mongoose.Types.ObjectId | { $in: mongoose.Types.ObjectId[] };
   city?:                   { $regex: RegExp };
   society?:                { $regex: RegExp };
   propertyType?:           { $in: RegExp[] } | { $regex: RegExp };
@@ -460,6 +463,8 @@ const PUBLIC_PROJECTION = [
   'featureImageUrl',
   'images',
   'isFeatured',
+  'isPromoted',
+  'promotedUntil',
   'isVerified',
   'verification.status',
   'verification.verifiedAt',
@@ -474,6 +479,7 @@ const PUBLIC_PROJECTION = [
   'marketIntelligence.investmentScore',
   'approvals.nocStatus',
   'approvals.approvalStatus',
+  'owner',
   'agentId',
   'developerId',
   'projectId',
@@ -547,6 +553,7 @@ async function handleGet(
   const bedroomsRaw        = cap(getString(q['bedrooms']),        8);
   const bathroomsRaw       = cap(getString(q['bathrooms']),       8);
   const projectIdRaw       = cap(getString(q['projectId']),       24);
+  const listingSourceRaw   = allowlisted(getString(q['listingSource']), new Set(['owner', 'agent', 'all', '']));
   const agentIdRaw         = cap(getString(q['agentId']),         24);
   const developerIdRaw     = cap(getString(q['developerId']),     24);
   const excludeIdRaw       = cap(getString(q['excludeId']),       24);
@@ -637,6 +644,14 @@ async function handleGet(
     baseFilter.society = {
       $regex: new RegExp(escapeRegExp(societyRaw), 'i'),
     };
+  }
+
+  // Listing Source Filter (Owner Direct vs Agent/Developer)
+  if (listingSourceRaw && listingSourceRaw !== 'all') {
+    const roles = listingSourceRaw === 'owner' ? ['owner'] : ['agent', 'developer', 'admin'];
+    const usersWithRole = await User.find({ role: { $in: roles } }).select('_id').lean();
+    const matchedUserIds = usersWithRole.map((u) => u._id);
+    baseFilter.owner = { $in: matchedUserIds };
   }
 
   // Property taxonomy: Match both raw UI strings (e.g. "Upper Portion") and canonical types
@@ -821,8 +836,29 @@ async function handleGet(
     ).maxTimeMS(MAX_TIME_MS),
   ]);
 
+  // ── Retrieve Owner Profiles (Batch Lookups - Ref Safety Guard) ────────────────
+  const uniqueOwnerIds = Array.from(
+    new Set(rawItems.map((item) => item.owner?.toString()).filter(Boolean))
+  ).map((id) => new mongoose.Types.ObjectId(id));
+
+  const matchedOwners = await User.find({ _id: { $in: uniqueOwnerIds } })
+    .select('_id name role slug listingCount')
+    .lean();
+
+  const ownerLookupMap = new Map(matchedOwners.map((u) => [u._id.toString(), u]));
+
   // ── Scrub + paginate ────────────────────────────────────────
-  let items = rawItems.map(scrubProperty);
+  let items = rawItems.map((item) => {
+    const scrubbed = scrubProperty(item);
+    const ownerIdStr = item.owner?.toString();
+    const ownerInfo = ownerIdStr ? ownerLookupMap.get(ownerIdStr) : null;
+
+    scrubbed.ownerName = ownerInfo?.name || 'Verified Member';
+    scrubbed.ownerRole = ownerInfo?.role || 'owner';
+    scrubbed.ownerSlug = ownerInfo?.slug || '';
+    scrubbed.ownerListingCount = (ownerInfo as Record<string, unknown>)?.listingCount as number || 0;
+    return scrubbed;
+  });
 
   let hasNext      = false;
   let nextCursor: string | null = null;
@@ -920,6 +956,7 @@ async function handleGet(
       developerId:     developerIdRaw     || null,
       projectId:       projectIdRaw       || null,
       sort:            sortRaw            || 'newest',
+      listingSource:   listingSourceRaw   || null,
     },
   });
 }

@@ -102,7 +102,16 @@ function pickCardSafeProperty(input: any): any {
     areaUnit: p?.areaUnit,
     unit: p?.unit,
     isFeatured: p?.isFeatured,
+    isPromoted: p?.isPromoted,
+    promotedUntil: p?.promotedUntil,
     createdAt: p?.createdAt,
+    
+    // Resolved owner attributes passed safely
+    ownerName: p?.ownerName,
+    ownerRole: p?.ownerRole,
+    ownerSlug: p?.ownerSlug,
+    ownerListingCount: p?.ownerListingCount,
+    previousPrice: p?.previousPrice,
 
     // media (urls only; scrub in depth)
     coverImage: p?.coverImage,

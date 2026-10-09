@@ -21,6 +21,12 @@ type ListingType = 'full_payment' | 'installment' | 'rent' | 'sale';
 type ImageLike = string | { url?: string | null } | null | undefined;
 
 export interface PropertyCardInput {
+  isPromoted?: boolean;
+  promotedUntil?: string | Date;
+  ownerName?: string;
+  ownerRole?: string;
+  ownerSlug?: string;
+  ownerListingCount?: number;
   _id?: IdLike;
   id?: IdLike;
   slug?: string;
@@ -181,6 +187,26 @@ const formatArea = (area?: number, unit?: string): string => {
   if (typeof area !== 'number' || Number.isNaN(area) || area <= 0) return '';
   const formattedUnit = unit || 'Sq.Ft.';
   return `${area.toLocaleString('en-PK')} ${formattedUnit}`;
+};
+
+const getPricePerMarla = (price: number, area: number, unit: string): string => {
+  if (!price || !area) return '';
+  const normalizedUnit = unit.toLowerCase().trim();
+  let pricePerMarla = 0;
+
+  if (normalizedUnit === 'marla') {
+    pricePerMarla = price / area;
+  } else if (normalizedUnit === 'kanal') {
+    pricePerMarla = price / (area * 20);
+  } else if (normalizedUnit === 'sq.ft.' || normalizedUnit === 'sqft') {
+    pricePerMarla = price / (area / 225); // Standard standard measurement
+  } else {
+    return '';
+  }
+
+  if (pricePerMarla >= 10000000) return `PKR ${(pricePerMarla / 10000000).toFixed(2)} Cr / Marla`;
+  if (pricePerMarla >= 100000) return `PKR ${(pricePerMarla / 100000).toFixed(2)} Lac / Marla`;
+  return `PKR ${Math.round(pricePerMarla).toLocaleString('en-PK')} / Marla`;
 };
 
 const formatTimeAgo = (dateString?: string): string => {
@@ -550,9 +576,17 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
   const isVerified = !!(property.isVerified || property.verified || property.projectId);
   const isFeaturedProp = !!(property.isFeatured || property.featured);
+  const isPromotedProp = !!property.isPromoted;
   const isHot = !!(property.isHot || property.hot);
   const hasVideo = !!(property.videoUrl || property.video);
   const timeAgo = formatTimeAgo(property.createdAt);
+
+  const isNewListing = useMemo(() => {
+    if (!property.createdAt) return false;
+    const createdDate = new Date(property.createdAt);
+    const diffMs = Date.now() - createdDate.getTime();
+    return diffMs < 7 * 24 * 60 * 60 * 1000; // < 7 Days
+  }, [property.createdAt]);
 
   // Price drop detection
   const priceChange = useMemo(() => {
@@ -603,10 +637,35 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
   const purposeInfo = useMemo(() => {
     const p = purpose.toLowerCase();
-    if (p === 'rent') return { label: 'For Rent', color: 'bg-orange-500' };
-    if (p === 'installment' || p === 'installments') return { label: 'Installments', color: 'bg-purple-500' };
+    // Rule Set A: red reserved for errors/deletions only — never for sale badges
+    if (p === 'rent') return { label: 'For Rent', color: 'bg-[#f59e0b]' };
+    if (p === 'installment' || p === 'installments') return { label: 'Installments', color: 'bg-[#7c3aed]' };
     return { label: 'For Sale', color: 'bg-[#029bba]' };
   }, [purpose]);
+
+  const sourceBadge = useMemo(() => {
+    const role = String(property.ownerRole || '').toLowerCase();
+    if (role === 'owner') {
+      return {
+        label: 'Owner Direct',
+        className: 'bg-[#10b981] text-white',
+        Icon: icons.UserCheck,
+      };
+    }
+    if (role === 'developer') {
+      return {
+        label: 'Developer',
+        className: 'bg-[#029bba] text-white',
+        Icon: icons.Building2,
+      };
+    }
+    // agent, admin, or unknown professional lister
+    return {
+      label: 'Agent Listed',
+      className: 'bg-[#004063] text-white',
+      Icon: icons.ShieldCheck,
+    };
+  }, [property.ownerRole]);
 
   const getPriceDisplay = useCallback((): string => {
     const formatted = formatPrice(price);
@@ -836,33 +895,52 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                 </div>
               )}
 
-              {/* Top Left Badges */}
-              <div className="absolute top-3 left-3 flex flex-col gap-2">
-                <span className={`${purposeInfo.color} text-white text-xs font-semibold px-3 py-1.5 rounded-lg shadow-lg`}>
+              {/* Top Left Badges — compact pills, content-sized (not tab-sized) */}
+              <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start max-w-[70%]">
+                <span
+                  className={`${purposeInfo.color} text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto inline-flex`}
+                >
                   {purposeInfo.label}
                 </span>
 
+                {isPromotedProp ? (
+                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-[#f59e0b] text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto">
+                    <icons.Award className="w-3 h-3 fill-white/25 shrink-0" />
+                    PROMOTED
+                  </span>
+                ) : (
+                  <span
+                    className={`inline-flex items-center gap-1 ${sourceBadge.className} text-[9px] font-bold px-2 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto`}
+                  >
+                    <sourceBadge.Icon className="w-3 h-3 shrink-0" />
+                    {sourceBadge.label}
+                  </span>
+                )}
+
                 {isHot && (
-                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow-lg">
-                    <icons.Flame className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-orange-500 to-red-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto">
+                    <icons.Flame className="w-3 h-3 shrink-0" />
                     HOT
                   </span>
                 )}
 
-                {isFeaturedProp && !isHot && (
-                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow-lg">
-                    <icons.Star className="w-3 h-3 fill-current" />
-                    Featured
-                  </span>
-                )}
-
                 {hasPriceDrop && (
-                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-green-500 to-emerald-600 text-white text-xs font-semibold px-2.5 py-1 rounded-lg shadow-lg">
-                    <icons.TrendingDown className="w-3 h-3" />
+                  <span className="inline-flex items-center gap-1 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white text-[9px] font-bold px-2 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto">
+                    <icons.TrendingDown className="w-3 h-3 shrink-0" />
                     {priceChange.changePercent}% OFF
                   </span>
                 )}
               </div>
+
+              {/* Dynamic Top Right New Badge — compact, clear of heart button */}
+              {isNewListing && (
+                <div className="absolute top-3 right-12 z-20">
+                  <span className="inline-flex items-center gap-0.5 bg-gradient-to-r from-[#029bba] to-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto">
+                    <icons.Sparkles className="w-2.5 h-2.5 shrink-0" />
+                    NEW
+                  </span>
+                </div>
+              )}
 
               {/* Bottom Left Badges */}
               <div className="absolute bottom-3 left-3 flex items-center gap-2">
@@ -953,9 +1031,16 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                     </div>
                   )}
 
-                  <span className="text-xl font-bold" style={{ color: hasPriceDrop ? '#059669' : PRIMARY_COLOR }}>
-                    {getPriceDisplay()}
-                  </span>
+                  <div className="flex flex-col">
+                    <span className="text-xl font-black tracking-tight" style={{ color: hasPriceDrop ? '#059669' : PRIMARY_COLOR }}>
+                      {getPriceDisplay()}
+                    </span>
+                    {area > 0 && (
+                      <span className="text-[11px] text-gray-500 font-bold mt-0.5">
+                        {getPricePerMarla(price, area, areaUnit)}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {developer && (
@@ -964,6 +1049,30 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                   </span>
                 )}
               </div>
+
+              {/* Verified Owner / Active Agency Profile Strip */}
+              {property.ownerName && (
+                <div className="mt-3 mb-4 p-2.5 rounded-xl bg-gray-50 border border-gray-100 flex items-center justify-between">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded-full bg-gray-200 border border-gray-300 flex items-center justify-center shrink-0">
+                      <icons.User className="w-4 h-4 text-gray-500" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-800 truncate leading-tight">
+                        {property.ownerName}
+                      </p>
+                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                        {property.ownerRole === 'owner' ? 'Direct Owner' : 'Agency Advisor'}
+                      </span>
+                    </div>
+                  </div>
+                  {property.ownerListingCount !== undefined && property.ownerListingCount > 1 && (
+                    <span className="text-[10px] font-bold text-[#029bba] bg-[#029bba]/5 px-2 py-0.5 rounded-md shrink-0">
+                      {property.ownerListingCount} Ads
+                    </span>
+                  )}
+                </div>
+              )}
 
               {/* Quick Contact Buttons */}
               {showQuickContact && (canShowPhone || canWhatsapp) && (
