@@ -827,9 +827,9 @@ export default function PropertiesListingPage(): React.ReactElement {
             isSticky ? 'bg-white shadow-sm border-b border-gray-200 py-3 -mx-4 px-4 sm:mx-0 sm:px-0' : 'bg-transparent'
           }`}>
             
-            <div className="flex flex-col md:flex-row items-center gap-2.5">
-              <div className="w-full md:flex-1 min-w-0 relative">
-                <icons.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+            <div className="flex flex-col gap-2.5">
+              <div className="relative w-full min-w-0 max-w-[720px]">
+                <icons.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
                 <input
                   type="text"
                   value={searchDraft}
@@ -841,19 +841,19 @@ export default function PropertiesListingPage(): React.ReactElement {
                     }
                   }}
                   placeholder="Search locality, society, or project name..."
-                  className="w-full h-9 pl-9 pr-16 bg-white border border-gray-300 rounded-xl text-xs font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
+                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
                 />
                 <button
                   type="button"
                   onClick={handleSearch}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 px-2.5 py-1 bg-[#029bba] hover:bg-[#004063] text-white text-[11px] font-bold rounded-lg transition-colors"
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors"
                 >
                   Search
                 </button>
               </div>
 
               {/* Tightly Packed Dropdowns (Scrollable on small mobile, inline on desktop) */}
-              <div className="w-full md:w-auto flex overflow-x-auto md:flex-wrap items-center gap-2 pb-1 md:pb-0 shrink-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="w-full flex flex-wrap items-center justify-start gap-2 pb-1">
                 
                 {/* City — content-sized, not fixed tab width */}
                 <div className="relative shrink-0">
@@ -870,6 +870,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                       <option key={c} value={c}>{c}</option>
                     ))}
                   </select>
+                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
 
                 {/* Category */}
@@ -887,6 +888,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                     <option value="commercial">Commercial</option>
                     <option value="plots">Plots & Land</option>
                   </select>
+                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
 
                 {/* Listing Type */}
@@ -903,6 +905,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
+                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
 
                 {/* Property Type */}
@@ -919,6 +922,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                       <option key={t.value} value={t.value}>{t.label}</option>
                     ))}
                   </select>
+                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
 
                 {/* Bedrooms */}
@@ -935,6 +939,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                       <option key={b.value} value={b.value}>{b.label}</option>
                     ))}
                   </select>
+                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
 
                 {/* Listing Source */}
@@ -951,6 +956,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                     <option value="owner">Direct Owner</option>
                     <option value="agent">Agent Listed</option>
                   </select>
+                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
 
                 {/* Price Range */}
@@ -971,6 +977,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                       <option key={r.value} value={r.value}>{r.label}</option>
                     ))}
                   </select>
+                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
               </div>
             </div>

@@ -436,7 +436,7 @@ export default function DevelopersDirectoryPage({
   if (router.isFallback) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-20">
+        <div className="mx-auto max-w-[1440px] px-3 py-20 sm:px-4 lg:px-6">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <DeveloperCardSkeleton key={i} />
@@ -491,97 +491,59 @@ export default function DevelopersDirectoryPage({
         />
       </Head>
 
-      {/* TODO: Wrap with <Layout> when Header/Footer built (Section 9) */}
       <div className="min-h-screen bg-gray-50">
-
-        {/* ── Hero ── */}
-        <div className="relative overflow-hidden bg-[#001f2b] pb-32 pt-16 text-white">
-          {/* Dot pattern — Tailwind arbitrary bg */}
-          <div className="absolute inset-0 opacity-10 [background-image:radial-gradient(#029bba_1px,transparent_1px)] [background-size:30px_30px]" />
-          {/* Glow orbs */}
-          <div className="absolute right-0 top-0 h-96 w-96 -translate-y-1/2 translate-x-1/2 rounded-full bg-[#029bba] opacity-20 blur-[120px]" />
-          <div className="absolute bottom-0 left-0 h-64 w-64 -translate-x-1/2 translate-y-1/2 rounded-full bg-[#029bba] opacity-10 blur-[100px]" />
-
-          <div className="container relative z-10 mx-auto max-w-3xl px-4 text-center">
-            {/* Breadcrumb */}
-            <nav className="mb-4 flex items-center justify-center gap-2 text-sm text-white/60">
-              <Link
-                href="/"
-                className="flex items-center gap-1 transition-colors hover:text-white"
-              >
-                <Home className="h-4 w-4" />
-                Home
-              </Link>
-              <span>/</span>
-              <span className="text-white">Developers</span>
-            </nav>
-
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-xs font-medium text-[#4dd6f5] backdrop-blur-sm">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              Pakistan's First Trust-Based Property Portal
-            </div>
-
-            <h1 className="mb-6 text-4xl font-extrabold leading-tight tracking-tight md:text-5xl">
-              Find{' '}
-              <span className="text-[#029bba]">Trusted</span>{' '}
-              Developers{' '}
-              <br className="hidden md:block" />
-              Before You Invest
-            </h1>
-
-            <p className="mx-auto mb-8 max-w-2xl text-lg leading-relaxed text-gray-300">
-              Don't rely on guesswork. Highrise.pk analyzes legal status,
-              delivery history, and financial stability to give every developer
-              a transparent{' '}
-              <span className="font-semibold text-white">Trust Score™</span>.
-            </p>
-
-            {/* Stat pills */}
-            <div className="flex flex-wrap items-center justify-center gap-4 text-sm">
-              <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 font-medium backdrop-blur-sm">
-                {totalCount}+ Verified Developers
-              </div>
-              <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 font-medium backdrop-blur-sm">
-                KYC Enforced
-              </div>
-              <div className="rounded-full border border-white/20 bg-white/10 px-4 py-2 font-medium backdrop-blur-sm">
-                Trust Score™ Rated
-              </div>
-            </div>
-          </div>
-        </div>
+        <header className="mx-auto max-w-[1440px] px-3 pt-4 pb-4 sm:px-4 md:pt-5 lg:px-6">
+          <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-2 text-xs text-gray-500">
+            <Link href="/" className="flex items-center gap-1 font-medium transition-colors hover:text-[#029bba]">
+              <Home className="h-3.5 w-3.5" />
+              <span>Home</span>
+            </Link>
+            <span className="text-gray-300">/</span>
+            <span className="font-medium text-gray-600">Developers</span>
+          </nav>
+          <h1 className="text-xl font-black leading-tight tracking-tight text-[#004063] md:text-2xl lg:text-3xl">
+            Verified Developers in Pakistan
+          </h1>
+          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
+            <span>{totalCount.toLocaleString()} Developers</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-emerald-600">KYC Verified</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Trust Score Rated</span>
+          </p>
+        </header>
 
         {/* ── Search & Filters ── */}
-        <div className="container relative z-20 mx-auto -mt-12 mb-8 px-4">
-          <div className="mx-auto max-w-5xl rounded-2xl border border-gray-100 bg-white p-4 shadow-xl md:p-6">
+        <div className="mx-auto max-w-[1440px] px-3 pb-4 sm:px-4 lg:px-6">
+          <div>
 
             {/* Search row */}
-            <div className="flex flex-col items-stretch gap-3 lg:flex-row">
-              <div className="relative flex-1">
-                <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-gray-400" />
+            <div className="flex flex-col items-stretch gap-2.5">
+              <div className="relative min-w-0 w-full max-w-[720px]">
+                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#029bba]" />
                 <input
                   type="text"
                   placeholder="Search by developer name or city..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-14 w-full rounded-xl border border-gray-100 bg-gray-50 pl-11 pr-4 text-base text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-[#029bba] focus:bg-white focus:ring-2 focus:ring-[#029bba]/20"
+                  className="h-11 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-20 text-sm font-semibold text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/20"
                 />
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm(searchTerm.trim())}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-[#029bba] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#004063]"
+                >
+                  Search
+                </button>
               </div>
-              <button
-                type="button"
-                className="flex h-14 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#029bba] px-8 text-base font-semibold text-white shadow-lg shadow-[#029bba]/20 transition-colors hover:bg-[#027a94]"
-              >
-                <Search className="h-5 w-5" />
-                Search
-              </button>
             </div>
 
             {/* Filter row */}
-            <div className="mt-4 border-t border-gray-100 pt-4">
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+            <div className="mt-2.5">
+              <div className="flex flex-wrap items-center justify-start gap-2">
 
                 {/* Verified toggle */}
-                <label className="flex h-12 cursor-pointer items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3">
+                <label className="flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
                   <div className="relative">
                     <input
                       type="checkbox"
@@ -599,8 +561,8 @@ export default function DevelopersDirectoryPage({
                 </label>
 
                 {/* City */}
-                <div className="flex h-12 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3">
-                  <MapPin className="h-4 w-4 shrink-0 text-gray-400" />
+                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+                  <MapPin className="h-4 w-4 shrink-0 text-[#029bba]" />
                   <select
                     value={selectedCity}
                     onChange={(e) => setSelectedCity(e.target.value)}
@@ -614,8 +576,8 @@ export default function DevelopersDirectoryPage({
                 </div>
 
                 {/* Type */}
-                <div className="flex h-12 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3">
-                  <Briefcase className="h-4 w-4 shrink-0 text-gray-400" />
+                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+                  <Briefcase className="h-4 w-4 shrink-0 text-[#029bba]" />
                   <select
                     value={selectedType}
                     onChange={(e) => setSelectedType(e.target.value)}
@@ -628,8 +590,8 @@ export default function DevelopersDirectoryPage({
                 </div>
 
                 {/* Trust score */}
-                <div className="flex h-12 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3">
-                  <Award className="h-4 w-4 shrink-0 text-gray-400" />
+                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+                  <Award className="h-4 w-4 shrink-0 text-[#029bba]" />
                   <select
                     value={selectedScoreRange}
                     onChange={(e) => setSelectedScoreRange(e.target.value)}
@@ -642,8 +604,8 @@ export default function DevelopersDirectoryPage({
                 </div>
 
                 {/* Risk level */}
-                <div className="flex h-12 items-center gap-2 rounded-xl border border-gray-100 bg-gray-50 px-3">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-gray-400" />
+                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#029bba]" />
                   <select
                     value={selectedRiskLevel}
                     onChange={(e) => setSelectedRiskLevel(e.target.value)}
@@ -658,7 +620,7 @@ export default function DevelopersDirectoryPage({
 
               {/* Clear filters */}
               {hasActiveFilters && (
-                <div className="mt-3 flex justify-end">
+                <div className="mt-3 flex justify-start">
                   <button
                     type="button"
                     onClick={clearAllFilters}
@@ -717,7 +679,7 @@ export default function DevelopersDirectoryPage({
         </div>
 
         {/* ── Results ── */}
-        <div className="container mx-auto px-4 py-8">
+        <div className="mx-auto max-w-[1440px] px-3 py-8 sm:px-4 lg:px-6">
 
           {/* Results header */}
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">

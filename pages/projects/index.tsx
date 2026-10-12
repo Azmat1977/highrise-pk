@@ -476,11 +476,11 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
           }`}>
             
             {/* Unified 1-Row Layout */}
-            <div className="flex flex-col md:flex-row items-center gap-2.5">
+            <div className="flex flex-col gap-2.5">
               
               {/* Search Bar - Flex 1 */}
-              <div className="w-full md:flex-1 relative">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+              <div className="relative w-full max-w-[720px]">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
                 <input
                   type="text"
                   value={searchTerm}
@@ -504,7 +504,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
               </div>
 
               {/* Tightly Packed Dropdowns (Scrollable on small mobile, inline on desktop) */}
-              <div className="w-full md:w-auto flex overflow-x-auto md:flex-wrap items-center gap-2.5 pb-1 md:pb-0 shrink-0 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+              <div className="w-full flex flex-wrap items-center justify-start gap-2.5 pb-1">
                 
                 <div className="w-[140px] shrink-0">
                   <FilterDropdown
@@ -512,6 +512,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
                     placeholder="All Cities"
                     value={filters.city || ''}
                     onChange={(v) => updateFilters({ city: v })}
+                    compact
                     searchable
                     options={[
                       { value: '', label: 'All Cities' },
@@ -530,6 +531,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
                     placeholder="Category"
                     value={filters.category || ''}
                     onChange={(v) => updateFilters({ category: v as ProjectCategory | '' })}
+                    compact
                     options={[
                       { value: '', label: 'All Categories' },
                       ...(Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[]).map((key) => ({
@@ -552,6 +554,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
                         updateFilters({ installments: false, possession: v as PossessionStatus | '' });
                       }
                     }}
+                    compact
                     options={[
                       { value: '', label: 'Any Status' },
                       ...STATUS_OPTIONS.map((opt) => ({
@@ -568,6 +571,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
                     placeholder="Budget"
                     value={getMatchingBudgetTier(filters.minBudget, filters.maxBudget) || ''}
                     onChange={(v) => updateFilters(budgetTierToRange(v as BudgetTierKey | ''))}
+                    compact
                     options={[
                       { value: '', label: 'Any Budget' },
                       ...BUDGET_TIERS.map((t) => ({ value: t.key, label: t.label })),
@@ -578,13 +582,13 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
                 <button
                   type="button"
                   onClick={() => updateFilters({ noc: !filters.noc })}
-                  className={`shrink-0 h-11 px-3.5 rounded-xl border text-sm font-bold flex items-center justify-center gap-2 transition-all ${
+                  className={`shrink-0 h-9 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
                     filters.noc
                       ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
                       : 'bg-white border-gray-300 text-gray-700 hover:border-emerald-500/40 hover:text-emerald-600 shadow-sm'
                   }`}
                 >
-                  <ShieldCheck className="w-4 h-4" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#029bba]" />
                   <span className="hidden lg:inline">NOC Approved</span>
                   <span className="lg:hidden">NOC</span>
                 </button>

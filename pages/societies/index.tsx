@@ -10,11 +10,11 @@ import Image from 'next/image';
 import { useRouter } from 'next/router';
 import {
   Search, MapPin, Shield, ShieldCheck, ShieldAlert, ShieldX,
-  AlertTriangle, CheckCircle, XCircle, Clock, Building2,
-  TrendingUp, Award, FileText, Info, ChevronRight, Filter, X,
-  Loader2, BadgeCheck, Activity, Eye, Banknote, Sparkles, Home,
-  Grid3x3, List, ArrowRight, ChevronDown, Star, Calculator,
-  Database, Lock, MessageCircle,
+  AlertTriangle, XCircle, Clock, Building2,
+  TrendingUp, Award, Info, ChevronRight, Filter, X,
+  Loader2, BadgeCheck, Activity, Banknote, Sparkles, Home,
+  Grid3x3, List, ArrowRight, ChevronDown, Star,
+  Database, Lock,
 } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
@@ -124,6 +124,18 @@ const CATEGORY_LABELS: Record<string, string> = {
   industrial_zone: 'Industrial Zone',
   township: 'Township',
 };
+
+const PAKISTAN_CITIES = [
+  'Islamabad', 'Lahore', 'Karachi', 'Rawalpindi', 'Multan', 'Peshawar',
+  'Faisalabad', 'Sialkot', 'Gujranwala', 'Bahawalpur', 'Sargodha',
+  'Hyderabad', 'Quetta', 'Sukkur', 'Larkana', 'Sheikhupura', 'Jhelum',
+  'Mardan', 'Mirpur', 'Abbottabad', 'Kasur', 'Okara', 'Sahiwal',
+];
+
+const PAKISTAN_AUTHORITIES = [
+  'CDA', 'RDA', 'LDA', 'KDA', 'FDA', 'MDA', 'DHA', 'PHATA',
+  'SBCA', 'GDA', 'Cantonment_Board', 'TMA', 'Other',
+];
 
 // ═══════════════════════════════════════════════════════════════
 // HELPERS
@@ -321,6 +333,24 @@ export default function SocietiesBrowsePage(): React.ReactElement {
     (authority ? 1 : 0) +
     (category ? 1 : 0);
 
+  const cityOptions = Array.from(
+    new Map(
+      [...PAKISTAN_CITIES, ...filterOptions.cities]
+        .map((cityName) => cityName.trim())
+        .filter(Boolean)
+        .map((cityName) => [cityName.toLowerCase(), cityName] as const)
+    ).values()
+  ).sort((firstCity, secondCity) => firstCity.localeCompare(secondCity));
+
+  const authorityOptions = Array.from(
+    new Map(
+      [...PAKISTAN_AUTHORITIES, ...filterOptions.authorities]
+        .map((authorityName) => authorityName.trim())
+        .filter(Boolean)
+        .map((authorityName) => [authorityName.toLowerCase(), authorityName] as const)
+    ).values()
+  );
+
   // ═══════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════
@@ -371,99 +401,32 @@ export default function SocietiesBrowsePage(): React.ReactElement {
       </Head>
 
       <div className="min-h-screen bg-gray-50">
-
-        {/* ═══════════════════════════════════════════════════════════════
-            HERO SECTION
-        ═══════════════════════════════════════════════════════════════ */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] pt-16 pb-12 overflow-hidden">
-          {/* Background patterns */}
-          <div className="absolute inset-0 pointer-events-none">
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#029bba]/10 rounded-full blur-3xl -translate-y-1/3 translate-x-1/4" />
-            <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#06b6d4]/8 rounded-full blur-3xl translate-y-1/3 -translate-x-1/4" />
-            <div
-              className="absolute inset-0 opacity-[0.04]"
-              style={{
-                backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-                backgroundSize: '32px 32px',
-              }}
-            />
-            <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#06b6d4]/50 to-transparent" />
-          </div>
-
-          <div className="container mx-auto px-4 relative z-10">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-xs text-white/40 mb-6" aria-label="Breadcrumb">
-              <Link href="/" className="hover:text-white/70 transition-colors">Home</Link>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-white/70">Societies</span>
-            </nav>
-
-            <div className="max-w-4xl mx-auto text-center">
-              {/* Badge */}
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-5">
-                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#029bba] to-[#06b6d4] flex items-center justify-center">
-                  <ShieldCheck className="w-3.5 h-3.5 text-white" />
-                </div>
-                <span>Verified Society Directory</span>
-                <span className="text-[10px] font-bold text-[#06b6d4] bg-[#06b6d4]/15 px-2 py-0.5 rounded-full">
-                  Industry-First
-                </span>
-              </div>
-
-              {/* Heading */}
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight tracking-tight">
-                Pakistan&apos;s Most{' '}
-                <span className="relative inline-block">
-                  <span className="relative z-10 text-[#06b6d4]">Trusted</span>
-                  <span className="absolute bottom-1 left-0 right-0 h-3 bg-[#06b6d4]/20 -z-0" />
-                </span>{' '}
-                Housing Societies
-              </h1>
-
-              <p className="text-base md:text-lg text-white/80 max-w-2xl mx-auto mb-8 leading-relaxed">
-                Browse <strong className="text-white">{pagination.total > 0 ? pagination.total : '500+'} verified societies</strong> with
-                NOC status, legal scores, growth metrics, and risk alerts.
-                <span className="text-[#06b6d4]"> No more guessing.</span>
-              </p>
-
-              {/* Hero Search */}
-              <div className="max-w-2xl mx-auto">
-                <div className="relative">
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchInputValue}
-                    onChange={(e) => setSearchInputValue(e.target.value)}
-                    placeholder="Search by society name (DHA, Bahria, Lake City...)"
-                    className="w-full h-14 pl-14 pr-5 rounded-2xl border border-white/20 bg-white text-slate-900 text-base placeholder:text-slate-400 focus:ring-4 focus:ring-[#029bba]/30 outline-none shadow-2xl"
-                  />
-                </div>
-
-                {/* Trust strip */}
-                <div className="flex flex-wrap items-center justify-center gap-4 md:gap-6 mt-6 text-white/80 text-sm">
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="w-4 h-4 text-[#10b981]" />
-                    <span>NOC Verified</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-[#06b6d4]" />
-                    <span>6 Intelligence Scores</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4 text-[#f59e0b]" />
-                    <span>12 Authorities Tracked</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <header className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-4 md:pt-5 pb-4">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="font-medium text-gray-600">Societies</span>
+          </nav>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Verified Societies in Pakistan
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>{pagination.total.toLocaleString()} Societies</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-emerald-600">NOC Status & Risk Scores</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">12 Authorities Tracked</span>
+          </p>
+        </header>
 
         {/* ═══════════════════════════════════════════════════════════════
             DISCLAIMER STRIP
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="bg-[#fef3c7] border-y border-[#f59e0b]/30 py-3">
-          <div className="container mx-auto px-4">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-1">
+          <div className="rounded-xl border border-[#f59e0b]/30 bg-[#fef3c7] px-4 py-3">
             <div className="flex items-center justify-center gap-2 text-[#92400e] text-xs md:text-sm">
               <Info className="w-4 h-4 flex-shrink-0" />
               <span className="text-center">
@@ -476,14 +439,33 @@ export default function SocietiesBrowsePage(): React.ReactElement {
         {/* ═══════════════════════════════════════════════════════════════
             FILTERS BAR (Sticky)
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex flex-wrap items-center gap-3">
+        <section className="sticky top-[64px] z-30 bg-white border-y border-gray-200 shadow-sm">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-3">
+            <div className="space-y-2.5">
+
+              <div className="flex items-center gap-2">
+              <div className="relative min-w-0 w-full max-w-[720px] flex-1">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchInputValue}
+                  onChange={(e) => setSearchInputValue(e.target.value)}
+                  placeholder="Search societies by name..."
+                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => { setSearch(searchInputValue.trim()); setPage(1); }}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-[#029bba] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#004063]"
+                >
+                  Search
+                </button>
+              </div>
 
               {/* Mobile filter toggle */}
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="md:hidden inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 text-gray-700 text-sm font-semibold hover:bg-gray-200 transition-colors"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 md:hidden"
               >
                 <Filter className="w-4 h-4" />
                 Filters
@@ -494,19 +476,44 @@ export default function SocietiesBrowsePage(): React.ReactElement {
                 )}
                 <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
               </button>
+              <div className="hidden md:ml-auto md:flex items-center gap-1 p-1 bg-gray-100 rounded-xl" aria-label="Society view mode">
+                <button
+                  type="button"
+                  onClick={() => setViewMode('grid')}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    viewMode === 'grid' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  aria-label="Grid view"
+                  title="Grid view"
+                >
+                  <Grid3x3 className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewMode('list')}
+                  className={`p-1.5 rounded-lg transition-colors ${
+                    viewMode === 'list' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  aria-label="List view"
+                  title="List view"
+                >
+                  <List className="w-4 h-4" />
+                </button>
+              </div>
+              </div>
 
               {/* Desktop / mobile-expandable filters */}
-              <div className={`${showFilters ? 'flex' : 'hidden'} md:flex flex-wrap items-center gap-2 flex-1`}>
+              <div className={`${showFilters ? 'flex' : 'hidden'} w-full min-w-0 flex-wrap items-center gap-2 md:flex`}>
 
                 {/* City */}
                 <select
                   value={city}
                   onChange={(e) => { setCity(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
+                  className="h-9 w-auto min-w-[6.5rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
                 >
                   <option value="">All Cities</option>
-                  {filterOptions.cities.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                  {cityOptions.map((cityName) => (
+                    <option key={cityName} value={cityName}>{cityName}</option>
                   ))}
                 </select>
 
@@ -514,7 +521,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
                 <select
                   value={nocStatus}
                   onChange={(e) => { setNocStatus(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
+                  className="h-9 w-auto min-w-[9rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
                 >
                   <option value="">Any NOC Status</option>
                   <option value="approved">✅ Approved</option>
@@ -530,7 +537,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
                 <select
                   value={riskLevel}
                   onChange={(e) => { setRiskLevel(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
+                  className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
                 >
                   <option value="">Any Risk Level</option>
                   <option value="safe">🟢 Safe</option>
@@ -543,7 +550,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
                 <select
                   value={category}
                   onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
+                  className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
                 >
                   <option value="">Any Category</option>
                   <option value="housing_scheme">Housing Scheme</option>
@@ -558,12 +565,28 @@ export default function SocietiesBrowsePage(): React.ReactElement {
                 <select
                   value={authority}
                   onChange={(e) => { setAuthority(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
+                  className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
                 >
                   <option value="">Any Authority</option>
-                  {filterOptions.authorities.map((a) => (
-                    <option key={a} value={a}>{a}</option>
+                  {authorityOptions.map((authorityName) => (
+                    <option key={authorityName} value={authorityName}>
+                      {authorityName.replace(/_/g, ' ')}
+                    </option>
                   ))}
+                </select>
+
+                <select
+                  value={sortBy}
+                  onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+                  className="h-9 w-auto min-w-[7.5rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
+                  aria-label="Sort societies"
+                >
+                  <option value="overallScore">Best Score</option>
+                  <option value="legalScore">Legal Score</option>
+                  <option value="growthScore">Growth Score</option>
+                  <option value="name">Name (A-Z)</option>
+                  <option value="viewCount">Most Viewed</option>
+                  <option value="createdAt">Newest</option>
                 </select>
 
                 {/* Clear filters */}
@@ -578,45 +601,6 @@ export default function SocietiesBrowsePage(): React.ReactElement {
                 )}
               </div>
 
-              {/* Sort + View Mode (right side) */}
-              <div className="flex items-center gap-2 ml-auto">
-                <select
-                  value={sortBy}
-                  onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-                  className="px-3 py-2 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
-                >
-                  <option value="overallScore">Best Score</option>
-                  <option value="legalScore">Legal Score</option>
-                  <option value="growthScore">Growth Score</option>
-                  <option value="name">Name (A-Z)</option>
-                  <option value="viewCount">Most Viewed</option>
-                  <option value="createdAt">Newest</option>
-                </select>
-
-                {/* View toggle */}
-                <div className="hidden md:flex items-center gap-1 p-1 bg-gray-100 rounded-xl">
-                  <button
-                    onClick={() => setViewMode('grid')}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      viewMode === 'grid' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                    aria-label="Grid view"
-                    title="Grid view"
-                  >
-                    <Grid3x3 className="w-4 h-4" />
-                  </button>
-                  <button
-                    onClick={() => setViewMode('list')}
-                    className={`p-1.5 rounded-lg transition-colors ${
-                      viewMode === 'list' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                    }`}
-                    aria-label="List view"
-                    title="List view"
-                  >
-                    <List className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
             </div>
           </div>
         </section>
@@ -624,7 +608,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
         {/* ═══════════════════════════════════════════════════════════════
             RESULTS HEADER
         ═══════════════════════════════════════════════════════════════ */}
-        <section ref={resultsRef} className="container mx-auto px-4 pt-6">
+        <section ref={resultsRef} className="mx-auto max-w-[1440px] px-3 pt-6 sm:px-4 lg:px-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-sm text-gray-600">
@@ -647,7 +631,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
         {/* ═══════════════════════════════════════════════════════════════
             RESULTS GRID / LIST
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="container mx-auto px-4 pb-16">
+        <section className="mx-auto max-w-[1440px] px-3 pb-16 sm:px-4 lg:px-6">
           {loading ? (
             // Skeleton loader
             <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'space-y-4'}>
@@ -785,7 +769,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
             HOW WE SCORE (Trust Building)
         ═══════════════════════════════════════════════════════════════ */}
         <section className="bg-white py-16 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-[1440px] px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
                 <Activity className="w-4 h-4" />
@@ -860,7 +844,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
             CROSS-TOOL CTA SECTION
         ═══════════════════════════════════════════════════════════════ */}
         <section className="bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-16">
-          <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-[1440px] px-3 sm:px-4 lg:px-6">
             <div className="max-w-4xl mx-auto text-center">
               <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
               <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">

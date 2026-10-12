@@ -58,6 +58,8 @@ interface FilterDropdownProps {
   searchPlaceholder?: string;
   /** Disabled state for the whole trigger */
   disabled?:    boolean;
+  /** Compact 36px trigger for dense listing toolbars */
+  compact?:     boolean;
 }
 
 // ─── COMPONENT ────────────────────────────────────────────────────────────────
@@ -72,6 +74,7 @@ export function FilterDropdown({
   searchable = false,
   searchPlaceholder = 'Search...',
   disabled = false,
+  compact = false,
 }: FilterDropdownProps) {
 
   const [open, setOpen]         = useState(false);
@@ -124,8 +127,8 @@ export function FilterDropdown({
       <DropdownMenu.Trigger asChild disabled={disabled}>
         <button
           type="button"
-          className={`group relative w-full h-12 pl-9 pr-8 bg-white
-                      border rounded-xl text-left text-sm font-medium
+          className={`group relative w-full ${compact ? 'h-9 pl-8 pr-7 text-xs font-bold' : 'h-12 pl-9 pr-8 text-sm font-medium'} bg-white
+                      border rounded-xl text-left
                       transition-all outline-none
                       ${disabled
                         ? 'border-gray-200 text-gray-400 cursor-not-allowed'
@@ -136,9 +139,8 @@ export function FilterDropdown({
                       }`}
         >
           {/* Left icon */}
-          <Icon className={`absolute left-3 top-1/2 -translate-y-1/2
-                            w-4 h-4 pointer-events-none transition-colors
-                            ${hasSelection ? 'text-[#029bba]' : 'text-gray-400'}`} />
+          <Icon className={`absolute ${compact ? 'left-2.5 h-3.5 w-3.5' : 'left-3 h-4 w-4'} top-1/2 -translate-y-1/2
+                            pointer-events-none text-[#029bba]`} />
 
           {/* Selected label — truncate on overflow */}
           <span className="block truncate">
@@ -147,7 +149,7 @@ export function FilterDropdown({
 
           {/* Chevron — rotates when open */}
           <ChevronDown className={`absolute right-3 top-1/2 -translate-y-1/2
-                                    w-4 h-4 text-gray-400
+                                    ${compact ? 'h-3.5 w-3.5' : 'h-4 w-4'} text-gray-400
                                     transition-transform duration-200
                                     ${open ? 'rotate-180' : ''}`} />
         </button>

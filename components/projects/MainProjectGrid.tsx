@@ -659,7 +659,7 @@ export function MainProjectGrid({
                         bg-[#029bba]/[0.03] rounded-full blur-3xl" />
       </div>
 
-      <div className="relative max-w-7xl mx-auto px-4">
+      <div className="relative z-10 w-full min-w-0">
 
         {/* Streamlined Grid Anchor */}
         <div id="main-grid-heading" className="sr-only">
