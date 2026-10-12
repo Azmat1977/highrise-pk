@@ -25,6 +25,7 @@ import {
   ArrowRight,
   Lock,
 } from "lucide-react";
+import { getOptimizedImageUrl } from "@/utils/cloudinaryTransform";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -150,7 +151,8 @@ function formatPrice(value: number | string | undefined): string {
   return `PKR ${n.toLocaleString("en-PK")}`;
 }
 
-function getCardImage(p: PropertyShape): string {
+function getCardImage(p: PropertyShape & { featureImageUrl?: string }): string {
+  if (p.featureImageUrl) return safeStr(p.featureImageUrl);
   if (p.coverImage) return safeStr(p.coverImage);
   if (p.thumbnail) return safeStr(p.thumbnail);
   if (Array.isArray(p.images) && p.images.length > 0) {
@@ -219,7 +221,48 @@ export default function SavedPropertiesPage(): React.ReactElement {
         throw new Error(msg);
       }
 
-      const list = pickFavoritesArray(data);
+      let list = pickFavoritesArray(data);
+
+      // ── Fallback Hydration: If mode=list returns empty populated objects ──
+      if (list.length === 0) {
+        try {
+          const idsRes = await fetch(`/api/favorites?mode=ids&_ts=${Date.now()}`, {
+            credentials: "include",
+            cache: "no-store",
+            signal: controller.signal,
+            headers: { Accept: "application/json" },
+          });
+          const idsData = await idsRes.json();
+          const propertyIds: string[] = Array.isArray(idsData?.data?.propertyIds)
+            ? idsData.data.propertyIds.map((id: unknown) => String(id))
+            : [];
+
+          if (propertyIds.length > 0) {
+            const propsRes = await fetch(`/api/properties?limit=50`, {
+              signal: controller.signal,
+              headers: { Accept: "application/json" },
+            });
+            const propsData = await propsRes.json();
+            const allProperties: PropertyShape[] = Array.isArray(propsData?.properties)
+              ? propsData.properties
+              : [];
+
+            const matchedProperties = allProperties.filter((p) => {
+              const pid = getId(p);
+              return propertyIds.includes(pid);
+            });
+
+            list = matchedProperties.map((p) => ({
+              _id: getId(p),
+              entityType: "property" as EntityType,
+              entityId: p,
+              property: p,
+            }));
+          }
+        } catch {
+          // Fallback best effort
+        }
+      }
 
       // Keep only property favorites + dedupe by canonical key
       const uniqueMap = new Map<string, FavoriteItem>();
@@ -260,7 +303,7 @@ export default function SavedPropertiesPage(): React.ReactElement {
     };
   }, [status, router, fetchSaved]);
 
-  // ── Refetch on tab focus (enterprise pattern — no custom events) ──────────
+  // ── Refetch on tab focus ──────────────────────────────────────────────────
   useEffect(() => {
     if (status !== "authenticated") return;
 
@@ -270,18 +313,12 @@ export default function SavedPropertiesPage(): React.ReactElement {
       }
     };
 
-    const onRouteChange = () => {
-      fetchSaved();
-    };
-
     document.addEventListener("visibilitychange", onVisibilityChange);
-    router.events.on("routeChangeComplete", onRouteChange);
 
     return () => {
       document.removeEventListener("visibilitychange", onVisibilityChange);
-      router.events.off("routeChangeComplete", onRouteChange);
     };
-  }, [status, router.events, fetchSaved]);
+  }, [status, fetchSaved]);
 
   // ── Remove favorite (optimistic + rollback) ──────────────────────────────
   const handleRemove = useCallback(
@@ -347,6 +384,21 @@ export default function SavedPropertiesPage(): React.ReactElement {
         }
 
         showBanner("success", "Removed from saved properties.");
+
+        // Broadcast removal event to Header & global app state
+        try {
+          localStorage.setItem(
+            "highrise_favorite_toggle",
+            JSON.stringify({
+              entityType: "property",
+              entityId: propertyId,
+              action: "removed",
+              timestamp: Date.now(),
+            })
+          );
+        } catch {}
+        window.dispatchEvent(new CustomEvent("highrise_favorite_updated"));
+        window.dispatchEvent(new CustomEvent("highrise:favorites-changed"));
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : "Unable to remove.";
         showBanner("error", msg);
@@ -381,7 +433,7 @@ export default function SavedPropertiesPage(): React.ReactElement {
           <div className="aspect-[16/9] bg-gray-100 relative">
             {img ? (
               <img
-                src={img}
+                src={getOptimizedImageUrl(img, { width: 600, watermark: true })}
                 alt={title}
                 className="w-full h-full object-cover"
                 loading="lazy"

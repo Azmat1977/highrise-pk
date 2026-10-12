@@ -203,7 +203,7 @@ export function useFavorites(
           .filter(Boolean);
 
         setFavoriteIds(idsForType);
-        setTotalCount(data.data.pagination.total);
+        setTotalCount(data.data.pagination?.total ?? data.data.favorites.length);
       }
       setIsReady(true);
     } catch (err) {

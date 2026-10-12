@@ -270,11 +270,59 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     if (mode === 'ids') {
       const rows = await Favorite.find({
-        $and: [{ $or: [{ userId: userOid }, { userId }, { user: userOid }, { user: userId }] }, { entityType: 'property' }, { isDeleted: { $ne: true } }],
-      }).select('entityId').lean();
-      const ids = rows.map((row: any) => row.entityId).filter((id: unknown) => mongoose.Types.ObjectId.isValid(String(id)));
-      const publicRows = ids.length ? await Property.find({ _id: { $in: ids }, ...PUBLIC_PROPERTY_FILTER }).select('_id').lean() : [];
-      return res.status(200).json({ success: true, requestId, data: { propertyIds: publicRows.map((row: any) => String(row._id)) } });
+        $and: [
+          { $or: [{ userId: userOid }, { userId }, { user: userOid }, { user: userId }] },
+          { entityType: 'property' },
+          { isDeleted: { $ne: true } },
+        ],
+      })
+        .select('entityId')
+        .lean();
+
+      const cleanIds = rows
+        .map((row: any) => {
+          const raw = row?.entityId;
+          if (!raw) return '';
+          if (typeof raw === 'string') return raw.trim();
+          if (typeof raw === 'object') {
+            if (typeof raw.toHexString === 'function') {
+              try { return raw.toHexString(); } catch { /* fall through */ }
+            }
+            if (raw._id) return String(raw._id);
+            try {
+              const s = String(raw);
+              return s !== '[object Object]' ? s : '';
+            } catch {
+              return '';
+            }
+          }
+          return String(raw);
+        })
+        .filter((id: string) => isValidObjectId(id));
+
+      // User's own wishlist IDs: only exclude deleted properties (do NOT require public verification)
+      const existing = cleanIds.length
+        ? await Property.find({
+            _id: { $in: cleanIds.map((id: string) => new mongoose.Types.ObjectId(id)) },
+            isDeleted: { $ne: true },
+          })
+            .select('_id')
+            .lean()
+        : [];
+
+      return res.status(200).json({
+        success: true,
+        requestId,
+        data: {
+          propertyIds: existing.map((row: any) => String(row._id)),
+          // Debug aid (safe): how many favorite rows vs resolved properties
+          meta: {
+            favoriteRows: rows.length,
+            cleanIds: cleanIds.length,
+            resolvedProperties: existing.length,
+          },
+        },
+      });
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -464,10 +512,8 @@ async function handleListMode(
   // Sort: newest first
   const sortOption: Record<string, 1 | -1> = { createdAt: -1, _id: -1 };
 
-  // Populate select fields (minimal, safe)
-  const safeSelectFields = '_id slug shortId title name price currency city location coverImage featureImageUrl images thumbnail isFeatured isVerified status verification isDeleted isFlagged createdAt';
+  const safeSelectFields = '_id slug shortId title name price currency city location coverImage featureImageUrl images thumbnail isFeatured isVerified status verification isDeleted isFlagged createdAt area unit propertyType listingType bedrooms bathrooms';
 
-  // Fetch a bit extra so legacy duplicates can be collapsed without ending up short
   const fetchLimit = isCursorMode
     ? Math.min((limitNum + 1) * 3, MAX_LIMIT * 3)
     : Math.min(limitNum * 3, MAX_LIMIT * 3);
@@ -477,29 +523,129 @@ async function handleListMode(
     .sort(sortOption)
     .skip(skip)
     .limit(fetchLimit)
-    .populate({
-      path: 'entityId',
-      select: safeSelectFields,
-    })
     .maxTimeMS(MAX_QUERY_TIME_MS)
     .lean();
 
-  // Filter out null-populated entities and collapse duplicates by entityType + entityId
+  // Helper for extracting clean 24-hex string IDs from strings, ObjectIds, or nested objects
+  const toCleanIdString = (val: unknown): string => {
+    if (!val) return '';
+    if (typeof val === 'string') return val.trim();
+    if (typeof val === 'number') return String(val);
+    if (typeof val === 'object') {
+      const obj = val as Record<string, unknown>;
+      if (obj._id && obj._id !== val) return toCleanIdString(obj._id);
+      if (obj.id && obj.id !== val) return toCleanIdString(obj.id);
+      if (typeof (val as any).toHexString === 'function') {
+        try { return (val as any).toHexString(); } catch {}
+      }
+      if (typeof (val as any).toString === 'function') {
+        try {
+          const str = (val as any).toString();
+          if (str && str !== '[object Object]') return str.trim();
+        } catch {}
+      }
+    }
+    return '';
+  };
+
+  // Extract all raw entity identifiers (ObjectIds, string IDs, slugs)
+  const rawPropertyKeys = favoritesRaw
+    .filter((f: any) => String(f.entityType || 'property').toLowerCase() === 'property')
+    .map((f: any) => toCleanIdString(f.entityId))
+    .filter(Boolean);
+
+  const rawProjectKeys = favoritesRaw
+    .filter((f: any) => String(f.entityType).toLowerCase() === 'project')
+    .map((f: any) => toCleanIdString(f.entityId))
+    .filter(Boolean);
+
+  const propertyOids = rawPropertyKeys
+    .filter((id) => isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  const projectOids = rawProjectKeys
+    .filter((id) => isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
+  // Safely resolve Project model dynamically
+  const ProjectModel = (mongoose.models.Project || mongoose.models.project) as mongoose.Model<any> | undefined;
+
+  // Query Property and Project models flexibly (matching ObjectId or slug)
+  const nonOidPropertySlugs = rawPropertyKeys.filter((id) => !isValidObjectId(id));
+  const nonOidProjectSlugs = rawProjectKeys.filter((id) => !isValidObjectId(id));
+
+  const [propertiesRaw, projectsRaw] = await Promise.all([
+    rawPropertyKeys.length > 0
+      ? Property.find({
+          $or: [
+            ...(propertyOids.length > 0 ? [{ _id: { $in: propertyOids } }] : []),
+            ...(nonOidPropertySlugs.length > 0 ? [{ slug: { $in: nonOidPropertySlugs } }] : []),
+          ],
+          isDeleted: { $ne: true },
+        })
+          .select(safeSelectFields)
+          .lean()
+      : [],
+    rawProjectKeys.length > 0 && ProjectModel
+      ? ProjectModel.find({
+          $or: [
+            ...(projectOids.length > 0 ? [{ _id: { $in: projectOids } }] : []),
+            ...(nonOidProjectSlugs.length > 0 ? [{ slug: { $in: nonOidProjectSlugs } }] : []),
+          ],
+          isDeleted: { $ne: true },
+        })
+          .select(safeSelectFields)
+          .lean()
+      : [],
+  ]);
+
+  // Build lookup maps keyed by string ID, ObjectId, and slug
+  const propertyMap = new Map<string, any>();
+  for (const p of propertiesRaw as any[]) {
+    const idStr = toCleanIdString(p._id);
+    if (idStr) propertyMap.set(idStr, p);
+    if (p.slug) propertyMap.set(String(p.slug), p);
+  }
+
+  const projectMap = new Map<string, any>();
+  for (const p of projectsRaw as any[]) {
+    const idStr = toCleanIdString(p._id);
+    if (idStr) projectMap.set(idStr, p);
+    if (p.slug) projectMap.set(String(p.slug), p);
+  }
+
+  // Deduplicate and assemble clean favorites list
   const uniqueFavoritesMap = new Map<string, any>();
 
-  for (const f of favoritesRaw) {
+  for (const item of favoritesRaw) {
+    const f = item as Record<string, any>;
     if (!f || !f.entityId) continue;
 
-    const entityObj = typeof f.entityId === 'object' && f.entityId ? f.entityId : null;
-    const canonicalEntityId = String(entityObj?._id || f.entityId || '').trim();
+    const rawEntityKey = toCleanIdString(f.entityId);
     const canonicalEntityType = String(f.entityType || 'property').trim().toLowerCase();
 
-    if (!canonicalEntityId) continue;
-    if (canonicalEntityType === 'property' && entityObj && !isPublicProperty(entityObj)) continue;
+    if (!rawEntityKey) continue;
 
-    const key = `${canonicalEntityType}:${canonicalEntityId}`;
+    let populatedEntity = null;
+    if (canonicalEntityType === 'property') {
+      populatedEntity = propertyMap.get(rawEntityKey);
+    } else if (canonicalEntityType === 'project') {
+      populatedEntity = projectMap.get(rawEntityKey);
+    }
+
+    if (!populatedEntity) continue; // Property/Project deleted or missing
+
+    const canonicalId = toCleanIdString(populatedEntity._id) || rawEntityKey;
+    const key = `${canonicalEntityType}:${canonicalId}`;
+
     if (!uniqueFavoritesMap.has(key)) {
-      uniqueFavoritesMap.set(key, f);
+      uniqueFavoritesMap.set(key, {
+        _id: toCleanIdString(f._id),
+        entityType: canonicalEntityType,
+        entityId: populatedEntity,
+        createdAt: f.createdAt,
+        updatedAt: f.updatedAt,
+      });
     }
   }
 
@@ -526,15 +672,8 @@ async function handleListMode(
     nextCursor = encodeCursor(new Date(last.createdAt), last._id);
   }
 
-  // Get total count (unique favorites only)
-  const totalCountAgg = await Favorite.aggregate([
-    { $match: baseFilter },
-    { $addFields: { canonicalEntityId: { $toString: '$entityId' } } },
-    { $group: { _id: { entityType: '$entityType', entityId: '$canonicalEntityId' } } },
-    { $count: 'total' },
-  ]).option({ maxTimeMS: MAX_QUERY_TIME_MS });
-
-  const totalCount = totalCountAgg?.[0]?.total || 0;
+  // Get total count cleanly without aggregation casting errors
+  const totalCount = await Favorite.countDocuments(baseFilter).maxTimeMS(MAX_QUERY_TIME_MS);
   const pages = Math.max(1, Math.ceil(totalCount / limitNum));
   const hasPrev = isCursorMode ? Boolean(cursorPayload) : pageNum > 1;
 

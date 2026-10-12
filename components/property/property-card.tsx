@@ -119,6 +119,7 @@ interface PropertyCardProps {
   property: PropertyCardInput;
   linkType?: 'property' | 'project';
   showQuickContact?: boolean;
+  layout?: 'grid' | 'list';
 }
 
 // ============================================
@@ -399,7 +400,7 @@ const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage,
 // Property Card Component
 // ============================================
 
-export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType = 'property', showQuickContact = true }) => {
+export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType = 'property', showQuickContact = true, layout = 'grid' }) => {
   // Normalize id once (enterprise: use everywhere)
   const propertyId = useMemo(() => toIdString(property._id) || toIdString(property.id), [property._id, property.id]);
 
@@ -443,18 +444,16 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
         const session = await getSession();
         if (!session?.user) return;
 
-        const res = await fetch(`/api/favorites?mode=list&entityType=property&limit=500&_ts=${Date.now()}`, {
+        const res = await fetch(`/api/favorites?mode=ids&_ts=${Date.now()}`, {
+          credentials: 'include',
           cache: 'no-store',
+          headers: { Accept: 'application/json' },
         });
         const data = await res.json();
-
-        if (data.success && Array.isArray(data.data?.favorites)) {
-          const isFav = data.data.favorites.some((fav: any) => {
-            const entityId = typeof fav?.entityId === 'object' ? fav?.entityId?._id : fav?.entityId;
-            return String(entityId) === String(propertyId);
-          });
-          setIsFavorite(isFav);
-        }
+        const ids: string[] = Array.isArray(data?.data?.propertyIds)
+          ? data.data.propertyIds.map((id: unknown) => String(id))
+          : [];
+        setIsFavorite(ids.includes(String(propertyId)));
       } catch {
         // ignore
       }
@@ -755,18 +754,21 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
       // ═══════════════════════════════════════════
       // STEP 5: Notify other pages (sync)
       // ═══════════════════════════════════════════
+      const isFav = Boolean(data?.data?.isFavorited);
+      const actionStr = data?.data?.action || (isFav ? 'added' : 'removed');
       try {
         localStorage.setItem(
           'highrise_favorite_toggle',
           JSON.stringify({
             entityType,
             entityId: propertyId,
-            action: data?.data?.action,
+            action: actionStr,
             timestamp: Date.now(),
           })
         );
       } catch {}
       window.dispatchEvent(new CustomEvent('highrise_favorite_updated'));
+      window.dispatchEvent(new CustomEvent('highrise:favorites-changed'));
 
     } catch (error) {
       // ═══════════════════════════════════════════
@@ -786,7 +788,12 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
     if (!propertyId) return;
 
-    const success = await toggleCompare(propertyId, 'property');
+    const success = await toggleCompare(propertyId, 'property', {
+      title,
+      imageUrl: currentImage,
+      price,
+      slug: property.slug,
+    });
     if (!success && !isCompared && isMaxReached) {
       showToast('Maximum 4 items can be compared at once', 'error');
     }
@@ -821,6 +828,24 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
     safeOpen(`https://wa.me/${whatsappNumber}?text=${msg}`);
   };
 
+  const handleShare = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const url = `${window.location.origin}${href}`;
+
+    try {
+      if (navigator.share) {
+        await navigator.share({ title, text: `${title} in ${city}`, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        showToast('Property link copied', 'success');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') return;
+      showToast('Unable to share this property', 'error');
+    }
+  };
+
   const handleCloseModal = useCallback(() => setShowLoginModal(false), []);
 
   // ==========================================
@@ -832,12 +857,38 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
       <div className="relative">
         <Link href={href}>
           <div
-            className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
+            className={`bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group ${layout === 'list' ? 'md:flex md:min-h-[280px]' : ''}`}
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
           >
             {/* Image Section */}
-            <div className="relative h-52 overflow-hidden bg-gray-100">
+            <div className={`relative h-52 overflow-hidden bg-gray-100 ${layout === 'list' ? 'md:h-auto md:w-[300px] lg:w-[340px] md:shrink-0' : ''}`}>
+              {layout === 'list' && (
+                <div className="absolute top-3 right-3 z-20 flex flex-col gap-1.5">
+                  <button
+                    type="button"
+                    onClick={handleShare}
+                    aria-label="Share property"
+                    title="Share property"
+                    className="flex h-9 w-9 items-center justify-center rounded-full bg-white/95 text-gray-500 shadow-md transition hover:scale-105 hover:text-[#029bba] focus:outline-none focus:ring-2 focus:ring-[#029bba]"
+                  >
+                    <icons.Share2 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleHeartClick}
+                    disabled={favoriteLoading}
+                    aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+                    aria-pressed={isFavorite}
+                    title={isFavorite ? 'Remove from favorites' : 'Save property'}
+                    className={`flex h-9 w-9 items-center justify-center rounded-full shadow-md transition hover:scale-105 focus:outline-none focus:ring-2 focus:ring-[#029bba] ${
+                      isFavorite ? 'bg-red-500 text-white' : 'bg-white/95 text-gray-500 hover:text-red-500'
+                    } ${favoriteLoading ? 'cursor-wait opacity-50' : ''}`}
+                  >
+                    <icons.Heart className={`h-4 w-4 ${isFavorite ? 'fill-current' : ''} ${favoriteLoading ? 'animate-pulse' : ''}`} />
+                  </button>
+                </div>
+              )}
               {currentImage && !imageError ? (
                 <img
                   src={getOptimizedImageUrl(currentImage, { width: 900, watermark: true })}
@@ -973,29 +1024,40 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
             </div>
 
             {/* Content Section */}
-            <div className="p-4">
-              <h3 className="font-semibold text-gray-900 text-lg line-clamp-1 mb-2 group-hover:text-[#029bba] transition-colors">
+            <div className={`p-4 ${layout === 'list' ? 'md:min-w-0 md:flex-1 md:p-6' : ''}`}>
+              {layout === 'list' && (developer || isVerified) && (
+                <div className="mb-2 flex min-w-0 items-center gap-2">
+                  <span className="truncate text-xs font-bold text-gray-600">{developer || 'Verified Listing'}</span>
+                  {isVerified && <icons.BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />}
+                </div>
+              )}
+              <h3 className={`font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-[#029bba] transition-colors ${layout === 'list' ? 'text-xl md:text-2xl font-black leading-tight' : 'text-lg line-clamp-1'}`}>
                 {title}
               </h3>
 
-              <div className="flex items-center text-sm text-gray-500 mb-3">
+              <div className="flex items-center text-sm text-gray-600 mb-3">
                 <icons.MapPin className="w-4 h-4 mr-1.5 text-gray-400" />
                 <span className="line-clamp-1">{city}</span>
               </div>
 
-              <div className="flex items-center justify-between mb-3 pb-3 border-b border-gray-100">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3 pb-3 border-b border-gray-100">
                 <div className="flex items-center text-sm text-gray-600">
                   <icons.Building className="w-4 h-4 mr-1.5 text-gray-400" />
                   <span className="font-medium">{propertyType}</span>
                 </div>
 
-                {area > 0 && <div className="text-sm text-gray-600 font-medium">{formatArea(area, areaUnit)}</div>}
+                {area > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
+                    <icons.Maximize className="h-3.5 w-3.5 text-[#029bba]" />
+                    {formatArea(area, areaUnit)}
+                  </span>
+                )}
               </div>
 
-              <div className="flex items-center gap-4 mb-4">
+              <div className="flex flex-wrap items-center gap-2 mb-4">
                 {bedrooms > 0 && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <icons.BedDouble className="w-4 h-4 mr-1.5 text-gray-400" />
+                  <div className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
+                    <icons.BedDouble className="w-4 h-4 mr-1.5 text-[#029bba]" />
                     <span>
                       {bedrooms} {bedrooms === 1 ? 'Bed' : 'Beds'}
                     </span>
@@ -1003,8 +1065,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                 )}
 
                 {bathrooms > 0 && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <icons.Bath className="w-4 h-4 mr-1.5 text-gray-400" />
+                  <div className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
+                    <icons.Bath className="w-4 h-4 mr-1.5 text-[#029bba]" />
                     <span>
                       {bathrooms} {bathrooms === 1 ? 'Bath' : 'Baths'}
                     </span>
@@ -1012,8 +1074,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                 )}
 
                 {hasParking && (
-                  <div className="flex items-center text-sm text-gray-600">
-                    <icons.Car className="w-4 h-4 mr-1.5 text-gray-400" />
+                  <div className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
+                    <icons.Car className="w-4 h-4 mr-1.5 text-[#029bba]" />
                     <span>Parking</span>
                   </div>
                 )}
@@ -1032,6 +1094,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                   )}
 
                   <div className="flex flex-col">
+                    {layout === 'list' && (
+                      <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Price</span>
+                    )}
                     <span className="text-xl font-black tracking-tight" style={{ color: hasPriceDrop ? '#059669' : PRIMARY_COLOR }}>
                       {getPriceDisplay()}
                     </span>
@@ -1075,7 +1140,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               )}
 
               {/* Quick Contact Buttons */}
-              {showQuickContact && (canShowPhone || canWhatsapp) && (
+              {layout === 'grid' && showQuickContact && (canShowPhone || canWhatsapp) && (
                 <div className="flex gap-2 mb-3">
                   {canShowPhone && (
                     <button
@@ -1104,7 +1169,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               )}
 
               {/* Compare Toggle */}
-              {propertyId && (
+              {layout === 'grid' && propertyId && (
                 <button
                   onClick={handleToggleCompare}
                   disabled={comparePending || (!isCompared && isMaxReached)}
@@ -1126,7 +1191,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               )}
 
               {/* Time Listed & View Count */}
-              {(timeAgo || (property.views !== undefined && property.views > 0)) && (
+              {layout === 'grid' && (timeAgo || (property.views !== undefined && property.views > 0)) && (
                 <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-100">
                   {timeAgo && (
                     <div className="flex items-center">
@@ -1142,12 +1207,66 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                   )}
                 </div>
               )}
+
+              {layout === 'list' && (timeAgo || (property.views !== undefined && property.views > 0)) && (
+                <div className="flex items-center gap-4 border-t border-gray-100 pt-3 text-xs font-semibold text-gray-400">
+                  {timeAgo && <span className="inline-flex items-center gap-1"><icons.Clock className="h-3.5 w-3.5" /> Listed {timeAgo}</span>}
+                  {property.views !== undefined && property.views > 0 && <span className="inline-flex items-center gap-1"><icons.Eye className="h-3.5 w-3.5" /> {Number(property.views).toLocaleString('en-PK')} views</span>}
+                </div>
+              )}
             </div>
+
+            {layout === 'list' && (
+              <aside className="flex w-full shrink-0 flex-col justify-center gap-2.5 border-t border-gray-100 bg-gradient-to-br from-gray-50 to-white p-4 md:w-56 md:border-l md:border-t-0 md:p-5 lg:w-60">
+                <p className="hidden text-center text-[10px] font-black uppercase tracking-wider text-gray-400 md:block">Get In Touch</p>
+                {showQuickContact && canShowPhone && (
+                  <button
+                    type="button"
+                    onClick={handleCall}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-[#029bba] px-3 py-2.5 text-sm font-black text-white transition hover:-translate-y-0.5 hover:bg-[#017a94] hover:shadow-lg"
+                  >
+                    <icons.Phone className="h-4 w-4" /> Call
+                  </button>
+                )}
+                {showQuickContact && canWhatsapp && (
+                  <button
+                    type="button"
+                    onClick={handleWhatsApp}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border-2 border-[#029bba] px-3 py-2.5 text-xs font-bold text-[#029bba] transition hover:bg-[#029bba]/5"
+                  >
+                    <icons.MessageCircle className="h-4 w-4" /> WhatsApp
+                  </button>
+                )}
+                {!canShowPhone && !canWhatsapp && (
+                  <div className="rounded-xl bg-white px-3 py-3 text-center text-xs font-semibold text-gray-500">
+                    Contact details available on request
+                  </div>
+                )}
+                {propertyId && (
+                  <button
+                    type="button"
+                    onClick={handleToggleCompare}
+                    disabled={comparePending || (!isCompared && isMaxReached)}
+                    className={`inline-flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-xs font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                      isCompared
+                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                        : 'border-gray-200 text-gray-600 hover:border-[#029bba]/40 hover:bg-[#029bba]/5 hover:text-[#029bba]'
+                    }`}
+                  >
+                    {isCompared ? <icons.Check className="h-3.5 w-3.5" /> : <icons.BarChart3 className="h-3.5 w-3.5 text-[#029bba]" />}
+                    {isCompared ? 'Added to Compare' : 'Add to Compare'}
+                  </button>
+                )}
+                <span className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-[#029bba] px-3 py-2.5 text-xs font-black text-white transition hover:bg-[#017a94]">
+                  View Property Details <icons.ArrowRight className="h-3.5 w-3.5" />
+                </span>
+              </aside>
+            )}
           </div>
         </Link>
 
         {/* Heart (Favorite) Button */}
-        <button
+        {layout === 'grid' && <button
           onClick={handleHeartClick}
           disabled={favoriteLoading}
           className={`absolute top-[12px] right-[12px] z-20 p-2 rounded-full transition-all duration-300 ${
@@ -1157,7 +1276,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
           type="button"
         >
           <icons.Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''} ${favoriteLoading ? 'animate-pulse' : ''}`} />
-        </button>
+        </button>}
       </div>
 
       {/* TOAST NOTIFICATION -- Rule Set A compliant absolute top banner placement */}

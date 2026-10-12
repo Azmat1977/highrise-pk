@@ -1337,22 +1337,25 @@ export default function HomePage(): React.ReactElement {
     run();
   }, []);
 
-  // Fetch favorites (only when logged in)
+  // Fetch favorites (only when logged in) — mode=ids is authoritative for heart UI
   const fetchFavorites = useCallback(async () => {
     if (!session?.user) return;
     try {
-      const res = await fetch(`/api/favorites?mode=list&entityType=property&limit=500&_ts=${Date.now()}`, {
+      const res = await fetch(`/api/favorites?mode=ids&_ts=${Date.now()}`, {
+        credentials: 'include',
         cache: 'no-store',
+        headers: { Accept: 'application/json' },
       });
       const data = await res.json();
-      if (data.success && Array.isArray(data.data?.favorites)) {
-        const nextMap: Record<string, boolean> = {};
-        data.data.favorites.forEach((fav: { entityId: string | { _id: string } }) => {
-          const entityId = typeof fav?.entityId === 'object' ? fav.entityId._id : fav.entityId;
-          if (entityId) nextMap[`property:${String(entityId)}`] = true;
-        });
-        setFavoriteMap(nextMap);
-      }
+      const ids: string[] = Array.isArray(data?.data?.propertyIds)
+        ? data.data.propertyIds.map((id: unknown) => String(id))
+        : [];
+
+      const nextMap: Record<string, boolean> = {};
+      ids.forEach((id) => {
+        if (id) nextMap[`property:${id}`] = true;
+      });
+      setFavoriteMap(nextMap);
     } catch {
       // silent
     }
@@ -1360,6 +1363,20 @@ export default function HomePage(): React.ReactElement {
 
   useEffect(() => {
     if (session?.user) fetchFavorites();
+  }, [session, fetchFavorites]);
+
+  // Keep homepage hearts in sync with header/card toggles
+  useEffect(() => {
+    if (!session?.user || typeof window === 'undefined') return;
+    const sync = () => {
+      void fetchFavorites();
+    };
+    window.addEventListener('highrise_favorite_updated', sync);
+    window.addEventListener('highrise:favorites-changed', sync);
+    return () => {
+      window.removeEventListener('highrise_favorite_updated', sync);
+      window.removeEventListener('highrise:favorites-changed', sync);
+    };
   }, [session, fetchFavorites]);
 
   // Fetch risk alerts
@@ -1436,8 +1453,25 @@ export default function HomePage(): React.ReactElement {
         return;
       }
 
-      setFavoriteMap((prev) => ({ ...prev, [favoriteKey]: Boolean(data?.data?.isFavorited) }));
-      showToast(data?.data?.isFavorited ? 'Saved to your list' : 'Removed from saved', 'success');
+      const isFav = Boolean(data?.data?.isFavorited);
+      const actionStr = isFav ? 'added' : 'removed';
+      setFavoriteMap((prev) => ({ ...prev, [favoriteKey]: isFav }));
+      showToast(isFav ? 'Saved to your list' : 'Removed from saved', 'success');
+
+      // Dispatch global real-time event for Header & other tabs
+      try {
+        localStorage.setItem(
+          'highrise_favorite_toggle',
+          JSON.stringify({
+            entityType,
+            entityId,
+            action: actionStr,
+            timestamp: Date.now(),
+          })
+        );
+      } catch {}
+      window.dispatchEvent(new CustomEvent('highrise_favorite_updated'));
+      window.dispatchEvent(new CustomEvent('highrise:favorites-changed'));
     } catch {
       setFavoriteMap((prev) => ({ ...prev, [favoriteKey]: previousState }));
       showToast('Connection error. Please try again.', 'error');

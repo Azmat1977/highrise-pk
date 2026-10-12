@@ -20,7 +20,9 @@ export type PublicPropertyLike = {
 
 export function isPublicProperty(property: PublicPropertyLike | null | undefined): boolean {
   if (!property) return false;
-  return property.verification?.status === 'verified' &&
+  const status = (property as any)?.verification?.status || (property as any)?.status;
+  const isApproved = status === 'verified' || status === 'approved';
+  return isApproved &&
     property.isDeleted !== true &&
     !property.deletedAt &&
     property.isFlagged !== true;

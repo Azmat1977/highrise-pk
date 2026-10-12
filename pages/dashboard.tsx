@@ -34,6 +34,7 @@ import {
   HomeIcon,
 } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
+import { getRecentlyViewedSync } from '@/lib/recently-viewed';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -50,6 +51,7 @@ interface FavoritesApiResponse {
   success?: boolean;
   data?: {
     pagination?: {
+      total?: number;
       totalItems?: number;
       totalCount?: number;
     };
@@ -133,18 +135,35 @@ export default function UserDashboard(): ReactElement {
   const fetchStats = useCallback(async () => {
     if (!isAuthenticated) return;
 
+    // Recently viewed (local, instant)
     try {
-      // Favorites count
-      const favRes = await fetch('/api/favorites?mode=list&page=1&limit=1');
+      const recent = getRecentlyViewedSync();
+      setStats((prev) => ({
+        ...prev,
+        recentlyViewed: Array.isArray(recent) ? recent.length : 0,
+      }));
+    } catch {
+      // silent
+    }
+
+    try {
+      // Favorites count — live API total
+      const favRes = await fetch('/api/favorites?mode=list&page=1&limit=1', {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
       if (favRes.ok) {
         const favData = (await favRes.json()) as FavoritesApiResponse;
+        const pagination = favData?.data?.pagination;
         const total =
-          favData?.data?.pagination?.totalItems ??
-          favData?.data?.pagination?.totalCount ??
+          (typeof pagination?.total === 'number' ? pagination.total : undefined) ??
+          (typeof pagination?.totalItems === 'number' ? pagination.totalItems : undefined) ??
+          (typeof pagination?.totalCount === 'number' ? pagination.totalCount : undefined) ??
           0;
         setStats((prev) => ({
           ...prev,
-          savedProperties: typeof total === 'number' ? total : 0,
+          savedProperties: total,
         }));
       }
     } catch {
@@ -153,7 +172,11 @@ export default function UserDashboard(): ReactElement {
 
     try {
       // My properties count
-      const myRes = await fetch('/api/my-properties?page=1&limit=1');
+      const myRes = await fetch('/api/my-properties?page=1&limit=1', {
+        credentials: 'include',
+        cache: 'no-store',
+        headers: { Accept: 'application/json' },
+      });
       if (myRes.ok) {
         const myData = (await myRes.json()) as MyPropertiesApiResponse;
         const total =
@@ -173,6 +196,28 @@ export default function UserDashboard(): ReactElement {
   useEffect(() => {
     void fetchStats();
   }, [fetchStats]);
+
+  // Live refresh when favorites change or tab refocuses
+  useEffect(() => {
+    if (!isAuthenticated || typeof window === 'undefined') return;
+
+    const onFavChange = () => {
+      void fetchStats();
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void fetchStats();
+    };
+
+    window.addEventListener('highrise_favorite_updated', onFavChange);
+    window.addEventListener('highrise:favorites-changed', onFavChange);
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.removeEventListener('highrise_favorite_updated', onFavChange);
+      window.removeEventListener('highrise:favorites-changed', onFavChange);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [isAuthenticated, fetchStats]);
 
   // ─── Loading State ──────────────────────────────────────────
   if (isLoading) {
@@ -284,6 +329,7 @@ export default function UserDashboard(): ReactElement {
       iconColor: 'text-red-500',
       iconBg: 'bg-red-50',
       disabled: false,
+      showCount: true,
     },
     {
       icon: Clock,
@@ -294,26 +340,29 @@ export default function UserDashboard(): ReactElement {
       iconColor: 'text-blue-500',
       iconBg: 'bg-blue-50',
       disabled: false,
+      showCount: true,
     },
     {
       icon: MessageSquare,
       title: 'My Inquiries',
       description: 'Coming soon',
       count: stats.inquiriesSent,
-      href: '#',
+      href: '/dashboard',
       iconColor: 'text-green-500',
       iconBg: 'bg-green-50',
       disabled: true,
+      showCount: false,
     },
     {
       icon: Bell,
       title: 'Price Alerts',
       description: 'Coming soon',
       count: 0,
-      href: '#',
+      href: '/dashboard',
       iconColor: 'text-purple-500',
       iconBg: 'bg-purple-50',
       disabled: true,
+      showCount: false,
     },
   ];
 
@@ -597,26 +646,59 @@ export default function UserDashboard(): ReactElement {
                     <div className={cx('w-12 h-12 rounded-xl flex items-center justify-center', action.iconBg)}>
                       <action.icon className={cx('w-6 h-6', action.iconColor)} />
                     </div>
-                    {action.count > 0 && (
-                      <span className="text-2xl font-bold text-gray-800">
+                    {action.showCount && (
+                      <span className="text-2xl font-bold text-gray-800 tabular-nums">
                         {action.count}
                       </span>
                     )}
+                    {action.disabled && (
+                      <span className="text-[10px] font-bold uppercase tracking-wide text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
+                        Soon
+                      </span>
+                    )}
                   </div>
-                  <h3 className="font-semibold text-gray-800 group-hover:text-[#029bba] transition-colors">
+                  <h3
+                    className={cx(
+                      'font-semibold text-gray-800 transition-colors',
+                      !action.disabled && 'group-hover:text-[#029bba]'
+                    )}
+                  >
                     {action.title}
                   </h3>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {action.description}
-                  </p>
+                  <p className="text-sm text-gray-500 mt-1">{action.description}</p>
+                  {!action.disabled && (
+                    <p className="mt-3 text-xs font-semibold text-[#029bba] inline-flex items-center gap-1">
+                      Open
+                      <ChevronRight className="w-3 h-3" />
+                    </p>
+                  )}
                 </div>
               );
 
               if (action.disabled) {
-                return <div key={action.title}>{cardInner}</div>;
+                return (
+                  <div
+                    key={action.title}
+                    role="note"
+                    aria-disabled="true"
+                    title="Coming soon"
+                  >
+                    {cardInner}
+                  </div>
+                );
               }
+
               return (
-                <Link key={action.title} href={action.href} className="block">
+                <Link
+                  key={action.title}
+                  href={action.href}
+                  onClick={(e) => {
+                    // Explicit navigation — never rely on parent handlers
+                    e.preventDefault();
+                    void router.push(action.href);
+                  }}
+                  className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba] rounded-2xl"
+                >
                   {cardInner}
                 </Link>
               );

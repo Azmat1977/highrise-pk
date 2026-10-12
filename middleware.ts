@@ -381,18 +381,21 @@ const ROUTE_RULES: readonly RouteRule[] = [
   { path: "/edit-property",  isPrefix: true, level: "kyc", denyReason: "kyc_required" },
 
   // ─── USER-ONLY AREAS (any authenticated user) ─────────────
-  { path: "/dashboard",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/onboarding",      isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/notifications",   isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/messages",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-properties",   isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-listings",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-projects",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-saved",        isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/dashboard",         isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
+  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
+  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/notifications",     isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/messages",          isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-properties",     isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-listings",       isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-projects",       isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/my-saved",          isPrefix: true, level: "auth", denyReason: "auth_required" },
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -753,6 +756,12 @@ export async function middleware(req: NextRequest): Promise<NextResponse> {
       NextResponse.redirect(getDashboardForRole(authority, req)),
       requestId,
     );
+  }
+
+  // Legacy shortlist alias → canonical saved-properties
+  if (pathname === "/shortlist" || pathname.startsWith("/shortlist/")) {
+    const url = new URL("/saved-properties", req.url);
+    return addSecurityHeaders(NextResponse.redirect(url), requestId);
   }
 
   // ─── STEP 6: Find matching route rule ───

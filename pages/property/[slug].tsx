@@ -18,6 +18,7 @@ import type { GetStaticProps, GetStaticPaths } from "next";
 import UniversalInquiryModal from "@/components/UniversalInquiryModal";
 import LoginOrSignupForm from "@/components/auth/LoginOrSignupForm";
 import SimilarProperties from "@/components/property/SimilarProperties";
+import RecentlyViewed from "@/components/recently-viewed";
 import { PropertyDetailSkeleton } from "@/components/skeletons/PropertyDetailSkeleton";
 import TrueCostCard, {
   TrueCostBreakdown,
@@ -413,7 +414,8 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
 
   useEffect(() => {
     if (!property?._id) return;
-    addToRecentlyViewed({
+
+    void addToRecentlyViewed({
       _id: property._id,
       slug: property.slug,
       title: property.title,
@@ -423,7 +425,9 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
       propertyType: property.propertyType,
       viewedAt: new Date().toISOString(),
     });
-  }, [property?._id, property?.slug, property?.title, property?.price, property?.city, property?.images, property?.propertyType]);
+    // Only re-track when the property identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [property?._id]);
 
   const openExplorer = useCallback((tab: "media" | "video" | "map", photoIdx = 0) => {
     setExplorerTab(tab);
@@ -753,6 +757,8 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
                 listingType: property.listingType,
               }}
             />
+
+            <RecentlyViewed />
           </div>
         </div>
 

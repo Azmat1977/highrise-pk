@@ -14,6 +14,7 @@ import React, {
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
+import { Grid3x3, List } from "lucide-react";
 import { icons } from "@/lib/design-system/icons";
 
 import { PropertyGrid, PropertyListItem } from "@/components/property/property-grid";
@@ -349,6 +350,7 @@ export default function PropertiesListingPage(): React.ReactElement {
 
   // State
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchDraft, setSearchDraft] = useState("");
   const [properties, setProperties] = useState<PropertyListItem[]>([]);
@@ -826,9 +828,7 @@ export default function PropertiesListingPage(): React.ReactElement {
           }`}>
             
             <div className="flex flex-col md:flex-row items-center gap-2.5">
-              
-              {/* Search Bar - Flex 1 */}
-              <div className="w-full md:flex-1 relative">
+              <div className="w-full md:flex-1 min-w-0 relative">
                 <icons.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
                 <input
                   type="text"
@@ -1051,34 +1051,73 @@ export default function PropertiesListingPage(): React.ReactElement {
             )}
           </div>
 
+          {/* RECENTLY VIEWED AT TOP */}
+          <RecentlyViewed />
+
           {/* MAIN RESULTS AREA */}
-          <div className="relative z-10 pt-4 pb-8">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-xl md:text-2xl font-black text-[#004063] flex items-center gap-2">
-                  <icons.TrendingUp className="w-5 h-5 text-[#029bba]" />
-                  {isLoading ? (
-                    <span className="flex items-center gap-2">
-                      <icons.Loader2 className="w-4 h-4 animate-spin text-[#029bba]" />
-                      Finding properties...
-                    </span>
-                  ) : (
-                    <>
-                      Showing <span className="text-[#029bba]">{properties.length}</span> of <span className="text-[#029bba]">{pagination.total.toLocaleString()}</span> listings
-                    </>
-                  )}
-                </h2>
+          <div className="relative z-10 pt-4 pb-8 border-t border-gray-200 mt-2">
+            <div className="mb-6 flex flex-col gap-3 rounded-2xl border border-gray-100 bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:justify-between sm:p-4">
+              <div className="flex items-center gap-2 text-sm text-gray-600">
+                {isLoading ? (
+                  <>
+                    <icons.Loader2 className="h-4 w-4 animate-spin text-[#029bba]" />
+                    <span className="font-semibold">Finding properties...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="font-semibold">Showing</span>
+                    <span className="font-black text-gray-900">{properties.length}</span>
+                    <span className="font-semibold">of</span>
+                    <span className="font-black text-[#029bba]">{pagination.total.toLocaleString()}</span>
+                    <span className="font-semibold">listings</span>
+                  </>
+                )}
               </div>
 
-              <select
-                value={filters.sort}
-                onChange={(e) => handleFilterChange("sort", e.target.value)}
-                className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold bg-white text-gray-700 focus:ring-1 focus:ring-[#029bba]/30 focus:border-[#029bba] outline-none cursor-pointer"
-              >
-                {SORT_OPTIONS.map((s) => (
-                  <option key={s.value} value={s.value}>{s.label}</option>
-                ))}
-              </select>
+              <div className="flex flex-wrap items-center gap-2">
+                <select
+                  value={filters.sort}
+                  onChange={(e) => handleFilterChange("sort", e.target.value)}
+                  className="px-4 py-2.5 rounded-xl border border-gray-200 text-xs font-bold bg-white text-gray-700 focus:ring-1 focus:ring-[#029bba]/30 focus:border-[#029bba] outline-none cursor-pointer"
+                >
+                  {SORT_OPTIONS.map((s) => (
+                    <option key={s.value} value={s.value}>{s.label}</option>
+                  ))}
+                </select>
+
+                <div className="inline-flex rounded-xl border-2 border-gray-200 bg-white p-1" role="tablist" aria-label="Property view mode">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={viewMode === "grid"}
+                    aria-label="Grid view"
+                    onClick={() => setViewMode("grid")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      viewMode === "grid"
+                        ? "bg-[#029bba] text-white shadow-sm"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-[#029bba]"
+                    }`}
+                  >
+                    <Grid3x3 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Grid</span>
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={viewMode === "list"}
+                    aria-label="List view"
+                    onClick={() => setViewMode("list")}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
+                      viewMode === "list"
+                        ? "bg-[#029bba] text-white shadow-sm"
+                        : "text-gray-500 hover:bg-gray-50 hover:text-[#029bba]"
+                    }`}
+                  >
+                    <List className="h-4 w-4" />
+                    <span className="hidden sm:inline">List</span>
+                  </button>
+                </div>
+              </div>
             </div>
 
             {/* Promoted Showcase Strip */}
@@ -1152,7 +1191,7 @@ export default function PropertiesListingPage(): React.ReactElement {
               </div>
             ) : (
               <>
-                <PropertyGrid properties={properties} loading={false} />
+                <PropertyGrid properties={properties} loading={false} viewMode={viewMode} />
 
                 {pagination.pages > 1 && (
                   <>
@@ -1219,7 +1258,6 @@ export default function PropertiesListingPage(): React.ReactElement {
           </div>
         </div>
 
-        <RecentlyViewed />
         <CompareBar />
 
         {/* Floating Back to Top Button */}

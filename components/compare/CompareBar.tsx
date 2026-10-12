@@ -31,19 +31,11 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import ReactDOM from 'react-dom';
-import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import {
-  X,
-  BarChart3,
-  ArrowRight,
-  Trash2,
-  Building2,
-  Home as HomeIcon,
-  Loader2,
-} from 'lucide-react';
 
+import { icons } from '@/lib/design-system/icons';
+import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 import { useCompare } from '@/hooks/useCompare';
 import { MAX_COMPARE_ITEMS, type CompareEntityType } from '@/types/projects';
 
@@ -90,6 +82,8 @@ function FilledSlot({
     ? formatCompactPrice(item.minPrice)
     : formatCompactPrice(item.price);
 
+  const thumbUrl = item.imageUrl ? getOptimizedImageUrl(item.imageUrl, 80) : null;
+
   return (
     <div className="relative flex-shrink-0 group">
       <Link
@@ -102,21 +96,20 @@ function FilledSlot({
         {/* Thumbnail */}
         <div className="relative w-10 h-10 rounded-lg overflow-hidden
                         bg-gray-100 flex-shrink-0">
-          {item.imageUrl ? (
-            <Image
-              src={item.imageUrl}
+          {thumbUrl ? (
+            <img
+              src={thumbUrl}
               alt={item.title}
-              fill
-              className="object-cover"
-              sizes="40px"
+              className="w-full h-full object-cover"
+              loading="lazy"
             />
           ) : (
-            <div className="absolute inset-0 bg-gradient-to-br
+            <div className="w-full h-full bg-gradient-to-br
                             from-[#004063]/10 to-[#029bba]/10
                             flex items-center justify-center">
               {item.entityType === 'project'
-                ? <Building2 className="w-4 h-4 text-[#029bba]/40" />
-                : <HomeIcon className="w-4 h-4 text-[#029bba]/40" />}
+                ? <icons.Building2 className="w-4 h-4 text-[#029bba]/40" />
+                : <icons.Home className="w-4 h-4 text-[#029bba]/40" />}
             </div>
           )}
         </div>
@@ -167,8 +160,8 @@ function FilledSlot({
                    disabled:opacity-70 disabled:cursor-wait"
       >
         {isRemoving
-          ? <Loader2 className="w-3 h-3 animate-spin" />
-          : <X className="w-3 h-3" />
+          ? <icons.Loader2 className="w-3 h-3 animate-spin" />
+          : <icons.X className="w-3 h-3" />
         }
       </button>
     </div>
@@ -212,11 +205,51 @@ export default function CompareBar(): React.ReactElement | null {
     || router.pathname.startsWith('/compare/')
     || router.asPath?.startsWith('/compare');
 
-  // ── Fetch full item details when count changes ────────────────────────────
+   // ── Fetch full item details when count changes ──────────────────────────
   const loadItemDetails = useCallback(async () => {
     if (totalCount === 0) {
       setItems([]);
       return;
+    }
+
+    // 0ms INSTANT RECONCILIATION from localStorage
+    try {
+      const localRaw = typeof window !== 'undefined'
+        ? localStorage.getItem('highrise_compare_v2')
+        : null;
+      if (localRaw) {
+        const localItems = JSON.parse(localRaw) as Array<{
+          entityType: CompareEntityType;
+          entityId: string;
+          title?: string;
+          imageUrl?: string | null;
+          price?: number | null;
+          slug?: string;
+        }>;
+
+        if (Array.isArray(localItems) && localItems.length > 0) {
+          setItems((prev) => {
+            const prevMap = new Map(prev.map(i => [`${i.entityType}:${i.entityId}`, i]));
+            return localItems.map((li) => {
+              const key = `${li.entityType}:${li.entityId}`;
+              const existing = prevMap.get(key);
+              if (existing && existing.title && existing.title !== 'Loading...') {
+                return existing;
+              }
+              return {
+                entityType: li.entityType,
+                entityId:   li.entityId,
+                title:      li.title || 'Loading...',
+                imageUrl:   li.imageUrl ?? null,
+                price:      typeof li.price === 'number' ? li.price : undefined,
+                slug:       li.slug,
+              };
+            });
+          });
+        }
+      }
+    } catch {
+      // Non-fatal
     }
 
     setLoading(true);
@@ -298,6 +331,18 @@ export default function CompareBar(): React.ReactElement | null {
 
   useEffect(() => {
     void loadItemDetails();
+
+    const handleCompareSync = () => {
+      void loadItemDetails();
+    };
+
+    window.addEventListener('highrise:compare-changed', handleCompareSync);
+    window.addEventListener('focus', handleCompareSync);
+
+    return () => {
+      window.removeEventListener('highrise:compare-changed', handleCompareSync);
+      window.removeEventListener('focus', handleCompareSync);
+    };
   }, [loadItemDetails]);
 
   // ── Remove handler ────────────────────────────────────────────────────────
@@ -348,7 +393,7 @@ export default function CompareBar(): React.ReactElement | null {
                             border-r border-gray-100 pr-3">
               <div className="w-10 h-10 rounded-xl bg-[#029bba]/10
                               flex items-center justify-center">
-                <BarChart3 className="w-5 h-5 text-[#029bba]" />
+                <icons.BarChart3 className="w-5 h-5 text-[#029bba]" />
               </div>
               <div>
                 <p className="text-xs font-black text-gray-900 leading-tight">
@@ -376,7 +421,7 @@ export default function CompareBar(): React.ReactElement | null {
             <div className="flex-1 min-w-0">
               {loading && items.length === 0 ? (
                 <div className="flex items-center justify-center py-3">
-                  <Loader2 className="w-4 h-4 animate-spin text-[#029bba]" />
+                  <icons.Loader2 className="w-4 h-4 animate-spin text-[#029bba]" />
                 </div>
               ) : (
                 <div className="flex items-center gap-2 overflow-x-auto
@@ -411,7 +456,7 @@ export default function CompareBar(): React.ReactElement | null {
                            transition-colors duration-200
                            focus:outline-none focus:ring-2 focus:ring-red-200"
               >
-                <Trash2 className="w-4 h-4" />
+                <icons.Trash2 className="w-4 h-4" />
               </button>
 
               {/* Compare Now CTA */}
@@ -429,7 +474,7 @@ export default function CompareBar(): React.ReactElement | null {
               >
                 <span className="hidden xs:inline">Compare Now</span>
                 <span className="xs:hidden">Compare</span>
-                <ArrowRight className="w-3.5 h-3.5" />
+                <icons.ArrowRight className="w-3.5 h-3.5" />
               </Link>
             </div>
           </div>
@@ -460,7 +505,7 @@ export default function CompareBar(): React.ReactElement | null {
           >
             <div className="w-12 h-12 rounded-full bg-red-50
                             flex items-center justify-center mb-4">
-              <Trash2 className="w-6 h-6 text-red-500" />
+              <icons.Trash2 className="w-6 h-6 text-red-500" />
             </div>
 
             <h3 className="text-lg font-black text-gray-900 mb-2">
@@ -496,9 +541,9 @@ export default function CompareBar(): React.ReactElement | null {
                            disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {clearing ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <icons.Loader2 className="w-4 h-4 animate-spin" />
                 ) : (
-                  <Trash2 className="w-4 h-4" />
+                  <icons.Trash2 className="w-4 h-4" />
                 )}
                 Clear All
               </button>

@@ -303,17 +303,53 @@ export const Header: React.FC = () => {
   const router = useRouter();
   const { data: session, status } = useSession();
 
-  // ── Favorites (guest + logged-in unified) ──────────────────
-  // totalCount = all favorites across ALL entity types (projects + properties)
-  // Used for header badge — updates in real-time via cross-tab events
-  const { totalCount: favoritesCount, isReady: favoritesReady } = useFavorites({
-    defaultEntityType: 'project',
-  });
+  // ── Favorites & Compare (0ms Optimistic Sync Layer) ────────────
+  const favHook = useFavorites({ defaultEntityType: 'property' });
+  const compHook = useCompare({ defaultEntityType: 'property' });
 
-  // ── Compare counter (mirrors favorites pattern) ────────────
-  const { totalCount: compareCount, isReady: compareReady } = useCompare({
-    defaultEntityType: 'project',
-  });
+  const [favoritesCount, setFavoritesCount] = useState<number>(0);
+  const [compareCount, setCompareCount] = useState<number>(0);
+
+  const favoritesReady = favHook.isReady;
+  const compareReady = compHook.isReady;
+
+  // Sync hook baseline
+  useEffect(() => {
+    setFavoritesCount(favHook.totalCount);
+  }, [favHook.totalCount]);
+
+  useEffect(() => {
+    setCompareCount(compHook.totalCount);
+  }, [compHook.totalCount]);
+
+  // Sync badge directly from hook refresh on event dispatch (prevents double-counting)
+  useEffect(() => {
+    const handleFavUpdate = () => {
+      void favHook.refresh();
+    };
+    window.addEventListener('highrise_favorite_updated', handleFavUpdate);
+    window.addEventListener('highrise:favorites-changed', handleFavUpdate);
+    return () => {
+      window.removeEventListener('highrise_favorite_updated', handleFavUpdate);
+      window.removeEventListener('highrise:favorites-changed', handleFavUpdate);
+    };
+  }, [favHook]);
+
+  useEffect(() => {
+    const handleCompUpdate = () => {
+      try {
+        const arr = JSON.parse(localStorage.getItem('highrise_compare') || '[]');
+        setCompareCount(Array.isArray(arr) ? arr.length : 0);
+      } catch {}
+    };
+    handleCompUpdate(); // Init check
+    window.addEventListener('highrise:compare-changed', handleCompUpdate);
+    window.addEventListener('storage', handleCompUpdate);
+    return () => {
+      window.removeEventListener('highrise:compare-changed', handleCompUpdate);
+      window.removeEventListener('storage', handleCompUpdate);
+    };
+  }, []);
 
   // ── State ──────────────────────────────────────────────────
   const [isLoginModalOpen, setIsLoginModalOpen]       = useState(false);
@@ -769,16 +805,16 @@ export const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* SHORTLIST BUTTON -- Heart + Counter (Desktop) */}
+            {/* SAVED PROPERTIES BUTTON -- Heart + Counter (Desktop) */}
             <Link
-              href="/shortlist"
+              href="/saved-properties"
               onClick={handleShortlistClick}
-              aria-label={`My Shortlist${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
+              aria-label={`Saved Properties${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
               className={cx(
                 "hidden md:flex relative items-center justify-center",
                 "w-11 h-11 rounded-xl transition-all group",
                 "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#029bba]/40",
-                router.pathname === "/shortlist"
+                router.pathname === "/saved-properties"
                   ? "bg-[#029bba]/10"
                   : ""
               )}
@@ -786,7 +822,7 @@ export const Header: React.FC = () => {
               <icons.Heart
                 className={cx(
                   "w-5 h-5 transition-colors",
-                  router.pathname === "/shortlist"
+                  router.pathname === "/saved-properties"
                     ? "text-[#029bba] fill-[#029bba]"
                     : favoritesCount > 0
                       ? "text-red-500 fill-red-500"
@@ -1308,16 +1344,16 @@ export const Header: React.FC = () => {
               )}
             </Link>
 
-            {/* MOBILE SHORTLIST BUTTON */}
+            {/* MOBILE SAVED PROPERTIES BUTTON */}
             <Link
-              href="/shortlist"
+              href="/saved-properties"
               onClick={handleShortlistClick}
-              aria-label={`My Shortlist${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
+              aria-label={`Saved Properties${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
               className={cx(
                 "md:hidden relative flex items-center justify-center",
                 "w-10 h-10 rounded-xl transition-colors",
                 "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#029bba]/40",
-                router.pathname === "/shortlist"
+                router.pathname === "/saved-properties"
                   ? "bg-[#029bba]/10"
                   : ""
               )}
@@ -1325,7 +1361,7 @@ export const Header: React.FC = () => {
               <icons.Heart
                 className={cx(
                   "w-5 h-5 transition-colors",
-                  router.pathname === "/shortlist"
+                  router.pathname === "/saved-properties"
                     ? "text-[#029bba] fill-[#029bba]"
                     : favoritesCount > 0
                       ? "text-red-500 fill-red-500"

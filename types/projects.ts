@@ -923,6 +923,10 @@ export interface CompareItem {
   entityType: CompareEntityType;
   entityId:   string;
   addedAt:    string; // ISO
+  title?:     string;
+  imageUrl?:  string | null;
+  price?:     number | null;
+  slug?:      string;
 }
 
 /** Response shape from POST /api/compare/add */

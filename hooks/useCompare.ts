@@ -45,6 +45,13 @@ export interface UseCompareOptions {
   defaultEntityType?: CompareEntityType;
 }
 
+export interface CompareItemMeta {
+  title?:    string;
+  imageUrl?: string | null;
+  price?:    number | null;
+  slug?:     string;
+}
+
 export interface UseCompareReturn {
   compareIds:   string[];        // IDs for defaultEntityType only
   totalCount:   number;          // ALL entity types combined
@@ -54,9 +61,9 @@ export interface UseCompareReturn {
   isMaxReached: boolean;
 
   isInCompare:  (entityId: string, entityType?: CompareEntityType) => boolean;
-  add:          (entityId: string, entityType?: CompareEntityType) => Promise<boolean>;
+  add:          (entityId: string, entityType?: CompareEntityType, meta?: CompareItemMeta) => Promise<boolean>;
   remove:       (entityId: string, entityType?: CompareEntityType) => Promise<boolean>;
-  toggle:       (entityId: string, entityType?: CompareEntityType) => Promise<boolean>;
+  toggle:       (entityId: string, entityType?: CompareEntityType, meta?: CompareItemMeta) => Promise<boolean>;
   clear:        () => Promise<boolean>;
   refresh:      () => Promise<void>;
 }
@@ -77,6 +84,15 @@ function readCompareItems(): CompareItem[] {
         && typeof i.entityId === 'string'
         && (i.entityType === 'property' || i.entityType === 'project'),
       )
+      .map((i) => ({
+        entityType: i.entityType,
+        entityId:   i.entityId,
+        addedAt:    i.addedAt || new Date().toISOString(),
+        title:      typeof i.title === 'string' ? i.title : undefined,
+        imageUrl:   typeof i.imageUrl === 'string' ? i.imageUrl : null,
+        price:      typeof i.price === 'number' ? i.price : null,
+        slug:       typeof i.slug === 'string' ? i.slug : undefined,
+      }))
       .slice(0, MAX_COMPARE_ITEMS);
   } catch {
     return [];
@@ -128,6 +144,12 @@ export function useCompare(
     setCompareIds(idsForType);
     setTotalCount(localItems.length);
     setIsReady(true);
+
+    // If no compare items locally and guest user, skip network call to prevent noise
+    const sessionId = typeof window !== 'undefined'
+      ? localStorage.getItem('highrise_compare_session')
+      : null;
+    if (localItems.length === 0 && !sessionId) return;
 
     // Then fetch from backend to sync/reconcile
     if (abortRef.current) abortRef.current.abort();
@@ -245,11 +267,12 @@ export function useCompare(
     [compareIds, defaultType],
   );
 
-  // ── ADD ──────────────────────────────────────────────────────────────────
+  // ── ADD ───────────────────────────────────────────────────────────────────
   const add = useCallback(
     async (
       entityId: string,
       entityType?: CompareEntityType,
+      meta?: CompareItemMeta,
     ): Promise<boolean> => {
       if (!entityId) return false;
 
@@ -279,11 +302,19 @@ export function useCompare(
       setActionState('pending');
       setErrorMessage(null);
 
-      // Optimistic
+      // Optimistic with metadata
       const previous = currentItems;
       const optimistic: CompareItem[] = [
         ...currentItems,
-        { entityType: type, entityId, addedAt: new Date().toISOString() },
+        {
+          entityType: type,
+          entityId,
+          addedAt: new Date().toISOString(),
+          title: meta?.title,
+          imageUrl: meta?.imageUrl ?? null,
+          price: meta?.price ?? null,
+          slug: meta?.slug,
+        },
       ];
       writeCompareItems(optimistic);
       if (type === defaultType) {
@@ -452,21 +483,21 @@ export function useCompare(
     [compareIds, defaultType],
   );
 
-  // ── TOGGLE ───────────────────────────────────────────────────────────────
+  // ── TOGGLE ────────────────────────────────────────────────────────────────
   const toggle = useCallback(
     async (
       entityId: string,
       entityType?: CompareEntityType,
+      meta?: CompareItemMeta,
     ): Promise<boolean> => {
       if (isInCompare(entityId, entityType)) {
         return remove(entityId, entityType);
       } else {
-        return add(entityId, entityType);
+        return add(entityId, entityType, meta);
       }
     },
     [isInCompare, add, remove],
   );
-
   // ── CLEAR ────────────────────────────────────────────────────────────────
   const clear = useCallback(async (): Promise<boolean> => {
     const previous = readCompareItems();

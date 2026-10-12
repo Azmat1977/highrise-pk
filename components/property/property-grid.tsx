@@ -140,6 +140,7 @@ export interface PropertyListItem {
 interface PropertyGridProps {
   properties?: PropertyListItem[];
   loading?: boolean;
+  viewMode?: "grid" | "list";
 
   // enterprise: configurable
   skeletonCount?: number;
@@ -179,6 +180,7 @@ export const PropertyGrid: React.FC<PropertyGridProps> = React.memo(
   ({
     properties,
     loading = false,
+    viewMode = "grid",
     skeletonCount = 6,
     emptyTitle = 'No properties found',
     emptyHint = 'Try adjusting your filters or search again.',
@@ -229,8 +231,12 @@ export const PropertyGrid: React.FC<PropertyGridProps> = React.memo(
     return (
       <div
         id={gridId}
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-        aria-label="Properties grid"
+        className={
+          viewMode === "grid"
+            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            : "grid grid-cols-1 gap-4"
+        }
+        aria-label={viewMode === "grid" ? "Properties grid" : "Properties list"}
         role="list"
       >
         {safeProperties.map((property, index) => {
@@ -247,7 +253,7 @@ export const PropertyGrid: React.FC<PropertyGridProps> = React.memo(
 
           return (
             <div key={resolvePropertyKey(safeForCard, index)} role="listitem" className="min-w-0">
-              <PropertyCard property={safeForCard as any} />
+              <PropertyCard property={safeForCard as any} layout={viewMode} />
             </div>
           );
         })}

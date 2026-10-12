@@ -437,25 +437,10 @@ export default async function handler(
     const userOid = new mongoose.Types.ObjectId(userId);
     const entityOid = new mongoose.Types.ObjectId(entityId);
 
-    const ownershipOr = [
-      { userId: userOid },
-      { userId },
-      { user: userOid },
-      { user: userId },
-    ];
-
-    const entityIdOr = [
-      { entityId: entityOid },
-      { entityId },
-    ];
-
     const favoriteFilter = {
-      $and: [
-        { $or: ownershipOr },
-        { $or: entityIdOr },
-        { entityType },
-        { isDeleted: { $ne: true } },
-      ],
+      userId: userOid,
+      entityType,
+      entityId: entityOid,
     };
 
     const existing = await Favorite.findOne(favoriteFilter)

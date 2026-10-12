@@ -1,7 +1,6 @@
-// ═══════════════════════════════════════════════════════════════
-// RECENTLY VIEWED - Hybrid Storage (LocalStorage + Backend)
-// Highrise.pk
-// ═══════════════════════════════════════════════════════════════
+// lib/recently-viewed.ts
+// Hybrid Recently Viewed with serialized writes + dual-key dedupe
+// Prevents lost-update races when opening properties quickly
 
 const STORAGE_KEY = 'highrise_recently_viewed';
 const MAX_ITEMS = 10;
@@ -17,178 +16,272 @@ export interface RecentlyViewedProperty {
   viewedAt: string;
 }
 
-// ─────────────────────────────────────────────────────────────
-// Helper: Check if we're in browser
-// ─────────────────────────────────────────────────────────────
 const isBrowser = typeof window !== 'undefined';
 
-// ─────────────────────────────────────────────────────────────
-// Helper: Get user from localStorage
-// ─────────────────────────────────────────────────────────────
-function getUser(): { id?: string } | null {
-  if (!isBrowser) return null;
+let writeQueue: Promise<void> = Promise.resolve();
+
+function dispatchRecentlyViewedEvent(): void {
+  if (!isBrowser) return;
   try {
-    const userData = localStorage.getItem('user');
-    return userData ? JSON.parse(userData) : null;
+    window.dispatchEvent(new CustomEvent('highrise:recently-viewed-updated'));
   } catch {
-    return null;
+    // ignore
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// LocalStorage Operations
-// ─────────────────────────────────────────────────────────────
 function getFromLocalStorage(): RecentlyViewedProperty[] {
   if (!isBrowser) return [];
   try {
     const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : [];
+    if (!data) return [];
+    const parsed = JSON.parse(data);
+    return Array.isArray(parsed) ? (parsed as RecentlyViewedProperty[]) : [];
   } catch {
     return [];
   }
 }
 
-function saveToLocalStorage(items: RecentlyViewedProperty[]): void {
+function saveToLocalStorage(
+  items: RecentlyViewedProperty[],
+  options?: { silent?: boolean }
+): void {
   if (!isBrowser) return;
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items.slice(0, MAX_ITEMS)));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify(items.slice(0, MAX_ITEMS))
+    );
+    if (!options?.silent) {
+      dispatchRecentlyViewedEvent();
+    }
   } catch (error) {
     console.error('Failed to save recently viewed:', error);
   }
 }
 
-// ─────────────────────────────────────────────────────────────
-// Backend Sync (for logged-in users)
-// ─────────────────────────────────────────────────────────────
-async function syncToBackend(propertyId: string): Promise<boolean> {
+function normalizeId(value: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  if (typeof value === 'number') return String(value);
+  try {
+    const s = String(value);
+    return s === '[object Object]' ? '' : s.trim();
+  } catch {
+    return '';
+  }
+}
+
+function isSameProperty(
+  a: { _id?: string; slug?: string },
+  b: { _id?: string; slug?: string }
+): boolean {
+  const aId = normalizeId(a._id);
+  const bId = normalizeId(b._id);
+  const aSlug = normalizeId(a.slug);
+  const bSlug = normalizeId(b.slug);
+
+  if (aId && bId && aId === bId) return true;
+  if (aSlug && bSlug && aSlug === bSlug) return true;
+  if (aId && bSlug && aId === bSlug) return true;
+  if (aSlug && bId && aSlug === bId) return true;
+  return false;
+}
+
+/**
+ * Dual-key dedupe: collapse only when _id OR slug clearly match.
+ * Keeps the newest viewedAt row.
+ */
+export function dedupItems(
+  items: RecentlyViewedProperty[]
+): RecentlyViewedProperty[] {
+  const sorted = [...items]
+    .filter(Boolean)
+    .map((item) => ({
+      ...item,
+      _id: normalizeId(item._id) || normalizeId(item.slug),
+      slug: normalizeId(item.slug) || undefined,
+      viewedAt: item.viewedAt || new Date(0).toISOString(),
+    }))
+    .sort(
+      (a, b) =>
+        new Date(b.viewedAt).getTime() - new Date(a.viewedAt).getTime()
+    );
+
+  const result: RecentlyViewedProperty[] = [];
+
+  for (const item of sorted) {
+    if (!item._id && !item.slug) continue;
+    const exists = result.some((r) => isSameProperty(r, item));
+    if (!exists) result.push(item);
+  }
+
+  return result.slice(0, MAX_ITEMS);
+}
+
+async function syncAddToBackend(propertyId: string): Promise<boolean> {
   try {
     const response = await fetch('/api/recently-viewed/add', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ propertyId }),
+      credentials: 'include',
     });
-
-    if (!response.ok) {
-      const errorData = await response.json();
-      // If 401 (not authenticated), that's expected for guests
-      if (response.status !== 401) {
-        console.error('Backend sync failed:', errorData);
-      }
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Backend sync error:', error);
+    // 401 is normal for guests
+    return response.ok || response.status === 401;
+  } catch {
     return false;
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// PUBLIC API
-// ═══════════════════════════════════════════════════════════════
+async function syncRemoveFromBackend(propertyId: string): Promise<boolean> {
+  try {
+    const response = await fetch(
+      `/api/recently-viewed/remove?propertyId=${encodeURIComponent(propertyId)}`,
+      {
+        method: 'DELETE',
+        credentials: 'include',
+      }
+    );
+    return response.ok || response.status === 401;
+  } catch {
+    return false;
+  }
+}
 
 /**
- * Add a property to recently viewed (Hybrid: LocalStorage + Backend)
+ * Serialize all storage mutations so rapid property opens cannot drop items.
  */
+function enqueueWrite(task: () => void | Promise<void>): Promise<void> {
+  writeQueue = writeQueue
+    .then(async () => {
+      await task();
+    })
+    .catch(() => {
+      // keep queue alive
+    });
+  return writeQueue;
+}
+
 export async function addToRecentlyViewed(
   property: RecentlyViewedProperty
 ): Promise<void> {
-  // 1. Always save to LocalStorage (works for everyone)
-  const items = getFromLocalStorage();
+  const rawId = normalizeId(property._id);
+  const rawSlug = normalizeId(property.slug);
+  if (!rawId && !rawSlug) return;
 
-  // Remove if already exists (to move to top)
-  const filtered = items.filter((item) => item._id !== property._id);
+  await enqueueWrite(() => {
+    const items = getFromLocalStorage();
 
-  // Add to beginning
-  const newItems = [
-    { ...property, viewedAt: new Date().toISOString() },
-    ...filtered,
-  ].slice(0, MAX_ITEMS);
+    const filtered = items.filter(
+      (item) =>
+        !isSameProperty(item, { _id: rawId, slug: rawSlug })
+    );
 
-  saveToLocalStorage(newItems);
+    const next = dedupItems([
+      {
+        ...property,
+        _id: rawId || rawSlug,
+        slug: rawSlug || undefined,
+        viewedAt: new Date().toISOString(),
+      },
+      ...filtered,
+    ]);
 
-  // 2. If user is logged in, also sync to backend
-  const user = getUser();
-  if (user?.id) {
-    await syncToBackend(property._id);
+    saveToLocalStorage(next);
+  });
+
+  // Always try backend when we have a real ObjectId.
+  // Guests get 401 and that is fine. Do not gate on localStorage "user".
+  if (rawId && /^[a-f\d]{24}$/i.test(rawId)) {
+    void syncAddToBackend(rawId);
   }
 }
 
-/**
- * Get recently viewed properties
- * For logged-in users: Fetches from backend
- * For guests: Returns from LocalStorage
- */
 export async function getRecentlyViewed(): Promise<RecentlyViewedProperty[]> {
-  const user = getUser();
+  // Always prefer a fresh local read after network, not a stale snapshot.
+  let backendItems: RecentlyViewedProperty[] = [];
 
-  if (user?.id) {
-    // Try to fetch from backend
-    try {
-      const response = await fetch('/api/recently-viewed?limit=10');
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success && data.data) {
-          // Transform backend data to match interface
-          return data.data.map((item: any) => ({
-            _id: item.property._id,
-            slug: item.property.slug,
-            title: item.property.title,
-            price: item.property.price,
-            city: item.property.city,
-            images: item.property.images?.map((img: any) =>
-              typeof img === 'string' ? img : img.url
-            ),
-            propertyType: item.property.propertyType,
-            viewedAt: item.viewedAt,
-          }));
-        }
+  try {
+    const response = await fetch('/api/recently-viewed?limit=10', {
+      credentials: 'include',
+      cache: 'no-store',
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+        backendItems = data.data
+          .map((item: any) => {
+            const property = item?.property;
+            if (!property) return null;
+            return {
+              _id: normalizeId(property._id),
+              slug: normalizeId(property.slug) || undefined,
+              title: property.title,
+              price: property.price,
+              city: property.city,
+              images: property.images?.map((img: any) =>
+                typeof img === 'string' ? img : img?.url
+              ),
+              propertyType: property.propertyType,
+              viewedAt: item.viewedAt,
+            } as RecentlyViewedProperty;
+          })
+          .filter(Boolean) as RecentlyViewedProperty[];
       }
-    } catch (error) {
-      console.error('Failed to fetch from backend:', error);
     }
+  } catch {
+    // fall through to local
   }
 
-  // Fallback to LocalStorage
-  return getFromLocalStorage();
+  const freshLocal = getFromLocalStorage();
+  const merged = dedupItems([...freshLocal, ...backendItems]);
+
+  // Keep local mirror fresh without event storm
+  if (merged.length > 0) {
+    saveToLocalStorage(merged, { silent: true });
+  }
+
+  return merged;
 }
 
-/**
- * Synchronous version for immediate UI needs (LocalStorage only)
- */
 export function getRecentlyViewedSync(): RecentlyViewedProperty[] {
-  return getFromLocalStorage();
+  return dedupItems(getFromLocalStorage());
 }
 
-/**
- * Remove a property from recently viewed
- */
-export async function removeFromRecentlyViewed(propertyId: string): Promise<void> {
-  // Remove from LocalStorage
-  const items = getFromLocalStorage();
-  const filtered = items.filter((item) => item._id !== propertyId);
-  saveToLocalStorage(filtered);
+export async function removeFromRecentlyViewed(
+  propertyId: string
+): Promise<void> {
+  const target = normalizeId(propertyId);
+  if (!target) return;
 
-  // Note: Backend removal not implemented (TTL handles cleanup)
-}
+  await enqueueWrite(() => {
+    const items = getFromLocalStorage();
+    const filtered = items.filter(
+      (item) =>
+        !isSameProperty(item, { _id: target, slug: target })
+    );
+    saveToLocalStorage(filtered);
+  });
 
-/**
- * Clear all recently viewed
- */
-export async function clearRecentlyViewed(): Promise<void> {
-  // Clear LocalStorage
-  if (isBrowser) {
-    localStorage.removeItem(STORAGE_KEY);
+  if (/^[a-f\d]{24}$/i.test(target)) {
+    void syncRemoveFromBackend(target);
   }
+}
 
-  // Clear backend if logged in
-  const user = getUser();
-  if (user?.id) {
-    try {
-      await fetch('/api/recently-viewed/clear', { method: 'DELETE' });
-    } catch (error) {
-      console.error('Failed to clear backend:', error);
-    }
+export async function clearRecentlyViewed(): Promise<void> {
+  await enqueueWrite(() => {
+    if (!isBrowser) return;
+    localStorage.removeItem(STORAGE_KEY);
+    dispatchRecentlyViewedEvent();
+  });
+
+  try {
+    await fetch('/api/recently-viewed/clear', {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+  } catch {
+    // ignore
   }
 }
