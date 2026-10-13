@@ -57,7 +57,7 @@ import {
 import { MainProjectGrid } from '@/components/projects/MainProjectGrid';
 import { FilterDropdown } from '@/components/projects/FilterDropdown';
 import { ReadyPropertiesCrossSell } from '@/components/projects/ReadyPropertiesCrossSell';
-import { SeoLocalityGuide } from '@/components/projects/SeoLocalityGuide';
+import ProjectCityLinks from '@/components/projects/ProjectCityLinks';
 import AuthGateModal from '@/components/auth/AuthGateModal';
 import Property from '@/models/Property';
 import Project from '@/models/Projects';
@@ -584,7 +584,7 @@ const CityProjectsPage: NextPage<ProjectsPageProps> = ({
           />
 
           {/* SEO Locality Guide */}
-          <SeoLocalityGuide city={cityName} />
+          <ProjectCityLinks city={cityName} cities={cityCounts} />
         </div>
 
         {/* Back to Top */}

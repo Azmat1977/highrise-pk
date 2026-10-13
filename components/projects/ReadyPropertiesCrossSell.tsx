@@ -45,69 +45,9 @@ function isHighriseReadyProperty(prop: ReadyPropertyItem): boolean {
 
 export function ReadyPropertiesCrossSell({ properties, city }: ReadyPropertiesCrossSellProps) {
   const cityName = city || 'Pakistan';
+  const displayProperties = (properties ?? []).filter(isHighriseReadyProperty).slice(0, 4);
 
-  // Fallback ready properties for fresh local databases (sale + high-rise only)
-  const FALLBACK_PROPERTIES: ReadyPropertyItem[] = [
-    {
-      _id: 'prop-1',
-      slug: 'ready-2-bed-apartment-f11-islamabad',
-      title: 'Ready 2 Bed Luxury Apartment',
-      price: 18500000,
-      city: city || 'Islamabad',
-      location: 'F-11 Markaz',
-      propertyType: 'apartment',
-      purpose: 'sale',
-      bedrooms: 2,
-      areaSize: 6,
-      areaUnit: 'Marla',
-      primaryImage: null,
-    },
-    {
-      _id: 'prop-2',
-      slug: 'commercial-shop-gulberg-greens-islamabad',
-      title: 'Ground Floor Retail Shop',
-      price: 12500000,
-      city: city || 'Islamabad',
-      location: 'Gulberg Greens',
-      propertyType: 'shop',
-      purpose: 'sale',
-      bedrooms: null,
-      areaSize: 3,
-      areaUnit: 'Marla',
-      primaryImage: null,
-    },
-    {
-      _id: 'prop-3',
-      slug: 'executive-office-space-dha-phase-2',
-      title: 'Executive Corporate Office',
-      price: 24000000,
-      city: city || 'Islamabad',
-      location: 'DHA Phase 2',
-      propertyType: 'office',
-      purpose: 'sale',
-      bedrooms: null,
-      areaSize: 8,
-      areaUnit: 'Marla',
-      primaryImage: null,
-    },
-    {
-      _id: 'prop-4',
-      slug: '3-bed-penthouse-bahria-town-phase-8',
-      title: 'Fully Furnished 3 Bed Penthouse',
-      price: 32000000,
-      city: city || 'Rawalpindi',
-      location: 'Bahria Town Phase 8',
-      propertyType: 'penthouse',
-      purpose: 'sale',
-      bedrooms: 3,
-      areaSize: 10,
-      areaUnit: 'Marla',
-      primaryImage: null,
-    },
-  ];
-
-  const sourceProperties = properties && properties.length > 0 ? properties : FALLBACK_PROPERTIES;
-  const displayProperties = sourceProperties.filter(isHighriseReadyProperty).slice(0, 4);
+  if (displayProperties.length === 0) return null;
 
   return (
     <section className="bg-white border border-gray-200 shadow-sm rounded-2xl p-6 md:p-8 my-6">

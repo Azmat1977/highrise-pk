@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
 import type { GetStaticProps } from 'next';
+import ContextualArticles from '@/components/blog/ContextualArticles';
 import {
   Search,
   MapPin,
@@ -380,6 +381,16 @@ export default function DevelopersDirectoryPage({
     verifiedOnly,
   ]);
 
+  const featuredDevelopers = hasActiveFilters
+    ? []
+    : filteredDevelopers.filter(
+        (developer) => developer.isVerified && (developer.activeProjectsCount ?? 0) > 0
+      ).slice(0, 3);
+  const featuredDeveloperIds = new Set(featuredDevelopers.map((developer) => developer._id));
+  const directoryDevelopers = filteredDevelopers.filter(
+    (developer) => !featuredDeveloperIds.has(developer._id)
+  );
+
   const clearAllFilters = (): void => {
     setSearchTerm('');
     setSelectedCity('');
@@ -681,6 +692,20 @@ export default function DevelopersDirectoryPage({
         {/* ── Results ── */}
         <div className="mx-auto max-w-[1440px] px-3 py-8 sm:px-4 lg:px-6">
 
+          {featuredDevelopers.length > 0 && (
+            <section aria-labelledby="featured-developers-heading" className="mb-10 border-b border-gray-200 pb-8">
+              <div className="mb-4">
+                <p className="mb-1 text-xs font-bold text-[#029bba]">VERIFIED WITH ACTIVE PROJECTS</p>
+                <h2 id="featured-developers-heading" className="text-xl font-black text-[#004063] md:text-2xl">
+                  Featured Developers
+                </h2>
+              </div>
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
+                {featuredDevelopers.map((dev) => <DeveloperCard key={dev._id} dev={dev} />)}
+              </div>
+            </section>
+          )}
+
           {/* Results header */}
           <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -699,11 +724,13 @@ export default function DevelopersDirectoryPage({
           {/* Grid */}
           {filteredDevelopers.length > 0 ? (
             <>
-              <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-                {filteredDevelopers.map((dev) => (
-                  <DeveloperCard key={dev._id} dev={dev} />
-                ))}
-              </div>
+              {directoryDevelopers.length > 0 && (
+                <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                  {directoryDevelopers.map((dev) => (
+                    <DeveloperCard key={dev._id} dev={dev} />
+                  ))}
+                </div>
+              )}
 
               {/* Load More */}
               {!hasActiveFilters && !noMorePages && (
@@ -751,6 +778,13 @@ export default function DevelopersDirectoryPage({
               )}
             </div>
           )}
+        </div>
+        <div className="mx-auto max-w-[1440px] px-3 pb-8 sm:px-4 lg:px-6">
+          <ContextualArticles
+            title="Developer News & Insights"
+            description="Published builder updates, project analysis, and real-estate investment guides."
+            tags={['Developer News', 'Market Analysis', 'Project Reviews', 'Investment']}
+          />
         </div>
       </div>
     </>

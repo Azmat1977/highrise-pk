@@ -1220,18 +1220,15 @@ export default function HomePage(): React.ReactElement {
 
   // Banner fetching moved to HomeHero component
 
-  // Fetch featured properties
+  // Fetch latest approved public properties for the homepage discovery strip.
   useEffect(() => {
     const run = async () => {
       try {
-        const res = await fetch('/api/properties?isFeatured=true&limit=6');
+        const res = await fetch('/api/properties?sort=newest&limit=6');
         const data = await res.json();
-        const list: PropertyItem[] = Array.isArray(data?.properties) ? data.properties : [];
-        if (list.length > 0) { setFeaturedProperties(list); return; }
-
-        const fallbackRes = await fetch('/api/properties?limit=6');
-        const fallbackData = await fallbackRes.json();
-        setFeaturedProperties(Array.isArray(fallbackData?.properties) ? fallbackData.properties : []);
+        setFeaturedProperties(
+          data?.success && Array.isArray(data.properties) ? data.properties : []
+        );
       } catch {
         setFeaturedProperties([]);
       } finally {

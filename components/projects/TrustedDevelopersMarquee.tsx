@@ -33,7 +33,7 @@ export function TrustedDevelopersMarquee({ projects }: TrustedDevelopersMarqueeP
     const map = new Map<string, DeveloperItem>();
     
     projects.forEach(p => {
-      if (p.developerName && p.developerName !== 'Developer') {
+      if (p.isTrustedBuilder && p.developerName && p.developerName !== 'Developer') {
         const key = p.developerId || p.developerName;
         if (!map.has(key)) {
           const initials = p.developerName
@@ -60,18 +60,9 @@ export function TrustedDevelopersMarquee({ projects }: TrustedDevelopersMarqueeP
     return Array.from(map.values());
   }, [projects]);
 
-  // Fallback top Pakistani developers with authentic brand monograms & colors
-  const FALLBACK_BUILDERS: DeveloperItem[] = [
-    { id: 'dev-1', name: 'Bahria Town', logoUrl: null, badge: 'premium', initials: 'BT', bgColor: 'bg-[#004063]', textColor: 'text-white' },
-    { id: 'dev-2', name: 'DHA Urban', logoUrl: null, badge: 'trusted', initials: 'DHA', bgColor: 'bg-emerald-700', textColor: 'text-white' },
-    { id: 'dev-3', name: 'Emaar Pakistan', logoUrl: null, badge: 'premium', initials: 'EM', bgColor: 'bg-[#029bba]', textColor: 'text-white' },
-    { id: 'dev-4', name: 'Imarat Group', logoUrl: null, badge: 'trusted', initials: 'IG', bgColor: 'bg-[#004063]', textColor: 'text-white' },
-    { id: 'dev-5', name: 'Saifco Holdings', logoUrl: null, badge: 'emerging', initials: 'SH', bgColor: 'bg-amber-600', textColor: 'text-white' },
-    { id: 'dev-6', name: 'Habib Rafiq (HRL)', logoUrl: null, badge: 'premium', initials: 'HRL', bgColor: 'bg-[#004063]', textColor: 'text-white' },
-  ];
+  if (uniqueDevelopers.length < 3) return null;
 
-  const displayList = uniqueDevelopers.length >= 3 ? uniqueDevelopers : [...uniqueDevelopers, ...FALLBACK_BUILDERS];
-  const marqueeItems = [...displayList, ...displayList, ...displayList];
+  const marqueeItems = [...uniqueDevelopers, ...uniqueDevelopers, ...uniqueDevelopers];
 
   const getBadgeStyle = (badge: string | null) => {
     switch (badge?.toLowerCase()) {

@@ -57,8 +57,8 @@ function getAreaLabel(p: PropertyItem): string {
   return `${p.area} ${p.areaUnit || 'Marla'}`;
 }
 
-function getPrimaryImageUrl(p: PropertyItem): string {
-  return p.images?.[0]?.url || 'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=800';
+function getPrimaryImageUrl(p: PropertyItem): string | null {
+  return p.images?.[0]?.url || null;
 }
 
 function listingTypeLabel(type: string): string {
@@ -86,14 +86,13 @@ export default function FeaturedProperties({
         <div className="text-center mb-12">
           <span className="inline-block px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-medium mb-4">
             <Star className="w-4 h-4 inline mr-1" />
-            Featured Listings
+            New Listings
           </span>
           <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            <span className="text-[#029bba]">Handpicked</span> Premium{' '}
-            <span className="text-[#029bba]">Properties</span>
+            <span className="text-[#029bba]">Newly Added</span> Properties
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto">
-            Explore our carefully selected properties offering the best value
+            Recently added approved listings from across Pakistan.
           </p>
         </div>
 
@@ -114,13 +113,19 @@ export default function FeaturedProperties({
                   <div key={propId} className="overflow-hidden bg-white border border-gray-100 hover:border-[#029bba]/30 rounded-2xl transition-all duration-300 group hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(2,155,186,0.15)] flex flex-col justify-between">
                     <div>
                       <Link href={cardHref} className="block aspect-[16/10] overflow-hidden relative">
-                        <Image
-                          src={getPrimaryImageUrl(property)}
-                          alt={property.title}
-                          fill
-                          className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        />
+                        {getPrimaryImageUrl(property) ? (
+                          <Image
+                            src={getPrimaryImageUrl(property)!}
+                            alt={property.title}
+                            fill
+                            className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                          />
+                        ) : (
+                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400" aria-label="No property image available">
+                            <Home className="h-10 w-10" />
+                          </div>
+                        )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
 
                         {/* Top Left Badges */}
@@ -246,16 +251,16 @@ export default function FeaturedProperties({
               })}
             </div>
             <div className="text-center mt-12">
-              <Link href="/properties?isFeatured=true">
+              <Link href="/properties?sort=newest">
                 <button className="px-8 py-4 rounded-xl bg-[#029bba] hover:bg-[#027a94] text-white font-semibold transition-colors inline-flex items-center gap-2 shadow-lg hover:shadow-xl">
-                  Explore All Featured Properties <ArrowRight className="w-5 h-5" />
+                  Browse Recent Properties <ArrowRight className="w-5 h-5" />
                 </button>
               </Link>
             </div>
           </>
         ) : (
           <div className="text-center py-16 bg-gray-50 rounded-2xl">
-            <h3 className="text-xl font-semibold text-gray-900">No Featured Properties Yet</h3>
+            <h3 className="text-xl font-semibold text-gray-900">No Recent Properties Yet</h3>
           </div>
         )}
       </div>
