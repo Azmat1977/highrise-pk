@@ -26,6 +26,9 @@ export interface PropertyDTO {
   listingType?: ListingType;
   purpose?: string;
   status?: string;
+  ownerName?: string;
+  ownerRole?: string;
+  ownerSlug?: string;
   price: number;
   areaSize?: number;
   areaUnit?: AreaUnit;
@@ -96,6 +99,9 @@ export function normalizeProperty(raw: unknown): PropertyDTO {
     listingType,
     purpose: safeStr(r?.purpose),
     status: safeStr(r?.status),
+    ownerName: safeStr(r?.ownerName),
+    ownerRole: safeStr(r?.ownerRole),
+    ownerSlug: safeStr(r?.ownerSlug),
     price: safeNum(r?.price) ?? 0,
     areaSize,
     areaUnit,

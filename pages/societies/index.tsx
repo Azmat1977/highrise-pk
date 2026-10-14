@@ -8,6 +8,7 @@ import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/router';
+import ContextualArticles from '@/components/blog/ContextualArticles';
 import {
   Search, MapPin, Shield, ShieldCheck, ShieldAlert, ShieldX,
   AlertTriangle, XCircle, Clock, Building2,
@@ -838,6 +839,14 @@ export default function SocietiesBrowsePage(): React.ReactElement {
               ))}
             </div>
           </div>
+        </section>
+
+        <section className="mx-auto max-w-[1440px] px-3 py-8 sm:px-4 lg:px-6">
+          <ContextualArticles
+            title="Society News & Verification Guides"
+            description="Published updates on housing societies, NOC checks, legal records, and city development."
+            tags={['Society Reviews', 'Legal Guide', 'Verification', 'City Guide']}
+          />
         </section>
 
         {/* ═══════════════════════════════════════════════════════════════

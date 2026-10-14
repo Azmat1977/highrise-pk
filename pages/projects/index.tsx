@@ -63,10 +63,13 @@ const STATUS_OPTIONS = [
 ];
 
 import { MainProjectGrid } from '@/components/projects/MainProjectGrid';
+import FeaturedProjectCarousel from '@/components/projects/FeaturedProjectCarousel';
+import ProjectMarketInsights from '@/components/projects/ProjectMarketInsights';
+import ContextualArticles from '@/components/blog/ContextualArticles';
 import { FilterDropdown }  from '@/components/projects/FilterDropdown';
 import { ReadyPropertiesCrossSell } from '@/components/projects/ReadyPropertiesCrossSell';
-import { SeoLocalityGuide } from '@/components/projects/SeoLocalityGuide';
 import Property from '@/models/Property';
+import { withPublicPropertyFilter } from '@/lib/property/publicProperty';
 
 import dbConnect from '@/lib/dbConnect';
 import Project   from '@/models/Projects';
@@ -189,6 +192,12 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
 
   const noindex = activeFilterCount >= 3 || filters.page > 1;
 
+  const topPickIds = new Set(featuredProjects.map((project) => project._id));
+  const prominentProjects = initialProjects
+    .filter((project) => project.isVerified && !topPickIds.has(project._id))
+    .sort((first, second) => second.shield.total - first.shield.total)
+    .slice(0, 6);
+
   // Merge static cities with live DB counts. Sort active to top.
   const citiesToShow = (() => {
     const countMap = new Map<string, number>();
@@ -307,56 +316,6 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
       ],
     };
 
-    // Tier 3: FAQPage (city-adaptive Pakistani buyer intelligence)
-    const CITY_FAQ_DATA: Record<string, Array<{ q: string; a: string }>> = {
-      Islamabad: [
-        { q: 'Which new projects in Islamabad are CDA approved?', a: 'All verified projects on Highrise.pk in Islamabad carry CDA (Capital Development Authority) NOC approval. You can filter by NOC Approved to see only legally cleared developments in sectors like E-11, F-7, D-12, and B-17.' },
-        { q: 'What is the typical installment plan for new projects in Islamabad?', a: 'Most Islamabad developments offer 3-5 year installment plans with 10-20% down payment. Premium sectors like E-11 and F-7 may require higher down payments. Use our filter to find projects with flexible installment options.' },
-        { q: 'Are DHA and Bahria Town projects in Islamabad verified?', a: 'Yes, Highrise.pk verifies all major society projects including DHA Islamabad, Bahria Town, and Park View City. Each listing shows NOC status, developer credentials, and construction progress.' },
-        { q: 'What is the average price per Marla in Islamabad new projects?', a: 'Prices vary by sector. B-17 and D-12 range from PKR 15-35 Lakh per Marla, while premium sectors like E-11 and F-7 can exceed PKR 80 Lakh per Marla. Use our Budget Tier filter to find projects in your range.' },
-      ],
-      Lahore: [
-        { q: 'Which new projects in Lahore are LDA approved?', a: 'Highrise.pk lists only LDA (Lahore Development Authority) verified projects. Filter by NOC Approved to see legally cleared developments in DHA Lahore, Bahria Town, Johar Town, and Wapda Town.' },
-        { q: 'What installment plans are available for Lahore projects?', a: 'Lahore projects typically offer 2-4 year payment plans with 10-25% down payment. DHA and Bahria Town offer structured quarterly installments. Filter by Installments to see all available options.' },
-        { q: 'Is it safe to invest in new launch projects in Lahore?', a: 'New launch projects carry higher risk but offer better pricing. Highrise.pk mitigates this by verifying NOC status, developer track record, and construction progress. Look for our Shield Score and Trusted Developer badges.' },
-        { q: 'What are the best areas for property investment in Lahore?', a: 'DHA Phase 6-9, Bahria Town, Johar Town, and Askari are high-demand areas. Our Locality Guide provides detailed market intelligence for each area including price trends and development status.' },
-      ],
-      Karachi: [
-        { q: 'Which new projects in Karachi are SBCA approved?', a: 'All verified Karachi projects on Highrise.pk carry SBCA (Sindh Building Control Authority) approval. Filter by NOC Approved to see legally cleared developments in Clifton, Defence, Gulshan-e-Iqbal, and Scheme 33.' },
-        { q: 'What is the price range for new apartments in Karachi?', a: 'New apartments in Karachi range from PKR 50 Lakh for 2-bed units in Gulshan to PKR 5+ Crore for luxury penthouses in Clifton and Defence. Use our Budget Tier filter to narrow your search.' },
-        { q: 'Are Bahria Town Karachi projects verified on Highrise.pk?', a: 'Yes, Bahria Town Karachi projects are listed with full verification including SBCA NOC, developer credentials, and construction progress. Each listing includes our proprietary Shield Score for trust assessment.' },
-        { q: 'What payment plans do Karachi developers offer?', a: 'Karachi developers typically offer 3-5 year installment plans with 15-20% down payment. Premium projects in Clifton and DHA may require higher upfront payments. Filter by Installments to explore options.' },
-      ],
-      Rawalpindi: [
-        { q: 'Which new projects in Rawalpindi are RDA approved?', a: 'Highrise.pk verifies all Rawalpindi projects for RDA (Rawalpindi Development Authority) and CDA approval. Filter by NOC Approved to see legally cleared developments in Bahria Town, DHA Phase 2, and Adiala Road.' },
-        { q: 'Is Rawalpindi a good investment compared to Islamabad?', a: 'Rawalpindi offers significantly lower entry prices than Islamabad while benefiting from twin-city infrastructure. Projects near the Islamabad Expressway and Ring Road show strong appreciation potential.' },
-        { q: 'What installment plans are available in Rawalpindi?', a: 'Rawalpindi projects offer some of the most flexible payment plans in Pakistan, with 3-7 year installments and down payments as low as 10%. Bahria Town and DHA offer structured quarterly plans.' },
-        { q: 'What are the best housing societies in Rawalpindi?', a: 'Bahria Town Rawalpindi, DHA Phase 2, Askari, and Bahria Enclave are top-rated societies. Our Shield Score and developer verification badges help you identify the most trustworthy options.' },
-      ],
-    };
-
-    const DEFAULT_FAQ = [
-      { q: 'How do I verify if a new project is NOC approved in Pakistan?', a: 'Every project on Highrise.pk displays its NOC status from the relevant authority (CDA, LDA, RDA, SBCA). Look for the green NOC Approved badge on project cards. You can also use our free Society NOC Verification tool under Tools.' },
-      { q: 'Are installment plans for new projects safe in Pakistan?', a: 'Installment safety depends on developer credibility and NOC status. Highrise.pk verifies both. Look for Trusted Developer badges and Shield Scores above 70. We recommend projects with escrow-backed payment plans.' },
-      { q: 'What is the minimum down payment for new projects in Pakistan?', a: 'Down payments typically range from 10-25% of the total property value. Pre-launch projects may offer lower down payments (10-15%), while ready-to-move properties often require 20-25%.' },
-      { q: 'How does Highrise.pk verify projects and developers?', a: 'Our verification team checks NOC documents, developer registration, land ownership records, and construction progress. Verified projects receive our Shield Score (0-100) based on legal compliance, financial transparency, and delivery track record.' },
-    ];
-
-    const faqItems = CITY_FAQ_DATA[filters.city || ''] || DEFAULT_FAQ;
-
-    const faqPageLd = {
-      '@context': 'https://schema.org',
-      '@type': 'FAQPage',
-      mainEntity: faqItems.map(faq => ({
-        '@type': 'Question',
-        name: faq.q,
-        acceptedAnswer: {
-          '@type': 'Answer',
-          text: faq.a,
-        },
-      })),
-    };
-
   return (
     <>
       <Head>
@@ -379,10 +338,6 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqPageLd).replace(/</g, '\\u003c') }}
         />
       </Head>
 
@@ -610,6 +565,15 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
             )}
           </div>
 
+          <FeaturedProjectCarousel projects={featuredProjects} />
+          <FeaturedProjectCarousel
+            id="prominent-projects-heading"
+            projects={prominentProjects}
+            eyebrow="VERIFIED PROJECTS"
+            title="Prominent Projects to Explore"
+            description="Other verified projects ranked by their current Highrise Shield score."
+          />
+
           {/* MAIN PROJECT RESULTS GRID */}
           <div className="relative z-10">
             <MainProjectGrid
@@ -626,8 +590,28 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
             city={filters.city}
           />
 
-          {/* SEO & LOCALITY GUIDE */}
-          <SeoLocalityGuide city={filters.city} />
+          <ProjectMarketInsights
+            city={filters.city}
+            totalProjects={totalCount}
+            hotspots={hotspots}
+            cityCounts={cityCounts}
+          />
+
+          <ContextualArticles
+            title="Project News & Guides"
+            description="Published project, developer, and construction updates from Highrise.pk."
+            tags={['New Projects', 'Project Reviews', 'Developer News']}
+          />
+
+          <section aria-labelledby="list-project-cta" className="flex flex-col gap-4 rounded-xl border border-[#029bba]/20 bg-[#029bba]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 id="list-project-cta" className="text-lg font-black text-[#004063]">Have a project to list?</h2>
+              <p className="mt-1 text-sm text-gray-600">Submit project details for review by the Highrise team.</p>
+            </div>
+            <Link href="/developer/projects/new" className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#029bba] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#017a94]">
+              List a Project
+            </Link>
+          </section>
         </div>
 
         {/* Floating Back to Top Button (Centered to avoid Aleem Chat widget clash) */}
@@ -913,9 +897,9 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
     // Query active resale properties for exit-intent cross-sell
     let readyPropertiesMapped: ReadyPropertyItem[] = [];
     try {
-      const propQuery: Record<string, unknown> = {
-        isDeleted: { $ne: true },
+      const propQuery = withPublicPropertyFilter({
         purpose: 'sale',
+        propertyCondition: { $in: ['completed', 'ready_possession'] },
         propertyType: {
           $in: [
             'apartment', 'apartments', 'flat', 'flats',
@@ -925,11 +909,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
             'commercial_plaza', 'unit', 'units',
           ],
         },
-        $or: [
-          { status: { $in: ['approved', 'available', 'active', 'verified'] } },
-          { 'verification.status': 'verified' },
-        ],
-      };
+      });
       if (filters.city) {
         propQuery.city = { $regex: new RegExp(`^${escapeRegExp(filters.city)}$`, 'i') };
       }
@@ -985,7 +965,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
         hotspots,
         platformStats: { totalProjects: 0, totalDevelopers: 0, totalVerified: 0, totalCities: 0 },
         tabCounts: [],
-        featuredProjects: [],
+        featuredProjects: projects.filter((project) => project.isFeatured && project.isVerified).slice(0, 6),
         readyProperties: readyPropertiesMapped,
       },
     };

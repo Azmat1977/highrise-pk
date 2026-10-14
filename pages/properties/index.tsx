@@ -20,6 +20,8 @@ import { icons } from "@/lib/design-system/icons";
 import { PropertyGrid, PropertyListItem } from "@/components/property/property-grid";
 import { PropertyCard } from "@/components/property/property-card";
 import { RecentlyViewed } from "@/components/recently-viewed";
+import RecommendedSellers from "@/components/property/RecommendedSellers";
+import ContextualArticles from "@/components/blog/ContextualArticles";
 import { normalizePropertiesList } from "@/lib/property/property";
 import { PropertyGridSkeleton } from "@/components/skeletons/PropertyGridSkeleton";
 import AuthGateModal from "@/components/auth/AuthGateModal";
@@ -1263,6 +1265,45 @@ export default function PropertiesListingPage(): React.ReactElement {
               </>
             )}
           </div>
+          {!isLoading && !isError && (
+            <RecommendedSellers properties={properties} />
+          )}
+          <ContextualArticles
+            title="Property News & Guides"
+            description="Published buying, renting, selling, and property-market guidance for Pakistan."
+            tags={['Buying Guide', 'Selling Guide', 'Renting Guide', 'Price Trends', 'Property Types']}
+          />
+          <section aria-labelledby="property-research-tools-heading" className="mt-8 border-t border-gray-200 pt-6">
+            <div className="mb-4">
+              <p className="mb-1 text-xs font-bold text-[#029bba]">PROPERTY RESEARCH TOOLS</p>
+              <h2 id="property-research-tools-heading" className="text-xl font-black text-[#004063] md:text-2xl">
+                Make a more informed property decision
+              </h2>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Link href="/tools/price-estimator" className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-[#029bba] hover:text-[#029bba]">
+                <icons.DollarSign className="h-4 w-4 text-[#029bba]" /> Price estimator
+              </Link>
+              <Link href="/tools/home-loan-calculator" className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-[#029bba] hover:text-[#029bba]">
+                <icons.Calculator className="h-4 w-4 text-[#029bba]" /> Home loan calculator
+              </Link>
+              <Link href="/tools/area-unit-converter" className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-[#029bba] hover:text-[#029bba]">
+                <icons.Maximize className="h-4 w-4 text-[#029bba]" /> Area converter
+              </Link>
+              <Link href="/compare" className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-[#029bba] hover:text-[#029bba]">
+                <icons.BarChart3 className="h-4 w-4 text-[#029bba]" /> Compare properties
+              </Link>
+            </div>
+          </section>
+          <section aria-labelledby="list-property-cta" className="mt-8 flex flex-col gap-4 rounded-xl border border-[#029bba]/20 bg-[#029bba]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 id="list-property-cta" className="text-lg font-black text-[#004063]">Have a property to sell or rent?</h2>
+              <p className="mt-1 text-sm text-gray-600">Create a listing and submit it for Highrise review.</p>
+            </div>
+            <Link href="/add-property" className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#029bba] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#017a94]">
+              List Property
+            </Link>
+          </section>
         </div>
 
         <CompareBar />

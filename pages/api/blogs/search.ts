@@ -8,6 +8,8 @@ import Blog from '@/models/Blog';
 
 const DEFAULT_LIMIT = 12;
 const MAX_LIMIT = 50;
+const MAX_FILTER_LABEL_LENGTH = 80;
+const MAX_TAG_FILTERS = 10;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -39,6 +41,13 @@ function sanitizeQuery(query: string): string {
     .substring(0, 200);
 }
 
+function escapeRegexTerm(value: string): string {
+  return value
+    .trim()
+    .replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    .replace(/-/g, '[\\s-]');
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Parse request params
 // ─────────────────────────────────────────────────────────────────────────────
@@ -68,13 +77,16 @@ function parseFilters(req: NextApiRequest): SearchFilters {
         .map((t) => t.trim())
         .filter(Boolean);
     }
+    parsedTags = parsedTags
+      .slice(0, MAX_TAG_FILTERS)
+      .map((tag) => tag.slice(0, MAX_FILTER_LABEL_LENGTH));
   }
 
   return {
     query: sanitizeQuery(String(q || query || '')),
-    category: category ? String(category).trim() : undefined,
+    category: category ? String(category).trim().slice(0, MAX_FILTER_LABEL_LENGTH) : undefined,
     tags: parsedTags.length > 0 ? parsedTags : undefined,
-    author: author ? String(author).trim() : undefined,
+    author: author ? String(author).trim().slice(0, MAX_FILTER_LABEL_LENGTH) : undefined,
     dateFrom: dateFrom ? String(dateFrom) : undefined,
     dateTo: dateTo ? String(dateTo) : undefined,
     sort: ['relevance', 'newest', 'oldest', 'popular'].includes(String(sort))
@@ -134,19 +146,19 @@ export default async function handler(
 
     // Category filter
     if (category) {
-      matchConditions.category = new RegExp(`^${category.replace(/-/g, '[\\s-]')}$`, 'i');
+      matchConditions.category = new RegExp(`^${escapeRegexTerm(category)}$`, 'i');
     }
 
     // Tags filter
     if (tags && tags.length > 0) {
       matchConditions.tags = {
-        $in: tags.map((tag) => new RegExp(tag.replace(/-/g, '[\\s-]'), 'i')),
+        $in: tags.map((tag) => new RegExp(escapeRegexTerm(tag), 'i')),
       };
     }
 
     // Author filter
     if (author) {
-      const authorRegex = new RegExp(author.replace(/-/g, '[\\s-]'), 'i');
+      const authorRegex = new RegExp(escapeRegexTerm(author), 'i');
       matchConditions.$or = [
         { author: authorRegex },
         { authorName: authorRegex },
