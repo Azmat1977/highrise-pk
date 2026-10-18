@@ -2,11 +2,11 @@
 // Highrise.pk Privacy Policy — GDPR + PECA 2016 compliant
 // Effective: January 15, 2025 | Version 1.0
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { Shield, Eye, Lock, Database, Bell, Mail, 
-         ChevronDown, ChevronUp, ExternalLink } from 'lucide-react';
+         ChevronDown, ChevronUp, ExternalLink, Home, ChevronRight } from 'lucide-react';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk';
 const EFFECTIVE_DATE = 'January 15, 2025';
@@ -36,7 +36,7 @@ function AccordionSection({
   onToggle: () => void;
 }): React.ReactElement {
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
+    <div id={section.id} className="border border-gray-200 rounded-xl overflow-hidden mb-4 scroll-mt-24">
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-5 bg-white hover:bg-gray-50 transition-colors text-left"
@@ -72,6 +72,13 @@ export default function PrivacyPolicyPage(): React.ReactElement {
   const [openSections, setOpenSections] = useState<Set<string>>(
     new Set(['information-we-collect'])
   );
+
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '');
+    if (hash) {
+      setOpenSections((prev) => new Set([...prev, hash]));
+    }
+  }, []);
 
   function toggleSection(id: string): void {
     setOpenSections((prev) => {
@@ -677,42 +684,29 @@ export default function PrivacyPolicyPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── Hero ─────────────────────────────────────────────────────────── */}
-        <div className="bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] text-white">
-          <div className="max-w-4xl mx-auto px-4 py-14 sm:py-20">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-white/60 mb-6">
-              <Link href="/" className="hover:text-white transition-colors">Home</Link>
-              <span>/</span>
-              <span className="text-white">Privacy Policy</span>
-            </nav>
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Privacy Policy</span>
+          </nav>
 
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center flex-shrink-0">
-                <Shield className="w-7 h-7 text-[#029bba]" />
-              </div>
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold mb-3">
-                  Privacy <span className="text-[#029bba]">Policy</span>
-                </h1>
-                <p className="text-white/70 text-base sm:text-lg max-w-2xl">
-                  We take your privacy seriously. This policy explains exactly what data 
-                  we collect, why we collect it, and how we protect it — in plain English.
-                </p>
-                <div className="flex flex-wrap gap-4 mt-5 text-sm">
-                  <span className="bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
-                    📅 Effective: {EFFECTIVE_DATE}
-                  </span>
-                  <span className="bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
-                    🔄 Updated: {LAST_UPDATED}
-                  </span>
-                  <span className="bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
-                    📋 Version: 1.0
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Privacy Policy
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>What we collect, why, and how we protect it</span>
+            <span className="text-gray-300">•</span>
+            <span>Effective: {EFFECTIVE_DATE}</span>
+            <span className="text-gray-300">•</span>
+            <span>Updated: {LAST_UPDATED}</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Version 1.0</span>
+          </p>
         </div>
 
         {/* ── Trust Badges ─────────────────────────────────────────────────── */}

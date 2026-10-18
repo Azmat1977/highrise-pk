@@ -5,16 +5,15 @@ import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { motion } from 'framer-motion';
 import {
-  ArrowLeft,
   Calendar,
   Clock,
   Eye,
   Loader2,
   Search,
   Sparkles,
-  TrendingUp,
   User,
   ChevronRight,
+  Home,
 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { getCategoryMetadata, getRelatedCategories, getCategoryGroup } from '../../../lib/categoryMetadata';
@@ -157,84 +156,39 @@ export default function BlogCategoryPage() {
       </Head>
 
       <div className="min-h-screen bg-[#f8fafc]">
-        {/* Hero */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 text-white">
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_#06b6d4,_transparent_30%),radial-gradient(circle_at_bottom_left,_#0ea5e9,_transparent_25%)]" />
-          <div className="container mx-auto px-4 py-14 md:py-18 relative">
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45 }}
-              className="max-w-4xl"
-            >
-              <Link
-                href="/blog"
-                className="inline-flex items-center text-white/80 hover:text-white mb-6 transition-colors"
-              >
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Blog
-              </Link>
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/blog" className="hover:text-[#029bba] font-medium transition-colors">
+              Blog
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">{categoryMeta?.name || categoryName || 'Category'}</span>
+          </nav>
 
-              <div className="flex items-center gap-4 mb-5 flex-wrap">
-                {categoryMeta?.icon && (() => {
-                  try {
-                    const LucideIcons = require('lucide-react');
-                    const IconComponent = LucideIcons[categoryMeta.icon];
-                    return IconComponent ? (
-                      <div className={`w-14 h-14 rounded-2xl bg-gradient-to-br ${categoryMeta.color.gradient} flex items-center justify-center shadow-lg`}>
-                        <IconComponent className="w-7 h-7 text-white" />
-                      </div>
-                    ) : null;
-                  } catch (err) {
-                    return null;
-                  }
-                })()}
-
-                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm">
-                  {categoryMeta?.emoji && <span className="text-base">{categoryMeta.emoji}</span>}
-                  <span className="text-sm font-medium text-white/90">
-                    Category Archive
-                  </span>
-                </div>
-              </div>
-
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-tight mb-5">
-                {categoryMeta?.name || categoryName || 'Category'}
-              </h1>
-
-              {categoryMeta?.longDescription || categoryMeta?.description ? (
-                <p className="text-white/80 text-lg md:text-xl leading-relaxed max-w-3xl mb-5">
-                  {categoryMeta.longDescription || categoryMeta.description}
-                </p>
-              ) : (
-                <p className="text-white/75 text-lg leading-relaxed max-w-2xl mb-5">
-                  Explore the latest {categoryName || 'category'} insights, guides, market trends,
-                  analysis, and expert perspectives from Highrise.pk.
-                </p>
-              )}
-
-              <div className="flex flex-wrap items-center gap-4">
-                <div className="text-sm text-white/60">
-                  {pagination?.total || blogs.length} article{((pagination?.total || blogs.length) !== 1) ? 's' : ''} • Updated regularly
-                </div>
-
-                {categoryMeta?.group && (() => {
-                  const groupMeta = getCategoryGroup(categoryMeta.group);
-                  return (
-                    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm text-sm text-white/90">
-                      <span>{groupMeta.emoji}</span>
-                      <span>{groupMeta.name}</span>
-                    </div>
-                  );
-                })()}
-              </div>
-            </motion.div>
-          </div>
-        </section>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            {categoryMeta?.name || categoryName || 'Category'}
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>
+              {categoryMeta?.longDescription || categoryMeta?.description
+                || `Explore the latest ${categoryName || 'category'} insights, guides, market trends, analysis, and expert perspectives from Highrise.pk.`}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">
+              {pagination?.total || blogs.length} article{((pagination?.total || blogs.length) !== 1) ? 's' : ''} • Updated regularly
+            </span>
+          </p>
+        </div>
 
         {/* Search strip */}
-        <section className="relative -mt-6 z-10">
-          <div className="container mx-auto px-4">
+        <section className="relative z-10">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="bg-white rounded-3xl border border-gray-200 shadow-xl p-4 md:p-5">
               <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
                 <div className="relative flex-1">
@@ -260,7 +214,7 @@ export default function BlogCategoryPage() {
         </section>
 
         {/* Main content */}
-        <section className="container mx-auto px-4 py-12">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-12">
           <div className="grid lg:grid-cols-12 gap-8">
             {/* Main Content Area */}
             <div className="lg:col-span-8">

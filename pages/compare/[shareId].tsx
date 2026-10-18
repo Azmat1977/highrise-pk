@@ -23,7 +23,7 @@ import {
   ExternalLink,
   BarChart3,
   Building2,
-  Sparkles,
+  ChevronRight,
 } from 'lucide-react';
 
 import dbConnect from '@/lib/dbConnect';
@@ -133,7 +133,7 @@ export default function SharedComparisonPage({
             TOP BAR
         ═══════════════════════════════════════════════════════ */}
         <div className="bg-white border-b border-gray-100 shadow-sm">
-          <div className="max-w-7xl mx-auto px-4 py-3
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-3
                           flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-3">
               <Link
@@ -166,47 +166,45 @@ export default function SharedComparisonPage({
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            HERO
-        ═══════════════════════════════════════════════════════ */}
-        <section className="bg-gradient-to-br from-[#004063] to-[#029bba]
-                            text-white pt-10 pb-10">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-center
-                            md:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <BarChart3 className="w-8 h-8" />
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight">
-                    Shared Comparison
-                  </h1>
-                </div>
-                <p className="text-white/80 text-sm md:text-base max-w-xl">
-                  Viewing {entities.length} item{entities.length > 1 ? 's' : ''} shared with you.
-                  {projectCount > 0 && propertyCount > 0 && (
-                    <span className="block mt-1 text-xs text-white/60">
-                      {projectCount} project{projectCount > 1 ? 's' : ''} + {propertyCount} propert{propertyCount > 1 ? 'ies' : 'y'}
-                    </span>
-                  )}
-                </p>
-              </div>
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <HomeIcon className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/compare" className="hover:text-[#029bba] font-medium transition-colors">
+              Compare
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Shared</span>
+          </nav>
 
-              <div className="inline-flex items-center gap-2 px-4 py-2
-                              rounded-xl bg-white/10 backdrop-blur
-                              border border-white/20">
-                <Sparkles className="w-4 h-4 text-emerald-300" />
-                <span className="text-xs font-bold">
-                  Powered by Highrise.pk
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Shared Comparison
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>
+              Viewing {entities.length} item{entities.length > 1 ? 's' : ''} shared with you.
+            </span>
+            {projectCount > 0 && propertyCount > 0 && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span>
+                  {projectCount} project{projectCount > 1 ? 's' : ''} + {propertyCount} propert{propertyCount > 1 ? 'ies' : 'y'}
                 </span>
-              </div>
-            </div>
-          </div>
-        </section>
+              </>
+            )}
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Powered by Highrise.pk</span>
+          </p>
+        </div>
 
         {/* ═══════════════════════════════════════════════════════
             COMPARISON TABLE
         ═══════════════════════════════════════════════════════ */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
 
           {/* Reuse the same CompareTable component from /compare page */}
           {/* Pass no-op onRemove since shared view is read-only */}

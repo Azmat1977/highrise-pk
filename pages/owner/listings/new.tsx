@@ -1,23 +1,37 @@
 // pages/owner/listings/new.tsx
 // Owner: Create new property listing - Unified PropertyListingForm
 // Only approved owners can access. Creates property with verification.status = 'draft'.
+// Supports edit mode via ?edit=<listingId> query parameter.
 
 import { useEffect, useState } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import { Loader2, AlertCircle, ArrowLeft, Shield, Plus } from "lucide-react";
+import { useRouter } from "next/router";
+import { Loader2, AlertCircle, ArrowLeft, Shield, Plus, Edit } from "lucide-react";
 import OwnerLayout from "@/components/owner/OwnerLayout";
 import PropertyListingForm from "@/components/property/forms/listing/PropertyListingForm";
+import type { ListingFormState } from "@/components/property/forms/listing/types";
 
 function NewListingContent(): React.ReactElement {
+  const router = useRouter();
   const [approved, setApproved] = useState<boolean | null>(null);
   const [checking, setChecking] = useState(true);
   const [listingCount, setListingCount] = useState(0);
   const [listingLimit, setListingLimit] = useState(10);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [initialState, setInitialState] = useState<ListingFormState | null>(null);
+  const [loadingEdit, setLoadingEdit] = useState(false);
 
-  // Check owner approval + listing limit
+  // Check owner approval + listing limit + handle edit mode
   useEffect(() => {
     const check = async () => {
+      const editParam = router.query.edit;
+      const isEditing = editParam && typeof editParam === "string";
+      if (isEditing) {
+        setEditId(editParam);
+        setLoadingEdit(true);
+      }
+
       try {
         const res = await fetch("/api/owner/dashboard", {
           credentials: "include",
@@ -37,14 +51,32 @@ function NewListingContent(): React.ReactElement {
         setApproved(data.owner?.status === "approved");
         setListingCount(data.stats?.listingsUsed ?? 0);
         setListingLimit(data.stats?.listingLimit ?? 10);
+
+        // If editing, fetch the listing data
+        if (isEditing && editParam) {
+          try {
+            const listingRes = await fetch(`/api/owner/listings/${encodeURIComponent(editParam)}`, {
+              credentials: "include",
+            });
+            if (listingRes.ok) {
+              const listingData = (await listingRes.json()) as { success: boolean; property?: ListingFormState };
+              if (listingData.success && listingData.property) {
+                setInitialState(listingData.property);
+              }
+            }
+          } catch {
+            // Silently fail - form will show empty
+          }
+        }
       } catch {
         setApproved(false);
       } finally {
         setChecking(false);
+        setLoadingEdit(false);
       }
     };
     void check();
-  }, []);
+  }, [router.query.edit]);
 
   // Loading
   if (checking) {
@@ -85,8 +117,8 @@ function NewListingContent(): React.ReactElement {
     );
   }
 
-  // Listing limit reached
-  if (listingCount >= listingLimit) {
+  // Listing limit reached (only for new listings, not edits)
+  if (!editId && listingCount >= listingLimit) {
     return (
       <div className="max-w-2xl mx-auto p-6 md:p-10">
         <div className="bg-white rounded-2xl border border-red-200 shadow-sm p-8 text-center">
@@ -135,27 +167,27 @@ function NewListingContent(): React.ReactElement {
         </Link>
         <h1 className="text-2xl font-black text-[#004063] tracking-tight flex items-center gap-2">
           <Plus className="w-6 h-6 text-[#029bba]" />
-          Create New Listing
+          {editId ? "Edit Listing" : "Create New Listing"}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          {listingCount} of {listingLimit} listings used - {" "}
-          <span className="text-[#029bba] font-semibold">
-            {listingLimit - listingCount} remaining
-          </span>
+          {editId
+            ? "Modify your existing property listing"
+            : `${listingCount} of ${listingLimit} listings used - <span className="text-[#029bba] font-semibold">${listingLimit - listingCount} remaining</span>`}
         </p>
       </div>
 
       {/* Unified Property Listing Form */}
-      <PropertyListingForm />
+      <PropertyListingForm editId={editId || undefined} initialState={initialState || undefined} />
     </div>
   );
 }
 
 export default function NewOwnerListingPage(): React.ReactElement {
+  const router = useRouter();
   return (
     <>
       <Head>
-        <title>New Listing | Highrise.pk</title>
+        <title>{router.query.edit ? "Edit Listing" : "New Listing"} | Highrise.pk</title>
         <meta name="robots" content="noindex, nofollow" />
       </Head>
       <OwnerLayout>

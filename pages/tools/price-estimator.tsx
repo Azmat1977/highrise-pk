@@ -6,8 +6,8 @@ import {
   DollarSign, MapPin, Building2, Home, Maximize, TrendingUp,
   TrendingDown, Minus, AlertTriangle, CheckCircle, XCircle,
   Loader2, Search, Calculator, Banknote, ChevronRight,
-  ArrowRight, Info, Sparkles, Award, Activity, Shield,
-  BadgeCheck, ArrowDown, ArrowUp, ShieldCheck, X,
+  Info, Sparkles, Award, Activity, Shield,
+  ArrowDown, ArrowUp, ShieldCheck, X,
   HelpCircle, Lightbulb,
 } from 'lucide-react';
 
@@ -317,53 +317,44 @@ export default function PriceEstimatorPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#7c3aed] via-[#4f46e5] to-[#001f2b] py-16 md:py-20 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_50%)] pointer-events-none" />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/tools" className="hover:text-[#029bba] font-medium transition-colors">
+              Tools
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Price Estimator</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-6">
-                <DollarSign className="w-4 h-4 text-[#fbbf24]" />
-                Pakistan&apos;s First Fair Price Engine
-              </div>
-
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight tracking-tight">
-                Is the Price <span className="text-[#fbbf24]">Fair</span>?
-              </h1>
-
-              <p className="text-base md:text-lg text-white/85 max-w-2xl mx-auto mb-6">
-                Don&apos;t overpay. Don&apos;t lose a deal. Get a data-driven fair price estimate
-                for any property in Pakistan — instantly and free.
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-4 text-white/80 text-sm">
-                <div className="flex items-center gap-2">
-                  <Activity className="w-4 h-4 text-[#fbbf24]" />
-                  <span>Real market data</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <BadgeCheck className="w-4 h-4 text-[#10b981]" />
-                  <span>Verified comparables</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-[#06b6d4]" />
-                  <span>No registration needed</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Is the Price Fair?
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>Data-driven fair price estimate</span>
+            <span className="text-gray-300">•</span>
+            <span>Real market data</span>
+            <span className="text-gray-300">•</span>
+            <span>Verified comparables</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">No registration needed</span>
+          </p>
+        </div>
 
         {/* ── FORM + RESULT ── */}
-        <section className="container mx-auto px-4 py-10">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-10">
           <div className="grid lg:grid-cols-5 gap-8 max-w-6xl mx-auto">
 
             {/* ─── FORM (2 cols) ─── */}
             <div className="lg:col-span-2">
               <div className="bg-white rounded-2xl shadow-md p-6 sticky top-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <Calculator className="w-5 h-5 text-[#7c3aed]" />
+                  <Calculator className="w-5 h-5 text-[#029bba]" />
                   <h2 className="text-xl font-bold text-gray-900">Property Details</h2>
                 </div>
                 <p className="text-sm text-gray-500 mb-6">All fields marked * are required</p>
@@ -383,7 +374,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                           onClick={() => setListingType(t)}
                           className={`px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                             listingType === t
-                              ? 'bg-[#7c3aed] text-white shadow-md'
+                              ? 'bg-[#029bba] text-white shadow-md'
                               : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                           }`}
                         >
@@ -409,7 +400,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                         }}
                         onFocus={() => setShowCityDropdown(true)}
                         placeholder="e.g. Lahore"
-                        className="w-full h-11 pl-9 pr-3 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none transition-all"
+                        className="w-full h-11 pl-9 pr-3 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none transition-all"
                         autoComplete="off"
                       />
                       {showCityDropdown && filteredCities.length > 0 && (
@@ -422,7 +413,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                                 setCity(c.name);
                                 setShowCityDropdown(false);
                               }}
-                              className="w-full px-3 py-2.5 text-left text-sm hover:bg-[#7c3aed]/5 transition-colors flex items-center gap-2"
+                              className="w-full px-3 py-2.5 text-left text-sm hover:bg-[#029bba]/5 transition-colors flex items-center gap-2"
                             >
                               <MapPin className="w-3.5 h-3.5 text-gray-400" />
                               <span className="text-gray-800">{c.name}</span>
@@ -443,7 +434,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                       value={area}
                       onChange={(e) => setArea(e.target.value)}
                       placeholder="e.g. DHA Phase 5"
-                      className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none transition-all"
+                      className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none transition-all"
                     />
                   </div>
 
@@ -457,7 +448,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                       value={society}
                       onChange={(e) => setSociety(e.target.value)}
                       placeholder="e.g. Block E"
-                      className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none transition-all"
+                      className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none transition-all"
                     />
                   </div>
 
@@ -469,7 +460,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                     <select
                       value={propertyType}
                       onChange={(e) => setPropertyType(e.target.value as PropertyType)}
-                      className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none cursor-pointer bg-white"
+                      className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
                     >
                       {PROPERTY_TYPES.map((t) => (
                         <option key={t.id} value={t.id}>{t.label}</option>
@@ -490,12 +481,12 @@ export default function PriceEstimatorPage(): React.ReactElement {
                         placeholder="e.g. 5"
                         min="0"
                         step="0.5"
-                        className="col-span-2 h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none transition-all"
+                        className="col-span-2 h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none transition-all"
                       />
                       <select
                         value={sizeUnit}
                         onChange={(e) => setSizeUnit(e.target.value as AreaUnit)}
-                        className="h-11 px-2 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none cursor-pointer bg-white"
+                        className="h-11 px-2 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
                       >
                         {SIZE_UNITS.map((u) => (
                           <option key={u.id} value={u.id}>{u.label}</option>
@@ -514,7 +505,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                       <select
                         value={bedrooms}
                         onChange={(e) => setBedrooms(e.target.value)}
-                        className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none cursor-pointer bg-white"
+                        className="w-full h-11 px-3 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none cursor-pointer bg-white"
                       >
                         <option value="">Any</option>
                         {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
@@ -540,7 +531,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                         onChange={(e) => setAskingPrice(e.target.value)}
                         placeholder="e.g. 10500000"
                         min="0"
-                        className="w-full h-11 pl-10 pr-3 rounded-xl border border-gray-300 text-sm focus:border-[#7c3aed] focus:ring-2 focus:ring-[#7c3aed]/10 outline-none transition-all"
+                        className="w-full h-11 pl-10 pr-3 rounded-xl border border-gray-300 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10 outline-none transition-all"
                       />
                     </div>
                     <p className="text-[11px] text-gray-500 mt-1">
@@ -560,7 +551,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="w-full h-12 rounded-xl bg-gradient-to-r from-[#7c3aed] to-[#4f46e5] hover:from-[#6d28d9] hover:to-[#4338ca] text-white font-semibold transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    className="w-full h-12 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#027a94] hover:to-[#003350] text-white font-semibold transition-all shadow-lg disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                   >
                     {loading ? (
                       <>
@@ -610,9 +601,9 @@ export default function PriceEstimatorPage(): React.ReactElement {
 
         {/* ── HOW IT WORKS ── */}
         <section className="bg-white py-14 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-10">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#7c3aed]/10 text-[#7c3aed] text-sm font-semibold mb-3">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
                 <Lightbulb className="w-4 h-4" />
                 How It Works
               </span>
@@ -647,11 +638,11 @@ export default function PriceEstimatorPage(): React.ReactElement {
                 },
               ].map((item) => (
                 <div key={item.step} className="bg-gray-50 rounded-2xl p-6 relative overflow-hidden">
-                  <div className="absolute -top-2 -right-2 text-6xl font-extrabold text-[#7c3aed]/10">
+                  <div className="absolute -top-2 -right-2 text-6xl font-extrabold text-[#029bba]/10">
                     {item.step}
                   </div>
                   <div className="relative">
-                    <div className="w-10 h-10 rounded-xl bg-[#7c3aed] text-white flex items-center justify-center mb-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#029bba] text-white flex items-center justify-center mb-3">
                       {item.icon}
                     </div>
                     <h3 className="font-bold text-gray-900 mb-2">{item.title}</h3>
@@ -665,7 +656,7 @@ export default function PriceEstimatorPage(): React.ReactElement {
 
         {/* ── CTA ── */}
         <section className="bg-gradient-to-br from-[#001f2b] to-[#003553] py-12">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
               Make Smarter <span className="text-[#06b6d4]">Property Decisions</span>
@@ -705,8 +696,8 @@ export default function PriceEstimatorPage(): React.ReactElement {
 function EmptyState(): React.ReactElement {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-10 text-center h-full flex flex-col items-center justify-center min-h-[500px]">
-      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#7c3aed]/10 to-[#4f46e5]/10 flex items-center justify-center mb-4">
-        <DollarSign className="w-10 h-10 text-[#7c3aed]" />
+      <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-[#029bba]/10 to-[#004063]/10 flex items-center justify-center mb-4">
+        <DollarSign className="w-10 h-10 text-[#029bba]" />
       </div>
       <h3 className="text-xl font-bold text-gray-900 mb-2">Get Your Fair Price Estimate</h3>
       <p className="text-gray-600 mb-6 max-w-md">
@@ -788,7 +779,7 @@ function ResultDisplay({ result, listingType }: ResultDisplayProps): React.React
       {/* FAIR PRICE RANGE */}
       <div className="bg-white rounded-2xl shadow-sm p-6">
         <h3 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
-          <Banknote className="w-5 h-5 text-[#7c3aed]" />
+          <Banknote className="w-5 h-5 text-[#029bba]" />
           Fair Price Range
         </h3>
         <p className="text-xs text-gray-500 mb-5">Based on {result.comparableCount} comparable {result.comparableCount === 1 ? 'property' : 'properties'}</p>
@@ -800,9 +791,9 @@ function ResultDisplay({ result, listingType }: ResultDisplayProps): React.React
               {formatPKR(result.fairPriceMin)}{rentSuffix}
             </div>
           </div>
-          <div className="text-center p-4 rounded-xl bg-[#7c3aed]/10 border-2 border-[#7c3aed]">
-            <div className="text-[10px] font-bold text-[#7c3aed] uppercase tracking-wider mb-1">Median ★</div>
-            <div className="text-lg font-extrabold text-[#7c3aed]">
+          <div className="text-center p-4 rounded-xl bg-[#029bba]/10 border-2 border-[#029bba]">
+            <div className="text-[10px] font-bold text-[#029bba] uppercase tracking-wider mb-1">Median ★</div>
+            <div className="text-lg font-extrabold text-[#029bba]">
               {formatPKR(result.fairPriceMedian)}{rentSuffix}
             </div>
           </div>
@@ -881,7 +872,7 @@ function ResultDisplay({ result, listingType }: ResultDisplayProps): React.React
       {result.comparables && result.comparables.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm p-6">
           <h3 className="font-bold text-gray-900 mb-1 flex items-center gap-2">
-            <Search className="w-5 h-5 text-[#7c3aed]" />
+            <Search className="w-5 h-5 text-[#029bba]" />
             Recent Comparable Properties
           </h3>
           <p className="text-xs text-gray-500 mb-4">
@@ -925,7 +916,7 @@ interface ComparableItemProps {
 
 function ComparableItem({ comparable, rentSuffix, clickable }: ComparableItemProps): React.ReactElement {
   return (
-    <div className={`flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 ${clickable ? 'hover:bg-[#7c3aed]/5 cursor-pointer transition-colors' : ''}`}>
+    <div className={`flex items-center justify-between gap-3 p-3 rounded-xl bg-gray-50 ${clickable ? 'hover:bg-[#029bba]/5 cursor-pointer transition-colors' : ''}`}>
       <div className="flex-1 min-w-0">
         <div className="font-semibold text-gray-900 text-sm truncate">{comparable.title}</div>
         <div className="text-xs text-gray-500 mt-0.5">
@@ -936,7 +927,7 @@ function ComparableItem({ comparable, rentSuffix, clickable }: ComparableItemPro
         </div>
       </div>
       <div className="text-right flex-shrink-0">
-        <div className="font-bold text-[#7c3aed]">{formatPKR(comparable.price)}{rentSuffix}</div>
+        <div className="font-bold text-[#029bba]">{formatPKR(comparable.price)}{rentSuffix}</div>
         {clickable && (
           <div className="text-[10px] text-gray-400 flex items-center gap-0.5 justify-end mt-0.5">
             View <ChevronRight className="w-3 h-3" />

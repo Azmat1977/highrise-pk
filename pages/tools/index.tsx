@@ -9,8 +9,7 @@ import Link from 'next/link';
 import {
   ShieldCheck, Banknote, Construction, Ruler, Sparkles, ArrowRight,
   Home, MapPin, Award, Database, Lock, CheckCircle, Zap, TrendingUp,
-  Building2, Bot, FileText, Users, Calculator, Clock, AlertTriangle,
-  Star, Globe, Heart, MessageCircle,
+  Bot, Calculator, Clock, Star, Heart, ChevronRight,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -244,71 +243,47 @@ export default function ToolsHubPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ─── HERO ────────────────────────────────────────────────── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-16 md:py-20 overflow-hidden">
-          {/* Background patterns */}
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_50%)] pointer-events-none" />
-          <div
-            className="absolute inset-0 opacity-[0.03] pointer-events-none"
-            style={{
-              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-              backgroundSize: '32px 32px',
-            }}
-          />
+        {/* ─── COMPACT PAGE HEADER ─────────────────────────────────── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Tools</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-4xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-6">
-                <Sparkles className="w-4 h-4 text-[#06b6d4]" />
-                Pakistan&apos;s First Property Intelligence Suite
-              </div>
-
-              <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-white mb-4 leading-tight tracking-tight">
-                Make Smarter <span className="text-[#06b6d4]">Property</span> Decisions
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+                Property Intelligence Tools
               </h1>
-
-              <p className="text-base md:text-xl text-white/85 max-w-3xl mx-auto mb-8 leading-relaxed">
-                5 free intelligence tools designed for Pakistani property buyers.
-                <strong className="text-white"> Verify, estimate, calculate, finance, convert</strong> — no signup required.
+              <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+                <span>5 free tools</span>
+                <span className="text-gray-300">•</span>
+                <span>No signup required</span>
+                <span className="text-gray-300">•</span>
+                <span className="text-[#029bba]">Instant results</span>
               </p>
+            </div>
 
-              {/* Hero CTAs */}
-              <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
-                <a href="#live-tools" className="px-6 py-3 rounded-xl bg-[#029bba] hover:bg-[#027a94] text-white font-semibold shadow-lg transition-colors inline-flex items-center gap-2">
-                  <Zap className="w-4 h-4" />
-                  Explore Tools
-                </a>
-                <a href="#why-us" className="px-6 py-3 rounded-xl bg-white/15 text-white border border-white/30 font-semibold hover:bg-white/25 transition-colors inline-flex items-center gap-2">
-                  Why Highrise?
-                </a>
-              </div>
-
-              {/* Trust signals */}
-              <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-white/80 text-sm">
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[#10b981]" />
-                  <span>100% Free Forever</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[#10b981]" />
-                  <span>No Signup Required</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[#10b981]" />
-                  <span>Instant Results</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <CheckCircle className="w-4 h-4 text-[#10b981]" />
-                  <span>Mobile-Friendly</span>
-                </div>
-              </div>
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-500 text-xs font-semibold shrink-0">
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />
+                100% Free Forever
+              </span>
+              <span className="flex items-center gap-1.5">
+                <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />
+                Mobile-Friendly
+              </span>
             </div>
           </div>
-        </section>
+        </div>
 
         {/* ─── QUICK STATS BAR ──────────────────────────────────────── */}
         <section className="bg-white border-b border-gray-200">
-          <div className="container mx-auto px-4 py-8">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-4xl mx-auto text-center">
               <StatItem value="5" label="Industry-First Tools" />
               <StatItem value="100K+" label="Monthly Users" />
@@ -320,7 +295,7 @@ export default function ToolsHubPage(): React.ReactElement {
 
         {/* ─── LIVE TOOLS GRID ──────────────────────────────────────── */}
         <section id="live-tools" className="py-16 md:py-20">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center max-w-3xl mx-auto mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#10b981]/10 text-[#10b981] text-sm font-semibold mb-3">
                 <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
@@ -344,7 +319,7 @@ export default function ToolsHubPage(): React.ReactElement {
 
         {/* ─── WHY HIGHRISE TOOLS (Comparison) ─────────────────────── */}
         <section id="why-us" className="bg-white py-16 md:py-20 border-y border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center max-w-3xl mx-auto mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
                 <Award className="w-4 h-4" />
@@ -427,7 +402,7 @@ export default function ToolsHubPage(): React.ReactElement {
 
         {/* ─── COMING SOON ──────────────────────────────────────────── */}
         <section className="py-16 md:py-20 bg-gray-50">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center max-w-3xl mx-auto mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#f59e0b]/10 text-[#f59e0b] text-sm font-semibold mb-3">
                 <Clock className="w-4 h-4" />
@@ -451,7 +426,7 @@ export default function ToolsHubPage(): React.ReactElement {
 
         {/* ─── HOW IT WORKS ─────────────────────────────────────────── */}
         <section className="bg-white py-16 md:py-20 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center max-w-3xl mx-auto mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
                 <Zap className="w-4 h-4" />
@@ -487,7 +462,7 @@ export default function ToolsHubPage(): React.ReactElement {
 
         {/* ─── TRUST BADGES ─────────────────────────────────────────── */}
         <section className="bg-gradient-to-br from-[#001f2b] to-[#003553] py-12">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-8">
               <h3 className="text-xl md:text-2xl font-bold text-white mb-2">
                 Why <span className="text-[#06b6d4]">100,000+ Pakistanis</span> Trust Us
@@ -505,7 +480,7 @@ export default function ToolsHubPage(): React.ReactElement {
 
         {/* ─── FINAL CTA ────────────────────────────────────────────── */}
         <section className="bg-white py-16 md:py-20">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-4xl mx-auto text-center bg-gradient-to-br from-[#029bba] to-[#004063] rounded-3xl p-8 md:p-12 shadow-xl text-white">
               <Sparkles className="w-12 h-12 mx-auto mb-4 text-[#06b6d4]" />
               <h2 className="text-2xl md:text-4xl font-bold mb-3">

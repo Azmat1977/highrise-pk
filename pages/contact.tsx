@@ -6,9 +6,9 @@ import { Turnstile } from '@marsidev/react-turnstile';
 import {
   MapPin, Phone, Mail, Clock, MessageCircle, Send, CheckCircle,
   XCircle, Loader2, Sparkles, Building2, ShieldCheck, Banknote,
-  Construction, ArrowRight, Plus, Minus, HelpCircle, Globe,
+  Construction, Plus, Minus, HelpCircle, Globe,
   Users, AlertTriangle, X, Info, Facebook, Twitter, Linkedin,
-  Instagram, MessageSquare,
+  Instagram, Home, ChevronRight,
 } from 'lucide-react';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -286,63 +286,69 @@ export default function ContactPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-16 md:py-20 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_50%)] pointer-events-none" />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Contact</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-6">
-                <MessageCircle className="w-4 h-4 text-[#06b6d4]" />
-                We Respond Within 24 Hours
-              </div>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Get Real Help with Real Estate
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>Questions about a society?</span>
+            <span className="text-gray-300">•</span>
+            <span>Report a scam</span>
+            <span className="text-gray-300">•</span>
+            <span>Partnerships</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">We respond within 24 hours</span>
+          </p>
+        </div>
 
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight tracking-tight">
-                Get <span className="text-[#06b6d4]">Real Help</span> with Real Estate
-              </h1>
-
-              <p className="text-base md:text-lg text-white/85 max-w-2xl mx-auto mb-8">
-                Questions about a society? Need to report a scam? Want to partner with us?
-                Pick your channel — we&apos;re here for you.
-              </p>
-
-              {/* Quick contact buttons */}
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button
-                  onClick={() => handleWhatsApp('primary')}
-                  className="px-5 py-3 rounded-xl bg-[#25D366] text-white font-semibold hover:bg-[#1da851] transition-colors inline-flex items-center gap-2 shadow-lg"
-                >
-                  <MessageCircle className="w-4 h-4" />
-                  WhatsApp Us
-                </button>
-                <a
-                  href={`tel:${PHONE_PRIMARY_HREF}`}
-                  className="px-5 py-3 rounded-xl bg-white/15 text-white border border-white/30 font-semibold hover:bg-white/25 transition-colors inline-flex items-center gap-2"
-                >
-                  <Phone className="w-4 h-4" />
-                  {PHONE_PRIMARY_DISPLAY}
-                </a>
-                <a
-                  href={`tel:${PHONE_SECONDARY_HREF}`}
-                  className="px-5 py-3 rounded-xl bg-white/15 text-white border border-white/30 font-semibold hover:bg-white/25 transition-colors inline-flex items-center gap-2"
-                >
-                  <Phone className="w-4 h-4" />
-                  {PHONE_SECONDARY_DISPLAY}
-                </a>
-                <a
-                  href="mailto:info@highrise.pk"
-                  className="px-5 py-3 rounded-xl bg-white/15 text-white border border-white/30 font-semibold hover:bg-white/25 transition-colors inline-flex items-center gap-2"
-                >
-                  <Mail className="w-4 h-4" />
-                  info@highrise.pk
-                </a>
-              </div>
+        {/* ── QUICK CONTACT (relocated from hero) ── */}
+        <section className="bg-white border-b border-gray-200">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => handleWhatsApp('primary')}
+                className="px-5 py-2.5 rounded-xl bg-[#25D366] text-white font-semibold text-sm hover:bg-[#1da851] transition-colors inline-flex items-center gap-2 shadow-sm"
+              >
+                <MessageCircle className="w-4 h-4" />
+                WhatsApp Us
+              </button>
+              <a
+                href={`tel:${PHONE_PRIMARY_HREF}`}
+                className="px-5 py-2.5 rounded-xl bg-gray-100 text-[#004063] border border-gray-200 font-semibold text-sm hover:bg-gray-200 transition-colors inline-flex items-center gap-2"
+              >
+                <Phone className="w-4 h-4" />
+                {PHONE_PRIMARY_DISPLAY}
+              </a>
+              <a
+                href={`tel:${PHONE_SECONDARY_HREF}`}
+                className="px-5 py-2.5 rounded-xl bg-gray-100 text-[#004063] border border-gray-200 font-semibold text-sm hover:bg-gray-200 transition-colors inline-flex items-center gap-2"
+              >
+                <Phone className="w-4 h-4" />
+                {PHONE_SECONDARY_DISPLAY}
+              </a>
+              <a
+                href="mailto:info@highrise.pk"
+                className="px-5 py-2.5 rounded-xl bg-gray-100 text-[#004063] border border-gray-200 font-semibold text-sm hover:bg-gray-200 transition-colors inline-flex items-center gap-2"
+              >
+                <Mail className="w-4 h-4" />
+                info@highrise.pk
+              </a>
             </div>
           </div>
         </section>
 
         {/* ── MAIN CONTACT (Form + Info) ── */}
-        <section className="container mx-auto px-4 py-12">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-12">
           <div className="grid lg:grid-cols-5 gap-8 max-w-6xl mx-auto">
 
             {/* FORM (3 cols) */}
@@ -674,7 +680,7 @@ export default function ContactPage(): React.ReactElement {
 
         {/* ── OFFICES ── */}
         <section className="py-12 bg-white">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
                 <Building2 className="w-4 h-4" />
@@ -734,7 +740,7 @@ export default function ContactPage(): React.ReactElement {
 
         {/* ── MAP ── */}
         <section className="py-12 bg-gray-50">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-6">
                 <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center justify-center gap-2">
@@ -761,8 +767,8 @@ export default function ContactPage(): React.ReactElement {
         </section>
 
         {/* ── FAQ ── */}
-        <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
+        <section id="faq" className="py-16 bg-white scroll-mt-24">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-3xl mx-auto">
               <div className="text-center mb-10">
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
@@ -822,7 +828,7 @@ export default function ContactPage(): React.ReactElement {
 
         {/* ── FINAL CTA ── */}
         <section className="py-14 bg-gradient-to-br from-[#001f2b] to-[#003553]">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <Sparkles className="w-8 h-8 text-[#06b6d4] mx-auto mb-3" />
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
               Or Try Our <span className="text-[#06b6d4]">Free Tools</span> First

@@ -34,6 +34,7 @@ import {
   Home as HomeIcon,
   AlertCircle,
   X,
+  ChevronRight,
 } from 'lucide-react';
 
 import { useCompare } from '@/hooks/useCompare';
@@ -269,47 +270,42 @@ const ComparePage: NextPage = () => {
           </div>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            HERO
-        ═══════════════════════════════════════════════════════ */}
-        <section className="bg-gradient-to-br from-[#004063] to-[#029bba]
-                            text-white pt-10 pb-10">
-          <div className="max-w-7xl mx-auto px-4">
-            <div className="flex flex-col md:flex-row md:items-center
-                            md:justify-between gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <BarChart3 className="w-8 h-8 fill-transparent" />
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight">
-                    Compare Side by Side
-                  </h1>
-                </div>
-                <p className="text-white/80 text-sm md:text-base max-w-xl">
-                  {entities.length > 0
-                    ? `Comparing ${entities.length} of 4 items. Best picks are highlighted for quick decisions.`
-                    : 'Add up to 4 projects or properties to see them side-by-side.'}
-                </p>
-              </div>
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <HomeIcon className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Compare</span>
+          </nav>
 
-              {entities.length > 0 && (
-                <div className="inline-flex items-center gap-2 px-4 py-2
-                                rounded-xl bg-white/10 backdrop-blur
-                                border border-white/20">
-                  <div className="w-2 h-2 rounded-full bg-emerald-400
-                                  animate-pulse" />
-                  <span className="text-xs font-bold">
-                    {entities.length} of 4 selected
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-        </section>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Compare Side by Side
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>
+              {entities.length > 0
+                ? `Comparing ${entities.length} of 4 items. Best picks are highlighted for quick decisions.`
+                : 'Add up to 4 projects or properties to see them side-by-side.'}
+            </span>
+            {entities.length > 0 && (
+              <>
+                <span className="text-gray-300">•</span>
+                <span className="inline-flex items-center gap-1.5 text-[#029bba]">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  {entities.length} of 4 selected
+                </span>
+              </>
+            )}
+          </p>
+        </div>
 
         {/* ═══════════════════════════════════════════════════════
             BODY
         ═══════════════════════════════════════════════════════ */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
 
           {/* Loading */}
           {(!isReady || loading) && (

@@ -30,11 +30,9 @@ import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
-  Heart,
   Search,
   Grid3x3,
   List as ListIcon,
-  ArrowLeft,
   ArrowUpDown,
   Trash2,
   StickyNote,
@@ -43,6 +41,8 @@ import {
   AlertCircle,
   Loader2,
   Lock,
+  Home,
+  ChevronRight,
 } from 'lucide-react';
 
 import { useFavorites } from '@/hooks/useFavorites';
@@ -324,73 +324,61 @@ const ShortlistPage: NextPage = () => {
         {/* ═══════════════════════════════════════════════════════
             HERO SECTION
         ═══════════════════════════════════════════════════════ */}
-        <section className="bg-gradient-to-br from-[#004063] to-[#029bba]
-                            text-white pt-8 pb-10">
-          <div className="max-w-7xl mx-auto px-4">
-
-            {/* Back link */}
-            <Link
-              href="/projects"
-              className="inline-flex items-center gap-1.5 text-sm
-                         text-white/80 hover:text-white
-                         transition-colors mb-6 group"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5
-                                    transition-transform" />
-              Back to Projects
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
             </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Shortlist</span>
+          </nav>
 
-            {/* Title + stats */}
-            <div className="flex items-start justify-between flex-wrap gap-4">
-              <div>
-                <div className="flex items-center gap-3 mb-2">
-                  <Heart className="w-8 h-8 fill-white text-white" />
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight">
-                    My Shortlist
-                  </h1>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            My Shortlist
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>
+              {isReady
+                ? favoriteIds.length === 0
+                  ? 'Save projects you love to compare and revisit'
+                  : `${favoriteIds.length} project${favoriteIds.length > 1 ? 's' : ''} saved${!isLoggedIn ? ' (guest mode)' : ''}`
+                : 'Loading your favorites...'}
+            </span>
+          </p>
+        </div>
+
+        {/* Guest login CTA (relocated from hero) */}
+        {isReady && !isLoggedIn && favoriteIds.length > 0 && (
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+            <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm max-w-xl">
+              <div className="flex items-start gap-3">
+                <Lock className="w-4 h-4 text-[#029bba] flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-bold text-[#004063] mb-1">
+                    Save Across Devices
+                  </p>
+                  <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
+                    Login to sync your shortlist to any device
+                  </p>
+                  <Link
+                    href="/login?callbackUrl=/shortlist"
+                    className="inline-flex items-center gap-1 text-xs
+                               font-black text-[#029bba] hover:underline"
+                  >
+                    Login now →
+                  </Link>
                 </div>
-                <p className="text-white/80 text-sm md:text-base">
-                  {isReady
-                    ? favoriteIds.length === 0
-                      ? 'Save projects you love to compare and revisit'
-                      : `${favoriteIds.length} project${favoriteIds.length > 1 ? 's' : ''} saved${!isLoggedIn ? ' (guest mode)' : ''}`
-                    : 'Loading your favorites...'}
-                </p>
               </div>
-
-              {/* Guest login CTA */}
-              {isReady && !isLoggedIn && favoriteIds.length > 0 && (
-                <div className="bg-white/10 backdrop-blur rounded-2xl
-                                px-4 py-3 border border-white/20
-                                max-w-sm">
-                  <div className="flex items-start gap-3">
-                    <Lock className="w-4 h-4 text-white/80 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-xs font-bold text-white mb-1">
-                        Save Across Devices
-                      </p>
-                      <p className="text-[11px] text-white/80 mb-2 leading-relaxed">
-                        Login to sync your shortlist to any device
-                      </p>
-                      <Link
-                        href="/login?callbackUrl=/shortlist"
-                        className="inline-flex items-center gap-1 text-xs
-                                   font-black text-white hover:underline"
-                      >
-                        Login now →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )}
             </div>
           </div>
-        </section>
+        )}
 
         {/* ═══════════════════════════════════════════════════════
             BODY
         ═══════════════════════════════════════════════════════ */}
-        <div className="max-w-7xl mx-auto px-4 py-8">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
 
           {/* ── Loading ── */}
           {!isReady || loading ? (

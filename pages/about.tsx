@@ -6,7 +6,7 @@ import {
   Building2, Users, Award, CheckCircle, Shield, Eye, Activity,
   Target, Lightbulb, Heart, TrendingUp, AlertTriangle, ShieldCheck,
   MapPin, Phone, Mail, ArrowRight, Sparkles, BadgeCheck, Banknote,
-  Construction, Search, Globe, Star, Zap, Clock,
+  Construction, Search, Globe, Star, Zap, Home, ChevronRight,
 } from 'lucide-react';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -62,62 +62,46 @@ export default function AboutPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-20 md:py-28 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_50%)] pointer-events-none" />
-          <div
-            className="absolute inset-0 opacity-5 pointer-events-none"
-            style={{
-              backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 1px, transparent 30px)',
-            }}
-          />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">About Us</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-4xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-6">
-                <Sparkles className="w-4 h-4 text-[#06b6d4]" />
-                Pakistan&apos;s First Property Intelligence Platform
-              </div>
-
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-bold text-white mb-5 leading-tight tracking-tight">
-                We&apos;re Ending Real Estate{' '}
-                <span className="text-[#06b6d4] underline decoration-[#06b6d4]/40 decoration-4 underline-offset-4">
-                  Scams
-                </span>{' '}
-                in Pakistan
-              </h1>
-
-              <p className="text-lg md:text-xl text-white/85 max-w-3xl mx-auto mb-8 leading-relaxed">
-                Built by Pakistanis who lost money to fake plot files. Now we give every
-                buyer the verification, intelligence, and protection they deserve —
-                because <strong className="text-[#06b6d4]">your hard-earned money matters</strong>.
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-4 text-white/85 text-sm">
-                <div className="flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-[#10b981]" />
-                  <span>Society NOC Verification</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Banknote className="w-4 h-4 text-[#10b981]" />
-                  <span>Fair Price Engine</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Construction className="w-4 h-4 text-[#10b981]" />
-                  <span>Construction Calculator</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <AlertTriangle className="w-4 h-4 text-[#10b981]" />
-                  <span>Risk Alert Board</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            We&apos;re Ending Real Estate Scams in Pakistan
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
+              Society NOC Verification
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="inline-flex items-center gap-1">
+              <Banknote className="w-3.5 h-3.5 text-[#10b981]" />
+              Fair Price Engine
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="inline-flex items-center gap-1">
+              <Construction className="w-3.5 h-3.5 text-[#10b981]" />
+              Construction Calculator
+            </span>
+            <span className="text-gray-300">•</span>
+            <span className="inline-flex items-center gap-1">
+              <AlertTriangle className="w-3.5 h-3.5 text-[#10b981]" />
+              Risk Alert Board
+            </span>
+          </p>
+        </div>
 
         {/* ── MISSION & VISION ── */}
         <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
               <div className="bg-gradient-to-br from-[#029bba] to-[#004063] rounded-2xl p-8 text-white shadow-xl">
                 <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center mb-5">
@@ -131,7 +115,7 @@ export default function AboutPage(): React.ReactElement {
                 </p>
               </div>
 
-              <div className="bg-gradient-to-br from-[#7c3aed] to-[#4f46e5] rounded-2xl p-8 text-white shadow-xl">
+              <div className="bg-gradient-to-br from-[#004063] to-[#001f2b] rounded-2xl p-8 text-white shadow-xl">
                 <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center mb-5">
                   <Eye className="w-7 h-7" />
                 </div>
@@ -148,7 +132,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── OUR STORY ── */}
         <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-10">
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
@@ -203,7 +187,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── WHAT MAKES US DIFFERENT (Anti-Zameen) ── */}
         <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#10b981]/10 text-[#10b981] text-sm font-semibold mb-4">
                 <Star className="w-4 h-4" />
@@ -276,7 +260,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── STATS ── */}
         <section className="py-16 bg-gradient-to-br from-[#029bba] to-[#004063] text-white">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold mb-3">
                 Real Impact, <span className="text-[#06b6d4]">Real Numbers</span>
@@ -309,9 +293,9 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── OUR PILLARS ── */}
         <section className="py-16 bg-white">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#7c3aed]/10 text-[#7c3aed] text-sm font-semibold mb-4">
+              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#004063]/10 text-[#004063] text-sm font-semibold mb-4">
                 <Heart className="w-4 h-4" />
                 Our Core Values
               </span>
@@ -338,7 +322,7 @@ export default function AboutPage(): React.ReactElement {
                   icon: <Activity className="w-6 h-6" />,
                   title: 'Intelligence Driven',
                   description: 'Statistical analysis, market data, infrastructure scoring — decisions based on evidence.',
-                  color: '#7c3aed',
+                  color: '#004063',
                 },
                 {
                   icon: <Heart className="w-6 h-6" />,
@@ -376,7 +360,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── HOW WE WORK ── */}
         <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#f59e0b]/10 text-[#d97706] text-sm font-semibold mb-4">
                 <Zap className="w-4 h-4" />
@@ -436,7 +420,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── TRUST BADGES ── */}
         <section className="py-12 bg-white border-y border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-8">
               <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">
                 Registered, Compliant & Secure
@@ -466,7 +450,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── TEAM / JOIN CTA ── */}
         <section className="py-16 bg-gray-50">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-md p-8 md:p-10">
               <div className="grid md:grid-cols-2 gap-8 items-center">
                 <div>
@@ -489,7 +473,7 @@ export default function AboutPage(): React.ReactElement {
                   </Link>
                 </div>
 
-                <div className="bg-gradient-to-br from-[#029bba]/10 to-[#7c3aed]/10 rounded-xl p-6">
+                <div className="bg-gradient-to-br from-[#029bba]/10 to-[#004063]/10 rounded-xl p-6">
                   <h3 className="font-bold text-gray-900 mb-3">Current Openings</h3>
                   <ul className="space-y-2 text-sm text-gray-700">
                     {[
@@ -513,7 +497,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── CONTACT INFO ── */}
         <section className="py-12 bg-white">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-8">
                 <h2 className="text-2xl font-bold text-gray-900 mb-2">Get in Touch</h2>
@@ -545,7 +529,7 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── FINAL CTA ── */}
         <section className="py-16 bg-gradient-to-br from-[#001f2b] to-[#003553]">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
               Start with <span className="text-[#06b6d4]">Our Tools</span>

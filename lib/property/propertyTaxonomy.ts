@@ -145,3 +145,12 @@ export function parsePropertyTypeList(value: unknown): CanonicalPropertyType[] {
 export function propertyTypesForDiscoveryGroup(group: PropertyDiscoveryGroup): CanonicalPropertyType[] {
   return [...PROPERTY_DISCOVERY_TYPES[group]];
 }
+
+export function propertyTypeSearchTermsForGroup(group: PropertyDiscoveryGroup): string[] {
+  const canonical = PROPERTY_DISCOVERY_TYPES[group];
+  const terms = new Set<string>(canonical);
+  for (const [alias, target] of Object.entries(TYPE_ALIASES)) {
+    if (canonical.includes(target)) terms.add(alias);
+  }
+  return [...terms];
+}

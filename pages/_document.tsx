@@ -8,11 +8,11 @@ export default function Document() {
         <meta charSet="utf-8" />
         <meta name="author" content="Highrise.pk" />
 
-        <link rel="icon" href="/favicon.ico" />
+        <link rel="icon" type="image/png" href="/images/logo.png" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
-          href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Montserrat:wght@600;700;800;900&family=Poppins:wght@300;400;500;600;700;800;900&display=swap"
           rel="stylesheet"
         />
       </Head>

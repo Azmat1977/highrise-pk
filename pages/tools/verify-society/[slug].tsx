@@ -5,7 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import type { GetServerSideProps } from 'next';
 import {
-  Shield, ShieldCheck, ShieldAlert, ShieldX, AlertTriangle,
+  ShieldCheck, ShieldAlert, ShieldX, AlertTriangle,
   CheckCircle, XCircle, Clock, Building2, MapPin, Calendar,
   TrendingUp, FileText, Download, ExternalLink, Award,
   BadgeCheck, Eye, Search, Activity, Banknote, Info,
@@ -437,8 +437,8 @@ export default function SocietyDetailPage({
       <div className="min-h-screen bg-gray-50">
 
         {/* ── BREADCRUMB ── */}
-        <nav className="bg-white border-b border-gray-200">
-          <div className="container mx-auto px-4 py-3">
+        <nav aria-label="Breadcrumb" className="bg-white border-b border-gray-200">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-3">
             <ol className="flex items-center gap-2 text-sm text-gray-600 overflow-x-auto">
               <li><Link href="/" className="hover:text-[#029bba] transition-colors">Home</Link></li>
               <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
@@ -449,94 +449,95 @@ export default function SocietyDetailPage({
           </div>
         </nav>
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-12 md:py-16 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_50%)] pointer-events-none" />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <div className="grid lg:grid-cols-3 gap-4 items-start">
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="grid lg:grid-cols-3 gap-8 items-start">
-
-              {/* LEFT: Title + Meta */}
-              <div className="lg:col-span-2">
-                <div className="flex flex-wrap items-center gap-2 mb-4">
-                  {society.isVerifiedByHighrise && (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-[#029bba] text-white text-xs font-bold">
-                      <BadgeCheck className="w-3 h-3" />
-                      Highrise Verified
-                    </span>
-                  )}
-                  <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white/15 text-white text-xs font-semibold border border-white/20">
-                    {category}
+            {/* LEFT: Title + Meta */}
+            <div className="lg:col-span-2">
+              <div className="flex flex-wrap items-center gap-2 mb-2">
+                {society.isVerifiedByHighrise && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#029bba] text-white text-[11px] font-bold">
+                    <BadgeCheck className="w-3 h-3" />
+                    Highrise Verified
                   </span>
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-white/15 text-white text-xs font-bold border border-white/20">
-                    <Award className="w-3 h-3" />
-                    {society.approvalAuthority}
-                  </span>
-                </div>
-
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-bold text-white mb-3 leading-tight">
-                  {society.name}
-                </h1>
-
-                <p className="text-white/85 text-base mb-4 flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#06b6d4]" />
-                  {society.areaName}, {society.city}
-                </p>
-
-                {society.alternateNames && society.alternateNames.length > 0 && (
-                  <p className="text-white/60 text-sm">
-                    Also known as: {society.alternateNames.join(', ')}
-                  </p>
                 )}
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700 text-[11px] font-semibold border border-gray-200">
+                  {category}
+                </span>
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-gray-100 text-gray-700 text-[11px] font-bold border border-gray-200">
+                  <Award className="w-3 h-3 text-gray-500" />
+                  {society.approvalAuthority}
+                </span>
+              </div>
 
-                {/* Quick stats */}
-                <div className="flex flex-wrap gap-4 mt-6">
-                  <div className="flex items-center gap-2 text-white/80 text-sm">
-                    <Eye className="w-4 h-4 text-[#06b6d4]" />
-                    {society.viewCount.toLocaleString()} views
-                  </div>
-                  {society.launchYear && (
-                    <div className="flex items-center gap-2 text-white/80 text-sm">
-                      <Calendar className="w-4 h-4 text-[#06b6d4]" />
+              <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+                {society.name}
+              </h1>
+
+              <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1">
+                  <MapPin className="w-3.5 h-3.5 text-[#029bba]" />
+                  {society.areaName}, {society.city}
+                </span>
+                <span className="text-gray-300">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <Eye className="w-3.5 h-3.5 text-gray-400" />
+                  {society.viewCount.toLocaleString()} views
+                </span>
+                {society.launchYear && (
+                  <>
+                    <span className="text-gray-300">•</span>
+                    <span className="inline-flex items-center gap-1">
+                      <Calendar className="w-3.5 h-3.5 text-gray-400" />
                       Launched {society.launchYear}
-                    </div>
-                  )}
-                  {society.lastVerifiedAt && (
-                    <div className="flex items-center gap-2 text-white/80 text-sm">
-                      <ShieldCheck className="w-4 h-4 text-[#10b981]" />
+                    </span>
+                  </>
+                )}
+                {society.lastVerifiedAt && (
+                  <>
+                    <span className="text-gray-300">•</span>
+                    <span className="inline-flex items-center gap-1">
+                      <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
                       Verified {formatDate(society.lastVerifiedAt)}
-                    </div>
-                  )}
+                    </span>
+                  </>
+                )}
+              </p>
+
+              {society.alternateNames && society.alternateNames.length > 0 && (
+                <p className="text-xs text-gray-400 mt-1">
+                  Also known as: {society.alternateNames.join(', ')}
+                </p>
+              )}
+            </div>
+
+            {/* RIGHT: Overall Score Card */}
+            <div className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+              <div className="text-center mb-4">
+                <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
+                  Overall Score
+                </div>
+                <div className={`text-5xl font-extrabold ${getScoreColor(society.scores.overall)}`}>
+                  {society.scores.overall}
+                  <span className="text-2xl text-gray-400">/100</span>
+                </div>
+                <div className="text-sm font-semibold text-gray-700 mt-1">
+                  {getScoreLabel(society.scores.overall)}
                 </div>
               </div>
 
-              {/* RIGHT: Overall Score Card */}
-              <div className="bg-white rounded-2xl p-6 shadow-2xl">
-                <div className="text-center mb-4">
-                  <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-                    Overall Score
-                  </div>
-                  <div className={`text-6xl font-extrabold ${getScoreColor(society.scores.overall)}`}>
-                    {society.scores.overall}
-                    <span className="text-2xl text-gray-400">/100</span>
-                  </div>
-                  <div className="text-sm font-semibold text-gray-700 mt-1">
-                    {getScoreLabel(society.scores.overall)}
-                  </div>
-                </div>
-
-                <div className={`rounded-xl p-3 text-center ${risk.bg}`}>
-                  <div className={`text-sm font-bold ${risk.text}`}>{risk.label}</div>
-                  <div className={`text-xs mt-1 ${risk.text} opacity-80`}>{risk.description}</div>
-                </div>
+              <div className={`rounded-xl p-3 text-center ${risk.bg}`}>
+                <div className={`text-sm font-bold ${risk.text}`}>{risk.label}</div>
+                <div className={`text-xs mt-1 ${risk.text} opacity-80`}>{risk.description}</div>
               </div>
             </div>
           </div>
-        </section>
+        </div>
 
         {/* ── MASSIVE NOC STATUS BANNER ── */}
         <section className={`${noc.bg} ${noc.text}`}>
-          <div className="container mx-auto px-4 py-6">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-6">
             <div className="flex flex-col md:flex-row items-center md:items-start gap-4 md:gap-6">
               <div className="flex-shrink-0 w-14 h-14 rounded-full bg-white/20 flex items-center justify-center">
                 {noc.icon}
@@ -567,7 +568,7 @@ export default function SocietyDetailPage({
         {/* ── ACTIVE RISK ALERTS ── */}
         {activeAlerts.length > 0 && (
           <section className="bg-[#fef2f2] border-y-2 border-[#ef4444]/30">
-            <div className="container mx-auto px-4 py-6">
+            <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-6">
               <div className="flex items-center gap-3 mb-4">
                 <div className="w-10 h-10 rounded-full bg-[#ef4444] flex items-center justify-center animate-pulse">
                   <AlertTriangle className="w-5 h-5 text-white" />
@@ -618,7 +619,7 @@ export default function SocietyDetailPage({
         )}
 
         {/* ── MAIN CONTENT GRID ── */}
-        <section className="container mx-auto px-4 py-10">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-10">
           <div className="grid lg:grid-cols-3 gap-8">
 
             {/* ─── LEFT: Main Content (2 cols) ─── */}
@@ -952,7 +953,7 @@ export default function SocietyDetailPage({
         {/* ── RELATED SOCIETIES ── */}
         {relatedSocieties.length > 0 && (
           <section className="bg-white py-12 border-t border-gray-200">
-            <div className="container mx-auto px-4">
+            <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold text-gray-900">
                   Other Societies in {society.city}
@@ -1006,7 +1007,7 @@ export default function SocietyDetailPage({
 
         {/* ── CTA ── */}
         <section className="bg-gradient-to-br from-[#001f2b] to-[#003553] py-12">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <h2 className="text-xl md:text-2xl font-bold text-white mb-3">
               Need More Intelligence?
             </h2>

@@ -533,7 +533,7 @@ export const Header: React.FC = () => {
   // EXPLORE dropdown items -- consolidated secondary nav
   const exploreItems = [
     { label: "Agents",     href: "/agents",     icon: <icons.Users className="w-4 h-4" />,     description: "Find verified property agents" },
-    { label: "SafeDeal",   href: "/safedeal",   icon: <icons.ShieldCheck className="w-4 h-4" />, description: "Secure property transactions" },
+    { label: "SafeDeal",   href: "/safedeal",   icon: <icons.ShieldCheck className="w-4 h-4" />, description: "Property transaction protection & consultancy" },
     { label: "Blog",       href: "/blog",       icon: <icons.FileText className="w-4 h-4" />,  description: "Insights & market news" },
   ];
 
@@ -1024,7 +1024,7 @@ export const Header: React.FC = () => {
                         <MenuItem href="/admin/labour"     icon={<icons.HardHat />}     label="Labour Verification" />
 
                         <SectionHeader label="SafeDeal & Visits" color="text-amber-600" />
-                        <MenuItem href="/admin/safedeal"   icon={<icons.ShieldCheck />} label="SafeDeal Bookings" />
+                        <MenuItem href="/admin/safedeal"   icon={<icons.ShieldCheck />} label="SafeDeal Cases" />
                         <MenuItem href="/admin/homevisit"  icon={<icons.Home />}        label="Home Visits" />
 
                         <SectionHeader label="CRM & AI" color="text-amber-600" />

@@ -203,6 +203,19 @@ function registerEventHandlers(): void {
   connection.on("connected", () => {
     cached.lastConnectedAt = new Date();
     cached.connectionAttempts = 0;
+
+    // 🔒 Phase 0 guard: loudly flag non-production processes on remote databases
+    const connectedHost = String(connection.host ?? "").split(":")[0].toLowerCase();
+    const isLocalHost =
+      ["localhost", "127.0.0.1", "::1", "0.0.0.0"].includes(connectedHost) ||
+      connectedHost.endsWith(".localhost");
+    if (process.env.NODE_ENV !== "production" && !isLocalHost) {
+      console.warn(
+        `[DB GUARD] Non-production process connected to a remote database ("${connection.db?.databaseName ?? "unknown"}"). ` +
+          "Guarded write tooling (demo seed endpoint, cleanup scripts) stays blocked unless it targets an explicitly configured non-production database."
+      );
+    }
+
     logConnectionEvent("connected", {
       poolSize: POOL_SIZE,
       database: connection.db?.databaseName,

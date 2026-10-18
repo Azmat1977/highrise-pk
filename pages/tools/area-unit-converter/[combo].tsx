@@ -14,12 +14,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import type { GetStaticPaths, GetStaticProps } from 'next';
 import {
   ArrowLeftRight, Copy, Check, ArrowLeft, ArrowRight, Sparkles,
-  ShieldCheck, Banknote, Construction, Ruler, Calculator,
-  BookOpen, Info, Home, MapPin, ChevronRight,
+  ShieldCheck, Banknote, Construction, Ruler,
+  BookOpen, Info, Home, ChevronRight,
 } from 'lucide-react';
 import {
   AREA_UNITS,
@@ -147,7 +146,6 @@ export default function ConversionLandingPage({
   relatedSlugs,
   tableRows,
 }: PageProps): React.ReactElement {
-  const router = useRouter();
 
   // Converter state — pre-filled from config
   const [fromValue, setFromValue] = useState<string>(String(config.defaultValue));
@@ -312,53 +310,35 @@ export default function ConversionLandingPage({
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── BREADCRUMBS ── */}
-        <div className="bg-white border-b border-gray-200">
-          <div className="container mx-auto px-4 py-3">
-            <nav className="flex items-center gap-1 text-xs text-gray-600 overflow-x-auto whitespace-nowrap">
-              <Link href="/" className="hover:text-[#029bba]">Home</Link>
-              <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
-              <Link href="/tools/area-unit-converter" className="hover:text-[#029bba]">
-                Area Unit Converter
-              </Link>
-              <ChevronRight className="w-3 h-3 text-gray-400 flex-shrink-0" />
-              <span className="text-gray-900 font-semibold truncate">{config.h1}</span>
-            </nav>
-          </div>
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2 overflow-x-auto whitespace-nowrap">
+            <Link href="/" className="hover:text-[#029bba] font-medium transition-colors">Home</Link>
+            <ChevronRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
+            <Link href="/tools/area-unit-converter" className="hover:text-[#029bba] font-medium transition-colors">
+              Area Unit Converter
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300 flex-shrink-0" />
+            <span className="text-[#004063] font-bold truncate">{config.h1}</span>
+          </nav>
+
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            {config.h1}
+          </h1>
+          <p className="text-sm text-gray-600 font-medium mt-1 max-w-3xl">{config.intro}</p>
+          <p className="text-xs text-gray-600 font-semibold mt-1.5 flex flex-wrap items-center gap-2">
+            <span>
+              1 {fromUnitMeta.name} = {formatAreaValue(baseConversion)} {baseConversion === 1 ? toUnitMeta.name : toUnitMeta.pluralName}
+            </span>
+            <span className="text-gray-300">•</span>
+            <span>Free &amp; instant</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Pakistani area standards</span>
+          </p>
         </div>
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-12 md:py-14 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_50%)] pointer-events-none" />
-
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-5">
-                <Ruler className="w-4 h-4 text-[#06b6d4]" />
-                Pakistani Area Unit Conversion
-              </div>
-
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight tracking-tight">
-                {config.h1}
-              </h1>
-
-              <p className="text-base md:text-lg text-white/85 max-w-2xl mx-auto mb-5">
-                {config.intro}
-              </p>
-
-              {/* Quick fact */}
-              <div className="inline-flex items-center gap-3 px-5 py-3 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white">
-                <Calculator className="w-5 h-5 text-[#06b6d4]" />
-                <span className="text-base md:text-lg font-bold">
-                  1 {fromUnitMeta.name} = {formatAreaValue(baseConversion)} {baseConversion === 1 ? toUnitMeta.name : toUnitMeta.pluralName}
-                </span>
-              </div>
-            </div>
-          </div>
-        </section>
-
         {/* ── MAIN CONVERTER ── */}
-        <section className="container mx-auto px-4 py-8">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
           <div className="max-w-3xl mx-auto">
             <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
 
@@ -481,7 +461,7 @@ export default function ConversionLandingPage({
         </section>
 
         {/* ── EXPLANATION ── */}
-        <section className="container mx-auto px-4 py-6">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-6">
           <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center gap-2">
               <Info className="w-5 h-5 text-[#029bba]" />
@@ -521,7 +501,7 @@ export default function ConversionLandingPage({
         </section>
 
         {/* ── CONVERSION TABLE (1-20) ── */}
-        <section className="container mx-auto px-4 py-6">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-6">
           <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-6">
             <h2 className="text-xl font-bold text-gray-900 mb-1 flex items-center gap-2">
               <Ruler className="w-5 h-5 text-[#029bba]" />
@@ -562,7 +542,7 @@ export default function ConversionLandingPage({
 
         {/* ── RELATED CONVERSIONS ── */}
         {relatedSlugs.length > 0 && (
-          <section className="container mx-auto px-4 py-6">
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-6">
             <div className="max-w-3xl mx-auto">
               <h2 className="text-xl font-bold text-gray-900 mb-3 flex items-center gap-2">
                 <ArrowLeftRight className="w-5 h-5 text-[#029bba]" />
@@ -594,7 +574,7 @@ export default function ConversionLandingPage({
 
         {/* ── FAQ SECTION ── */}
         <section className="bg-white py-12 border-t border-gray-200 mt-6">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-3xl mx-auto">
               <div className="text-center mb-8">
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
@@ -634,7 +614,7 @@ export default function ConversionLandingPage({
 
         {/* ── CTA ── */}
         <section className="bg-gradient-to-br from-[#001f2b] to-[#003553] py-12">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
               Use Our <span className="text-[#06b6d4]">Intelligence Suite</span>

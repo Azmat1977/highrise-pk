@@ -20,14 +20,18 @@
  *      on next document save by strict:true)
  *
  * USAGE:
- *   npx tsx scripts/migrate-lock-fields.ts             (live run)
- *   npx tsx scripts/migrate-lock-fields.ts --dry-run   (preview only)
+ *   npx tsx scripts/migrate-lock-fields.ts --dry-run   (preview only; reads MONGODB_URI, no writes)
+ *   npx tsx scripts/migrate-lock-fields.ts             (guarded live run; requires MONGODB_URI_TEST)
+ *
+ * GUARDED (Phase 0): live runs are fail-closed and require MONGODB_URI_TEST
+ * pointing at a clearly non-production database (test/fixture/demo/dev naming).
  *
  * RUN BEFORE: removing loginAttempts + lockUntil from User schema
  */
 
 import mongoose from "mongoose";
 import * as dotenv from "dotenv";
+import { assertWriteAllowed, resolveTestUri, describeTarget } from "../lib/dbGuard";
 
 dotenv.config({ path: ".env.local" });
 
@@ -57,10 +61,17 @@ function log(msg: string): void {
 
 // ─── Main ─────────────────────────────────────────────────────
 async function main(): Promise<void> {
-  const uri = process.env.MONGODB_URI;
-  if (!uri) {
-    console.error("ERROR: MONGODB_URI not set in .env.local");
-    process.exit(1);
+  let uri: string;
+  if (DRY_RUN) {
+    uri = process.env.MONGODB_URI ?? "";
+    if (!uri) {
+      console.error("ERROR: MONGODB_URI not set in .env.local");
+      process.exit(1);
+    }
+  } else {
+    uri = resolveTestUri();
+    assertWriteAllowed(uri, { purpose: "migrate-lock-fields live run" });
+    log(`Guarded live run — ${describeTarget(uri)}`);
   }
 
   log(`Mode: ${DRY_RUN ? "DRY RUN (no writes)" : "LIVE RUN"}`);

@@ -3,17 +3,16 @@
 // Pakistan's most comprehensive area unit converter
 // 12 units, quick-links, conversion chart, history, educational content
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import {
   ArrowLeftRight, Copy, Check, Trash2, Clock, BookOpen,
   ShieldCheck, Banknote, Construction, Sparkles, ArrowRight,
-  Ruler, MapPin, Info, Home, Building2, Calculator,
+  Ruler, Info, Home, ChevronRight,
 } from 'lucide-react';
 import {
   AREA_UNITS,
-  ALL_UNITS,
   UNITS_BY_CATEGORY,
   CATEGORY_META,
   COMMON_SIZES,
@@ -182,47 +181,36 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-12 md:py-16 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_50%)] pointer-events-none" />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/tools" className="hover:text-[#029bba] font-medium transition-colors">
+              Tools
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Area Unit Converter</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-5">
-                <Ruler className="w-4 h-4 text-[#06b6d4]" />
-                Pakistan&apos;s Most Comprehensive Area Converter
-              </div>
-
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-3 leading-tight tracking-tight">
-                Area Unit <span className="text-[#06b6d4]">Converter</span>
-              </h1>
-
-              <p className="text-base md:text-lg text-white/85 max-w-2xl mx-auto mb-4">
-                Convert Marla, Kanal, Sqft, Sqyd, Acre, and 7 more units instantly.
-                <strong className="text-white"> 12 Pakistani &amp; international units</strong> — free, accurate, mobile-friendly.
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-3 text-white/80 text-sm">
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#06b6d4]" />
-                  <span>Pakistani standards</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Calculator className="w-4 h-4 text-[#06b6d4]" />
-                  <span>Real-time math</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <BookOpen className="w-4 h-4 text-[#06b6d4]" />
-                  <span>Educational</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Area Unit Converter
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>Marla, Kanal, Sqft, Sqyd, Acre + 7 more</span>
+            <span className="text-gray-300">•</span>
+            <span>12 Pakistani &amp; international units</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Free &amp; instant</span>
+          </p>
+        </div>
 
         {/* ── BANNER ── */}
         {banner && (
-          <div className="container mx-auto px-4 mt-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 mt-4">
             <div
               className={`max-w-3xl mx-auto rounded-xl border-l-4 p-3 flex items-start gap-2 text-sm ${
                 banner.type === 'success'
@@ -241,7 +229,7 @@ export default function AreaUnitConverterPage(): React.ReactElement {
         )}
 
         {/* ── MAIN CONVERTER ── */}
-        <section className="container mx-auto px-4 py-8">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
           <div className="max-w-4xl mx-auto">
             <div className="bg-white rounded-2xl shadow-lg p-6 md:p-8">
 
@@ -426,7 +414,7 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
         {/* ── CONVERSION CHART (All Units) ── */}
         {fromValueNum > 0 && (
-          <section className="container mx-auto px-4 pb-8">
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-8">
             <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <h2 className="text-lg font-bold text-gray-900 mb-1 flex items-center gap-2">
@@ -500,7 +488,7 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
         {/* ── CONVERSION HISTORY ── */}
         {history.length > 0 && (
-          <section className="container mx-auto px-4 pb-8">
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-8">
             <div className="max-w-4xl mx-auto">
               <div className="bg-white rounded-2xl shadow-sm p-6">
                 <div className="flex items-center justify-between mb-4">
@@ -548,7 +536,7 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
         {/* ── EDUCATIONAL CONTENT ── */}
         <section className="bg-white py-12 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-8">
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
@@ -632,7 +620,7 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
          {/* ── REFERENCE TABLE — Marla → Kanal/Sqft/Sqm/Sqyd ── */}
         <section className="bg-white py-12 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-6">
                 <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
@@ -740,7 +728,7 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
         {/* ── POPULAR CONVERSIONS (SEO Landing Page Links) ── */}
         <section className="bg-gray-50 py-12 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-8">
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
@@ -773,7 +761,7 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
         {/* ── CTA ── */}
         <section className="bg-gradient-to-br from-[#001f2b] to-[#003553] py-12">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
               Use Our Complete <span className="text-[#06b6d4]">Intelligence Suite</span>

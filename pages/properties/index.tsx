@@ -34,6 +34,7 @@ import { useSession } from "next-auth/react";
 interface FilterState {
   search: string;
   city: string;
+  society: string;
   propertyCategory: string;
   propertyType: string;
   listingType: string;
@@ -167,15 +168,18 @@ const VALID_LISTING_TYPES = ["", "full_payment", "rent", "installment"];
 const VALID_CATEGORIES   = ["", "residential", "commercial", "plots"];
 const VALID_BEDROOMS     = ["", "1", "2", "3", "4", "5"];
 
+const LEGACY_QUERY_KEYS = ["purpose", "type", "price_min", "price_max"] as const;
+
 const PAGE_LIMIT = 12;
 const DEFAULT_FILTERS: FilterState = {
-  search: "", city: "", propertyCategory: "", propertyType: "",
+  search: "", city: "", society: "", propertyCategory: "", propertyType: "",
   listingType: "", minPrice: "", maxPrice: "", bedrooms: "", sort: "",
   listingSource: "",
 };
 
 const SEO_CANONICAL_KEYS = new Set([
   "city",
+  "society",
   "propertyCategory",
   "propertyType",
   "listingType",
@@ -202,6 +206,32 @@ function clampInt(v: unknown, min: number, max: number): number {
   const n = typeof v === "string" ? Number(v) : typeof v === "number" ? v : NaN;
   if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+const PURPOSE_ALIASES: Readonly<Record<string, string>> = {
+  sale: "full_payment",
+  buy: "full_payment",
+  full_payment: "full_payment",
+  rent: "rent",
+  rental: "rent",
+  installment: "installment",
+  installments: "installment",
+};
+
+function resolveLegacyListingType(v: unknown): string {
+  const s = typeof v === "string" ? v.trim().toLowerCase() : "";
+  return s ? PURPOSE_ALIASES[s] ?? "" : "";
+}
+
+function resolveLegacyPropertyType(v: unknown): string {
+  const s = typeof v === "string"
+    ? v.trim().toLowerCase().replace(/[\s_-]+/g, " ")
+    : "";
+  if (!s) return "";
+  const match = ALL_PROPERTY_TYPES.find(
+    (t) => t.value && t.value.toLowerCase() === s
+  );
+  return match ? match.value : "";
 }
 
 const ALL_TYPE_VALUES = [
@@ -445,32 +475,6 @@ export default function PropertiesListingPage(): React.ReactElement {
     return ALL_PROPERTY_TYPES;
   }, [filters.propertyCategory]);
 
-  useEffect(() => {
-    if (!router.isReady) return;
-
-    const q = router.query;
-    const safeFilters: FilterState = {
-      search: clampText(q.search, 80),
-      city: clampEnum(q.city, CITIES_ALLOW),
-      propertyCategory: clampEnum(q.propertyCategory, VALID_CATEGORIES),
-      propertyType: clampEnum(q.propertyType, ALL_TYPE_VALUES),
-      listingType: clampEnum(q.listingType, VALID_LISTING_TYPES),
-      minPrice: clampText(String(q.minPrice ?? "").replace(/[^\d]/g, ""), 12),
-      maxPrice: clampText(String(q.maxPrice ?? "").replace(/[^\d]/g, ""), 12),
-      bedrooms: clampEnum(q.bedrooms, VALID_BEDROOMS),
-      sort: clampEnum(q.sort, VALID_SORTS),
-      listingSource: clampEnum(q.listingSource, ["", "owner", "agent"]),
-    };
-
-    setFilters(safeFilters);
-    setSearchDraft(safeFilters.search);
-
-    const pageParam = clampInt(q.page, 1, 500);
-    setCurrentPage(pageParam);
-
-    initializedRef.current = true;
-  }, [router.isReady, router.query]);
-
   const updateURL = useCallback(
     (next: FilterState, page = 1) => {
       const params = new URLSearchParams();
@@ -478,6 +482,7 @@ export default function PropertiesListingPage(): React.ReactElement {
       const safe: FilterState = {
         search: clampText(next.search, 80),
         city: clampEnum(next.city, CITIES_ALLOW),
+        society: clampText(next.society, 80),
         propertyCategory: clampEnum(next.propertyCategory, VALID_CATEGORIES),
         propertyType: clampEnum(next.propertyType, ALL_TYPE_VALUES),
         listingType: clampEnum(next.listingType, VALID_LISTING_TYPES),
@@ -501,6 +506,46 @@ export default function PropertiesListingPage(): React.ReactElement {
     [router]
   );
 
+  useEffect(() => {
+    if (!router.isReady) return;
+
+    const q = router.query;
+    const safeFilters: FilterState = {
+      search: clampText(q.search, 80),
+      city: clampEnum(q.city, CITIES_ALLOW),
+      society: clampText(q.society, 80),
+      propertyCategory: clampEnum(q.propertyCategory, VALID_CATEGORIES),
+      propertyType:
+        clampEnum(q.propertyType, ALL_TYPE_VALUES) ||
+        clampEnum(q.propertyTypes, ALL_TYPE_VALUES) ||
+        resolveLegacyPropertyType(q.type),
+      listingType:
+        clampEnum(q.listingType, VALID_LISTING_TYPES) ||
+        resolveLegacyListingType(q.purpose),
+      minPrice:
+        clampText(String(q.minPrice ?? "").replace(/[^\d]/g, ""), 12) ||
+        clampText(String(q.price_min ?? "").replace(/[^\d]/g, ""), 12),
+      maxPrice:
+        clampText(String(q.maxPrice ?? "").replace(/[^\d]/g, ""), 12) ||
+        clampText(String(q.price_max ?? "").replace(/[^\d]/g, ""), 12),
+      bedrooms: clampEnum(q.bedrooms, VALID_BEDROOMS),
+      sort: clampEnum(q.sort, VALID_SORTS),
+      listingSource: clampEnum(q.listingSource, ["", "owner", "agent"]),
+    };
+
+    setFilters(safeFilters);
+    setSearchDraft(safeFilters.search);
+
+    const pageParam = clampInt(q.page, 1, 500);
+    setCurrentPage(pageParam);
+
+    if (LEGACY_QUERY_KEYS.some((k) => k in q)) {
+      updateURL(safeFilters, pageParam);
+    }
+
+    initializedRef.current = true;
+  }, [router.isReady, router.query, updateURL]);
+
   const fetchProperties = useCallback(async () => {
     if (!initializedRef.current) return;
 
@@ -519,6 +564,7 @@ export default function PropertiesListingPage(): React.ReactElement {
 
       const safeSearch = clampText(filters.search, 80);
       const safeCity = clampEnum(filters.city, CITIES_ALLOW);
+      const safeSociety = clampText(filters.society, 80);
       const safeListingType = clampEnum(filters.listingType, VALID_LISTING_TYPES);
       const safeBedrooms = clampEnum(filters.bedrooms, VALID_BEDROOMS);
       const safeSort = clampEnum(filters.sort, VALID_SORTS);
@@ -526,6 +572,7 @@ export default function PropertiesListingPage(): React.ReactElement {
 
       if (safeSearch) params.append("search", safeSearch);
       if (safeCity) params.append("city", safeCity);
+      if (safeSociety) params.append("society", safeSociety);
 
       const safePropertyCategory = clampEnum(filters.propertyCategory, VALID_CATEGORIES);
       if (safePropertyCategory) params.append("propertyCategory", safePropertyCategory);
@@ -590,6 +637,7 @@ export default function PropertiesListingPage(): React.ReactElement {
   }, [
     filters.search,
     filters.city,
+    filters.society,
     filters.listingType,
     filters.bedrooms,
     filters.sort,
@@ -597,6 +645,7 @@ export default function PropertiesListingPage(): React.ReactElement {
     filters.maxPrice,
     filters.propertyType,
     filters.propertyCategory,
+    filters.listingSource,
     currentPage,
     getPropertyTypesForQuery,
   ]);
@@ -1001,6 +1050,13 @@ export default function PropertiesListingPage(): React.ReactElement {
                     icon={<icons.MapPin className="w-3 h-3 text-[#029bba]" />}
                     label={filters.city}
                     onClear={() => clearFilter("city")}
+                  />
+                )}
+                {filters.society && (
+                  <FilterChip
+                    icon={<icons.Building2 className="w-3 h-3 text-[#029bba]" />}
+                    label={filters.society}
+                    onClear={() => clearFilter("society")}
                   />
                 )}
                 {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (

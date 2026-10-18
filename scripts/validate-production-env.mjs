@@ -8,6 +8,10 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+const { isNonProductionDbName, parseMongoTarget } = require('../lib/dbGuard.js');
 
 const root = process.cwd();
 const isProduction = process.env.NODE_ENV === 'production' || process.argv.includes('--production');
@@ -183,6 +187,27 @@ if (new Set(canonicalOrigins).size > 1) {
 
 const mongoUri = valueOf('MONGODB_URI');
 if (mongoUri && !/^mongodb(?:\+srv)?:\/\//i.test(mongoUri)) fail('MONGODB_URI must begin with mongodb:// or mongodb+srv://.');
+
+// Phase 0 isolation: guarded write tooling needs a dedicated non-production database.
+const mongoTestUri = valueOf('MONGODB_URI_TEST');
+if (mongoTestUri) {
+  if (!/^mongodb(?:\+srv)?:\/\//i.test(mongoTestUri)) {
+    fail('MONGODB_URI_TEST must begin with mongodb:// or mongodb+srv://.');
+  } else {
+    let testTarget = null;
+    let mainTarget = null;
+    try { testTarget = parseMongoTarget(mongoTestUri); } catch { testTarget = null; }
+    try { mainTarget = mongoUri ? parseMongoTarget(mongoUri) : null; } catch { mainTarget = null; }
+    if (!testTarget || !testTarget.dbName || !isNonProductionDbName(testTarget.dbName)) {
+      fail('MONGODB_URI_TEST must point at a clearly non-production database (test/fixture/demo/dev naming).');
+    }
+    if (testTarget && mainTarget && testTarget.host === mainTarget.host && testTarget.dbName === mainTarget.dbName) {
+      fail('MONGODB_URI_TEST must not point at the same database as MONGODB_URI.');
+    }
+  }
+} else if (!isProduction) {
+  warn('MONGODB_URI_TEST is not configured. Database-writing tooling and demo seeding remain disabled (fail-closed).');
+}
 
 const redisUrl = valueOf('UPSTASH_REDIS_REST_URL');
 if (redisUrl && !/^https:\/\//i.test(redisUrl)) fail('UPSTASH_REDIS_REST_URL must use HTTPS.');

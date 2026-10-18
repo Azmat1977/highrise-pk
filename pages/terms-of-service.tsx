@@ -7,7 +7,7 @@ import React, { useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { FileText, Users, Home, AlertTriangle, 
-         DollarSign, Scale, ChevronDown, ChevronUp, Shield } from 'lucide-react';
+         DollarSign, Scale, ChevronDown, ChevronUp, Shield, ChevronRight } from 'lucide-react';
 
 const SITE_URL       = process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk';
 const EFFECTIVE_DATE = 'January 15, 2025';
@@ -780,42 +780,29 @@ export default function TermsOfServicePage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── Hero ─────────────────────────────────────────────────────────── */}
-        <div className="bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] text-white">
-          <div className="max-w-4xl mx-auto px-4 py-14 sm:py-20">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-white/60 mb-6">
-              <Link href="/" className="hover:text-white transition-colors">Home</Link>
-              <span>/</span>
-              <span className="text-white">Terms of Service</span>
-            </nav>
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Terms of Service</span>
+          </nav>
 
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-sm border border-white/20 flex items-center justify-center flex-shrink-0">
-                <Scale className="w-7 h-7 text-[#029bba]" />
-              </div>
-              <div>
-                <h1 className="text-3xl sm:text-4xl font-bold mb-3">
-                  Terms of <span className="text-[#029bba]">Service</span>
-                </h1>
-                <p className="text-white/70 text-base sm:text-lg max-w-2xl">
-                  Clear, fair rules for everyone on Highrise.pk — buyers, sellers, 
-                  agents, and developers. Written in plain English, not legal jargon.
-                </p>
-                <div className="flex flex-wrap gap-4 mt-5 text-sm">
-                  <span className="bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
-                    📅 Effective: {EFFECTIVE_DATE}
-                  </span>
-                  <span className="bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
-                    🔄 Updated: {LAST_UPDATED}
-                  </span>
-                  <span className="bg-white/10 px-3 py-1.5 rounded-full border border-white/20">
-                    📋 Version: 1.0
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Terms of Service
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>Clear, fair rules in plain English</span>
+            <span className="text-gray-300">•</span>
+            <span>Effective: {EFFECTIVE_DATE}</span>
+            <span className="text-gray-300">•</span>
+            <span>Updated: {LAST_UPDATED}</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Version 1.0</span>
+          </p>
         </div>
 
         {/* ── Trust Badges ─────────────────────────────────────────────────── */}
