@@ -139,7 +139,7 @@ describe('add-on rate provider · validation', () => {
     ['future effectiveFrom', { effectiveFrom: '2027-01-01' }],
     ['missing lastVerifiedAt', { lastVerifiedAt: undefined }],
     ['unit mis-scoped', { unit: 'per_sqft' as const }],
-  ])('rejects %s as unverified', (_label, overrides) => {
+])('rejects %s as unverified', (_label: string, overrides: Record<string, unknown>) => {
     const validation = validateAddOnRateRecord(approvedRecord(overrides), now);
     expect(validation).toEqual({ valid: false, reason: 'unverified' });
   });
@@ -182,8 +182,8 @@ describe('evaluateAddOnSelections', () => {
 
   it.each(ALL_ADD_ONS)(
     'marks the estimate incomplete when the selected %s rate is unverified',
-    (addOn) => {
-      const result = evaluateAddOnSelections([selection(addOn, true)]);
+(addOn: AddOnKind) => {
+        const result = evaluateAddOnSelections([selection(addOn, true)]);
       expect(result.incompleteAddOns).toEqual([{ addOn, reason: 'unverified' }]);
       expect(result.addOnsCost).toBe(0);
       expect(result.amounts[addOn]).toBeUndefined();
@@ -192,7 +192,7 @@ describe('evaluateAddOnSelections', () => {
 
   it.each(ALL_ADD_ONS)(
     'marks the estimate incomplete when the selected %s rate is unavailable',
-    (addOn) => {
+    (addOn: AddOnKind) => {
       const result = evaluateAddOnSelections(
         [selection(addOn, true)],
         unavailableLookup(addOn)

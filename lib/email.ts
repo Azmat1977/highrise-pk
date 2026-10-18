@@ -54,8 +54,7 @@ export interface EmailResult {
   rejectedEmails?: string[];
 }
 
-import type SMTPTransport from "nodemailer/lib/smtp-transport";
-import type Mail from "nodemailer/lib/mailer";
+import type { SendMailOptions } from "highrise-nodemailer";
 
 // ═══════════════════════════════════════════════════════════════
 // 🔐 HELPER FUNCTIONS
@@ -341,7 +340,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
     const fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || "noreply@highrise.pk";
     const fromName = options.fromName || "Highrise.pk";
 
-    const mailOptions: Mail.Options = {
+    const mailOptions: SendMailOptions = {
       from: `"${fromName}" <${fromEmail}>`,
       to: validEmails.join(", "),
       subject,
