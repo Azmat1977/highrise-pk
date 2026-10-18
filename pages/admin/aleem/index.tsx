@@ -68,7 +68,7 @@ export default function AleemDashboardPage(): React.ReactElement {
   // Auth guard
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/login?callbackUrl=/admin/aleem');
+      router.push('/login?callbackUrl=/admin/aleem');
     }
   }, [status, router]);
 

@@ -30,7 +30,7 @@ export default function AdminGuard({ children }: AdminGuardProps) {
 
     if (status === 'unauthenticated' || !session?.user) {
       void router.replace(
-        `/auth/login?redirect=${encodeURIComponent(router.asPath)}`
+        `/login?callbackUrl=${encodeURIComponent(router.asPath)}`
       );
     }
   }, [status, session, router]);

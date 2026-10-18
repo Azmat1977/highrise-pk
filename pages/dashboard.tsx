@@ -253,7 +253,7 @@ export default function UserDashboard(): ReactElement {
               Login
             </Link>
             <Link
-              href="/register"
+              href="/login?mode=signup&callbackUrl=/dashboard"
               className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold text-sm hover:border-[#029bba] hover:text-[#029bba] transition-colors"
             >
               Create Account

@@ -967,7 +967,7 @@ export default function AdminUserDetailPage(): React.ReactElement {
   useEffect(() => {
     if (status === 'loading') return;
     if (!session || session.user?.role !== 'admin') {
-      void router.replace('/auth/login');
+      void router.replace('/login');
     }
   }, [session, status, router]);
 

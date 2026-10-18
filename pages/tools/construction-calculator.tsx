@@ -86,12 +86,18 @@ interface CalculationResult {
   coverageRatio: number;
   baseCost: number;
   addOnsCost: number;
-  totalCost: number;
+  totalCost: number | null;
   costPerSqft: number;
   costPerMarla: number;
-  costMin: number;
-  costMax: number;
+  costMin: number | null;
+  costMax: number | null;
   confidenceLevel: 'high' | 'medium' | 'low';
+  estimateComplete: boolean;
+  incompleteAddOns: {
+    addOn: 'boundaryWall' | 'basement' | 'elevators' | 'parking' | 'generator';
+    reason: 'unavailable' | 'unverified' | 'expired';
+  }[];
+  estimateWarning?: string;
   breakdown: CostBreakdownItem[];
   addOns: {
     boundaryWall?: number;
@@ -1346,6 +1352,20 @@ interface ResultDisplayProps {
   result: CalculationResult;
 }
 
+const ADD_ON_LABELS: Record<string, string> = {
+  boundaryWall: 'Boundary wall',
+  basement: 'Basement',
+  elevators: 'Elevator',
+  parking: 'Parking',
+  generator: 'Generator',
+};
+
+const ADD_ON_REASON_LABELS: Record<string, string> = {
+  unavailable: 'rate unavailable',
+  unverified: 'rate not verified',
+  expired: 'rate expired',
+};
+
 function ResultDisplay({ result }: ResultDisplayProps): React.ReactElement {
   const confidenceLabel = result.confidenceLevel === 'high' ? 'High Confidence' :
                           result.confidenceLevel === 'medium' ? 'Medium Confidence' : 'Estimate Only';
@@ -1356,36 +1376,95 @@ function ResultDisplay({ result }: ResultDisplayProps): React.ReactElement {
   return (
     <div className="space-y-6">
 
-      {/* TOTAL COST BANNER */}
-      <div className="bg-gradient-to-br from-[#029bba] to-[#004063] rounded-2xl p-6 text-white shadow-xl">
-        <div className="flex items-start justify-between gap-3 mb-1">
-          <div className="text-xs font-bold uppercase tracking-wider opacity-90">
-            Estimated Construction Cost
+      {/* TOTAL COST BANNER — only when the estimate is complete */}
+      {result.estimateComplete && result.totalCost !== null ? (
+        <div className="bg-gradient-to-br from-[#029bba] to-[#004063] rounded-2xl p-6 text-white shadow-xl">
+          <div className="flex items-start justify-between gap-3 mb-1">
+            <div className="text-xs font-bold uppercase tracking-wider opacity-90">
+              Estimated Construction Cost
+            </div>
+            <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded ${confidenceColor}`}>
+              {confidenceLabel}
+            </span>
           </div>
-          <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-1 rounded ${confidenceColor}`}>
-            {confidenceLabel}
-          </span>
-        </div>
-        <div className="text-4xl md:text-5xl font-extrabold mb-2">{formatPKR(result.totalCost)}</div>
-        <div className="text-sm opacity-90 mb-4">
-          Range: {formatPKR(result.costMin)} – {formatPKR(result.costMax)}
-        </div>
+          <div className="text-4xl md:text-5xl font-extrabold mb-2">{formatPKR(result.totalCost)}</div>
+          <div className="text-sm opacity-90 mb-4">
+            {result.costMin !== null && result.costMax !== null
+              ? `Range: ${formatPKR(result.costMin)} – ${formatPKR(result.costMax)}`
+              : 'Range unavailable'}
+          </div>
 
-        <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/30">
-          <div>
-            <div className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Per Sq Ft</div>
-            <div className="font-bold text-lg">{formatPKR(result.costPerSqft)}</div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Per Marla</div>
-            <div className="font-bold text-lg">{formatPKR(result.costPerMarla)}</div>
-          </div>
-          <div>
-            <div className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Covered Area</div>
-            <div className="font-bold text-lg">{result.totalCoveredSqft.toLocaleString()} sqft</div>
+          <div className="grid grid-cols-3 gap-3 pt-4 border-t border-white/30">
+            <div>
+              <div className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Per Sq Ft</div>
+              <div className="font-bold text-lg">{formatPKR(result.costPerSqft)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Per Marla</div>
+              <div className="font-bold text-lg">{formatPKR(result.costPerMarla)}</div>
+            </div>
+            <div>
+              <div className="text-[10px] uppercase tracking-wider opacity-80 mb-0.5">Covered Area</div>
+              <div className="font-bold text-lg">{result.totalCoveredSqft.toLocaleString()} sqft</div>
+            </div>
           </div>
         </div>
-      </div>
+      ) : (
+        <>
+          {/* INCOMPLETE ESTIMATE WARNING — no final total is shown */}
+          <div className="bg-[#fef3c7] border-l-4 border-[#f59e0b] rounded-2xl p-5 text-[#92400e]">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+              <div>
+                <div className="font-bold mb-1">
+                  {result.estimateWarning ??
+                    'Estimate incomplete — verified rates are required for the selected add-ons.'}
+                </div>
+                {result.incompleteAddOns.length > 0 && (
+                  <div className="text-sm">
+                    Awaiting verified rates for:{' '}
+                    <strong>
+                      {result.incompleteAddOns
+                        .map(
+                          (a) => `${ADD_ON_LABELS[a.addOn] ?? a.addOn} (${ADD_ON_REASON_LABELS[a.reason] ?? a.reason})`
+                        )
+                        .join(', ')}
+                    </strong>
+                  </div>
+                )}
+                <div className="text-xs mt-2 opacity-80">
+                  No total is shown while any selected add-on is unverified.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* PARTIAL BASE COST (clearly labelled — never a final total) */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
+              Base construction cost — partial
+            </div>
+            <div className="text-3xl font-extrabold text-gray-900 mb-1">{formatPKR(result.baseCost)}</div>
+            <p className="text-sm text-gray-500 mb-4">
+              Construction only. Excludes add-ons whose rates are not yet verified — this is not a final total.
+            </p>
+            <div className="grid grid-cols-3 gap-3 pt-4 border-t border-gray-100">
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Per Sq Ft</div>
+                <div className="font-bold text-lg text-gray-900">{formatPKR(result.costPerSqft)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Per Marla</div>
+                <div className="font-bold text-lg text-gray-900">{formatPKR(result.costPerMarla)}</div>
+              </div>
+              <div>
+                <div className="text-[10px] uppercase tracking-wider text-gray-500 mb-0.5">Covered Area</div>
+                <div className="font-bold text-lg text-gray-900">{result.totalCoveredSqft.toLocaleString()} sqft</div>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* DATA SOURCE TRANSPARENCY */}
       {result.dataSource.overridesApplied > 0 && (

@@ -72,11 +72,11 @@ let pkg;
 try { pkg = JSON.parse(read('package.json')); } catch { fail('package.json is invalid JSON.'); pkg = {}; }
 const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
 const expected = {
-  next: '15.5.22',
+  next: '15.5.25',
   'next-auth': '4.24.15',
   react: '18.3.1',
   'react-dom': '18.3.1',
-  'highrise-nodemailer': 'npm:nodemailer@9.0.3',
+  'highrise-nodemailer': 'npm:nodemailer@9.1.1',
   axios: '1.19.0',
   mongoose: '7.8.11',
   'eslint-config-next': '15.5.22',

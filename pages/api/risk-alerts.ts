@@ -163,6 +163,11 @@ function normalizeParam(v: string | string[] | undefined): string {
   return Array.isArray(v) ? String(v[0] ?? '') : String(v ?? '');
 }
 
+/** Escape regex metacharacters so user text is matched literally (prevents ReDoS / regex injection). */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function clampNumber(val: unknown, min: number, max: number, def: number): number {
   const n = parseInt(String(val ?? def), 10);
   if (Number.isNaN(n)) return def;
@@ -245,6 +250,8 @@ type AlertStatus   = typeof VALID_STATUSES[number];
 // Main handler
 // ─────────────────────────────────────────────
 
+const MAX_CITY_FILTER_LENGTH = 64;
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ApiResponse>
@@ -294,6 +301,24 @@ export default async function handler(
   const page  = clampNumber(rawPage,  1, 100, 1);
   const skip  = (page - 1) * limit;
 
+  // Oversized city input is rejected before any DB access: the regex is never
+  // built and the query is never broadened — return the established empty envelope.
+  if (rawCity.length > MAX_CITY_FILTER_LENGTH) {
+    return void res.status(200).json({
+      success: true,
+      alerts: [],
+      pagination: { page, limit, total: 0, totalPages: 0, hasMore: false },
+      stats: {
+        activeCount: 0,
+        criticalCount: 0,
+        highCount: 0,
+        societyAlerts: 0,
+        projectAlerts: 0,
+        resolvedCount: 0,
+      },
+    });
+  }
+
   await dbConnect();
 
   // ─────────────────────────────────────────────
@@ -315,7 +340,7 @@ export default async function handler(
 
   // Parent-level city filter (applied in DB query)
   const cityMatch = rawCity
-    ? { city: { $regex: rawCity, $options: 'i' } }
+    ? { city: { $regex: escapeRegex(rawCity), $options: 'i' } }
     : {};
 
   // ─────────────────────────────────────────────

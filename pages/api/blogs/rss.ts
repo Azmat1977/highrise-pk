@@ -12,6 +12,7 @@ const SITE_DESCRIPTION = 'Pakistan\'s premier real estate platform - Expert insi
 const FEED_LANGUAGE = 'en-us';
 const FEED_TTL = 60; // Minutes before feed should be refreshed
 const MAX_ITEMS = 50; // Maximum items in feed
+const MAX_CATEGORY_FILTER_LENGTH = 64; // Reject oversized category filters before querying
 
 // ─────────────────────────────────────────────────────────────────────────────
 // HELPER: Escape XML special characters
@@ -25,6 +26,11 @@ function escapeXml(text: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
     .replace(/'/g, '&apos;');
+}
+
+/** Escape regex metacharacters so a category filter is matched literally (prevents ReDoS / regex injection). */
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -72,34 +78,39 @@ export default async function handler(
   try {
     await dbConnect();
 
-    // Optional category filter
+    // Optional category filter (escaped; length-capped to avoid regex abuse)
     const { category } = req.query;
-    
+    const categoryFilter = typeof category === 'string' ? category : undefined;
+    const oversizedCategory =
+      categoryFilter !== undefined && categoryFilter.length > MAX_CATEGORY_FILTER_LENGTH;
+
     // Build query
     const query: Record<string, any> = {
       status: 'published',
       publishedAt: { $lte: new Date() },
     };
 
-    if (category && typeof category === 'string') {
-      query.category = new RegExp(`^${category}$`, 'i');
+    if (categoryFilter && !oversizedCategory) {
+      query.category = new RegExp(`^${escapeRegex(categoryFilter)}$`, 'i');
     }
 
-    // Fetch published blogs
-    const blogs = await Blog.find(query)
-      .sort({ publishedAt: -1 })
-      .limit(MAX_ITEMS)
-      .select('title slug excerpt content category author authorName publishedAt image readTime tags')
-      .populate('authorId', 'name')
-      .lean();
+    // Fetch published blogs (oversized category skips the DB entirely)
+    const blogs = oversizedCategory
+      ? []
+      : await Blog.find(query)
+          .sort({ publishedAt: -1 })
+          .limit(MAX_ITEMS)
+          .select('title slug excerpt content category author authorName publishedAt image readTime tags')
+          .populate('authorId', 'name')
+          .lean();
 
     // Get latest publish date for lastBuildDate
     const lastBuildDate = blogs.length > 0 && blogs[0].publishedAt
       ? new Date(blogs[0].publishedAt)
       : new Date();
 
-    // Build RSS XML
-    const rssXml = buildRssXml(blogs, lastBuildDate, category as string | undefined);
+    // Build RSS XML (an oversized category is never echoed into the document)
+    const rssXml = buildRssXml(blogs, lastBuildDate, oversizedCategory ? undefined : categoryFilter);
 
     // Set headers
     res.setHeader('Content-Type', 'application/xml; charset=utf-8');

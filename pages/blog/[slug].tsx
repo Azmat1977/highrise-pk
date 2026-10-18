@@ -311,7 +311,7 @@ export default function BlogPostPage() {
     rel="alternate"
     type="application/rss+xml"
     title="Highrise.pk Blog RSS Feed"
-    href="/blog/rss.xml"
+    href="/api/blogs/rss"
   />
         <meta name="description" content={blog.metaDescription || blog.excerpt} />
         <link rel="canonical" href={blog.canonicalUrl || currentUrl} />

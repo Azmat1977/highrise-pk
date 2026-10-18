@@ -5,11 +5,12 @@
 // Data Sources:
 //   • Pakistan Engineering Council (PEC) Guidelines 2024
 //   • Pakistan Council of Architects & Town Planners (PCATP) Q1 2025
-//   • DAWN newspaper construction cost reports (2024)
+//   • DAWN newspaper construction cost reports (2024-2025)
 //   • DHA/Bahria Town published per-sqft rates
 //   • Naya Pakistan Housing Authority benchmarks
 //   • Lahore/Karachi Industrial Estate Authority rates
 //   • Aggregated contractor association surveys
+//   • SBP Inflation data / Cement/Steel price tracking 2026
 //
 // Update Frequency: Quarterly (override via admin panel for monthly updates)
 // ═══════════════════════════════════════════════════════════════════════════
@@ -99,249 +100,235 @@ export interface SubTypeMetadata {
   supportsHVAC: boolean;                 // Commercial/highrise office
   supportsClearHeight: boolean;          // Industrial only
   supportsLoadingDocks: boolean;         // Warehouse/industrial only
-  timelineBaselineMonths: number;        // Per typology baseline
-  timelineMultiplierByFloors: number;    // Per additional floor
-  defaultAreaUnit: AreaUnit;
-  requiresEngineerNote: boolean;         // Show structural engineer warning
-  seoSlug: string;                       // For per-typology landing pages
+  requiresEngineerNote: boolean;         // Structural-engineer warning regardless of floor count
+  timelineMonths: {                      // Typical construction duration
+    greyStructure: number;
+    finishing: number;
+    turnkey: number;
+  };
 }
 
-// ─── Rate Set Per Sub-Type ────────────────────────────────────
-export interface SubTypeRates {
+// ─── Typology Rate Card (per sqft) ────────────────────────────
+export interface TypologyRateCard {
   greyStructurePerSqft: Record<QualityGrade, number>;
   finishingPerSqft: Record<QualityGrade, number>;
   greyStructureBreakdown: CostBreakdownTemplate[];
   finishingBreakdown: CostBreakdownTemplate[];
 }
 
+// ─── City Multipliers ──────────────────────────────────────────
+export interface CityMultipliers {
+  [city: string]: {
+    greyStructure: number;   // 0.85 - 1.15
+    finishing: number;       // 0.90 - 1.15
+    labor: number;           // 0.80 - 1.20
+  };
+}
+
+// ─── Rate Version (Update these on each release) ──────────────
+export const RATES_VERSION = '2026-Q1';
+export const RATES_VALID_UNTIL = '2026-06-30';
+export const RATES_LAST_UPDATED = '2026-01-15';
+export const RATES_SOURCE_NOTE = 'Rates based on Q1 2026 market survey. Includes 15% inflation adjustment from 2025. Cement: PKR 1,280/bag, Steel: PKR 285/kg (Grade 60), Bricks: PKR 18,500/1000, Labor: PKR 1,650/day (skilled).';
+
 // ═══════════════════════════════════════════════════════════════
-// RATE VERSIONING
+// MATERIAL RATES — 2026 Q1 Prices
 // ═══════════════════════════════════════════════════════════════
 
-export const RATES_VERSION = '2025-Q1';
-export const RATES_VALID_UNTIL = '2025-06-30';
-export const RATES_LAST_UPDATED = '2025-01-15';
+export const MATERIAL_RATES_2026: MaterialRate[] = [
+  // Structural
+  { name: 'Cement (OPC 53 Grade)', unit: '50kg Bag', pricePKR: 1280, trend: 'stable', changePercent: 0, category: 'structural' },
+  { name: 'Steel Rebar (Grade 60)', unit: 'kg', pricePKR: 285, trend: 'up', changePercent: 5.6, category: 'structural' },
+  { name: 'Steel Rebar (Grade 40)', unit: 'kg', pricePKR: 270, trend: 'up', changePercent: 5.0, category: 'structural' },
+  { name: 'Crush Aggregate (Margalla)', unit: 'Cft', pricePKR: 165, trend: 'stable', changePercent: 0, category: 'structural' },
+  { name: 'Sand (Ravi/Chenab)', unit: 'Cft', pricePKR: 65, trend: 'stable', changePercent: 0, category: 'structural' },
+  { name: 'Bricks (A-Class, 1000 pcs)', unit: '1000 pcs', pricePKR: 18500, trend: 'up', changePercent: 5.7, category: 'structural' },
+  { name: 'Concrete Blocks (6")', unit: 'pc', pricePKR: 85, trend: 'stable', changePercent: 0, category: 'structural' },
+  { name: 'Concrete Blocks (8")', unit: 'pc', pricePKR: 110, trend: 'stable', changePercent: 0, category: 'structural' },
+
+  // Finishing
+  { name: 'Tiles (600x600mm, Local)', unit: 'Sq Ft', pricePKR: 185, trend: 'stable', changePercent: 0, category: 'finishing' },
+  { name: 'Tiles (600x600mm, Imported)', unit: 'Sq Ft', pricePKR: 380, trend: 'up', changePercent: 8.6, category: 'finishing' },
+  { name: 'Marble (Local, 1" Thick)', unit: 'Sq Ft', pricePKR: 280, trend: 'up', changePercent: 7.7, category: 'finishing' },
+  { name: 'Granite (Imported)', unit: 'Sq Ft', pricePKR: 650, trend: 'up', changePercent: 10.0, category: 'finishing' },
+  { name: 'Paint (Premium Emulsion)', unit: 'Gallon', pricePKR: 3200, trend: 'stable', changePercent: 0, category: 'finishing' },
+  { name: 'Paint (Weather Shield)', unit: 'Gallon', pricePKR: 4200, trend: 'up', changePercent: 5.0, category: 'finishing' },
+  { name: 'Wood (Deodar, 1st Quality)', unit: 'Cft', pricePKR: 3800, trend: 'up', changePercent: 12.0, category: 'finishing' },
+  { name: 'Wood (Partal/Chir)', unit: 'Cft', pricePKR: 1200, trend: 'stable', changePercent: 0, category: 'finishing' },
+  { name: 'Aluminum Windows (Powder Coated)', unit: 'Sq Ft', pricePKR: 1150, trend: 'up', changePercent: 9.5, category: 'finishing' },
+  { name: 'UPVC Windows (Double Glazed)', unit: 'Sq Ft', pricePKR: 1650, trend: 'up', changePercent: 11.0, category: 'finishing' },
+  { name: 'False Ceiling (Gypsum)', unit: 'Sq Ft', pricePKR: 145, trend: 'stable', changePercent: 0, category: 'finishing' },
+  { name: 'False Ceiling (PVC)', unit: 'Sq Ft', pricePKR: 95, trend: 'stable', changePercent: 0, category: 'finishing' },
+
+  // MEP
+  { name: 'Electrical Wiring (3/.029, Pakistan Cable)', unit: 'Coil (90m)', pricePKR: 8500, trend: 'up', changePercent: 6.3, category: 'mep' },
+  { name: 'Electrical Wiring (7/.029, Pakistan Cable)', unit: 'Coil (90m)', pricePKR: 16500, trend: 'up', changePercent: 6.5, category: 'mep' },
+  { name: 'PVC Conduit (1")', unit: 'Length (10ft)', pricePKR: 180, trend: 'stable', changePercent: 0, category: 'mep' },
+  { name: 'Switches/Sockets (Premium)', unit: 'pc', pricePKR: 280, trend: 'up', changePercent: 4.0, category: 'mep' },
+  { name: 'LED Downlight (Recessed)', unit: 'pc', pricePKR: 450, trend: 'down', changePercent: -5.0, category: 'mep' },
+  { name: 'Copper Pipe (1/2")', unit: 'ft', pricePKR: 480, trend: 'up', changePercent: 12.0, category: 'mep' },
+  { name: 'PPR Pipe (25mm)', unit: 'ft', pricePKR: 125, trend: 'stable', changePercent: 0, category: 'mep' },
+  { name: 'Water Tank (Plastic, 500 Gal)', unit: 'pc', pricePKR: 28000, trend: 'stable', changePercent: 0, category: 'mep' },
+  { name: 'Water Pump (1 HP)', unit: 'pc', pricePKR: 18500, trend: 'up', changePercent: 8.0, category: 'mep' },
+  { name: 'AC Split Unit (1.5 Ton, Inverter)', unit: 'pc', pricePKR: 125000, trend: 'up', changePercent: 15.0, category: 'mep' },
+
+  // Labor (Daily rates)
+  { name: 'Mason (Skilled)', unit: 'Day', pricePKR: 1650, trend: 'up', changePercent: 10.0, category: 'labor' },
+  { name: 'Steel Fixer (Skilled)', unit: 'Day', pricePKR: 1800, trend: 'up', changePercent: 9.0, category: 'labor' },
+  { name: 'Carpenter (Shuttering)', unit: 'Day', pricePKR: 1600, trend: 'up', changePercent: 8.0, category: 'labor' },
+  { name: 'Plumber (Skilled)', unit: 'Day', pricePKR: 1700, trend: 'up', changePercent: 9.5, category: 'labor' },
+  { name: 'Electrician (Skilled)', unit: 'Day', pricePKR: 1750, trend: 'up', changePercent: 9.0, category: 'labor' },
+  { name: 'Painter (Skilled)', unit: 'Day', pricePKR: 1500, trend: 'up', changePercent: 7.0, category: 'labor' },
+  { name: 'Tile Fixer (Skilled)', unit: 'Day', pricePKR: 1650, trend: 'up', changePercent: 8.0, category: 'labor' },
+  { name: 'Unskilled Labor (Helper)', unit: 'Day', pricePKR: 950, trend: 'up', changePercent: 5.6, category: 'labor' },
+];
 
 // ═══════════════════════════════════════════════════════════════
-// CITY MULTIPLIERS (Lahore = 1.0 baseline)
-// Different typologies have different city sensitivities
+// CITY MULTIPLIERS (Base = Islamabad/Rawalpindi = 1.0)
 // ═══════════════════════════════════════════════════════════════
 
-// Standard residential city multipliers
-export const CITY_MULTIPLIERS_RESIDENTIAL: Record<City, number> = {
-  Lahore: 1.00,
-  Islamabad: 1.15,    // Capital territory premium
-  Rawalpindi: 1.05,
-  Karachi: 1.10,      // Logistics + labor cost
-  Faisalabad: 0.95,
-  Multan: 0.92,
-  Peshawar: 1.05,     // KP transport
-  Gujranwala: 0.95,
-  Sialkot: 0.93,
-  Quetta: 1.15,       // Remote location premium
+export const CITY_MULTIPLIERS: CityMultipliers = {
+  'Lahore':      { greyStructure: 0.95, finishing: 0.98, labor: 0.92 },
+  'Islamabad':   { greyStructure: 1.00, finishing: 1.00, labor: 1.00 },
+  'Rawalpindi':  { greyStructure: 0.98, finishing: 0.98, labor: 0.95 },
+  'Karachi':     { greyStructure: 1.12, finishing: 1.15, labor: 1.18 },
+  'Faisalabad':  { greyStructure: 0.88, finishing: 0.92, labor: 0.85 },
+  'Multan':      { greyStructure: 0.86, finishing: 0.90, labor: 0.82 },
+  'Peshawar':    { greyStructure: 0.90, finishing: 0.92, labor: 0.85 },
+  'Gujranwala':  { greyStructure: 0.87, finishing: 0.91, labor: 0.83 },
+  'Sialkot':     { greyStructure: 0.87, finishing: 0.91, labor: 0.83 },
+  'Quetta':      { greyStructure: 1.08, finishing: 1.10, labor: 1.15 },
 };
 
-// Commercial — capitals + Karachi command higher premiums
-export const CITY_MULTIPLIERS_COMMERCIAL: Record<City, number> = {
-  Lahore: 1.00,
-  Islamabad: 1.20,    // Diplomatic enclave + Blue Area premium
-  Rawalpindi: 1.08,
-  Karachi: 1.15,      // Saddar, Clifton, II Chundrigar
-  Faisalabad: 0.96,
-  Multan: 0.93,
-  Peshawar: 1.06,
-  Gujranwala: 0.96,
-  Sialkot: 0.94,
-  Quetta: 1.18,
-};
-
-// Industrial — depends on industrial estates + logistics
-export const CITY_MULTIPLIERS_INDUSTRIAL: Record<City, number> = {
-  Lahore: 1.00,       // Sundar, Quaid-e-Azam Industrial Estate
-  Islamabad: 1.18,    // Limited industrial zones, higher cost
-  Rawalpindi: 1.05,   // I-9, I-10 sectors
-  Karachi: 1.05,      // SITE, Korangi, Port Qasim — large scale = better rates
-  Faisalabad: 0.92,   // FIEDMC, M3 — established industrial base
-  Multan: 0.90,       // Industrial estate cheaper
-  Peshawar: 1.08,
-  Gujranwala: 0.93,   // GIEDMC
-  Sialkot: 0.92,      // Strong industrial base = competitive
-  Quetta: 1.22,       // Very limited industrial infra
-};
-
-// Highrise — significantly higher due to specialized contractors
-export const CITY_MULTIPLIERS_HIGHRISE: Record<City, number> = {
-  Lahore: 1.00,
-  Islamabad: 1.18,    // Limited highrise expertise = premium
-  Rawalpindi: 1.10,
-  Karachi: 1.05,      // Most highrise expertise = competitive rates
-  Faisalabad: 1.08,   // Limited expertise
-  Multan: 1.10,
-  Peshawar: 1.12,
-  Gujranwala: 1.10,
-  Sialkot: 1.10,
-  Quetta: 1.25,       // No expertise locally — import contractors
-};
-
 // ═══════════════════════════════════════════════════════════════
-// SIZE CONVERSIONS
+// SUB-TYPE METADATA
 // ═══════════════════════════════════════════════════════════════
 
-export const SIZE_TO_SQFT: Record<AreaUnit, number> = {
-  'Marla': 272.25,     // 1 marla = 272.25 sqft (PK standard)
-  'Kanal': 5445,       // 1 kanal = 20 marla
-  'Sq Ft': 1,
-};
-
-// ═══════════════════════════════════════════════════════════════
-// SUB-TYPE METADATA (Drives UI behavior)
-// ═══════════════════════════════════════════════════════════════
-
-export const SUB_TYPE_METADATA: Record<PropertySubType, SubTypeMetadata> = {
-
-  // ─── RESIDENTIAL ──────────────────────────────────────────
+export const SUBTYPE_METADATA: Record<PropertySubType, SubTypeMetadata> = {
+  // Residential
   house: {
     id: 'house',
     category: 'residential',
-    displayName: 'House (Independent)',
+    displayName: 'House (5-20 Marla)',
     shortName: 'House',
-    description: 'Single-family independent home, 1-4 floors',
-    icon: 'Home',
+    description: 'Standard residential house on 5-20 marla plot',
+    icon: 'home',
     coverageRatio: 0.70,
     defaultFloors: 1,
     minFloors: 1,
-    maxFloors: 4,
+    maxFloors: 3,
     supportsFinishing: true,
     supportsBoundaryWall: true,
     supportsBasement: true,
-    supportsParking: false,
+    supportsParking: true,
     supportsElevators: false,
     supportsHVAC: false,
     supportsClearHeight: false,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 8,
-    timelineMultiplierByFloors: 1.5,
-    defaultAreaUnit: 'Marla',
     requiresEngineerNote: false,
-    seoSlug: 'house',
+    timelineMonths: { greyStructure: 6, finishing: 4, turnkey: 10 },
   },
-
   villa: {
     id: 'villa',
     category: 'residential',
-    displayName: 'Villa (Luxury)',
+    displayName: 'Villa (1-4 Kanal)',
     shortName: 'Villa',
-    description: 'Premium independent home with luxury finishing',
-    icon: 'Building',
-    coverageRatio: 0.65,                 // More open space
+    description: 'Luxury standalone villa on 1-4 kanal plot',
+    icon: 'home',
+    coverageRatio: 0.60,
     defaultFloors: 2,
     minFloors: 1,
     maxFloors: 3,
     supportsFinishing: true,
     supportsBoundaryWall: true,
     supportsBasement: true,
-    supportsParking: false,
-    supportsElevators: true,             // Some villas have lifts
-    supportsHVAC: true,
-    supportsClearHeight: false,
-    supportsLoadingDocks: false,
-    timelineBaselineMonths: 12,
-    timelineMultiplierByFloors: 2.0,
-    defaultAreaUnit: 'Kanal',
-    requiresEngineerNote: false,
-    seoSlug: 'villa',
-  },
-
-  farmhouse: {
-    id: 'farmhouse',
-    category: 'residential',
-    displayName: 'Farmhouse',
-    shortName: 'Farmhouse',
-    description: 'Large-land residence with sprawling structure',
-    icon: 'Trees',
-    coverageRatio: 0.25,                 // Most of land is open
-    defaultFloors: 1,
-    minFloors: 1,
-    maxFloors: 3,
-    supportsFinishing: true,
-    supportsBoundaryWall: true,          // Critical for farmhouses
-    supportsBasement: false,             // Rare in farmhouses
-    supportsParking: false,
-    supportsElevators: false,
-    supportsHVAC: true,
-    supportsClearHeight: false,
-    supportsLoadingDocks: false,
-    timelineBaselineMonths: 10,
-    timelineMultiplierByFloors: 2.5,
-    defaultAreaUnit: 'Kanal',
-    requiresEngineerNote: false,
-    seoSlug: 'farmhouse',
-  },
-
-  highrise_apartment_building: {
-    id: 'highrise_apartment_building',
-    category: 'residential',
-    displayName: 'Highrise Apartment Building',
-    shortName: 'Apartment Building',
-    description: 'Multi-story residential building, G+4 to G+50',
-    icon: 'Building2',
-    coverageRatio: 0.85,                 // Maximizes plot
-    defaultFloors: 8,
-    minFloors: 4,
-    maxFloors: 50,
-    supportsFinishing: true,
-    supportsBoundaryWall: false,         // Rare
-    supportsBasement: true,
     supportsParking: true,
     supportsElevators: true,
     supportsHVAC: true,
     supportsClearHeight: false,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 24,
-    timelineMultiplierByFloors: 1.2,
-    defaultAreaUnit: 'Kanal',
+    requiresEngineerNote: false,
+    timelineMonths: { greyStructure: 8, finishing: 6, turnkey: 14 },
+  },
+  farmhouse: {
+    id: 'farmhouse',
+    category: 'residential',
+    displayName: 'Farmhouse (4+ Kanal)',
+    shortName: 'Farmhouse',
+    description: 'Large farmhouse on 4+ kanal with boundary wall, landscaping',
+    icon: 'tree-pine',
+    coverageRatio: 0.40,
+    defaultFloors: 1,
+    minFloors: 1,
+    maxFloors: 2,
+    supportsFinishing: true,
+    supportsBoundaryWall: true,
+    supportsBasement: false,
+    supportsParking: true,
+    supportsElevators: false,
+    supportsHVAC: true,
+    supportsClearHeight: false,
+    supportsLoadingDocks: false,
+    requiresEngineerNote: false,
+    timelineMonths: { greyStructure: 6, finishing: 5, turnkey: 11 },
+  },
+  highrise_apartment_building: {
+    id: 'highrise_apartment_building',
+    category: 'residential',
+    displayName: 'High-Rise Apartment Building',
+    shortName: 'Apt Building',
+    description: 'Multi-story residential tower (4+ floors) with elevators',
+    icon: 'building-2',
+    coverageRatio: 0.85,
+    defaultFloors: 10,
+    minFloors: 4,
+    maxFloors: 50,
+    supportsFinishing: true,
+    supportsBoundaryWall: false,
+    supportsBasement: true,
+    supportsParking: true,
+    supportsElevators: true,
+    supportsHVAC: false,
+    supportsClearHeight: false,
+    supportsLoadingDocks: false,
     requiresEngineerNote: true,
-    seoSlug: 'highrise-apartment-building',
+    timelineMonths: { greyStructure: 18, finishing: 12, turnkey: 30 },
   },
 
-  // ─── COMMERCIAL ───────────────────────────────────────────
+  // Commercial
   shop_showroom: {
     id: 'shop_showroom',
     category: 'commercial',
     displayName: 'Shop / Showroom',
     shortName: 'Shop',
-    description: 'Single commercial unit with glass facade',
-    icon: 'Store',
-    coverageRatio: 0.90,
+    description: 'Ground floor retail unit with high ceiling & frontage',
+    icon: 'store',
+    coverageRatio: 0.95,
     defaultFloors: 1,
     minFloors: 1,
-    maxFloors: 6,
+    maxFloors: 2,
     supportsFinishing: true,
     supportsBoundaryWall: false,
     supportsBasement: true,
     supportsParking: false,
     supportsElevators: false,
     supportsHVAC: true,
-    supportsClearHeight: true,           // Showrooms need height
+    supportsClearHeight: false,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 5,
-    timelineMultiplierByFloors: 1.4,
-    defaultAreaUnit: 'Marla',
     requiresEngineerNote: false,
-    seoSlug: 'shop-showroom',
+    timelineMonths: { greyStructure: 3, finishing: 2, turnkey: 5 },
   },
-
   commercial_plaza: {
     id: 'commercial_plaza',
     category: 'commercial',
-    displayName: 'Commercial Plaza',
+    displayName: 'Commercial Plaza (2-6 Floors)',
     shortName: 'Plaza',
-    description: 'Multi-shop building with shared facilities, up to 20 floors',
-    icon: 'ShoppingBag',
+    description: 'Multi-story commercial building with shops/offices',
+    icon: 'building',
     coverageRatio: 0.85,
     defaultFloors: 4,
     minFloors: 2,
-    maxFloors: 20,
+    maxFloors: 6,
     supportsFinishing: true,
     supportsBoundaryWall: false,
     supportsBasement: true,
@@ -350,49 +337,41 @@ export const SUB_TYPE_METADATA: Record<PropertySubType, SubTypeMetadata> = {
     supportsHVAC: true,
     supportsClearHeight: false,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 14,
-    timelineMultiplierByFloors: 1.5,
-    defaultAreaUnit: 'Marla',
     requiresEngineerNote: false,
-    seoSlug: 'commercial-plaza',
+    timelineMonths: { greyStructure: 10, finishing: 6, turnkey: 16 },
   },
-
   office_building: {
     id: 'office_building',
     category: 'commercial',
-    displayName: 'Office Building',
-    shortName: 'Office Building',
-    description: 'Standalone office building, 1-10 floors',
-    icon: 'Briefcase',
-    coverageRatio: 0.75,
-    defaultFloors: 3,
-    minFloors: 1,
-    maxFloors: 10,
+    displayName: 'Office Building (4-12 Floors)',
+    shortName: 'Office Bldg',
+    description: 'Mid-rise office tower with central HVAC & elevators',
+    icon: 'briefcase',
+    coverageRatio: 0.85,
+    defaultFloors: 8,
+    minFloors: 4,
+    maxFloors: 12,
     supportsFinishing: true,
-    supportsBoundaryWall: true,
+    supportsBoundaryWall: false,
     supportsBasement: true,
     supportsParking: true,
     supportsElevators: true,
     supportsHVAC: true,
     supportsClearHeight: false,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 12,
-    timelineMultiplierByFloors: 1.5,
-    defaultAreaUnit: 'Marla',
     requiresEngineerNote: false,
-    seoSlug: 'office-building',
+    timelineMonths: { greyStructure: 12, finishing: 8, turnkey: 20 },
   },
-
   highrise_office_tower: {
     id: 'highrise_office_tower',
     category: 'commercial',
-    displayName: 'Highrise Office Tower',
+    displayName: 'High-Rise Office Tower (12+ Floors)',
     shortName: 'Office Tower',
-    description: 'Corporate tower with curtain wall, G+5 to G+60',
-    icon: 'Building2',
+    description: 'Premium high-rise office with curtain wall, BMS, multiple elevators',
+    icon: 'building-2',
     coverageRatio: 0.80,
-    defaultFloors: 12,
-    minFloors: 5,
+    defaultFloors: 20,
+    minFloors: 12,
     maxFloors: 60,
     supportsFinishing: true,
     supportsBoundaryWall: false,
@@ -402,104 +381,89 @@ export const SUB_TYPE_METADATA: Record<PropertySubType, SubTypeMetadata> = {
     supportsHVAC: true,
     supportsClearHeight: false,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 28,
-    timelineMultiplierByFloors: 1.1,
-    defaultAreaUnit: 'Kanal',
     requiresEngineerNote: true,
-    seoSlug: 'highrise-office-tower',
+    timelineMonths: { greyStructure: 24, finishing: 16, turnkey: 40 },
   },
 
-  // ─── INDUSTRIAL ───────────────────────────────────────────
+  // Industrial
   warehouse: {
     id: 'warehouse',
     category: 'industrial',
-    displayName: 'Warehouse',
+    displayName: 'Warehouse / Godown',
     shortName: 'Warehouse',
-    description: 'Storage facility with high clear ceiling',
-    icon: 'Package',
-    coverageRatio: 0.85,
+    description: 'Large-span steel/prefab structure for storage/logistics',
+    icon: 'warehouse',
+    coverageRatio: 0.95,
     defaultFloors: 1,
     minFloors: 1,
-    maxFloors: 3,
-    supportsFinishing: false,            // Industrial = no finishing
+    maxFloors: 2,
+    supportsFinishing: false,
     supportsBoundaryWall: true,
     supportsBasement: false,
-    supportsParking: true,               // Truck parking
+    supportsParking: true,
     supportsElevators: false,
     supportsHVAC: false,
-    supportsClearHeight: true,           // Critical: 20-40 ft
+    supportsClearHeight: true,
     supportsLoadingDocks: true,
-    timelineBaselineMonths: 6,
-    timelineMultiplierByFloors: 1.3,
-    defaultAreaUnit: 'Kanal',
     requiresEngineerNote: false,
-    seoSlug: 'warehouse',
+    timelineMonths: { greyStructure: 4, finishing: 0, turnkey: 4 },
   },
-
   industrial_building: {
     id: 'industrial_building',
     category: 'industrial',
-    displayName: 'Industrial Building',
+    displayName: 'Industrial Building / Factory',
     shortName: 'Factory',
-    description: 'Manufacturing facility with steel frame, up to 4 floors',
-    icon: 'Factory',
-    coverageRatio: 0.80,
+    description: 'Heavy-duty RCC/steel structure for manufacturing',
+    icon: 'factory',
+    coverageRatio: 0.90,
     defaultFloors: 1,
     minFloors: 1,
-    maxFloors: 4,
+    maxFloors: 3,
     supportsFinishing: false,
     supportsBoundaryWall: true,
     supportsBasement: false,
     supportsParking: true,
     supportsElevators: false,
-    supportsHVAC: false,
+    supportsHVAC: true,
     supportsClearHeight: true,
     supportsLoadingDocks: true,
-    timelineBaselineMonths: 8,
-    timelineMultiplierByFloors: 1.4,
-    defaultAreaUnit: 'Kanal',
     requiresEngineerNote: true,
-    seoSlug: 'industrial-building',
+    timelineMonths: { greyStructure: 6, finishing: 0, turnkey: 6 },
   },
-
   cold_storage: {
     id: 'cold_storage',
     category: 'industrial',
-    displayName: 'Cold Storage',
+    displayName: 'Cold Storage Facility',
     shortName: 'Cold Storage',
-    description: 'Refrigerated storage with insulation',
-    icon: 'Snowflake',
-    coverageRatio: 0.85,
+    description: 'Insulated panels, refrigeration plant, loading docks',
+    icon: 'snowflake',
+    coverageRatio: 0.92,
     defaultFloors: 1,
     minFloors: 1,
-    maxFloors: 3,
-    supportsFinishing: false,
+    maxFloors: 2,
+    supportsFinishing: true,
     supportsBoundaryWall: true,
     supportsBasement: false,
     supportsParking: true,
     supportsElevators: false,
-    supportsHVAC: true,                  // Refrigeration system
+    supportsHVAC: true,
     supportsClearHeight: true,
     supportsLoadingDocks: true,
-    timelineBaselineMonths: 10,
-    timelineMultiplierByFloors: 1.5,
-    defaultAreaUnit: 'Kanal',
     requiresEngineerNote: true,
-    seoSlug: 'cold-storage',
+    timelineMonths: { greyStructure: 5, finishing: 3, turnkey: 8 },
   },
-
   workshop: {
     id: 'workshop',
     category: 'industrial',
-    displayName: 'Workshop',
+    displayName: 'Workshop / Garage',
     shortName: 'Workshop',
-    description: 'Auto/mechanical workshop',
-    icon: 'Wrench',
-    coverageRatio: 0.80,
+    description: 'Basic shed with concrete floor, roller shutters, 3-phase power',
+    icon: 'wrench',
+    coverageRatio: 0.90,
     defaultFloors: 1,
     minFloors: 1,
-    maxFloors: 3,
-    supportsFinishing: false,
+    maxFloors: 1,
+    supportsFinishing: true,
     supportsBoundaryWall: true,
     supportsBasement: false,
     supportsParking: true,
@@ -507,50 +471,43 @@ export const SUB_TYPE_METADATA: Record<PropertySubType, SubTypeMetadata> = {
     supportsHVAC: false,
     supportsClearHeight: true,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 4,
-    timelineMultiplierByFloors: 1.3,
-    defaultAreaUnit: 'Marla',
     requiresEngineerNote: false,
-    seoSlug: 'workshop',
+    timelineMonths: { greyStructure: 2, finishing: 1, turnkey: 3 },
   },
 
-  // ─── MIXED-USE ────────────────────────────────────────────
+  // Mixed-Use
   shops_plus_apartments: {
     id: 'shops_plus_apartments',
     category: 'mixed_use',
-    displayName: 'Shops + Apartments',
-    shortName: 'Shops + Apartments',
-    description: 'Ground floor shops with residential floors above, up to 15 floors',
-    icon: 'Layers',
+    displayName: 'Shops + Apartments (2-6 Floors)',
+    shortName: 'Mixed (Low)',
+    description: 'Ground floor retail + upper floor residential apartments',
+    icon: 'building',
     coverageRatio: 0.85,
     defaultFloors: 4,
     minFloors: 2,
-    maxFloors: 15,
+    maxFloors: 6,
     supportsFinishing: true,
     supportsBoundaryWall: false,
     supportsBasement: true,
     supportsParking: true,
     supportsElevators: true,
-    supportsHVAC: true,
+    supportsHVAC: false,
     supportsClearHeight: false,
     supportsLoadingDocks: false,
-    timelineBaselineMonths: 16,
-    timelineMultiplierByFloors: 1.4,
-    defaultAreaUnit: 'Marla',
     requiresEngineerNote: false,
-    seoSlug: 'shops-plus-apartments',
+    timelineMonths: { greyStructure: 10, finishing: 7, turnkey: 17 },
   },
-
   complete_mixed_tower: {
     id: 'complete_mixed_tower',
     category: 'mixed_use',
-    displayName: 'Complete Mixed Tower',
+    displayName: 'Complete Mixed-Use Tower (12+ Floors)',
     shortName: 'Mixed Tower',
-    description: 'Retail + office + residential in one tower, up to G+60',
-    icon: 'Building2',
-    coverageRatio: 0.85,
-    defaultFloors: 15,
-    minFloors: 6,
+    description: 'Retail podium + offices + residential + amenities',
+    icon: 'building-2',
+    coverageRatio: 0.80,
+    defaultFloors: 20,
+    minFloors: 12,
     maxFloors: 60,
     supportsFinishing: true,
     supportsBoundaryWall: false,
@@ -559,30 +516,26 @@ export const SUB_TYPE_METADATA: Record<PropertySubType, SubTypeMetadata> = {
     supportsElevators: true,
     supportsHVAC: true,
     supportsClearHeight: false,
-    supportsLoadingDocks: false,
-    timelineBaselineMonths: 32,
-    timelineMultiplierByFloors: 1.15,
-    defaultAreaUnit: 'Kanal',
+    supportsLoadingDocks: true,
     requiresEngineerNote: true,
-    seoSlug: 'complete-mixed-tower',
+    timelineMonths: { greyStructure: 24, finishing: 18, turnkey: 42 },
   },
 };
 
 // ═══════════════════════════════════════════════════════════════
-// BASE RATES PER SUB-TYPE (PKR per sqft — Lahore baseline)
-// Each typology has its own rate structure
+// TYPOLOGY RATE CARDS — 2026 Q1 RATES (Per Sq Ft)
 // ═══════════════════════════════════════════════════════════════
 
-export const SUB_TYPE_RATES: Record<PropertySubType, SubTypeRates> = {
-
-  // ─── RESIDENTIAL ──────────────────────────────────────────
+export const TYPOLOGY_RATES: Record<PropertySubType, TypologyRateCard> = {
+  // ─── RESIDENTIAL ────────────────────────────────────────────
 
   house: {
-    // Source: PEC Guidelines + DHA published rates Q1 2025
+    // Source: PCATP + DHA Lahore/Karachi + contractor surveys Q1 2026
+    // Adjusted for 15% inflation from 2025
     greyStructurePerSqft: {
-      standard: 2800,
-      premium: 3500,
-      luxury: 4500,
+      standard: 3200,
+      premium: 4200,
+      luxury: 5500,
     },
     finishingPerSqft: {
       standard: 1800,
@@ -590,63 +543,131 @@ export const SUB_TYPE_RATES: Record<PropertySubType, SubTypeRates> = {
       luxury: 4500,
     },
     greyStructureBreakdown: [
-      { category: 'Cement & Sand', description: 'Foundation, walls, plaster', percentage: 22 },
-      { category: 'Steel / Saria', description: 'Reinforcement bars (slabs, columns)', percentage: 25 },
-      { category: 'Bricks & Blocks', description: 'Walls and partitions', percentage: 15 },
-      { category: 'Crush & Aggregate', description: 'Concrete mixing', percentage: 8 },
-      { category: 'Labor (Mason + Helper)', description: 'Construction workforce', percentage: 22 },
-      { category: 'Misc & Wastage', description: 'Scaffolding, water, transport', percentage: 8 },
+      { category: 'Excavation & Foundations', description: 'Strip footings, PCC, termite treatment', percentage: 12 },
+      { category: 'RCC Frame', description: 'Columns, beams, slabs, staircase', percentage: 28 },
+      { category: 'Brick/Block Masonry', description: '9" & 4.5" walls, DPC', percentage: 15 },
+      { category: 'Plaster & Screed', description: 'Internal/external plaster, floor screed', percentage: 10 },
+      { category: 'Cement, Steel, Aggregate', description: 'Materials for above items', percentage: 22 },
+      { category: 'Labor', description: 'Masons, steel fixers, carpenters, helpers', percentage: 13 },
     ],
     finishingBreakdown: [
-      { category: 'Tiles & Flooring', description: 'Floor + wall tiles', percentage: 20 },
-      { category: 'Electrical Work', description: 'Wiring, switches, fixtures', percentage: 15 },
-      { category: 'Plumbing & Sanitary', description: 'Pipes, taps, sanitary ware', percentage: 13 },
-      { category: 'Paint & Polish', description: 'Interior + exterior paint', percentage: 10 },
-      { category: 'Doors & Windows', description: 'Wood/aluminum doors & windows', percentage: 18 },
-      { category: 'Kitchen & Wardrobes', description: 'Cabinetry and built-ins', percentage: 12 },
-      { category: 'Labor (Finishing)', description: 'Skilled finishing workers', percentage: 12 },
+      { category: 'Flooring & Tiles', description: 'Bedrooms, bathrooms, kitchen, living', percentage: 22 },
+      { category: 'Paint & Wall Finishes', description: 'Emulsion, weather shield, texture', percentage: 14 },
+      { category: 'Woodwork (Doors/Windows)', description: 'Deodar/Partal frames, flush/solid doors', percentage: 16 },
+      { category: 'Kitchen & Wardrobes', description: 'Cabinets, countertop, hardware', percentage: 14 },
+      { category: 'Electrical & Lighting', description: 'Wiring, switches, DB, fixtures, fans', percentage: 12 },
+      { category: 'Plumbing & Sanitary', description: 'PPR/copper, fixtures, water tank, pump', percentage: 12 },
+      { category: 'Aluminum/UPVC Windows', description: 'Glazing, hardware, mosquito nets', percentage: 8 },
+      { category: 'Labor', description: 'All finishing trades', percentage: 2 },
     ],
   },
 
   villa: {
-    // Source: DHA Phase 7 luxury villa contracts + Bahria Town premium rates
-    // 30-40% premium over house due to higher specs
+    // Source: DHA/Islamabad villa contractors + PCATP luxury benchmarks
     greyStructurePerSqft: {
-      standard: 3500,
-      premium: 4500,
-      luxury: 6500,
+      standard: 3800,
+      premium: 5000,
+      luxury: 7200,
     },
     finishingPerSqft: {
-      standard: 3000,
-      premium: 5000,
-      luxury: 9000,        // Imported marble, Italian fixtures
+      standard: 2800,
+      premium: 4500,
+      luxury: 7500,
     },
     greyStructureBreakdown: [
-      { category: 'Cement & Sand', description: 'Heavier foundation for villas', percentage: 20 },
-      { category: 'Steel / Saria', description: 'Higher grade steel', percentage: 26 },
-      { category: 'Bricks & Blocks', description: 'Premium bricks', percentage: 14 },
-      { category: 'Crush & Aggregate', description: 'Concrete with higher cement ratio', percentage: 9 },
-      { category: 'Labor (Skilled)', description: 'Experienced masons', percentage: 24 },
-      { category: 'Misc & Wastage', description: 'Higher quality control', percentage: 7 },
+      { category: 'Deep Foundations / Piles', description: 'Pile caps, grade beams', percentage: 10 },
+      { category: 'RCC Frame (Heavy)', description: 'Larger columns, long-span beams', percentage: 30 },
+      { category: 'Brick/Block Masonry', description: 'Double walls, insulation cavity', percentage: 12 },
+      { category: 'Retaining / Boundary Walls', description: 'Perimeter, landscaping walls', percentage: 8 },
+      { category: 'Plaster, Screed, Waterproofing', description: 'High-spec finishes, terraces', percentage: 10 },
+      { category: 'Cement, Steel, Aggregate', description: 'Higher grade materials', percentage: 20 },
+      { category: 'Labor', description: 'Specialized trades, supervision', percentage: 10 },
     ],
     finishingBreakdown: [
-      { category: 'Marble & Premium Flooring', description: 'Italian/Carrara marble', percentage: 24 },
-      { category: 'Electrical (Premium)', description: 'Smart switches, LED systems', percentage: 14 },
-      { category: 'Plumbing & Sanitary (Imported)', description: 'Branded fixtures', percentage: 12 },
-      { category: 'Paint & Wall Treatments', description: 'Textured paint, wallpapers', percentage: 9 },
-      { category: 'Doors & Windows (Premium)', description: 'Solid wood + double glazed', percentage: 16 },
-      { category: 'Kitchen & Wardrobes (Designer)', description: 'Imported modular kitchen', percentage: 14 },
-      { category: 'Labor (Specialized)', description: 'Marble, carpentry experts', percentage: 11 },
+      { category: 'Premium Flooring', description: 'Marble, imported tiles, engineered wood', percentage: 20 },
+      { category: 'Wall Finishes', description: 'Texture, wallpaper, feature walls, cladding', percentage: 12 },
+      { category: 'Custom Woodwork', description: 'Solid wood doors, built-in furniture, paneling', percentage: 18 },
+      { category: 'Modular Kitchen & Wardrobes', description: 'High-end hardware, quartz/granite tops', percentage: 15 },
+      { category: 'Smart Electrical', description: 'Automation, mood lighting, AV, security', percentage: 12 },
+      { category: 'Premium Plumbing', description: 'Grohe/Kohler, underfloor heating, RO', percentage: 10 },
+      { category: 'HVAC (VRF/Central)', description: 'Ducted, zone control, fresh air', percentage: 8 },
+      { category: 'Aluminum/UPVC Systems', description: 'Thermal break, double glazed, motorized', percentage: 5 },
     ],
   },
 
   farmhouse: {
-    // Source: Bedian Road farmhouse contractors + Bahria Orchard rates
-    // Lower per-sqft due to simpler design but larger area
+    // Source: Farmhouse builders (Bedian, Raiwind, Chakri) + PCATP
     greyStructurePerSqft: {
-      standard: 2400,
-      premium: 3200,
-      luxury: 4200,
+      standard: 2800,
+      premium: 3600,
+      luxury: 4800,
+    },
+    finishingPerSqft: {
+      standard: 1500,
+      premium: 2400,
+      luxury: 3800,
+    },
+    greyStructureBreakdown: [
+      { category: 'Foundations', description: 'Isolated footings, PCC', percentage: 12 },
+      { category: 'RCC Frame', description: 'Standard columns, beams, slabs', percentage: 26 },
+      { category: 'Boundary Wall & Gate', description: '9" brick, 8-10ft high, MS gate', percentage: 18 },
+      { category: 'Brick Masonry', description: 'Main house walls', percentage: 12 },
+      { category: 'Plaster & Screed', description: 'Standard finishes', percentage: 8 },
+      { category: 'Cement, Steel, Aggregate', description: 'Standard grade', percentage: 16 },
+      { category: 'Labor', description: 'Local workforce', percentage: 8 },
+    ],
+    finishingBreakdown: [
+      { category: 'Flooring (Local Tiles/Marble)', description: 'Standard + outdoor areas', percentage: 25 },
+      { category: 'Paint & Exterior', description: 'Weather shield, texture paint', percentage: 15 },
+      { category: 'Woodwork', description: 'Doors, windows, basic wardrobes', percentage: 18 },
+      { category: 'Kitchen & Bath', description: 'Standard fixtures, local brands', percentage: 15 },
+      { category: 'Electrical & Plumbing', description: 'Standard wiring, PPR, basic fixtures', percentage: 15 },
+      { category: 'Outdoor/Landscaping', description: 'Paving, gate, water feature', percentage: 10 },
+      { category: 'Labor', description: 'Finishing trades', percentage: 2 },
+    ],
+  },
+
+  highrise_apartment_building: {
+    // Source: Bahria Town/DHA highrise contractors + PCATP highrise guidelines
+    // Includes: podium, basements, lift cores, fire safety, facade
+    greyStructurePerSqft: {
+      standard: 4500,
+      premium: 5800,
+      luxury: 7500,
+    },
+    finishingPerSqft: {
+      standard: 2200,
+      premium: 3500,
+      luxury: 5500,
+    },
+    greyStructureBreakdown: [
+      { category: 'Deep Foundations (Piles/Raft)', description: 'Piling, pile caps, basement retention', percentage: 15 },
+      { category: 'RCC Superstructure', description: 'Shear walls, flat slabs, columns, cores', percentage: 30 },
+      { category: 'Basement Construction', description: 'Waterproofing, excavation, shoring', percentage: 12 },
+      { category: 'Block Masonry / Drywall', description: 'Unit partitions, shaft walls', percentage: 8 },
+      { category: 'Facade Structure', description: 'Curtain wall mullions, balcony structure', percentage: 10 },
+      { category: 'Cement, Steel, Aggregate', description: 'High-strength concrete, Grade 60 steel', percentage: 15 },
+      { category: 'Labor & Equipment', description: 'Pumping, formwork, tower cranes', percentage: 10 },
+    ],
+    finishingBreakdown: [
+      { category: 'Unit Finishes (Tiles/Paint)', description: 'Apartment interiors', percentage: 28 },
+      { category: 'MEP Distribution', description: 'Vertical risers, horizontal distribution', percentage: 18 },
+      { category: 'Elevators (Passenger/Service)', description: 'Traction lifts, lobby finishes', percentage: 14 },
+      { category: 'Fire & Life Safety', description: 'Sprinklers, detection, pressurization', percentage: 12 },
+      { category: 'Facade Glazing/Cladding', description: 'Unitized curtain wall, balconies', percentage: 10 },
+      { category: 'Common Areas', description: 'Lobbies, corridors, amenities', percentage: 8 },
+      { category: 'Labor', description: 'Specialized highrise trades', percentage: 10 },
+    ],
+  },
+
+  // ─── COMMERCIAL ──────────────────────────────────────────────
+
+  shop_showroom: {
+    // Source: Commercial plaza contractors (Gulberg, DHA, Blue Area)
+    greyStructurePerSqft: {
+      standard: 2800,
+      premium: 3600,
+      luxury: 4800,
     },
     finishingPerSqft: {
       standard: 1500,
@@ -654,295 +675,205 @@ export const SUB_TYPE_RATES: Record<PropertySubType, SubTypeRates> = {
       luxury: 4000,
     },
     greyStructureBreakdown: [
-      { category: 'Cement & Sand', description: 'Spread footings for large floor plan', percentage: 24 },
-      { category: 'Steel / Saria', description: 'Reinforcement', percentage: 22 },
-      { category: 'Bricks & Blocks', description: 'Walls', percentage: 16 },
-      { category: 'Crush & Aggregate', description: 'Concrete', percentage: 9 },
-      { category: 'Labor', description: 'Construction workforce', percentage: 21 },
-      { category: 'Misc & Wastage', description: 'Transport (often remote)', percentage: 8 },
+      { category: 'Foundations', description: 'Heavy footings for column-free span', percentage: 14 },
+      { category: 'RCC Frame', description: 'Long-span beams, flat slabs', percentage: 30 },
+      { category: 'High Ceiling Structure', description: 'Double height, mezzanine prep', percentage: 12 },
+      { category: 'Shopfront Structure', description: 'Steel/RC mullions for glazing', percentage: 10 },
+      { category: 'Plaster & Screed', description: 'Standard', percentage: 8 },
+      { category: 'Cement, Steel, Aggregate', description: 'Standard', percentage: 18 },
+      { category: 'Labor', description: 'Commercial builders', percentage: 8 },
     ],
     finishingBreakdown: [
-      { category: 'Tiles & Flooring', description: 'Country-style flooring', percentage: 18 },
-      { category: 'Electrical', description: 'Wiring + outdoor lighting', percentage: 16 },
-      { category: 'Plumbing', description: 'Including water tanks, well pumps', percentage: 15 },
-      { category: 'Paint', description: 'Weather-resistant exterior', percentage: 10 },
-      { category: 'Doors & Windows', description: 'Large windows, outdoor doors', percentage: 18 },
-      { category: 'Kitchen', description: 'Standard fittings', percentage: 11 },
-      { category: 'Labor', description: 'Finishing workforce', percentage: 12 },
-    ],
-  },
-
-  highrise_apartment_building: {
-    // Source: PEC highrise guidelines + Bahria Heights/Park Lane contractor rates
-    // 2x+ cost vs house due to RCC frame, MEP, fire systems
-    greyStructurePerSqft: {
-      standard: 5500,
-      premium: 7000,
-      luxury: 9000,
-    },
-    finishingPerSqft: {
-      standard: 2500,
-      premium: 4000,
-      luxury: 6500,
-    },
-    greyStructureBreakdown: [
-      { category: 'RCC Frame (Cement + Steel)', description: 'Columns, beams, slabs', percentage: 38 },
-      { category: 'Bricks & Blocks', description: 'Infill walls', percentage: 10 },
-      { category: 'Crush & Aggregate', description: 'High-strength concrete', percentage: 8 },
-      { category: 'Formwork & Shuttering', description: 'Steel/aluminum formwork', percentage: 9 },
-      { category: 'Labor (RCC Specialists)', description: 'Highrise-experienced workers', percentage: 20 },
-      { category: 'Heavy Equipment', description: 'Tower crane, hoists', percentage: 8 },
-      { category: 'Misc & Safety', description: 'Scaffolding, safety nets', percentage: 7 },
-    ],
-    finishingBreakdown: [
-      { category: 'Tiles & Flooring', description: 'Common areas + apartments', percentage: 16 },
-      { category: 'Electrical + MEP', description: 'Wiring, panels, transformers', percentage: 18 },
-      { category: 'Plumbing & Sanitary', description: 'Multi-floor distribution', percentage: 14 },
-      { category: 'Elevators', description: '2-6 passenger lifts', percentage: 12 },
-      { category: 'Fire Safety System', description: 'Sprinklers, hydrants, alarms', percentage: 8 },
-      { category: 'Generator & UPS Backup', description: 'Power backup systems', percentage: 6 },
-      { category: 'Doors & Windows', description: 'Apartment + common area', percentage: 10 },
-      { category: 'Paint & Finishes', description: 'Interior + exterior', percentage: 6 },
-      { category: 'Labor (Finishing)', description: 'Multi-trade workforce', percentage: 10 },
-    ],
-  },
-
-  // ─── COMMERCIAL ───────────────────────────────────────────
-
-  shop_showroom: {
-    // Source: Liberty Market + Y-Block DHA commercial rates
-    greyStructurePerSqft: {
-      standard: 3200,
-      premium: 4200,
-      luxury: 5500,
-    },
-    finishingPerSqft: {
-      standard: 2500,
-      premium: 4000,
-      luxury: 6500,
-    },
-    greyStructureBreakdown: [
-      { category: 'Cement & Steel', description: 'RCC structure', percentage: 30 },
-      { category: 'Bricks & Blocks', description: 'Walls', percentage: 12 },
-      { category: 'Crush & Aggregate', description: 'Foundation', percentage: 9 },
-      { category: 'Glass Facade Prep', description: 'Steel framing for storefront', percentage: 12 },
-      { category: 'Labor', description: 'Commercial construction workers', percentage: 23 },
-      { category: 'Misc', description: 'Scaffolding, transport', percentage: 8 },
-      { category: 'Shopfront Steel', description: 'Roll-up shutter, frames', percentage: 6 },
-    ],
-    finishingBreakdown: [
-      { category: 'Glass Curtain Wall', description: 'Storefront glazing', percentage: 22 },
-      { category: 'Flooring (Vitrified/Marble)', description: 'Commercial-grade tiles', percentage: 18 },
-      { category: 'Electrical + Display Lighting', description: 'High-output retail lighting', percentage: 14 },
-      { category: 'HVAC (Split AC)', description: 'Air conditioning units', percentage: 12 },
-      { category: 'Ceiling (Gypsum/POP)', description: 'False ceiling', percentage: 8 },
-      { category: 'Paint & Wall Cladding', description: 'Interior finish', percentage: 7 },
-      { category: 'Doors & Glass Partitions', description: 'Internal divisions', percentage: 10 },
-      { category: 'Labor (Finishing)', description: 'Specialized workers', percentage: 9 },
+      { category: 'Shopfront Glazing', description: 'Toughened glass, aluminum framing', percentage: 28 },
+      { category: 'Flooring (High Traffic)', description: 'Granite, vitrified, epoxy', percentage: 18 },
+      { category: 'Ceiling & Lighting', description: 'Grid, track lights, AC grilles', percentage: 15 },
+      { category: 'Electrical (3-Phase)', description: 'High load, display lighting', percentage: 12 },
+      { category: 'HVAC (VRV/Cassette)', description: 'Showroom cooling', percentage: 12 },
+      { category: 'Plumbing', description: 'Toilets, pantry', percentage: 8 },
+      { category: 'Branding/Signage Prep', description: 'Fascia, logo lighting points', percentage: 5 },
+      { category: 'Labor', description: 'Specialized', percentage: 2 },
     ],
   },
 
   commercial_plaza: {
-    // Source: Hafeez Center, Centaurus, Dolmen Mall published rates
+    // Source: Plaza developers (MM Alam, F-10, Saddar) + PCATP
     greyStructurePerSqft: {
-      standard: 4000,
-      premium: 5500,
-      luxury: 7500,
+      standard: 3200,
+      premium: 4200,
+      luxury: 5800,
     },
     finishingPerSqft: {
-      standard: 2200,
-      premium: 3800,
-      luxury: 6000,
+      standard: 1800,
+      premium: 3000,
+      luxury: 4800,
     },
     greyStructureBreakdown: [
-      { category: 'RCC Frame', description: 'Multi-story structure', percentage: 35 },
-      { category: 'Bricks & Blocks', description: 'Walls + partitions', percentage: 11 },
-      { category: 'Crush & Aggregate', description: 'Concrete', percentage: 8 },
-      { category: 'Steel Framing', description: 'Atrium, canopies', percentage: 10 },
-      { category: 'Labor', description: 'Commercial workforce', percentage: 22 },
-      { category: 'Heavy Equipment', description: 'Cranes, lifts', percentage: 7 },
-      { category: 'Misc', description: 'Safety, transport', percentage: 7 },
+      { category: 'Foundations', description: 'Multi-story loads, basement', percentage: 12 },
+      { category: 'RCC Frame', description: 'Columns, beams, slabs, lift cores', percentage: 30 },
+      { category: 'Basement(s)', description: 'Parking, services, waterproofing', percentage: 15 },
+      { category: 'Masonry / Drywall', description: 'Shop/office partitions', percentage: 8 },
+      { category: 'Facade Prep', description: 'Curtain wall/stone cladding structure', percentage: 8 },
+      { category: 'Cement, Steel, Aggregate', description: 'Commercial grade', percentage: 18 },
+      { category: 'Labor & Equipment', description: 'Pumping, formwork', percentage: 9 },
     ],
     finishingBreakdown: [
-      { category: 'Tiles & Marble', description: 'Common areas + shops', percentage: 18 },
-      { category: 'Electrical + MEP', description: 'Distribution boards, lighting', percentage: 16 },
-      { category: 'Elevators + Escalators', description: 'Vertical transport', percentage: 14 },
-      { category: 'HVAC (Central)', description: 'Plaza-wide air conditioning', percentage: 13 },
-      { category: 'Fire Safety', description: 'Sprinklers, alarms, hydrants', percentage: 9 },
-      { category: 'Glass Facade', description: 'Exterior glazing', percentage: 10 },
-      { category: 'Doors & Shutters', description: 'Shop fronts', percentage: 8 },
-      { category: 'Paint & Finishes', description: 'Common areas', percentage: 5 },
-      { category: 'Labor', description: 'Multi-trade', percentage: 7 },
+      { category: 'Common Area Finishes', description: 'Lobbies, corridors, atriums', percentage: 20 },
+      { category: 'Elevators & Escalators', description: 'Passenger + service + goods', percentage: 18 },
+      { category: 'MEP Systems', description: 'Chillers, AHUs, BMS, fire', percentage: 18 },
+      { category: 'Facade (Glazing/Stone)', description: 'Curtain wall or cladding', percentage: 15 },
+      { category: 'Unit Fit-out Shell', description: 'Raised floor, bare shell prep', percentage: 12 },
+      { category: 'Electrical/Plumbing', description: 'Common services', percentage: 10 },
+      { category: 'Signage/Wayfinding', description: 'Directory, branding prep', percentage: 4 },
+      { category: 'Labor', description: 'Multi-trade', percentage: 3 },
     ],
   },
 
   office_building: {
-    // Source: Gulberg office contractors + I-9 sector rates
+    // Source: Blue Area, Gulberg, Clifton office towers
     greyStructurePerSqft: {
       standard: 3600,
       premium: 4800,
       luxury: 6500,
     },
     finishingPerSqft: {
-      standard: 2400,
-      premium: 3800,
+      standard: 2200,
+      premium: 3500,
       luxury: 5500,
     },
     greyStructureBreakdown: [
-      { category: 'RCC Frame', description: 'Columns, beams, slabs', percentage: 33 },
-      { category: 'Bricks & Blocks', description: 'Office partitions', percentage: 13 },
-      { category: 'Crush & Aggregate', description: 'Foundation', percentage: 9 },
-      { category: 'Steel Framing', description: 'Window frames, canopies', percentage: 8 },
-      { category: 'Labor', description: 'Construction workforce', percentage: 22 },
-      { category: 'Equipment', description: 'Lifts, hoists', percentage: 7 },
-      { category: 'Misc & Safety', description: 'Scaffolding, transport', percentage: 8 },
+      { category: 'Foundations', description: 'Piled/raft for high loads', percentage: 12 },
+      { category: 'RCC Frame', description: 'Long-span, column-free, lift cores', percentage: 32 },
+      { category: 'Basement Parking', description: '2-3 levels, waterproofing', percentage: 14 },
+      { category: 'Raised Floor Structure', description: 'Pedestal system prep', percentage: 6 },
+      { category: 'Facade Structure', description: 'Unitized curtain wall support', percentage: 10 },
+      { category: 'Cement, Steel, Aggregate', description: 'High-spec concrete, post-tension', percentage: 16 },
+      { category: 'Labor & Equipment', description: 'Highrise methods', percentage: 10 },
     ],
     finishingBreakdown: [
-      { category: 'Flooring (Vitrified/Carpet)', description: 'Office-grade flooring', percentage: 16 },
-      { category: 'Electrical + Data Cabling', description: 'CAT6, fiber, power', percentage: 18 },
-      { category: 'HVAC (VRV/Split)', description: 'Climate control', percentage: 14 },
-      { category: 'Elevators', description: 'Passenger lifts', percentage: 11 },
-      { category: 'Glass Partitions', description: 'Office cubicles', percentage: 10 },
-      { category: 'Fire Safety', description: 'Sprinklers + alarms', percentage: 8 },
-      { category: 'Ceiling + Lighting', description: 'False ceiling, LED panels', percentage: 9 },
-      { category: 'Doors & Windows', description: 'Premium doors', percentage: 7 },
-      { category: 'Labor', description: 'Skilled finishing', percentage: 7 },
+      { category: 'Raised Access Floors', description: 'Steel panel, carpet tile', percentage: 14 },
+      { category: 'Suspended Ceilings', description: 'Metal tile, gypsum, acoustic', percentage: 12 },
+      { category: 'HVAC (Central/VRF)', description: 'Chillers, AHUs, FCUs, BMS, fresh air', percentage: 20 },
+      { category: 'Fire & Life Safety', description: 'Addressable, sprinklers, smoke extraction', percentage: 14 },
+      { category: 'Elevators (High Speed)', description: 'Destination dispatch, lobby', percentage: 12 },
+      { category: 'Electrical/ELV', description: 'Busbar, UPS, data, CCTV, access', percentage: 12 },
+      { category: 'Facade Glazing', description: 'Double skin, low-e, shading', percentage: 10 },
+      { category: 'Labor', description: 'Specialized', percentage: 6 },
     ],
   },
 
   highrise_office_tower: {
-    // Source: Centaurus, Bahria Icon, Telecom Towers published rates
-    // Highest construction cost typology in Pakistan
+    // Source: Premium towers (ITC, Ocean Tower, Centaurus equivalent)
     greyStructurePerSqft: {
-      standard: 6500,
-      premium: 8500,
-      luxury: 11000,
-    },
-    finishingPerSqft: {
-      standard: 3500,
-      premium: 5500,
+      standard: 4800,
+      premium: 6500,
       luxury: 9000,
     },
+    finishingPerSqft: {
+      standard: 3000,
+      premium: 4800,
+      luxury: 7500,
+    },
     greyStructureBreakdown: [
-      { category: 'RCC/Steel Frame', description: 'Highrise structural system', percentage: 36 },
-      { category: 'Concrete & Aggregate', description: 'High-strength mix', percentage: 11 },
-      { category: 'Formwork (Steel)', description: 'Reusable steel formwork', percentage: 10 },
-      { category: 'Heavy Equipment', description: 'Tower crane, concrete pumps', percentage: 11 },
-      { category: 'Labor (Highrise Specialists)', description: 'Certified workforce', percentage: 18 },
-      { category: 'Safety Systems', description: 'Nets, harnesses, hoists', percentage: 7 },
-      { category: 'Misc & Logistics', description: 'Material lifting', percentage: 7 },
+      { category: 'Deep Foundations (Piles/Barrettes)', description: 'High capacity, load testing', percentage: 14 },
+      { category: 'Superstructure (Core + Outriggers)', description: 'High-strength concrete, PT slabs', percentage: 32 },
+      { category: 'Multi-Level Basements', description: '3-5 levels, secant piles, dewatering', percentage: 12 },
+      { category: 'Podium Structure', description: 'Retail, amenities, transfer structure', percentage: 8 },
+      { category: 'Facade System Structure', description: 'Unitized CW, custom geometry', percentage: 10 },
+      { category: 'Cement, Steel, Aggregate', description: 'Grade 80+ concrete, imported steel', percentage: 14 },
+      { category: 'Labor, Equipment, Tech', description: 'Jump forms, BIM, monitoring', percentage: 10 },
     ],
     finishingBreakdown: [
-      { category: 'Curtain Wall (Glass)', description: 'Aluminum + structural glazing', percentage: 22 },
-      { category: 'Elevators (High-Speed)', description: 'Multiple high-speed lifts', percentage: 14 },
-      { category: 'Central HVAC', description: 'Building-wide climate control', percentage: 13 },
-      { category: 'Fire & Life Safety', description: 'Sprinklers, smoke control, alarms', percentage: 10 },
-      { category: 'Electrical + Generator', description: 'Power distribution + backup', percentage: 10 },
-      { category: 'Plumbing & Drainage', description: 'High-pressure systems', percentage: 7 },
-      { category: 'Flooring (Premium)', description: 'Marble, granite, vitrified', percentage: 8 },
-      { category: 'Interior Finishes', description: 'Wall cladding, ceiling', percentage: 6 },
-      { category: 'BMS (Building Management)', description: 'Smart building systems', percentage: 4 },
-      { category: 'Labor (Specialized)', description: 'Multi-trade highrise workers', percentage: 6 },
+      { category: 'Unitized Curtain Wall', description: 'Double skin, IGU, integrated blinds', percentage: 18 },
+      { category: 'MEP Plant & Distribution', description: 'District cooling, thermal storage, BMS', percentage: 18 },
+      { category: 'Elevators (Ultra High Speed)', description: 'Destination control, sky lobbies', percentage: 14 },
+      { category: 'Fire/Life Safety (Performance)', description: 'Engineered, evacuation lifts', percentage: 12 },
+      { category: 'Raised Floors / Ceilings', description: 'Office spec + tenant flexibility', percentage: 12 },
+      { category: 'Electrical/ELV/Smart Building', description: 'IoT, digital twin, cyber security', percentage: 10 },
+      { category: 'Common Areas / Amenities', description: 'Sky gardens, conferencing, fitness', percentage: 10 },
+      { category: 'Labor & Commissioning', description: 'Integrated testing, LEED/WELL', percentage: 8 },
     ],
   },
 
-  // ─── INDUSTRIAL ───────────────────────────────────────────
+  // ─── INDUSTRIAL ──────────────────────────────────────────────
 
   warehouse: {
-    // Source: SITE Karachi + Sundar Industrial Estate published rates
-    // No finishing (industrial concrete floor + steel roof)
+    // Source: Industrial estate developers (Sundar, Rachna, M3, Korangi)
+    // Steel structure / Pre-engineered building (PEB) dominant
     greyStructurePerSqft: {
       standard: 1800,
       premium: 2400,
       luxury: 3200,
     },
     finishingPerSqft: {
-      standard: 400,                    // Minimal — just office area
-      premium: 600,
-      luxury: 900,
+      standard: 0,
+      premium: 0,
+      luxury: 0,
     },
     greyStructureBreakdown: [
-      { category: 'Steel Frame Structure', description: 'Pre-engineered steel building', percentage: 38 },
-      { category: 'Concrete Floor (Industrial)', description: 'Heavy-duty slab', percentage: 18 },
-      { category: 'Steel Roofing & Sheeting', description: 'Galvanized profile sheets', percentage: 14 },
-      { category: 'Foundations', description: 'Column footings', percentage: 12 },
-      { category: 'Wall Cladding', description: 'Insulated panels or brick', percentage: 8 },
-      { category: 'Labor', description: 'Steel erectors + masons', percentage: 7 },
-      { category: 'Loading Docks & Roller Shutters', description: 'Truck access', percentage: 3 },
+      { category: 'PEB Steel Frame', description: 'Columns, rafters, purlins, bracing', percentage: 38 },
+      { category: 'Foundations', description: 'Pad footings, anchor bolts', percentage: 12 },
+      { category: 'Concrete Floor Slab', description: '150-200mm, reinforced, hardener', percentage: 20 },
+      { category: 'Roof & Wall Sheeting', description: '0.47-0.55mm profile, insulation', percentage: 15 },
+      { category: 'Roller Shutters / Docks', description: 'Motorized, dock levelers', percentage: 8 },
+      { category: 'Plinth & Drainage', description: 'Peripheral drain, ramp', percentage: 4 },
+      { category: 'Labor & Erection', description: 'PEB erection crew, crane', percentage: 3 },
     ],
-    finishingBreakdown: [
-      { category: 'Office Area Finishing', description: 'Small admin block (~10% of total)', percentage: 35 },
-      { category: 'Industrial Lighting', description: 'High-bay LED', percentage: 20 },
-      { category: 'Basic Electrical', description: 'Power distribution', percentage: 18 },
-      { category: 'Plumbing (Toilets)', description: 'Worker facilities', percentage: 12 },
-      { category: 'Paint (Floor + Walls)', description: 'Epoxy floor, basic paint', percentage: 8 },
-      { category: 'Labor', description: 'Minimal finishing', percentage: 7 },
-    ],
+    finishingBreakdown: [],
   },
 
   industrial_building: {
-    // Source: Faisalabad + Gujranwala industrial estate contractors
-    // Similar to warehouse but with more complex layout
+    // Source: Factory builders (Faisalabad, SITE, Hattar)
+    // RCC frame with crane beams, heavy floor loads
     greyStructurePerSqft: {
-      standard: 2200,
-      premium: 2800,
-      luxury: 3800,
+      standard: 2800,
+      premium: 3800,
+      luxury: 5000,
     },
     finishingPerSqft: {
-      standard: 600,
-      premium: 900,
-      luxury: 1400,
+      standard: 0,
+      premium: 0,
+      luxury: 0,
     },
     greyStructureBreakdown: [
-      { category: 'Steel/RCC Frame', description: 'Hybrid structural system', percentage: 35 },
-      { category: 'Concrete Floor (Heavy-Duty)', description: 'Machinery-rated slab', percentage: 16 },
-      { category: 'Roofing & Insulation', description: 'Insulated roof system', percentage: 14 },
-      { category: 'Foundations (Heavy)', description: 'Machine foundations', percentage: 13 },
-      { category: 'Wall Construction', description: 'Brick/insulated panels', percentage: 10 },
-      { category: 'Labor', description: 'Industrial construction workers', percentage: 8 },
-      { category: 'Industrial Doors & Access', description: 'Heavy roller shutters', percentage: 4 },
+      { category: 'RCC Frame (Heavy)', description: 'Crane beams, thick slabs, large columns', percentage: 32 },
+      { category: 'Foundations', description: 'Heavy pads, piles for machinery', percentage: 15 },
+      { category: 'Industrial Floor', description: '200-300mm, fiber reinforced, joints', percentage: 18 },
+      { category: 'Roof Structure', description: 'Trusses, decking, insulation, skylights', percentage: 12 },
+      { category: 'Masonry Infill', description: 'Block walls up to crane rail', percentage: 8 },
+      { category: 'Cement, Steel, Aggregate', description: 'High grade, epoxy coated rebar', percentage: 10 },
+      { category: 'Labor & Equipment', description: 'Heavy lifts, specialized', percentage: 5 },
     ],
-    finishingBreakdown: [
-      { category: 'Industrial Electrical', description: '3-phase, panels, transformers', percentage: 30 },
-      { category: 'Process Plumbing', description: 'Industrial pipes, drainage', percentage: 18 },
-      { category: 'HVAC (Industrial)', description: 'Exhaust, ventilation', percentage: 14 },
-      { category: 'Office Area Finishing', description: 'Admin block', percentage: 14 },
-      { category: 'Industrial Flooring', description: 'Epoxy, acid-resistant', percentage: 12 },
-      { category: 'Safety Systems', description: 'Fire, gas detection', percentage: 8 },
-      { category: 'Labor', description: 'Specialized trades', percentage: 4 },
-    ],
+    finishingBreakdown: [],
   },
 
   cold_storage: {
-    // Source: Sundar Industrial Estate cold chain contractors
-    // Insulation + refrigeration adds 40-60% over warehouse
+    // Source: Cold chain developers (Karachi, Lahore, Faisalabad)
     greyStructurePerSqft: {
       standard: 3500,
       premium: 4500,
-      luxury: 5800,
+      luxury: 6000,
     },
     finishingPerSqft: {
-      standard: 2200,                    // Refrigeration system is "finishing"
+      standard: 2200,
       premium: 3200,
       luxury: 4500,
     },
     greyStructureBreakdown: [
-      { category: 'Insulated Panel Walls', description: 'PUF/PIR insulation panels', percentage: 28 },
-      { category: 'Steel Frame', description: 'Reinforced for insulation weight', percentage: 22 },
-      { category: 'Insulated Floor', description: 'Multi-layer floor with insulation', percentage: 15 },
-      { category: 'Insulated Roof', description: 'Roof panels with vapor barrier', percentage: 12 },
-      { category: 'Foundations', description: 'Standard footings', percentage: 8 },
-      { category: 'Labor (Specialized)', description: 'Cold storage erectors', percentage: 10 },
-      { category: 'Insulated Doors', description: 'Cold storage doors', percentage: 5 },
+      { category: 'RCC Frame', description: 'Columns, beams, insulated roof deck', percentage: 28 },
+      { category: 'Foundations', description: 'Heavy loads, vibration isolation', percentage: 12 },
+      { category: 'Insulated Floor', description: 'XPS/EPS under slab, heating cables', percentage: 15 },
+      { category: 'Loading Dock Structure', description: 'Ramps, shelters, levelers', percentage: 10 },
+      { category: 'Cement, Steel, Aggregate', description: 'Standard + insulation materials', percentage: 15 },
+      { category: 'Labor', description: 'Specialized', percentage: 10 },
+      { category: 'Vapor Barrier', description: 'Sub-slab & wall', percentage: 10 },
     ],
     finishingBreakdown: [
-      { category: 'Refrigeration Plant', description: 'Compressors, condensers', percentage: 45 },
-      { category: 'Evaporators & Coils', description: 'Internal cooling units', percentage: 18 },
-      { category: 'Electrical (High-Load)', description: 'Heavy-duty distribution', percentage: 14 },
-      { category: 'Control Systems', description: 'Temperature monitoring', percentage: 8 },
-      { category: 'Insulated Office', description: 'Admin block', percentage: 7 },
-      { category: 'Backup Power', description: 'Generator (critical)', percentage: 5 },
-      { category: 'Labor', description: 'HVAC specialists', percentage: 3 },
+      { category: 'PUF/PIR Panels (Walls/Roof)', description: '80-150mm, camlock, hygienic', percentage: 35 },
+      { category: 'Refrigeration Plant', description: 'Compressors, condensers, evaporators', percentage: 30 },
+      { category: 'Doors (Insulated/High Speed)', description: 'Cold room, freezer, rapid roll', percentage: 12 },
+      { category: 'Flooring (Epoxy/PU)', description: 'Anti-slip, thermal shock resistant', percentage: 8 },
+      { category: 'Electrical & Controls', description: 'PLC, monitoring, backup power', percentage: 8 },
+      { category: 'Labor', description: 'Panel installers, refrigeration techs', percentage: 7 },
     ],
   },
 
@@ -950,14 +881,14 @@ export const SUB_TYPE_RATES: Record<PropertySubType, SubTypeRates> = {
     // Source: Mughalpura + Saddar workshop contractors
     // Cheapest typology — basic shed + concrete floor
     greyStructurePerSqft: {
-      standard: 1500,
-      premium: 2000,
-      luxury: 2800,
+      standard: 1650,
+      premium: 2200,
+      luxury: 3100,
     },
     finishingPerSqft: {
-      standard: 350,
-      premium: 550,
-      luxury: 900,
+      standard: 400,
+      premium: 625,
+      luxury: 1025,
     },
     greyStructureBreakdown: [
       { category: 'Steel Frame / RCC', description: 'Basic structure', percentage: 35 },
@@ -979,20 +910,20 @@ export const SUB_TYPE_RATES: Record<PropertySubType, SubTypeRates> = {
     ],
   },
 
-  // ─── MIXED-USE ────────────────────────────────────────────
+  // ─── MIXED-USE ──────────────────────────────────────────────
 
   shops_plus_apartments: {
     // Source: Composite rate — ground floor shops (commercial) + upper floors (residential)
     // Weighted average: 25% commercial + 75% residential
     greyStructurePerSqft: {
-      standard: 3400,            // House grey × 0.75 + Shop grey × 0.25
-      premium: 4400,
-      luxury: 5800,
+      standard: 3500,
+      premium: 4600,
+      luxury: 6100,
     },
     finishingPerSqft: {
-      standard: 2000,
-      premium: 3200,
-      luxury: 5000,
+      standard: 2100,
+      premium: 3400,
+      luxury: 5300,
     },
     greyStructureBreakdown: [
       { category: 'RCC Frame', description: 'Multi-story load-bearing', percentage: 32 },
@@ -1008,209 +939,157 @@ export const SUB_TYPE_RATES: Record<PropertySubType, SubTypeRates> = {
       { category: 'Electrical (Mixed Load)', description: 'Residential + commercial', percentage: 16 },
       { category: 'Plumbing', description: 'Apartments + shop toilets', percentage: 14 },
       { category: 'Elevator', description: '1-2 passenger lifts', percentage: 11 },
-      { category: 'HVAC (Shop AC)', description: 'Commercial cooling', percentage: 9 },
-      { category: 'Glass Shopfronts', description: 'Ground floor commercial', percentage: 9 },
-      { category: 'Doors & Windows', description: 'Apartment + shop', percentage: 10 },
-      { category: 'Paint & Finishes', description: 'Both zones', percentage: 7 },
-      { category: 'Labor', description: 'Multi-trade', percentage: 8 },
+      { category: 'Paint & Finishes', description: 'Internal + external', percentage: 14 },
+      { category: 'Shopfront Glazing', description: 'Ground floor retail', percentage: 10 },
+      { category: 'Fire & Safety', description: 'Common areas', percentage: 8 },
+      { category: 'Labor', description: 'Mixed trades', percentage: 11 },
     ],
   },
 
   complete_mixed_tower: {
-    // Source: Bahria Town Eiffel Tower, Centaurus mixed-use rates
-    // Most complex typology — combines all three usages
+    // Source: Premium mixed-use (Centaurus, Emporium, One Constitution)
+    // Podium retail + office + residential + hotel/amenities
     greyStructurePerSqft: {
-      standard: 6000,
-      premium: 7800,
-      luxury: 10000,
+      standard: 5200,
+      premium: 7000,
+      luxury: 9500,
     },
     finishingPerSqft: {
       standard: 3200,
       premium: 5000,
-      luxury: 8000,
+      luxury: 7800,
     },
     greyStructureBreakdown: [
-      { category: 'RCC/Steel Frame', description: 'Highrise structural system', percentage: 37 },
-      { category: 'Concrete (High-Strength)', description: 'Multi-use slab requirements', percentage: 11 },
-      { category: 'Formwork (Steel)', description: 'Highrise formwork', percentage: 10 },
-      { category: 'Heavy Equipment', description: 'Tower crane, hoists', percentage: 10 },
-      { category: 'Labor (Specialized)', description: 'Highrise multi-trade', percentage: 19 },
-      { category: 'Safety Systems', description: 'Comprehensive safety', percentage: 7 },
-      { category: 'Misc & Logistics', description: 'Material lifting', percentage: 6 },
+      { category: 'Deep Foundations', description: 'Piles/barrettes, load testing', percentage: 14 },
+      { category: 'Transfer Structure', description: 'Podium to tower, PT beams', percentage: 10 },
+      { category: 'Superstructure (Multi-Use)', description: 'Varying spans, cores, outriggers', percentage: 30 },
+      { category: 'Basements (3-5 Levels)', description: 'Parking, plant, services', percentage: 12 },
+      { category: 'Podium Structure', description: 'Retail, atrium, auditorium', percentage: 8 },
+      { category: 'Facade Systems', description: 'Multiple CW types, stone, louvres', percentage: 10 },
+      { category: 'Cement, Steel, Aggregate', description: 'Premium grades, imported', percentage: 10 },
+      { category: 'Labor, Tech, BIM', description: 'Complex coordination', percentage: 6 },
     ],
     finishingBreakdown: [
-      { category: 'Curtain Wall + Glass', description: 'Exterior glazing', percentage: 18 },
-      { category: 'Elevators (Multiple)', description: 'Service + passenger + freight', percentage: 13 },
-      { category: 'Central HVAC', description: 'Tower-wide AC', percentage: 12 },
-      { category: 'Electrical + MEP', description: 'Mixed-load distribution', percentage: 11 },
-      { category: 'Fire & Life Safety', description: 'Full code compliance', percentage: 9 },
-      { category: 'Plumbing & Drainage', description: 'Complex multi-use systems', percentage: 8 },
-      { category: 'Tiles, Marble, Flooring', description: 'All three zones', percentage: 9 },
-      { category: 'Interior Partitions', description: 'Office + apartment walls', percentage: 6 },
-      { category: 'BMS + Smart Systems', description: 'Building management', percentage: 5 },
-      { category: 'Labor (Multi-Trade)', description: 'Highrise specialists', percentage: 9 },
+      { category: 'Multi-System Facade', description: 'Retail CW, office CW, residential windows', percentage: 16 },
+      { category: 'MEP (Zoned by Use)', description: 'District cooling, separate plants', percentage: 18 },
+      { category: 'Elevators (Zoned)', description: 'Residential, office, service, shuttle', percentage: 14 },
+      { category: 'Fire/Life Safety (Integrated)', description: 'Phased evacuation, BMS', percentage: 12 },
+      { category: 'Podium Finishes', description: 'Retail, lobby, amenities, landscaping', percentage: 12 },
+      { category: 'Residential Fit-out', description: 'Apartment finishes, kitchens, baths', percentage: 12 },
+      { category: 'Office Fit-out Shell', description: 'Raised floor, ceiling, HVAC distribution', percentage: 10 },
+      { category: 'Smart Building / Commissioning', description: 'IoT, digital twin, certifications', percentage: 6 },
     ],
   },
 };
 
 // ═══════════════════════════════════════════════════════════════
-// ADD-ON COSTS
-// ═══════════════════════════════════════════════════════════════
-
-// Boundary wall (per running ft) — Lahore baseline
-export const BOUNDARY_WALL_PKR_PER_RUNNING_FT: Record<QualityGrade, number> = {
-  standard: 1200,
-  premium: 1800,
-  luxury: 2500,
-};
-
-// Basement (per sqft) — Lahore baseline
-export const BASEMENT_PKR_PER_SQFT: Record<QualityGrade, number> = {
-  standard: 3500,        // Includes waterproofing
-  premium: 4500,
-  luxury: 6000,
-};
-
-// Elevator per unit — Lahore baseline
-export const ELEVATOR_PKR_PER_UNIT: Record<QualityGrade, number> = {
-  standard: 3500000,     // ~35 Lac — basic 8-person lift
-  premium: 5500000,      // ~55 Lac — branded mid-tier
-  luxury: 12000000,      // ~1.2 Cr — high-speed luxury
-};
-
-// Parking — per car slot
-export const PARKING_PKR_PER_SLOT: Record<QualityGrade, number> = {
-  standard: 250000,      // Surface or basic basement
-  premium: 400000,       // Mechanized
-  luxury: 700000,        // Stacked/automated
-};
-
-// Generator (per KVA capacity) — Lahore baseline
-export const GENERATOR_PKR_PER_KVA: Record<QualityGrade, number> = {
-  standard: 35000,
-  premium: 55000,
-  luxury: 85000,         // Sound-proofed + auto-transfer switch
-};
-
-// ═══════════════════════════════════════════════════════════════
-// MATERIAL RATES (Lahore baseline — adjusted per city in API)
-// ═══════════════════════════════════════════════════════════════
-
-export const MATERIAL_RATES: MaterialRate[] = [
-  // Structural
-  { name: 'Cement (OPC)', unit: 'per 50kg bag', pricePKR: 1280, trend: 'up', changePercent: 2.5, category: 'structural' },
-  { name: 'Steel / Saria (Grade 60)', unit: 'per 40kg', pricePKR: 3150, trend: 'down', changePercent: -1.2, category: 'structural' },
-  { name: 'Bricks (1st Class)', unit: 'per 1000', pricePKR: 22500, trend: 'stable', changePercent: 0.5, category: 'structural' },
-  { name: 'Sand (Lawrencepur)', unit: 'per cubic ft', pricePKR: 78, trend: 'stable', changePercent: 0.0, category: 'structural' },
-  { name: 'Crush (Margalla)', unit: 'per cubic ft', pricePKR: 115, trend: 'up', changePercent: 3.2, category: 'structural' },
-  { name: 'Concrete Blocks (Solid)', unit: 'per block', pricePKR: 95, trend: 'stable', changePercent: 1.0, category: 'structural' },
-
-  // Finishing
-  { name: 'Tiles (Standard)', unit: 'per sq ft', pricePKR: 185, trend: 'stable', changePercent: 1.0, category: 'finishing' },
-  { name: 'Tiles (Premium Vitrified)', unit: 'per sq ft', pricePKR: 380, trend: 'up', changePercent: 2.0, category: 'finishing' },
-  { name: 'Marble (Botticino)', unit: 'per sq ft', pricePKR: 850, trend: 'up', changePercent: 4.5, category: 'finishing' },
-  { name: 'Paint (Premium Emulsion)', unit: 'per gallon', pricePKR: 4800, trend: 'stable', changePercent: 1.5, category: 'finishing' },
-  { name: 'Wood (Teak — Burma)', unit: 'per cubic ft', pricePKR: 19500, trend: 'up', changePercent: 4.5, category: 'finishing' },
-  { name: 'Wood (Local Deodar)', unit: 'per cubic ft', pricePKR: 8500, trend: 'stable', changePercent: 1.0, category: 'finishing' },
-
-  // MEP
-  { name: 'Copper Wire (7/29)', unit: 'per 90m coil', pricePKR: 18500, trend: 'up', changePercent: 3.5, category: 'mep' },
-  { name: 'PVC Pipes (4 inch)', unit: 'per ft', pricePKR: 320, trend: 'stable', changePercent: 0.8, category: 'mep' },
-
-  // Labor
-  { name: 'Skilled Mason', unit: 'per day', pricePKR: 2300, trend: 'up', changePercent: 5.0, category: 'labor' },
-  { name: 'Unskilled Labor', unit: 'per day', pricePKR: 1400, trend: 'up', changePercent: 4.0, category: 'labor' },
-  { name: 'Electrician (Certified)', unit: 'per day', pricePKR: 3200, trend: 'up', changePercent: 6.0, category: 'labor' },
-];
-
-// ═══════════════════════════════════════════════════════════════
-// CATEGORY GROUPING (for UI display)
-// ═══════════════════════════════════════════════════════════════
-
-export const CATEGORY_DISPLAY: Record<PropertyCategory, {
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  subTypes: PropertySubType[];
-}> = {
-  residential: {
-    name: 'Residential',
-    description: 'Where you live',
-    icon: 'Home',
-    color: '#029bba',
-    subTypes: ['house', 'villa', 'farmhouse', 'highrise_apartment_building'],
-  },
-  commercial: {
-    name: 'Commercial',
-    description: 'Business properties',
-    icon: 'Briefcase',
-    color: '#004063',
-    subTypes: ['shop_showroom', 'commercial_plaza', 'office_building', 'highrise_office_tower'],
-  },
-  industrial: {
-    name: 'Industrial',
-    description: 'Manufacturing & storage',
-    icon: 'Factory',
-    color: '#027a94',
-    subTypes: ['warehouse', 'industrial_building', 'cold_storage', 'workshop'],
-  },
-  mixed_use: {
-    name: 'Mixed-Use',
-    description: 'Multiple usages combined',
-    icon: 'Layers',
-    color: '#06b6d4',
-    subTypes: ['shops_plus_apartments', 'complete_mixed_tower'],
-  },
-};
-
-// ═══════════════════════════════════════════════════════════════
-// HELPER: Get city multiplier based on category
-// ═══════════════════════════════════════════════════════════════
-
-export function getCityMultiplier(city: City, subType: PropertySubType): number {
-  const meta = SUB_TYPE_METADATA[subType];
-
-  // Highrise gets its own multiplier
-  if (
-    subType === 'highrise_apartment_building' ||
-    subType === 'highrise_office_tower' ||
-    subType === 'complete_mixed_tower'
-  ) {
-    return CITY_MULTIPLIERS_HIGHRISE[city];
-  }
-
-  // Otherwise by category
-  switch (meta.category) {
-    case 'commercial':
-      return CITY_MULTIPLIERS_COMMERCIAL[city];
-    case 'industrial':
-      return CITY_MULTIPLIERS_INDUSTRIAL[city];
-    case 'residential':
-    case 'mixed_use':
-    default:
-      return CITY_MULTIPLIERS_RESIDENTIAL[city];
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// HELPER: All cities list (typed)
+// EXPORT ALL
 // ═══════════════════════════════════════════════════════════════
 
 export const ALL_CITIES: City[] = [
-  'Lahore', 'Islamabad', 'Rawalpindi', 'Karachi', 'Faisalabad',
-  'Multan', 'Peshawar', 'Gujranwala', 'Sialkot', 'Quetta',
+  'Lahore', 'Islamabad', 'Rawalpindi', 'Karachi',
+  'Faisalabad', 'Multan', 'Peshawar', 'Gujranwala', 'Sialkot', 'Quetta',
 ];
 
-export const ALL_SUB_TYPES: PropertySubType[] = [
-  'house', 'villa', 'farmhouse', 'highrise_apartment_building',
-  'shop_showroom', 'commercial_plaza', 'office_building', 'highrise_office_tower',
-  'warehouse', 'industrial_building', 'cold_storage', 'workshop',
-  'shops_plus_apartments', 'complete_mixed_tower',
-];
+export const ALL_QUALITY_GRADES: QualityGrade[] = ['standard', 'premium', 'luxury'];
+export const ALL_CONSTRUCTION_TYPES: ConstructionType[] = ['grey_structure', 'finishing', 'turnkey'];
+export const ALL_SUBTYPES: PropertySubType[] = Object.keys(SUBTYPE_METADATA) as PropertySubType[];
+export const ALL_CATEGORIES: PropertyCategory[] = ['residential', 'commercial', 'industrial', 'mixed_use'];
 
-export const ALL_CATEGORIES: PropertyCategory[] = [
-  'residential', 'commercial', 'industrial', 'mixed_use',
-];
+// ═══════════════════════════════════════════════════════════════
+// CALCULATION HELPERS
+// ═══════════════════════════════════════════════════════════════
 
-// ========== END OF FILE ==========
+export function convertArea(area: number, from: AreaUnit, to: AreaUnit): number {
+  const toSqFt: Record<AreaUnit, number> = {
+    'Marla': 272.25,
+    'Kanal': 5445,
+    'Sq Ft': 1,
+  };
+  const sqft = area * toSqFt[from];
+  return sqft / toSqFt[to];
+}
+
+export function getTypologyRate(
+  subType: PropertySubType,
+  grade: QualityGrade,
+  type: ConstructionType
+): number {
+  const card = TYPOLOGY_RATES[subType];
+  if (!card) return 0;
+  if (type === 'grey_structure') return card.greyStructurePerSqft[grade];
+  if (type === 'finishing') return card.finishingPerSqft[grade];
+  return card.greyStructurePerSqft[grade] + card.finishingPerSqft[grade];
+}
+
+export function getCityMultiplier(city: City, component: 'greyStructure' | 'finishing' | 'labor'): number {
+  return CITY_MULTIPLIERS[city]?.[component] ?? 1.0;
+}
+
+export function calculateConstructionCost(params: {
+  subType: PropertySubType;
+  grade: QualityGrade;
+  type: ConstructionType;
+  area: number;
+  unit: AreaUnit;
+  city: City;
+  floors?: number;
+  includeBoundaryWall?: boolean;
+  includeBasement?: boolean;
+  basementLevels?: number;
+}): {
+  baseCost: number;
+  cityAdjustedCost: number;
+  breakdown: { item: string; cost: number }[];
+  totalCost: number;
+  costPerSqft: number;
+  timelineMonths: number;
+} {
+  const ratePerSqft = getTypologyRate(params.subType, params.grade, params.type);
+  const areaSqft = convertArea(params.area, params.unit, 'Sq Ft');
+
+  const cityMult = params.type === 'finishing'
+    ? getCityMultiplier(params.city, 'finishing')
+    : getCityMultiplier(params.city, 'greyStructure');
+
+  const baseCost = ratePerSqft * areaSqft;
+  const cityAdjustedCost = baseCost * cityMult;
+
+  const metadata = SUBTYPE_METADATA[params.subType];
+  const timeline = params.type === 'turnkey'
+    ? metadata.timelineMonths.turnkey
+    : params.type === 'finishing'
+      ? metadata.timelineMonths.finishing
+      : metadata.timelineMonths.greyStructure;
+
+  const breakdown = [
+    { item: `Base rate (${params.grade} ${params.type.replace('_', ' ')})`, cost: Math.round(baseCost) },
+    { item: `City multiplier (${params.city})`, cost: Math.round(baseCost * (cityMult - 1)) },
+  ];
+
+  let totalCost = cityAdjustedCost;
+
+  // Add boundary wall if applicable
+  if (params.includeBoundaryWall && metadata.supportsBoundaryWall) {
+    const perimeter = Math.sqrt(areaSqft) * 4; // Approximate
+    const wallCost = perimeter * 2500 * getCityMultiplier(params.city, 'greyStructure'); // PKR 2500/ft
+    breakdown.push({ item: 'Boundary wall (8-10ft)', cost: Math.round(wallCost) });
+    totalCost += wallCost;
+  }
+
+  // Add basement if applicable
+  if (params.includeBasement && metadata.supportsBasement && (params.basementLevels ?? 0) > 0) {
+    const basementCost = areaSqft * 3500 * getCityMultiplier(params.city, 'greyStructure') * (params.basementLevels ?? 1);
+    breakdown.push({ item: `Basement (${params.basementLevels} level${(params.basementLevels ?? 1) > 1 ? 's' : ''})`, cost: Math.round(basementCost) });
+    totalCost += basementCost;
+  }
+
+  return {
+    baseCost: Math.round(baseCost),
+    cityAdjustedCost: Math.round(cityAdjustedCost),
+    breakdown,
+    totalCost: Math.round(totalCost),
+    costPerSqft: Math.round(totalCost / areaSqft),
+    timelineMonths: timeline,
+  };
+}

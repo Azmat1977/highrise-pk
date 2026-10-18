@@ -945,7 +945,7 @@ export default function AdminLayout({
   };
 
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/auth/login' });
+    await signOut({ callbackUrl: '/login' });
   };
 
   const handleNotificationClick = (item: NotificationItem) => {

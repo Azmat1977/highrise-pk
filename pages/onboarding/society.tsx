@@ -2396,7 +2396,7 @@ export default function SocietyOnboardingPage(): React.ReactElement {
                       <li>
                         I agree to Highrise.pk&apos;s{' '}
                         <a
-                          href="/terms"
+                          href="/terms-of-service"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[#029bba] underline"
@@ -2405,7 +2405,7 @@ export default function SocietyOnboardingPage(): React.ReactElement {
                         </a>{' '}
                         and{' '}
                         <a
-                          href="/privacy"
+                          href="/privacy-policy"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="text-[#029bba] underline"

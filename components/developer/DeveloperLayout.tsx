@@ -429,7 +429,7 @@ function DeveloperLayoutInner({
 
   // ── Logout ──────────────────────────────────────────────────
   const handleLogout = async (): Promise<void> => {
-    await signOut({ callbackUrl: "/auth/login" });
+    await signOut({ callbackUrl: "/login" });
   };
 
   // ── User info ────────────────────────────────────────────────

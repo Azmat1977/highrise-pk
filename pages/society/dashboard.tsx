@@ -317,7 +317,6 @@ export default function SocietyDashboard(): ReactElement {
             sub={`${profile.blocks.filter((b) => b.possessionStatus === 'ready').length} possession ready`}
             iconBg="bg-[#029bba]/10"
             iconColor="text-[#029bba]"
-            href="/society/blocks"
           />
           <StatCard
             icon={<Layers className="w-5 h-5" />}

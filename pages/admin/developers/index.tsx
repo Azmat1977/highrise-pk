@@ -320,9 +320,9 @@ export default function AdminDevelopersList(): React.ReactElement {
 
   // Auth guard
   useEffect(() => {
-    if (status === 'unauthenticated') void router.replace('/auth/login');
+    if (status === 'unauthenticated') void router.replace('/login');
     if (status === 'authenticated' && session.user.role !== 'admin')
-      void router.replace('/auth/login');
+      void router.replace('/login');
   }, [status, session, router]);
 
   // ── State ────────────────────────────────────────────────────

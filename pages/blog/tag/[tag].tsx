@@ -234,9 +234,6 @@ export default function TagArchivePage({
               {relatedTags.length > 0 && (
                 <RelatedTagsWidget tags={relatedTags} currentTag={tag} />
               )}
-
-              {/* Newsletter CTA */}
-              <NewsletterWidget />
             </aside>
           </div>
         </section>
@@ -367,25 +364,13 @@ function RelatedTagsWidget({
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// NEWSLETTER WIDGET
+// NEWSLETTER
 // ─────────────────────────────────────────────────────────────────────────────
-
-function NewsletterWidget() {
-  return (
-    <div className="bg-gradient-to-br from-primary to-primary-dark rounded-xl p-6 text-white">
-      <h3 className="text-xl font-bold mb-2">Stay Updated</h3>
-      <p className="text-sm text-white/90 mb-4">
-        Get the latest real estate insights delivered to your inbox
-      </p>
-      <Link
-        href="/newsletter"
-        className="block w-full bg-white text-primary text-center font-semibold py-2.5 rounded-lg hover:bg-gray-100 transition-colors"
-      >
-        Subscribe Now
-      </Link>
-    </div>
-  );
-}
+// The "Subscribe Now" CTA was removed: there is no /newsletter page and no
+// public subscribe form. The subscribe backend (/api/newsletter/subscribe)
+// exists but is not wired to any UI yet, so a dead link was hidden rather than
+// pointing users at a placeholder. Re-introduce a widget once a real signup
+// form exists.
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PAGINATION

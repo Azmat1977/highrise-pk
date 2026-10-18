@@ -440,7 +440,7 @@ export const Footer: React.FC = () => {
                 <span className="text-white/20">|</span>
                 <Link href="/terms-of-service" className="hover:text-white transition-colors">Terms</Link>
                 <span className="text-white/20">|</span>
-                <Link href="/cookies" className="hover:text-white transition-colors">Cookies</Link>
+                <Link href="/privacy-policy#cookies" className="hover:text-white transition-colors">Cookies</Link>
                 <span className="text-white/20">|</span>
                 <Link href="/sitemap.xml" className="hover:text-white transition-colors">Sitemap</Link>
               </div>

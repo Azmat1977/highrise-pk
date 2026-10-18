@@ -91,7 +91,7 @@ export default function DeveloperOnboardingPage(): React.ReactElement {
   // Auth gate
   useEffect(() => {
     if (status === 'unauthenticated') {
-      void router.replace('/auth/login?redirect=/developer/onboarding');
+      void router.replace('/login?callbackUrl=/developer/onboarding');
     }
   }, [status, router]);
 

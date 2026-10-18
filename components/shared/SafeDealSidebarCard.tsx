@@ -1,6 +1,5 @@
 // components/shared/SafeDealSidebarCard.tsx
 import React from 'react';
-import Link from 'next/link';
 import { Shield, FileCheck, Scale, Receipt, MessageCircle, Phone } from 'lucide-react';
 
 export default function SafeDealSidebarCard() {
@@ -33,13 +32,6 @@ export default function SafeDealSidebarCard() {
       </ul>
 
       <div className="space-y-3">
-        <Link
-          href="/safedeal"
-          className="flex items-center justify-center w-full py-3 rounded-xl bg-gray-50 border border-gray-200 text-[#004063] text-[15px] font-bold hover:bg-gray-100 transition-colors"
-        >
-          Learn More
-        </Link>
-
         <a
           href="https://wa.me/923335877106?text=I%20want%20to%20learn%20more%20about%20SafeDeal"
           target="_blank"

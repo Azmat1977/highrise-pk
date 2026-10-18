@@ -18,20 +18,20 @@ import {
   type PropertyCategory,
   type CostBreakdownTemplate,
   type MaterialRate,
-  SUB_TYPE_METADATA,
-  SUB_TYPE_RATES,
-  BOUNDARY_WALL_PKR_PER_RUNNING_FT,
-  BASEMENT_PKR_PER_SQFT,
-  ELEVATOR_PKR_PER_UNIT,
-  PARKING_PKR_PER_SLOT,
-  GENERATOR_PKR_PER_KVA,
-  MATERIAL_RATES,
-  SIZE_TO_SQFT,
+  SUBTYPE_METADATA,
+  TYPOLOGY_RATES,
+  MATERIAL_RATES_2026,
+  convertArea,
   getCityMultiplier,
   RATES_VERSION,
   RATES_VALID_UNTIL,
   RATES_LAST_UPDATED,
 } from '@/lib/constructionRates';
+import {
+  type IncompleteAddOn,
+  evaluateAddOnSelections,
+  finalizeEstimate,
+} from '@/lib/constructionAddOnRates';
 
 // ═══════════════════════════════════════════════════════════════
 // INPUT / OUTPUT TYPES
@@ -104,14 +104,19 @@ export interface EngineResult {
 
   // Cost summary
   baseCost: number;                   // Construction only
-  addOnsCost: number;                 // Sum of all add-ons
-  totalCost: number;                  // Base + add-ons
+  addOnsCost: number;                 // Sum of VERIFIED add-ons (partial when !estimateComplete)
+  totalCost: number | null;           // Base + verified add-ons; null when incomplete
   costPerSqft: number;
   costPerMarla: number;
 
-  // Confidence range (±)
-  costMin: number;
-  costMax: number;
+  // Estimate completeness (fail-safe)
+  estimateComplete: boolean;
+  incompleteAddOns: IncompleteAddOn[];
+  estimateWarning?: string;
+
+  // Confidence range (±) — now nullable when the estimate is incomplete
+  costMin: number | null;
+  costMax: number | null;
   confidenceLevel: 'high' | 'medium' | 'low';
 
   // Breakdown
@@ -146,7 +151,7 @@ export interface EngineResult {
  * Convert plot size to sqft
  */
 export function toSqft(size: number, unit: AreaUnit): number {
-  return size * SIZE_TO_SQFT[unit];
+  return convertArea(size, unit, 'Sq Ft');
 }
 
 /**
@@ -176,8 +181,8 @@ function getPerSqftCost(
   quality: QualityGrade,
   constructionType: ConstructionType
 ): { perSqft: number; breakdown: CostBreakdownTemplate[] } {
-  const rates = SUB_TYPE_RATES[subType];
-  const meta = SUB_TYPE_METADATA[subType];
+  const rates = TYPOLOGY_RATES[subType];
+  const meta = SUBTYPE_METADATA[subType];
 
   // Industrial typologies skip finishing-only mode (no real finishing)
   if (!meta.supportsFinishing && constructionType === 'finishing') {
@@ -235,55 +240,97 @@ function getPerSqftCost(
   }
 }
 
+/**
+ * Resolve the city cost multiplier for an estimate.
+ *
+ * The rate module prices cities per construction *component*
+ * (`greyStructure` / `finishing` / `labor`) rather than per typology, so the
+ * legacy aggregate `getCityMultiplier(city, subType)` shape is gone. The engine
+ * still drives a single per-sqft rate, so we supply the component multiplier(s)
+ * the selected construction type actually draws on and keep the engine's
+ * single-multiplier architecture (add-ons, materials, insights) intact:
+ *
+ *   - `grey_structure` → the grey-structure multiplier
+ *   - `finishing`      → the finishing multiplier
+ *   - `turnkey`        → the grey/finishing-share-weighted blend; because the
+ *                        turnkey card is exactly grey + finishing, weighting by
+ *                        the same shares reproduces per-component application
+ *
+ * The `labor` component is deliberately not applied: the engine has no separate
+ * labour amount (labour is embedded inside the typology breakdown percentages),
+ * so there is nothing to scale independently.
+ */
+export function resolveCityMultiplier(
+  city: City,
+  subType: PropertySubType,
+  quality: QualityGrade,
+  constructionType: ConstructionType
+): number {
+  const greyStructure = getCityMultiplier(city, 'greyStructure');
+  const finishing = getCityMultiplier(city, 'finishing');
+
+  if (constructionType === 'grey_structure') return greyStructure;
+  if (constructionType === 'finishing') return finishing;
+
+  // turnkey (and the engine's fallback path): blend by the actual rate split.
+  const rates = TYPOLOGY_RATES[subType];
+  const greyRate = rates.greyStructurePerSqft[quality];
+  const finishingRate = rates.finishingPerSqft[quality];
+  const total = greyRate + finishingRate;
+
+  // Degenerate guard only; typology rates are positive, so this is unreachable
+  // with valid data and simply avoids a divide-by-zero.
+  if (total <= 0) return greyStructure;
+
+  return (greyRate * greyStructure + finishingRate * finishing) / total;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // ADD-ON COST CALCULATIONS
 // ═══════════════════════════════════════════════════════════════
 
 function calculateBoundaryWall(
   plotSizeSqft: number,
-  quality: QualityGrade,
-  cityMultiplier: number
+  cityMultiplier: number,
+  ratePerFt: number
 ): number {
   const boundaryFt = approxBoundaryLengthFt(plotSizeSqft);
-  const ratePerFt = BOUNDARY_WALL_PKR_PER_RUNNING_FT[quality];
   return roundToThousand(boundaryFt * ratePerFt * cityMultiplier);
 }
 
 function calculateBasement(
   coveredAreaPerFloor: number,
-  quality: QualityGrade,
-  cityMultiplier: number
+  cityMultiplier: number,
+  ratePerSqft: number
 ): number {
-  return roundToThousand(
-    coveredAreaPerFloor * BASEMENT_PKR_PER_SQFT[quality] * cityMultiplier
-  );
+  return roundToThousand(coveredAreaPerFloor * ratePerSqft * cityMultiplier);
 }
 
 function calculateElevators(
   elevatorCount: number,
-  quality: QualityGrade,
-  cityMultiplier: number
+  cityMultiplier: number,
+  ratePerUnit: number
 ): number {
   if (elevatorCount <= 0) return 0;
-  return roundToThousand(elevatorCount * ELEVATOR_PKR_PER_UNIT[quality] * cityMultiplier);
+  return roundToThousand(elevatorCount * ratePerUnit * cityMultiplier);
 }
 
 function calculateParking(
   parkingSlots: number,
-  quality: QualityGrade,
-  cityMultiplier: number
+  cityMultiplier: number,
+  ratePerSlot: number
 ): number {
   if (parkingSlots <= 0) return 0;
-  return roundToThousand(parkingSlots * PARKING_PKR_PER_SLOT[quality] * cityMultiplier);
+  return roundToThousand(parkingSlots * ratePerSlot * cityMultiplier);
 }
 
 function calculateGenerator(
   kva: number,
-  quality: QualityGrade,
-  cityMultiplier: number
+  cityMultiplier: number,
+  ratePerKva: number
 ): number {
   if (kva <= 0) return 0;
-  return roundToThousand(kva * GENERATOR_PKR_PER_KVA[quality] * cityMultiplier);
+  return roundToThousand(kva * ratePerKva * cityMultiplier);
 }
 
 function calculateHVAC(
@@ -300,38 +347,54 @@ function calculateHVAC(
 // TIMELINE CALCULATION (Per Typology)
 // ═══════════════════════════════════════════════════════════════
 
-function calculateTimeline(
+export function calculateTimeline(
   subType: PropertySubType,
-  floors: number,
+  constructionType: ConstructionType,
   quality: QualityGrade,
   totalCoveredSqft: number
 ): TimelineEstimate {
-  const meta = SUB_TYPE_METADATA[subType];
+  const meta = SUBTYPE_METADATA[subType];
 
-  // Base months from metadata
-  let baseMonths = meta.timelineBaselineMonths;
-
-  // Add per-floor adjustment
-  const extraFloors = Math.max(0, floors - meta.defaultFloors);
-  baseMonths += extraFloors * meta.timelineMultiplierByFloors;
+  // Base months come from the stage-specific typology timeline. The metadata
+  // organises durations by construction stage, so we mirror `constructionType`.
+  const baseMonths =
+    meta.timelineMonths[
+      constructionType === 'turnkey'
+        ? 'turnkey'
+        : constructionType === 'finishing'
+          ? 'finishing'
+          : 'greyStructure'
+    ];
 
   // Quality multiplier (luxury takes longer)
   const qualityMultiplier =
     quality === 'luxury' ? 1.4 : quality === 'premium' ? 1.15 : 1.0;
-  baseMonths *= qualityMultiplier;
+  let adjustedMonths = baseMonths * qualityMultiplier;
 
   // Scale factor for very large areas
   // Reference: 2500 sqft baseline; double for every 10x area
   if (totalCoveredSqft > 25000) {
-    baseMonths *= 1.25;
+    adjustedMonths *= 1.25;
   } else if (totalCoveredSqft > 10000) {
-    baseMonths *= 1.10;
+    adjustedMonths *= 1.10;
   }
 
-  const minMonths = Math.max(2, Math.ceil(baseMonths * 0.85));
-  const maxMonths = Math.max(3, Math.ceil(baseMonths * 1.25));
+  const minMonths = Math.max(2, Math.ceil(adjustedMonths * 0.85));
+  const maxMonths = Math.max(3, Math.ceil(adjustedMonths * 1.25));
 
   return { min: minMonths, max: maxMonths };
+}
+
+/**
+ * Whether an estimate should carry a structural-engineer review note.
+ *
+ * Two independent triggers apply: a typology may require review unconditionally
+ * (canonical metadata `requiresEngineerNote`, e.g. industrial/factory, cold
+ * storage and high-rise towers), and any estimate of three or more floors
+ * always requires it.
+ */
+export function requiresEngineerReview(floors: number, typologyRequiresNote: boolean): boolean {
+  return typologyRequiresNote || floors >= 3;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -395,7 +458,7 @@ function calculateRange(totalCost: number, confidence: 'high' | 'medium' | 'low'
 
 function generateInsights(input: EngineInput, cityMultiplier: number, totalCost: number): string[] {
   const insights: string[] = [];
-  const meta = SUB_TYPE_METADATA[input.subType];
+  const meta = SUBTYPE_METADATA[input.subType];
 
   // ─── City-specific insight ────────────────────────────────
   if (cityMultiplier > 1.10) {
@@ -559,7 +622,7 @@ function generateInsights(input: EngineInput, cityMultiplier: number, totalCost:
   }
 
   // ─── Engineer inspection tip ──────────────────────────────
-  if (meta.requiresEngineerNote || input.floors >= 3) {
+  if (requiresEngineerReview(input.floors, meta.requiresEngineerNote)) {
     insights.push(
       `✅ Hire an independent civil engineer for slab + structural inspections. Costs Rs 50,000-2,00,000 but prevents major issues.`
     );
@@ -606,9 +669,9 @@ function getCityAdjustedMaterialRates(
   cityMultiplier: number,
   subType: PropertySubType
 ): MaterialRate[] {
-  const meta = SUB_TYPE_METADATA[subType];
+  const meta = SUBTYPE_METADATA[subType];
 
-  return MATERIAL_RATES
+  return MATERIAL_RATES_2026
     // Filter out finishing materials if industrial (no finishing)
     .filter((m) => {
       if (!meta.supportsFinishing && m.category === 'finishing') return false;
@@ -626,8 +689,13 @@ function getCityAdjustedMaterialRates(
 // ═══════════════════════════════════════════════════════════════
 
 function calculateStandard(input: EngineInput): EngineResult {
-  const meta = SUB_TYPE_METADATA[input.subType];
-  const cityMultiplier = getCityMultiplier(input.city, input.subType);
+  const meta = SUBTYPE_METADATA[input.subType];
+  const cityMultiplier = resolveCityMultiplier(
+    input.city,
+    input.subType,
+    input.quality,
+    input.constructionType
+  );
 
   // ─── Area calculations ───────────────────────────────────
   const plotSizeSqft = toSqft(input.size, input.sizeUnit);
@@ -646,50 +714,71 @@ function calculateStandard(input: EngineInput): EngineResult {
   // ─── Base cost ───────────────────────────────────────────
   const baseCost = adjustedPerSqft * totalCoveredSqft;
 
-  // ─── Add-ons ─────────────────────────────────────────────
+  // ─── Add-ons (fail-safe: an unverified selected rate blocks the total) ──
   const addOns: AddOnBreakdown = {};
-  let addOnsCost = 0;
 
-  if (input.includeBoundaryWall && meta.supportsBoundaryWall) {
-    addOns.boundaryWall = calculateBoundaryWall(plotSizeSqft, input.quality, cityMultiplier);
-    addOnsCost += addOns.boundaryWall;
-  }
+  const addOnResult = evaluateAddOnSelections([
+    {
+      addOn: 'boundaryWall',
+      quality: input.quality,
+      selected: Boolean(input.includeBoundaryWall && meta.supportsBoundaryWall),
+      compute: (rate) => calculateBoundaryWall(plotSizeSqft, cityMultiplier, rate),
+    },
+    {
+      addOn: 'basement',
+      quality: input.quality,
+      selected: Boolean(input.includeBasement && meta.supportsBasement),
+      compute: (rate) => calculateBasement(coveredAreaPerFloor, cityMultiplier, rate),
+    },
+    {
+      addOn: 'elevators',
+      quality: input.quality,
+      selected: Boolean(input.elevatorCount && input.elevatorCount > 0 && meta.supportsElevators),
+      compute: (rate) => calculateElevators(input.elevatorCount ?? 0, cityMultiplier, rate),
+    },
+    {
+      addOn: 'parking',
+      quality: input.quality,
+      selected: Boolean(input.parkingSlots && input.parkingSlots > 0 && meta.supportsParking),
+      compute: (rate) => calculateParking(input.parkingSlots ?? 0, cityMultiplier, rate),
+    },
+    {
+      addOn: 'generator',
+      quality: input.quality,
+      selected: Boolean(input.generatorKVA && input.generatorKVA > 0),
+      compute: (rate) => calculateGenerator(input.generatorKVA ?? 0, cityMultiplier, rate),
+    },
+  ]);
 
-  if (input.includeBasement && meta.supportsBasement) {
-    addOns.basement = calculateBasement(coveredAreaPerFloor, input.quality, cityMultiplier);
-    addOnsCost += addOns.basement;
-  }
+  const incompleteAddOns: IncompleteAddOn[] = addOnResult.incompleteAddOns;
 
-  if (input.elevatorCount && input.elevatorCount > 0 && meta.supportsElevators) {
-    addOns.elevators = calculateElevators(input.elevatorCount, input.quality, cityMultiplier);
-    addOnsCost += addOns.elevators;
-  }
+  if (addOnResult.amounts.boundaryWall !== undefined) addOns.boundaryWall = addOnResult.amounts.boundaryWall;
+  if (addOnResult.amounts.basement !== undefined) addOns.basement = addOnResult.amounts.basement;
+  if (addOnResult.amounts.elevators !== undefined) addOns.elevators = addOnResult.amounts.elevators;
+  if (addOnResult.amounts.parking !== undefined) addOns.parking = addOnResult.amounts.parking;
+  if (addOnResult.amounts.generator !== undefined) addOns.generator = addOnResult.amounts.generator;
 
-  if (input.parkingSlots && input.parkingSlots > 0 && meta.supportsParking) {
-    addOns.parking = calculateParking(input.parkingSlots, input.quality, cityMultiplier);
-    addOnsCost += addOns.parking;
-  }
+  let addOnsCost = addOnResult.addOnsCost;
 
-  if (input.generatorKVA && input.generatorKVA > 0) {
-    addOns.generator = calculateGenerator(input.generatorKVA, input.quality, cityMultiplier);
-    addOnsCost += addOns.generator;
-  }
-
+  // HVAC uses an inline baseline rate (always available) — behaviour unchanged
   if (input.hvacIncluded && meta.supportsHVAC) {
     addOns.hvac = calculateHVAC(totalCoveredSqft, input.quality, cityMultiplier);
     addOnsCost += addOns.hvac;
   }
 
-  // ─── Total ───────────────────────────────────────────────
-  const totalCost = baseCost + addOnsCost;
+  // ─── Subtotal (verified add-ons only) + fail-safe finalization ───
+  const subtotal = baseCost + addOnsCost;
+  const confidenceLevel = calculateConfidence(input.subType);
+  const finalization = finalizeEstimate(subtotal, incompleteAddOns, (value) =>
+    calculateRange(value, confidenceLevel)
+  );
+  const totalCost = finalization.totalCost;
+  const costMin = finalization.costMin;
+  const costMax = finalization.costMax;
 
   // ─── Per-unit costs ──────────────────────────────────────
   const costPerSqft = adjustedPerSqft;
-  const costPerMarla = Math.round(adjustedPerSqft * SIZE_TO_SQFT['Marla']);
-
-  // ─── Confidence + range ──────────────────────────────────
-  const confidenceLevel = calculateConfidence(input.subType);
-  const { min: costMin, max: costMax } = calculateRange(totalCost, confidenceLevel);
+  const costPerMarla = Math.round(adjustedPerSqft * convertArea(1, 'Marla', 'Sq Ft'));
 
   // ─── Breakdown ───────────────────────────────────────────
   const breakdown: CostBreakdownItem[] = rawBreakdown.map((b) => ({
@@ -705,7 +794,7 @@ function calculateStandard(input: EngineInput): EngineResult {
       category: 'Boundary Wall',
       description: 'Perimeter wall with gate',
       amount: addOns.boundaryWall,
-      percentage: parseFloat(((addOns.boundaryWall / totalCost) * 100).toFixed(1)),
+      percentage: parseFloat(((addOns.boundaryWall / subtotal) * 100).toFixed(1)),
     });
   }
   if (addOns.basement) {
@@ -713,7 +802,7 @@ function calculateStandard(input: EngineInput): EngineResult {
       category: 'Basement',
       description: 'Underground floor with waterproofing',
       amount: addOns.basement,
-      percentage: parseFloat(((addOns.basement / totalCost) * 100).toFixed(1)),
+      percentage: parseFloat(((addOns.basement / subtotal) * 100).toFixed(1)),
     });
   }
   if (addOns.elevators) {
@@ -721,7 +810,7 @@ function calculateStandard(input: EngineInput): EngineResult {
       category: `Elevators (${input.elevatorCount})`,
       description: 'Passenger lifts with installation',
       amount: addOns.elevators,
-      percentage: parseFloat(((addOns.elevators / totalCost) * 100).toFixed(1)),
+      percentage: parseFloat(((addOns.elevators / subtotal) * 100).toFixed(1)),
     });
   }
   if (addOns.parking) {
@@ -729,7 +818,7 @@ function calculateStandard(input: EngineInput): EngineResult {
       category: `Parking (${input.parkingSlots} slots)`,
       description: 'Vehicle parking infrastructure',
       amount: addOns.parking,
-      percentage: parseFloat(((addOns.parking / totalCost) * 100).toFixed(1)),
+      percentage: parseFloat(((addOns.parking / subtotal) * 100).toFixed(1)),
     });
   }
   if (addOns.generator) {
@@ -737,7 +826,7 @@ function calculateStandard(input: EngineInput): EngineResult {
       category: `Generator (${input.generatorKVA} KVA)`,
       description: 'Backup power system',
       amount: addOns.generator,
-      percentage: parseFloat(((addOns.generator / totalCost) * 100).toFixed(1)),
+      percentage: parseFloat(((addOns.generator / subtotal) * 100).toFixed(1)),
     });
   }
   if (addOns.hvac) {
@@ -745,14 +834,14 @@ function calculateStandard(input: EngineInput): EngineResult {
       category: 'HVAC System',
       description: 'Air conditioning + ventilation',
       amount: addOns.hvac,
-      percentage: parseFloat(((addOns.hvac / totalCost) * 100).toFixed(1)),
+      percentage: parseFloat(((addOns.hvac / subtotal) * 100).toFixed(1)),
     });
   }
 
   // ─── Timeline ────────────────────────────────────────────
   const timelineMonths = calculateTimeline(
     input.subType,
-    input.floors,
+    input.constructionType,
     input.quality,
     totalCoveredSqft
   );
@@ -761,10 +850,10 @@ function calculateStandard(input: EngineInput): EngineResult {
   const materialRates = getCityAdjustedMaterialRates(cityMultiplier, input.subType);
 
   // ─── Insights ────────────────────────────────────────────
-  const insights = generateInsights(input, cityMultiplier, totalCost);
+  const insights = generateInsights(input, cityMultiplier, subtotal);
 
   // ─── Engineer note ───────────────────────────────────────
-  const engineerNoteText = meta.requiresEngineerNote || input.floors >= 3
+  const engineerNoteText = requiresEngineerReview(input.floors, meta.requiresEngineerNote)
     ? generateEngineerNote(input.subType, input.floors)
     : undefined;
 
@@ -795,6 +884,11 @@ function calculateStandard(input: EngineInput): EngineResult {
     costMax,
     confidenceLevel,
 
+    // Estimate completeness (fail-safe)
+    estimateComplete: finalization.estimateComplete,
+    incompleteAddOns,
+    estimateWarning: finalization.estimateWarning,
+
     // Breakdown
     breakdown,
     addOns,
@@ -806,7 +900,7 @@ function calculateStandard(input: EngineInput): EngineResult {
     materialRates,
 
     // Engineer
-    requiresEngineerNote: meta.requiresEngineerNote || input.floors >= 3,
+    requiresEngineerNote: requiresEngineerReview(input.floors, meta.requiresEngineerNote),
     engineerNoteText,
 
     // Insights
@@ -827,7 +921,7 @@ function calculateStandard(input: EngineInput): EngineResult {
 
 function calculateMixedUse(input: EngineInput): EngineResult {
   // For mixed-use, we run the standard engine with the mixed-use sub-type
-  // The SUB_TYPE_RATES already contain weighted rates (e.g. shops_plus_apartments
+  // The TYPOLOGY_RATES already contain weighted rates (e.g. shops_plus_apartments
   // already has composite rates baked in). So we just use standard calculation
   // but bump the insights with mixed-use specific advice.
 
@@ -856,7 +950,7 @@ function calculateMixedUse(input: EngineInput): EngineResult {
  * @throws Error if input is invalid (caller should validate first with Zod)
  */
 export function calculateConstruction(input: EngineInput): EngineResult {
-  const meta = SUB_TYPE_METADATA[input.subType];
+  const meta = SUBTYPE_METADATA[input.subType];
 
   // Validate floors are within typology limits
   if (input.floors < meta.minFloors) {
@@ -898,8 +992,8 @@ export function calculateConstruction(input: EngineInput): EngineResult {
 // ═══════════════════════════════════════════════════════════════
 
 export {
-  SUB_TYPE_METADATA,
-  SUB_TYPE_RATES,
+  SUBTYPE_METADATA,
+  TYPOLOGY_RATES,
 } from '@/lib/constructionRates';
 
 // ========== END OF FILE ==========

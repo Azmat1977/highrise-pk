@@ -411,7 +411,7 @@ export function DeveloperProvider({
       });
 
       if (res.status === 401) {
-        void router.replace("/auth/login");
+        void router.replace("/login");
         return;
       }
 
@@ -487,7 +487,7 @@ export function DeveloperProvider({
     if (sessionStatus === "loading") return;
 
     if (sessionStatus === "unauthenticated" || !session) {
-      void router.replace("/auth/login");
+      void router.replace("/login");
       return;
     }
 

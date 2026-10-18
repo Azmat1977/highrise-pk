@@ -113,6 +113,17 @@ const nextConfig = {
   // Deliberately do NOT set eslint.ignoreDuringBuilds=true.
   // Production builds must fail when ESLint finds real errors.
 
+  // Legacy/aliased auth URLs -> the real, supported /login flows (implemented
+  // by the shared in-place LoginOrSignupForm). These paths stay in the
+  // middleware public allowlist so the redirect is reachable.
+  async redirects() {
+    return [
+      { source: '/register', destination: '/login?mode=signup', permanent: false },
+      { source: '/forgot-password', destination: '/login?mode=forgot', permanent: false },
+      { source: '/reset-password', destination: '/login?mode=forgot', permanent: false },
+    ];
+  },
+
   async headers() {
     const csp = buildCsp();
 

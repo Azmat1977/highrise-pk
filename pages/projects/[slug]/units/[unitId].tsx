@@ -1581,11 +1581,11 @@ export default function UnitDetailPage({ unit, project }: PageProps): React.Reac
               <p className="text-white/80 text-sm">Please login to view contact details</p>
             </div>
             <div className="px-6 py-6 space-y-3">
-              <Link href={`/login?redirect=/projects/${project.slug}/units/${unit._id}`}
+              <Link href={`/login?callbackUrl=/projects/${project.slug}/units/${unit._id}`}
                 className="w-full bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white font-bold py-4 rounded-xl flex items-center justify-center gap-2 shadow-lg">
                 Login to Continue <ArrowRight className="w-4 h-4" />
               </Link>
-              <Link href={`/register?redirect=/projects/${project.slug}/units/${unit._id}`}
+              <Link href={`/login?mode=signup&callbackUrl=/projects/${project.slug}/units/${unit._id}`}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl flex items-center justify-center transition-colors">
                 Create Free Account
               </Link>

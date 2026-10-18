@@ -24,11 +24,15 @@ import {
   PROJECT_NATURE_LABELS,
   normalizeProjectCategory,
   normalizeProjectNature,
+  escapeRegExp,
   type CityCount,
   type ProjectCategoryCount,
   type ProjectNatureCount,
   type HotspotArea,
 } from '@/types/projects';
+
+/** Maximum accepted length for a city filter; oversized input is rejected before any I/O. */
+const MAX_CITY_FILTER_LENGTH = 64;
 
 // ─── SAFE REDIS SINGLETON ─────────────────────────────────
 // Redis.fromEnv() can throw if env vars are missing at module
@@ -280,6 +284,9 @@ export async function getHotspotAreas(
   const CACHE_KEY = `projects:hotspots:v1:${cityKey}`;
   const TTL_SECS  = 300;
 
+  // Oversized city input is rejected before any Redis or DB access.
+  if (city && city.trim().length > MAX_CITY_FILTER_LENGTH) return [];
+
   // ── Cache first ──────────────────────────────────────────
   const cached = await safeCacheGet<HotspotArea[]>(CACHE_KEY);
   if (cached && Array.isArray(cached) && cached.length > 0) return cached;
@@ -290,7 +297,7 @@ export async function getHotspotAreas(
   const matchStage: Record<string, unknown> = { ...VERIFIED_BASE };
   if (city) {
     // Case-insensitive exact city match
-    matchStage.city = { $regex: new RegExp(`^${city.trim()}$`, 'i') };
+    matchStage.city = { $regex: new RegExp(`^${escapeRegExp(city.trim())}$`, 'i') };
   }
 
   // ── Aggregation pipeline ─────────────────────────────────

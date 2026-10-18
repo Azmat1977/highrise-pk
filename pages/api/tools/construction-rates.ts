@@ -38,9 +38,9 @@ import {
   type EngineResult,
 } from '@/lib/constructionEngine';
 import {
-  SUB_TYPE_METADATA,
+  SUBTYPE_METADATA,
   ALL_CITIES,
-  ALL_SUB_TYPES,
+  ALL_SUBTYPES,
   type City,
   type PropertySubType,
   type QualityGrade,
@@ -80,7 +80,7 @@ const calculateSchema = z
       message: 'Invalid city. Choose a supported Pakistani city.',
     }),
 
-    subType: z.enum(ALL_SUB_TYPES as [PropertySubType, ...PropertySubType[]], {
+    subType: z.enum(ALL_SUBTYPES as [PropertySubType, ...PropertySubType[]], {
       message: 'Invalid property type.',
     }),
 
@@ -306,7 +306,7 @@ async function checkCityMultiplierOverride(
  * Returns error message if incompatible, null if OK.
  */
 function validateSubTypeCompatibility(input: ValidatedInput): string | null {
-  const meta = SUB_TYPE_METADATA[input.subType];
+  const meta = SUBTYPE_METADATA[input.subType];
 
   // Floor count must be within sub-type range
   if (input.floors < meta.minFloors) {
@@ -467,10 +467,20 @@ export default async function handler(
     res.setHeader('Cache-Control', 'public, s-maxage=3600, stale-while-revalidate=7200');
 
     // ─── Respond ──────────────────────────────────────────────
+    // The API is the authoritative source of estimate completeness. If the
+    // engine found unresolved add-ons, no final total or range may leave here.
+    const estimateComplete =
+      finalResult.estimateComplete && finalResult.incompleteAddOns.length === 0;
+
     res.status(200).json({
       success: true,
       data: {
         ...finalResult,
+        estimateComplete,
+        totalCost: estimateComplete ? finalResult.totalCost : null,
+        costMin: estimateComplete ? finalResult.costMin : null,
+        costMax: estimateComplete ? finalResult.costMax : null,
+        estimateWarning: estimateComplete ? undefined : finalResult.estimateWarning,
         dataSource: overrideContext,
       },
     });

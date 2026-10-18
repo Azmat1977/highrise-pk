@@ -738,7 +738,7 @@ function EditProjectForm({ projectId }: { projectId: string }): React.ReactEleme
     const data = await safeJson(res);
 
     if (res.status === 401 || res.status === 403) {
-      void router.replace('/auth/login');
+      void router.replace('/login');
       throw new Error('Unauthorized');
     }
 

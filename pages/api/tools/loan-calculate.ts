@@ -28,7 +28,7 @@ import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
 import {
   getBankById,
   calculateLoan,
-  compareLoans,
+  compareBanks,
   validateLoanInput,
   getAllActiveBanks,
   ALL_BANK_IDS,
@@ -288,9 +288,10 @@ export default async function handler(
         });
       }
 
-      const resultA = calculateLoan({ bankId: data.bankIdA, ...sharedInput });
-      const resultB = calculateLoan({ bankId: data.bankIdB, ...sharedInput });
-      const comparison = compareLoans(resultA, resultB);
+      const comparison = compareBanks(
+        { bankId: data.bankIdA, ...sharedInput },
+        { bankId: data.bankIdB, ...sharedInput }
+      );
 
       res.setHeader('Cache-Control', 'public, s-maxage=300, stale-while-revalidate=600');
       return void res.status(200).json({

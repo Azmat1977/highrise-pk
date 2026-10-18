@@ -479,7 +479,7 @@ function LeadModal({
               </p>
               <div className="flex flex-col gap-3">
                 <Link
-                  href="/auth/login?redirect=/agents"
+                  href="/login?callbackUrl=/agents"
                   className="w-full py-3 bg-[#029bba] text-white rounded-xl 
                              text-sm font-semibold hover:bg-[#027a94] 
                              transition-colors text-center"
@@ -487,7 +487,7 @@ function LeadModal({
                   Sign In
                 </Link>
                 <Link
-                  href="/auth/register?redirect=/agents"
+                  href="/login?mode=signup&callbackUrl=/agents"
                   className="w-full py-3 border border-[#029bba] text-[#029bba] 
                              rounded-xl text-sm font-semibold 
                              hover:bg-[#029bba]/5 transition-colors text-center"

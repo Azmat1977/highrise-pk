@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/router";
 import { signIn, useSession } from "next-auth/react";
 import LoginOrSignupForm from "@/components/auth/LoginOrSignupForm";
+import { sanitizeCallbackUrl } from "@/lib/auth/safeRedirect";
 import {
   Eye,
   EyeOff,
@@ -19,28 +20,13 @@ import {
 
 // ─── Types ────────────────────────────────────────────────────
 
-type AuthMode = "login" | "signup";
+// "signup" | "forgot" | "reset" are all rendered by the shared
+// LoginOrSignupForm (the same component used by the AuthGateModal).
+type AuthMode = "login" | "signup" | "forgot" | "reset";
 
 interface LoginFormData {
   email: string;
   password: string;
-}
-
-// ─── Helpers ──────────────────────────────────────────────────
-
-/**
- * Sanitize callbackUrl — prevent open redirect.
- * Must start with '/', not '//', no protocol, not a login loop.
- */
-function sanitizeCallbackUrl(raw: unknown): string {
-  const DEFAULT = "/dashboard";
-  if (typeof raw !== "string") return DEFAULT;
-  const trimmed = raw.trim();
-  if (!trimmed.startsWith("/")) return DEFAULT;
-  if (trimmed.startsWith("//")) return DEFAULT;
-  if (trimmed.startsWith("/login")) return DEFAULT;
-  if (trimmed.startsWith("/api/")) return DEFAULT;
-  return trimmed || DEFAULT;
 }
 
 // ─── Component ────────────────────────────────────────────────
@@ -50,7 +36,11 @@ export default function LoginPage(): React.ReactElement {
   const { data: session, status } = useSession();
 
   // Read mode from query param — no role reading (Rule 19)
-  const { mode, callbackUrl, error: queryError } = router.query;
+  // `callbackUrl` is the canonical param; `redirect` is a legacy alias kept
+  // so existing links keep working. Both are validated before use.
+  const { mode, callbackUrl, redirect, error: queryError } = router.query;
+  const requestedRedirect =
+    typeof callbackUrl === "string" && callbackUrl ? callbackUrl : redirect;
 
   const [authMode, setAuthMode] = useState<AuthMode>("login");
   const [formData, setFormData] = useState<LoginFormData>({ email: "", password: "" });
@@ -58,20 +48,23 @@ export default function LoginPage(): React.ReactElement {
   const [isLoading, setIsLoading] = useState(false);
   const [banner, setBanner] = useState<{ type: "error" | "success"; message: string } | null>(null);
 
-  // Determine auth mode from query param
+  // Determine auth mode from query param / hash
   useEffect(() => {
     const m = typeof mode === "string" ? mode.toLowerCase().trim() : "";
     const hash =
       typeof window !== "undefined"
         ? window.location.hash.replace("#", "").toLowerCase()
         : "";
-    setAuthMode(m === "signup" || hash === "signup" ? "signup" : "login");
+    if (m === "signup" || hash === "signup") setAuthMode("signup");
+    else if (m === "forgot" || hash === "forgot") setAuthMode("forgot");
+    else if (m === "reset" || hash === "reset") setAuthMode("reset");
+    else setAuthMode("login");
   }, [mode]);
 
   // Redirect already-authenticated users
   useEffect(() => {
     if (status === "authenticated" && session?.user) {
-      const target = sanitizeCallbackUrl(callbackUrl);
+      const target = sanitizeCallbackUrl(requestedRedirect);
       router.replace(target);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -87,7 +80,7 @@ export default function LoginPage(): React.ReactElement {
     }
   }, [queryError]);
 
-  const targetUrl = sanitizeCallbackUrl(callbackUrl);
+  const targetUrl = sanitizeCallbackUrl(requestedRedirect);
 
   // ── Login form submit (login mode only) ───────────────────
   const handleSubmit = async (e: React.FormEvent) => {
@@ -162,9 +155,9 @@ export default function LoginPage(): React.ReactElement {
         {/* Signup mode: full-width form | Login mode: narrow card */}
         <div className={authMode === "signup" ? "w-full max-w-4xl" : "w-full max-w-md"}>
 
-          {/* ── SIGNUP MODE — delegate fully to LoginOrSignupForm ── */}
-          {authMode === "signup" ? (
-            <LoginOrSignupForm onSuccess={handleAuthSuccess} />
+          {/* ── SIGNUP / FORGOT / RESET — delegate fully to LoginOrSignupForm ── */}
+          {authMode !== "login" ? (
+            <LoginOrSignupForm onSuccess={handleAuthSuccess} defaultMode={authMode} />
           ) : (
 
             /* ── LOGIN MODE ─────────────────────────────────────── */
@@ -280,7 +273,7 @@ export default function LoginPage(): React.ReactElement {
                       <span className="ml-2 text-sm text-gray-600">Remember me</span>
                     </label>
                     <Link
-                      href="/forgot-password"
+                      href="/login?mode=forgot"
                       className="text-sm text-[#029bba] hover:text-[#027a94] transition-colors"
                     >
                       Forgot password?

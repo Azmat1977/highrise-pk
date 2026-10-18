@@ -15,6 +15,7 @@ import Image from "next/image";
 import { useRouter } from "next/router";
 import { signIn } from "next-auth/react";
 import type { ParsedUrlQuery } from "querystring";
+import { sanitizeCallbackUrl } from "@/lib/auth/safeRedirect";
 import {
   Eye, EyeOff, CheckCircle, Lock, Mail, User, Phone,
   Copy, Wand2, ShieldCheck, AlertTriangle, Check, X,
@@ -36,7 +37,7 @@ type Props = {
   onSuccess: () => void;
   isModal?: boolean;
   context?: AuthContext;
-  defaultMode?: "login" | "signup";
+  defaultMode?: "login" | "signup" | "forgot" | "reset";
 };
 
 // ─── Role Cards Definition ────────────────────────────────────
@@ -344,18 +345,14 @@ function getQueryString(query: ParsedUrlQuery, key: string): string {
   return String(Array.isArray(val) ? val[0] : val ?? "").toLowerCase().trim();
 }
 
-function sanitizeCallbackUrl(raw: string): string {
-  const url = String(raw || "").trim();
-  // Default: land on homepage (user chooses their destination from profile menu)
-  if (!url) return "/";
-  if (!url.startsWith("/")) return "/";
-  if (url.startsWith("//")) return "/";
-  if (/^[a-z]+:/i.test(url)) return "/";
-  // Prevent auth pages from being callback destination
-  if (url.startsWith("/login") || url.startsWith("/register") ||
-      url.startsWith("/forgot-password") || url.startsWith("/reset-password") ||
-      url.startsWith("/verify-email")) return "/";
-  return url;
+/** Read a redirect query param without lower-casing its value (paths are case-sensitive). */
+function getRedirectParam(query: ParsedUrlQuery): string {
+  const candidates = [query.callbackUrl, query.redirect];
+  for (const candidate of candidates) {
+    const val = Array.isArray(candidate) ? candidate[0] : candidate;
+    if (typeof val === "string" && val) return val;
+  }
+  return "";
 }
 
 function cx(...classes: Array<string | false | null | undefined>): string {
@@ -503,11 +500,9 @@ const LoginOrSignupForm = ({
   // ─── Helpers ──────────────────────────────────────────────────
 
   const getPostAuthDestination = useCallback((): string => {
-    // Default: land on homepage after login
-    // User navigates to their portal (owner/agent/dashboard) via profile menu
+    // Default: land on homepage (user chooses their destination from profile menu)
     if (!router.isReady) return "/";
-    const raw = getQueryString(router.query, "callbackurl");
-    return sanitizeCallbackUrl(raw);
+    return sanitizeCallbackUrl(getRedirectParam(router.query), "/");
   }, [router.isReady, router.query]);
 
   const clearNotices = useCallback(() => {

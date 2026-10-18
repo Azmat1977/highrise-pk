@@ -1501,7 +1501,9 @@ export const authOptions: AuthOptions = {
   pages: {
     signIn: "/login",
     error: "/login",
-    verifyRequest: "/verify-email", // ✅ Email verification page
+    // No `verifyRequest` page: accounts are verified with in-app OTP codes
+    // (send-signup-code / verify-signup-code). There is no email magic-link
+    // provider, so NextAuth's verify-request page is unused.
   },
 
   debug: process.env.NODE_ENV === "development",

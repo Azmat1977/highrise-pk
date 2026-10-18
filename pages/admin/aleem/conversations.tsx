@@ -120,7 +120,7 @@ export default function AleemConversationsPage(): React.ReactElement {
   // Auth guard
   useEffect(() => {
     if (status === 'unauthenticated') {
-      router.push('/auth/login?callbackUrl=/admin/aleem/conversations');
+      router.push('/login?callbackUrl=/admin/aleem/conversations');
     }
   }, [status, router]);
 

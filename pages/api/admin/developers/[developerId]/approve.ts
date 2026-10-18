@@ -175,7 +175,7 @@ function buildApprovalEmail(developer: {
 
               <!-- CTAs -->
               <div style="text-align:center;margin:0 0 28px;">
-                <a href="${siteUrl}/auth/login"
+                <a href="${siteUrl}/login"
                    style="display:inline-block;background:#029bba;color:#ffffff;
                           padding:14px 28px;text-decoration:none;border-radius:8px;
                           font-weight:600;font-size:16px;margin-right:12px;">

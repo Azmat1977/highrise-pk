@@ -104,13 +104,11 @@ const PUBLIC_EXACT_PATHS = new Set<string>([
   "/register",
   "/forgot-password",
   "/reset-password",
-  "/verify-email",
   "/auth/error",
   "/auth/verify-request",
 
   // Public listings roots
   "/properties",
-  "/search",
   "/projects",
   "/societies",
   "/developers",
@@ -132,13 +130,6 @@ const PUBLIC_EXACT_PATHS = new Set<string>([
   "/newsletter/error",
   "/newsletter/verified",
   "/unsubscribed",
-  "/faq",
-  "/help",
-  "/careers",
-  "/news",
-  "/press",
-  "/advertise",
-  "/partner",
 ]);
 
 /**

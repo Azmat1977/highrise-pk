@@ -1,13 +1,15 @@
-/**
+﻿/**
  * lib/loanRates.ts
  *
  * Pakistani Home Loan / Mortgage Rate Database
  *
- * Sources (approximate — admin can override via future DB integration):
- *   - State Bank of Pakistan (SBP) policy rate
- *   - Individual bank advertised rates (2024-25)
+ * Sources (2026 — admin can override via future DB integration):
+ *   - State Bank of Pakistan (SBP) policy rate: 16.5%
+ *   - 6M KIBOR: 16.25%
+ *   - Individual bank advertised rates (2026)
  *   - Meezan Bank Diminishing Musharakah rates
- *   - HBL, MCB, UBL, ABL, Bank Alfalah conventional rates
+ *   - HBL, MCB, UBL, ABL, Bank Alfalah, NBP, Askari conventional rates
+ *   - Wazir-e-Azam Apna Ghar Program (Govt subsidized)
  *
  * Supports:
  *   - Conventional (interest-based) financing
@@ -15,7 +17,7 @@
  *   - Variable rate (KIBOR + spread)
  *   - Fixed rate periods
  *
- * V5.7.0 — Phase B: Home Loan Calculator
+ * V5.8.0 — 2026 Rate Update
  */
 
 // ═══════════════════════════════════════════════════════════════
@@ -43,6 +45,7 @@ export interface BankRate {
   // Rate details
   annualRatePercent: number;  // Effective annual rate
   kibor6Month?: number;       // Current KIBOR 6M (for variable display)
+  kibor12Month?: number;      // Current KIBOR 12M (for 1Y KIBOR products)
   spreadPercent?: number;     // Bank spread over KIBOR
 
   // Loan parameters
@@ -69,7 +72,7 @@ export interface BankRate {
   minPropertyAgeDays: number;   // Min age of property title
 
   // Display
-  badge?: string;               // "Most Popular" | "Lowest Rate" | "Best Islamic"
+  badge?: string;               // "Most Popular" | "Lowest Rate" | "Best Islamic" | "Govt Subsidized"
   isActive: boolean;
   lastUpdated: string;          // ISO date — shown to user for transparency
   disclaimer: string;
@@ -163,14 +166,15 @@ export interface ComparisonResult {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// SBP POLICY RATE (Updated periodically)
+// SBP POLICY RATE & KIBOR (Updated Jan 2026)
 // ═══════════════════════════════════════════════════════════════
 
-export const SBP_POLICY_RATE = 13.0;    // % as of early 2025
-export const KIBOR_6M = 12.75;          // 6-month KIBOR
+export const SBP_POLICY_RATE = 16.5;    // % as of Jan 2026
+export const KIBOR_6M = 16.25;          // 6-month KIBOR
+export const KIBOR_12M = 16.5;          // 12-month KIBOR
 
 // ═══════════════════════════════════════════════════════════════
-// BANK DATABASE
+// BANK DATABASE — 2026 Rates
 // ═══════════════════════════════════════════════════════════════
 
 export const BANKS: BankRate[] = [
@@ -183,9 +187,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'MB',
     financingType: 'islamic',
     rateType: 'variable',
-    annualRatePercent: 20.5,
+    annualRatePercent: 22.5,           // KIBOR 12M (16.5%) + 6% spread ≈ 22.5%
     kibor6Month: KIBOR_6M,
-    spreadPercent: 7.75,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.0,
     minLoanPKR: 500_000,
     maxLoanPKR: 100_000_000,
     minTenureYears: 3,
@@ -203,8 +208,8 @@ export const BANKS: BankRate[] = [
     minPropertyAgeDays: 0,
     badge: 'Best Islamic',
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Diminishing Musharakah — Shariah compliant. Rate linked to 6M KIBOR.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Diminishing Musharakah — Shariah compliant. Rate linked to 12M KIBOR + 3.0% (salaried) / +4.0% (self-employed). Floor 8%, Cap 30%.',
   },
 
   {
@@ -214,9 +219,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'HI',
     financingType: 'islamic',
     rateType: 'variable',
-    annualRatePercent: 21.0,
+    annualRatePercent: 22.7,           // KIBOR 12M (16.5%) + 6.2% spread
     kibor6Month: KIBOR_6M,
-    spreadPercent: 8.25,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.2,
     minLoanPKR: 500_000,
     maxLoanPKR: 75_000_000,
     minTenureYears: 3,
@@ -233,8 +239,8 @@ export const BANKS: BankRate[] = [
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Islamic financing under Diminishing Musharakah. Subject to SBP guidelines.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Islamic financing under Diminishing Musharakah. Salaried: 1Y KIBOR + 3.2% (new), +3.0% (existing). Self-employed: +4.2% (new), +4.0% (existing). Subject to SBP guidelines.',
   },
 
   {
@@ -244,9 +250,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'MI',
     financingType: 'islamic',
     rateType: 'variable',
-    annualRatePercent: 21.5,
+    annualRatePercent: 23.0,           // KIBOR 12M + 6.5%
     kibor6Month: KIBOR_6M,
-    spreadPercent: 8.75,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.5,
     minLoanPKR: 500_000,
     maxLoanPKR: 50_000_000,
     minTenureYears: 3,
@@ -263,8 +270,8 @@ export const BANKS: BankRate[] = [
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Shariah compliant home financing. Rate subject to periodic revision.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Shariah compliant home financing. Rate subject to periodic revision. Spread varies by equity % (2.5-3.5% over 1Y KIBOR for conventional equivalent).',
   },
 
   {
@@ -274,9 +281,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'BI',
     financingType: 'islamic',
     rateType: 'variable',
-    annualRatePercent: 21.25,
+    annualRatePercent: 22.75,          // KIBOR 12M + 6.25%
     kibor6Month: KIBOR_6M,
-    spreadPercent: 8.50,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.25,
     minLoanPKR: 300_000,
     maxLoanPKR: 50_000_000,
     minTenureYears: 2,
@@ -293,8 +301,8 @@ export const BANKS: BankRate[] = [
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Diminishing Musharakah home finance. Fully Shariah-compliant.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Diminishing Musharakah home finance. Fully Shariah-compliant. Rate linked to 12M KIBOR + spread.',
   },
 
   // ── CONVENTIONAL BANKS ─────────────────────────────────────
@@ -306,9 +314,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'HB',
     financingType: 'conventional',
     rateType: 'variable',
-    annualRatePercent: 20.75,
+    annualRatePercent: 23.0,           // 1Y KIBOR (16.5%) + 6.5%
     kibor6Month: KIBOR_6M,
-    spreadPercent: 8.0,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.5,
     minLoanPKR: 500_000,
     maxLoanPKR: 100_000_000,
     minTenureYears: 3,
@@ -316,36 +325,69 @@ export const BANKS: BankRate[] = [
     minPropertyValuePKR: 1_000_000,
     maxLtvPercent: 85,
     processingFeePercent: 0.5,
-    processingFeeMin: 15_000,
-    processingFeeMax: 250_000,
-    insuranceRatePercent: 0.40,
+    processingFeeMin: 10_000,
+    processingFeeMax: 200_000,
+    insuranceRatePercent: 0.35,
     purposes: ['purchase', 'construction', 'renovation', 'balance_transfer'],
     hasEarlyPaymentPenalty: true,
     earlyPaymentPenaltyPercent: 2.0,
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
-    badge: 'Most Popular',
+    badge: 'Highest Limit',
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Conventional mortgage. Interest-based financing. Rate linked to 6M KIBOR.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Rate: 1-Year KIBOR + 3.50%. Variable rate revised annually. Subject to credit assessment and SBP prudential regulations.',
   },
 
   {
     bankId: 'mcb',
-    bankName: 'MCB Bank Limited',
+    bankName: 'MCB Bank',
     bankShortName: 'MCB',
     logoPlaceholder: 'MC',
     financingType: 'conventional',
     rateType: 'variable',
-    annualRatePercent: 20.5,
+    annualRatePercent: 21.5,           // 6M KIBOR (16.25%) + 5.25% (best tier with ≥50% equity)
     kibor6Month: KIBOR_6M,
-    spreadPercent: 7.75,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 5.25,
     minLoanPKR: 500_000,
-    maxLoanPKR: 75_000_000,
+    maxLoanPKR: 100_000_000,
+    minTenureYears: 3,
+    maxTenureYears: 25,
+    minPropertyValuePKR: 1_000_000,
+    maxLtvPercent: 85,
+    processingFeePercent: 0.4,
+    processingFeeMin: 8_000,
+    processingFeeMax: 150_000,
+    insuranceRatePercent: 0.35,
+    purposes: ['purchase', 'construction', 'renovation', 'balance_transfer'],
+    hasEarlyPaymentPenalty: true,
+    earlyPaymentPenaltyPercent: 1.5,
+    gracePeriodMonths: 0,
+    minPropertyAgeDays: 0,
+    badge: 'Lowest Spread',
+    isActive: true,
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Rate: 6M KIBOR + 2.00% to 3.00% (salaried, depends on equity ≥50%). Self-employed: 6M KIBOR + 2.50% to 3.50%. Subject to credit assessment.',
+  },
+
+  {
+    bankId: 'ubl',
+    bankName: 'United Bank Limited',
+    bankShortName: 'UBL',
+    logoPlaceholder: 'UB',
+    financingType: 'conventional',
+    rateType: 'variable',
+    annualRatePercent: 23.5,           // 1Y KIBOR + 7.0%
+    kibor6Month: KIBOR_6M,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 7.0,
+    minLoanPKR: 500_000,
+    maxLoanPKR: 100_000_000,
     minTenureYears: 3,
     maxTenureYears: 20,
-    minPropertyValuePKR: 1_200_000,
-    maxLtvPercent: 80,
+    minPropertyValuePKR: 1_000_000,
+    maxLtvPercent: 85,
     processingFeePercent: 0.5,
     processingFeeMin: 10_000,
     processingFeeMax: 200_000,
@@ -356,38 +398,8 @@ export const BANKS: BankRate[] = [
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Variable rate mortgage linked to 6M KIBOR. Rate revised bi-annually.',
-  },
-
-  {
-    bankId: 'ubl',
-    bankName: 'United Bank Limited',
-    bankShortName: 'UBL',
-    logoPlaceholder: 'UB',
-    financingType: 'conventional',
-    rateType: 'variable',
-    annualRatePercent: 21.0,
-    kibor6Month: KIBOR_6M,
-    spreadPercent: 8.25,
-    minLoanPKR: 500_000,
-    maxLoanPKR: 50_000_000,
-    minTenureYears: 3,
-    maxTenureYears: 20,
-    minPropertyValuePKR: 1_000_000,
-    maxLtvPercent: 80,
-    processingFeePercent: 0.5,
-    processingFeeMin: 12_000,
-    processingFeeMax: 150_000,
-    insuranceRatePercent: 0.40,
-    purposes: ['purchase', 'construction', 'renovation'],
-    hasEarlyPaymentPenalty: true,
-    earlyPaymentPenaltyPercent: 2.5,
-    gracePeriodMonths: 0,
-    minPropertyAgeDays: 0,
-    isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Home mortgage subject to credit approval. Rate linked to KIBOR.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Rate: 1-Year KIBOR + 3.50%. Loans up to PKR 100M. Annual rate revision. Subject to approval.',
   },
 
   {
@@ -397,28 +409,28 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'AB',
     financingType: 'conventional',
     rateType: 'variable',
-    annualRatePercent: 20.25,
+    annualRatePercent: 22.0,           // 1Y KIBOR + 5.5% (mid-range)
     kibor6Month: KIBOR_6M,
-    spreadPercent: 7.50,
-    minLoanPKR: 300_000,
-    maxLoanPKR: 50_000_000,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 5.5,
+    minLoanPKR: 1_500_000,
+    maxLoanPKR: 75_000_000,
     minTenureYears: 3,
-    maxTenureYears: 20,
-    minPropertyValuePKR: 800_000,
+    maxTenureYears: 25,
+    minPropertyValuePKR: 1_500_000,
     maxLtvPercent: 80,
-    processingFeePercent: 0.4,
-    processingFeeMin: 8_000,
-    processingFeeMax: 120_000,
+    processingFeePercent: 0.5,
+    processingFeeMin: 7_500,
+    processingFeeMax: 125_000,
     insuranceRatePercent: 0.35,
     purposes: ['purchase', 'construction', 'renovation', 'balance_transfer'],
     hasEarlyPaymentPenalty: true,
     earlyPaymentPenaltyPercent: 1.5,
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
-    badge: 'Lowest Rate',
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Subject to credit assessment and SBP prudential regulations.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Rate: 1-Year KIBOR + 1.75% to 5.00% (varies by profile). Financed amounts PKR 1.5M–75M. Up to 25-year tenure.',
   },
 
   {
@@ -428,9 +440,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'BA',
     financingType: 'conventional',
     rateType: 'variable',
-    annualRatePercent: 20.75,
+    annualRatePercent: 22.75,          // 1Y KIBOR + 6.25%
     kibor6Month: KIBOR_6M,
-    spreadPercent: 8.0,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.25,
     minLoanPKR: 500_000,
     maxLoanPKR: 75_000_000,
     minTenureYears: 3,
@@ -447,8 +460,8 @@ export const BANKS: BankRate[] = [
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Home finance subject to approval. Variable rate revised every 6 months.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Rate: 1-Year KIBOR + 3.00% (salaried), +4.00% (self-employed/NRP). Home finance subject to approval. Variable rate revised annually.',
   },
 
   {
@@ -458,9 +471,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'NB',
     financingType: 'conventional',
     rateType: 'variable',
-    annualRatePercent: 20.0,
+    annualRatePercent: 22.0,           // 1Y KIBOR + 5.5%
     kibor6Month: KIBOR_6M,
-    spreadPercent: 7.25,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 5.5,
     minLoanPKR: 300_000,
     maxLoanPKR: 100_000_000,
     minTenureYears: 3,
@@ -476,9 +490,10 @@ export const BANKS: BankRate[] = [
     earlyPaymentPenaltyPercent: 0,
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
+    badge: 'Govt Bank / No Penalty',
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Government bank. Subject to SBP housing finance prudential regulations.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Government bank. Rate: 1-Year KIBOR + 3.00%. Subject to SBP housing finance prudential regulations.',
   },
 
   {
@@ -488,9 +503,10 @@ export const BANKS: BankRate[] = [
     logoPlaceholder: 'AK',
     financingType: 'conventional',
     rateType: 'variable',
-    annualRatePercent: 21.25,
+    annualRatePercent: 23.0,           // 1Y KIBOR + 6.5%
     kibor6Month: KIBOR_6M,
-    spreadPercent: 8.5,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.5,
     minLoanPKR: 500_000,
     maxLoanPKR: 50_000_000,
     minTenureYears: 3,
@@ -507,8 +523,74 @@ export const BANKS: BankRate[] = [
     gracePeriodMonths: 0,
     minPropertyAgeDays: 0,
     isActive: true,
-    lastUpdated: '2025-01-01',
-    disclaimer: 'Askari Home Finance. Subject to credit assessment and approval.',
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Askari Home Finance. Subject to credit assessment and approval. Rate: 1-Year KIBOR + spread.',
+  },
+
+  {
+    bankId: 'bank_al_habib',
+    bankName: 'Bank AL Habib',
+    bankShortName: 'AL Habib',
+    logoPlaceholder: 'AH',
+    financingType: 'conventional',
+    rateType: 'variable',
+    annualRatePercent: 22.5,           // 1Y KIBOR + 6.0% (fixed spread)
+    kibor6Month: KIBOR_6M,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 6.0,
+    minLoanPKR: 500_000,
+    maxLoanPKR: 75_000_000,
+    minTenureYears: 1,
+    maxTenureYears: 25,
+    minPropertyValuePKR: 1_000_000,
+    maxLtvPercent: 85,
+    processingFeePercent: 0.5,
+    processingFeeMin: 10_000,
+    processingFeeMax: 150_000,
+    insuranceRatePercent: 0.35,
+    purposes: ['purchase', 'construction', 'renovation', 'balance_transfer'],
+    hasEarlyPaymentPenalty: true,
+    earlyPaymentPenaltyPercent: 1.5,
+    gracePeriodMonths: 0,
+    minPropertyAgeDays: 0,
+    badge: 'Fixed Spread',
+    isActive: true,
+    lastUpdated: '2026-01-15',
+    disclaimer: 'Rate: 1-Year KIBOR + Fixed Spread (remains fixed through full tenure 1-25 years). Subject to credit approval.',
+  },
+
+  // ── GOVERNMENT SUBSIDIZED PROGRAM ──────────────────────────
+
+  {
+    bankId: 'wazir_e_azam_apna_ghar',
+    bankName: 'Wazir-e-Azam Apna Ghar Program',
+    bankShortName: 'Apna Ghar',
+    logoPlaceholder: 'AG',
+    financingType: 'conventional',  // Available at both conventional & Islamic banks
+    rateType: 'fixed',
+    annualRatePercent: 5.0,            // Years 1-10 fixed at 5%
+    kibor6Month: KIBOR_6M,
+    kibor12Month: KIBOR_12M,
+    spreadPercent: 0,
+    minLoanPKR: 1_000_000,
+    maxLoanPKR: 10_000_000,            // Up to 10M for 10 marla / 1500 sqft
+    minTenureYears: 10,
+    maxTenureYears: 20,
+    minPropertyValuePKR: 1_500_000,
+    maxLtvPercent: 90,
+    processingFeePercent: 0,
+    processingFeeMin: 0,
+    processingFeeMax: 0,
+    insuranceRatePercent: 0,
+    purposes: ['purchase', 'construction'],
+    hasEarlyPaymentPenalty: false,
+    earlyPaymentPenaltyPercent: 0,
+    gracePeriodMonths: 0,
+    minPropertyAgeDays: 0,
+    badge: 'Govt Subsidized',
+    isActive: true,
+    lastUpdated: '2026-01-15',
+    disclaimer: 'First-time homeowners only. Property ≤10 marla (house) or ≤1500 sq ft (apartment). Years 1-10: 5% fixed. Years 11-20: reverts to bank\'s commercial rate capped at 1Y KIBOR + 3%. Zero processing fee & no prepayment penalty. Offered via NBP, HBL, BOP, Askari, other partner banks.',
   },
 ];
 
@@ -526,6 +608,14 @@ export function getBanksByType(type: FinancingType): BankRate[] {
 
 export function getAllActiveBanks(): BankRate[] {
   return BANKS.filter((b) => b.isActive);
+}
+
+export function getCommercialBanks(): BankRate[] {
+  return BANKS.filter((b) => b.bankId !== 'wazir_e_azam_apna_ghar' && b.isActive);
+}
+
+export function getSubsidizedProgram(): BankRate | undefined {
+  return BANKS.find((b) => b.bankId === 'wazir_e_azam_apna_ghar' && b.isActive);
 }
 
 export const ALL_BANK_IDS = BANKS.map((b) => b.bankId) as [string, ...string[]];
@@ -549,223 +639,216 @@ export function calculateEMI(
   annualRatePercent: number,
   tenureMonths: number
 ): number {
-  if (annualRatePercent === 0) return principal / tenureMonths;
-  const r = annualRatePercent / 12 / 100;
-  const n = tenureMonths;
-  const emi = (principal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-  return Math.round(emi);
+  if (principal <= 0 || tenureMonths <= 0) return 0;
+  if (annualRatePercent <= 0) return principal / tenureMonths;
+
+  const monthlyRate = annualRatePercent / 12 / 100;
+  const factor = Math.pow(1 + monthlyRate, tenureMonths);
+  return principal * (monthlyRate * factor) / (factor - 1);
 }
 
 /**
  * Generate full amortization schedule.
- * Returns month-by-month breakdown.
+ * Returns monthly breakdown for all months (capped at 360 for performance).
  */
-export function generateAmortization(
+export function generateAmortizationSchedule(
   principal: number,
   annualRatePercent: number,
   tenureMonths: number
 ): MonthlyBreakdown[] {
-  const schedule: MonthlyBreakdown[] = [];
-  const monthlyEMI = calculateEMI(principal, annualRatePercent, tenureMonths);
+  const monthlyPayment = calculateEMI(principal, annualRatePercent, tenureMonths);
   const monthlyRate = annualRatePercent / 12 / 100;
+  const schedule: MonthlyBreakdown[] = [];
 
   let balance = principal;
   let cumulativePaid = 0;
   let cumulativePrincipal = 0;
   let cumulativeProfit = 0;
 
-  for (let month = 1; month <= tenureMonths; month++) {
-    const profitComponent = Math.round(balance * monthlyRate);
-    // Last month: pay exact remaining balance to avoid rounding drift
-    const principalComponent =
-      month === tenureMonths
-        ? Math.round(balance)
-        : Math.min(Math.round(monthlyEMI - profitComponent), Math.round(balance));
+  const maxMonths = Math.min(tenureMonths, 360);
 
-    const payment =
-      month === tenureMonths
-        ? principalComponent + profitComponent
-        : monthlyEMI;
-
-    balance = Math.max(0, Math.round(balance - principalComponent));
-    cumulativePaid += payment;
+  for (let month = 1; month <= maxMonths; month++) {
+    const profitComponent = balance * monthlyRate;
+    const principalComponent = monthlyPayment - profitComponent;
+    balance -= principalComponent;
+    cumulativePaid += monthlyPayment;
     cumulativePrincipal += principalComponent;
     cumulativeProfit += profitComponent;
 
     schedule.push({
       month,
       year: Math.ceil(month / 12),
-      payment,
-      principalComponent,
-      profitComponent,
-      balance,
+      payment: monthlyPayment,
+      principalComponent: Math.max(0, principalComponent),
+      profitComponent: Math.max(0, profitComponent),
+      balance: Math.max(0, balance),
       cumulativePaid,
       cumulativePrincipal,
       cumulativeProfit,
     });
+
+    if (balance <= 0.01) break;
   }
 
   return schedule;
 }
 
 /**
- * Aggregate monthly schedule into yearly summaries.
+ * Generate yearly summary from monthly schedule.
  */
-export function generateYearlySummary(
-  schedule: MonthlyBreakdown[]
-): YearlySummary[] {
-  const yearMap = new Map<number, YearlySummary>();
+export function generateYearlySummary(schedule: MonthlyBreakdown[]): YearlySummary[] {
+  const yearlyMap = new Map<number, YearlySummary>();
 
-  for (const row of schedule) {
-    const existing = yearMap.get(row.year);
-    if (existing) {
-      existing.totalPayment    += row.payment;
-      existing.principalPaid   += row.principalComponent;
-      existing.profitPaid      += row.profitComponent;
-      existing.closingBalance   = row.balance;
-    } else {
-      yearMap.set(row.year, {
-        year:           row.year,
-        totalPayment:   row.payment,
-        principalPaid:  row.principalComponent,
-        profitPaid:     row.profitComponent,
-        closingBalance: row.balance,
-      });
-    }
+  for (const m of schedule) {
+    const existing = yearlyMap.get(m.year) || {
+      year: m.year,
+      totalPayment: 0,
+      principalPaid: 0,
+      profitPaid: 0,
+      closingBalance: m.balance,
+    };
+    existing.totalPayment += m.payment;
+    existing.principalPaid += m.principalComponent;
+    existing.profitPaid += m.profitComponent;
+    existing.closingBalance = m.balance;
+    yearlyMap.set(m.year, existing);
   }
 
-  return Array.from(yearMap.values());
+  return Array.from(yearlyMap.values()).sort((a, b) => a.year - b.year);
+}
+
+/**
+ * Calculate processing fee with min/max bounds.
+ */
+export function calculateProcessingFee(
+  loanAmount: number,
+  feePercent: number,
+  feeMin: number,
+  feeMax: number
+): number {
+  const rawFee = loanAmount * (feePercent / 100);
+  const bounded = Math.max(feeMin, Math.min(rawFee, feeMax || Infinity));
+  return Math.round(bounded);
+}
+
+/**
+ * Calculate annual insurance premium.
+ */
+export function calculateInsurance(propertyValue: number, insuranceRatePercent: number): number {
+  return Math.round(propertyValue * (insuranceRatePercent / 100));
 }
 
 /**
  * Main loan calculation function.
- * Returns complete result including amortization.
  */
-export function calculateLoan(
-  input: LoanCalculationInput
-): LoanCalculationResult {
+export function calculateLoan(input: LoanCalculationInput): LoanCalculationResult {
   const bank = getBankById(input.bankId);
-  if (!bank) throw new Error(`Bank not found: ${input.bankId}`);
-
-  // ── Derived amounts ──────────────────────────────────────────
-  const downPaymentPKR = Math.round(
-    input.propertyValuePKR * (input.downPaymentPercent / 100)
-  );
-  const loanAmountPKR = input.propertyValuePKR - downPaymentPKR;
-  const tenureMonths  = input.tenureYears * 12;
-  const ltvPercent    = Math.round((loanAmountPKR / input.propertyValuePKR) * 100);
-
-  // ── EMI calculation ──────────────────────────────────────────
-  const monthlyPayment = calculateEMI(
-    loanAmountPKR,
-    bank.annualRatePercent,
-    tenureMonths
-  );
-
-  // ── Insurance ────────────────────────────────────────────────
-  const insuranceAnnual = input.includeInsurance
-    ? Math.round(loanAmountPKR * (bank.insuranceRatePercent / 100))
-    : 0;
-  const monthlyInsurance = Math.round(insuranceAnnual / 12);
-  const monthlyTotal     = monthlyPayment + monthlyInsurance;
-
-  // ── Processing fee ───────────────────────────────────────────
-  let processingFee = 0;
-  if (input.includeProcessingFee) {
-    const calculated = Math.round(
-      loanAmountPKR * (bank.processingFeePercent / 100)
-    );
-    processingFee = Math.max(bank.processingFeeMin, calculated);
-    if (bank.processingFeeMax > 0) {
-      processingFee = Math.min(processingFee, bank.processingFeeMax);
-    }
+  if (!bank) {
+    throw new Error(`Bank not found or inactive: ${input.bankId}`);
   }
 
-  // ── Total cost ───────────────────────────────────────────────
-  const totalPayment     = monthlyPayment * tenureMonths;
-  const totalPrincipal   = loanAmountPKR;
-  const totalProfit      = totalPayment - totalPrincipal;
-  const totalCostPercent = Math.round((totalProfit / loanAmountPKR) * 100 * 10) / 10;
+  // Validate input
+  const errors = validateLoanInput(input, bank);
+  if (errors.length > 0) {
+    throw new Error(errors.join('; '));
+  }
 
-  // ── Upfront cost ─────────────────────────────────────────────
-  const totalUpfrontCost = downPaymentPKR + processingFee + insuranceAnnual;
+  const downPaymentPKR = Math.round(input.propertyValuePKR * (input.downPaymentPercent / 100));
+  const loanAmountPKR = input.propertyValuePKR - downPaymentPKR;
+  const tenureMonths = input.tenureYears * 12;
 
-  // ── Affordability ────────────────────────────────────────────
-  // Standard Pakistani banking: EMI should not exceed 40% of income
-  const recommendedMonthlyIncome = Math.round(monthlyTotal / 0.40);
+  // Monthly payment
+  const monthlyPayment = calculateEMI(loanAmountPKR, bank.annualRatePercent, tenureMonths);
 
-  // ── Effective cost (including fees) ─────────────────────────
-  const effectiveTotalCost =
-    totalPayment + processingFee + insuranceAnnual * input.tenureYears;
-  const effectiveCostPercent =
-    Math.round(((effectiveTotalCost - loanAmountPKR) / loanAmountPKR) * 100 * 10) / 10;
+  // Insurance
+  const insuranceAnnual = input.includeInsurance
+    ? calculateInsurance(input.propertyValuePKR, bank.insuranceRatePercent)
+    : 0;
+  const monthlyInsurance = insuranceAnnual / 12;
+  const monthlyTotal = monthlyPayment + monthlyInsurance;
 
-  // ── Amortization ─────────────────────────────────────────────
-  const fullSchedule    = generateAmortization(
+  // Processing fee
+  const processingFee = input.includeProcessingFee
+    ? calculateProcessingFee(
+        loanAmountPKR,
+        bank.processingFeePercent,
+        bank.processingFeeMin,
+        bank.processingFeeMax
+      )
+    : 0;
+
+  // Amortization
+  const amortizationSchedule = generateAmortizationSchedule(
     loanAmountPKR,
     bank.annualRatePercent,
     tenureMonths
   );
-  const yearlyAmortization = generateYearlySummary(fullSchedule);
+  const yearlyAmortization = generateYearlySummary(amortizationSchedule);
+
+  // Totals
+  const totalPayment = monthlyTotal * tenureMonths;
+  const totalProfit = totalPayment - loanAmountPKR;
+  const totalCostOfFinancing = (totalProfit / loanAmountPKR) * 100;
+  const totalUpfrontCost = downPaymentPKR + processingFee + insuranceAnnual;
+
+  // Affordability
+  const recommendedMonthlyIncome = monthlyTotal / 0.4; // 40% debt-to-income rule
+  const ltvPercent = (loanAmountPKR / input.propertyValuePKR) * 100;
+  const isLtvCompliant = ltvPercent <= bank.maxLtvPercent;
+
+  // Effective cost including fees
+  const effectiveCostPercent = ((totalProfit + processingFee + insuranceAnnual * input.tenureYears) / loanAmountPKR) * 100;
 
   return {
-    bankId:              bank.bankId,
-    bankName:            bank.bankName,
-    financingType:       bank.financingType,
-    propertyValuePKR:    input.propertyValuePKR,
+    bankId: bank.bankId,
+    bankName: bank.bankName,
+    financingType: bank.financingType,
+    propertyValuePKR: input.propertyValuePKR,
     loanAmountPKR,
     downPaymentPKR,
-    downPaymentPercent:  input.downPaymentPercent,
-    annualRatePercent:   bank.annualRatePercent,
-    tenureYears:         input.tenureYears,
+    downPaymentPercent: input.downPaymentPercent,
+    annualRatePercent: bank.annualRatePercent,
+    tenureYears: input.tenureYears,
     tenureMonths,
-    purpose:             input.purpose,
+    purpose: input.purpose,
     monthlyPayment,
     monthlyInsurance,
     monthlyTotal,
     totalPayment,
-    totalPrincipal,
+    totalPrincipal: loanAmountPKR,
     totalProfit,
-    totalCostOfFinancing: totalCostPercent,
+    totalCostOfFinancing,
     processingFee,
     insuranceAnnual,
     totalUpfrontCost,
     recommendedMonthlyIncome,
     ltvPercent,
-    isLtvCompliant: ltvPercent <= bank.maxLtvPercent,
-    amortizationSchedule: fullSchedule,
+    isLtvCompliant,
+    amortizationSchedule,
     yearlyAmortization,
     effectiveCostPercent,
   };
 }
 
 /**
- * Compare two loan calculations side by side.
+ * Compare two banks side by side.
  */
-export function compareLoans(
-  resultA: LoanCalculationResult,
-  resultB: LoanCalculationResult
+export function compareBanks(
+  inputA: LoanCalculationInput,
+  inputB: LoanCalculationInput
 ): ComparisonResult {
-  const lowestMonthly = resultA.monthlyTotal <= resultB.monthlyTotal
-    ? resultA.bankId
-    : resultB.bankId;
+  const resultA = calculateLoan(inputA);
+  const resultB = calculateLoan(inputB);
 
-  const lowestTotalCost = resultA.totalPayment <= resultB.totalPayment
-    ? resultA.bankId
-    : resultB.bankId;
-
-  const lowestProcessingFee = resultA.processingFee <= resultB.processingFee
-    ? resultA.bankId
-    : resultB.bankId;
+  const lowestMonthly = resultA.monthlyTotal <= resultB.monthlyTotal ? resultA.bankId : resultB.bankId;
+  const lowestTotalCost = resultA.totalPayment <= resultB.totalPayment ? resultA.bankId : resultB.bankId;
+  const lowestProcessingFee = resultA.processingFee <= resultB.processingFee ? resultA.bankId : resultB.bankId;
 
   const monthlySaving = Math.abs(resultA.monthlyTotal - resultB.monthlyTotal);
-  const totalSaving   = Math.abs(resultA.totalPayment - resultB.totalPayment);
+  const totalSaving = Math.abs(resultA.totalPayment - resultB.totalPayment);
 
-  // Human-readable recommendation
-  const winnerName =
-    lowestTotalCost === resultA.bankId ? resultA.bankName : resultB.bankName;
-  const loserName =
-    lowestTotalCost === resultA.bankId ? resultB.bankName : resultA.bankName;
+  const winnerName = lowestTotalCost === resultA.bankId ? resultA.bankName : resultB.bankName;
+  const loserName = lowestTotalCost === resultA.bankId ? resultB.bankName : resultA.bankName;
 
   const recommendation =
     `${winnerName} saves you PKR ${formatPKRCompact(totalSaving)} in total ` +
@@ -787,7 +870,7 @@ export function compareLoans(
 }
 
 // ═══════════════════════════════════════════════════════════════
-// FORMATTING HELPERS (shared between API and UI)
+// FORMATTING HELPERS
 // ═══════════════════════════════════════════════════════════════
 
 export function formatPKR(amount: number): string {

@@ -36,7 +36,7 @@ function AccordionSection({
   onToggle: () => void;
 }): React.ReactElement {
   return (
-    <div className="border border-gray-200 rounded-xl overflow-hidden mb-4">
+    <div id={section.id} className="border border-gray-200 rounded-xl overflow-hidden mb-4">
       <button
         onClick={onToggle}
         className="w-full flex items-center justify-between p-5 bg-white hover:bg-gray-50 transition-colors text-left"

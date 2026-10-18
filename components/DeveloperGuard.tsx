@@ -10,7 +10,7 @@
 // ✅ No as any — session typed via next-auth.d.ts
 // ✅ No inline style={} — Tailwind only
 // ✅ noindex on all guard UI states
-// ✅ Correct redirect paths (/auth/login, /onboarding/business)
+// ✅ Correct redirect paths (/login, /onboarding/business)
 // ✅ TypeScript strict — no any
 // ═══════════════════════════════════════════════════════════════
 
@@ -84,13 +84,13 @@ function NotLoggedInScreen() {
 
           <div className="space-y-3">
             <Link
-              href={`/auth/login?redirect=${returnUrl}`}
+              href={`/login?callbackUrl=${returnUrl}`}
               className="block w-full py-3 px-6 rounded-xl bg-[#029bba] hover:bg-[#027a94] text-white font-semibold text-center transition-colors"
             >
               Log In
             </Link>
             <Link
-              href="/auth/login"
+              href="/login?mode=signup"
               className="block w-full py-3 px-6 rounded-xl border border-gray-300 text-[#333333] font-semibold text-center hover:bg-gray-50 transition-colors"
             >
               Create Account

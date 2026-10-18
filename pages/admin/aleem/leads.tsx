@@ -92,7 +92,7 @@ export default function AleemLeadsPage(): React.ReactElement {
   // Auth guard
   useEffect(() => {
     if (sessionStatus === 'unauthenticated') {
-      router.push('/auth/login?callbackUrl=/admin/aleem/leads');
+      router.push('/login?callbackUrl=/admin/aleem/leads');
     }
   }, [sessionStatus, router]);
 

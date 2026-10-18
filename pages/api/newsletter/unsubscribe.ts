@@ -165,45 +165,6 @@ export default async function handler(
     }
 
     // ─────────────────────────────────────────────
-    // STEP 4: LEGACY SUPPORT (Email-based - Deprecated)
-    // ─────────────────────────────────────────────
-    // If token is not provided, check for legacy email parameter
-    // This maintains backward compatibility but logs a warning
-    if (!token) {
-      const legacyEmail = req.method === 'GET' 
-        ? req.query.email as string 
-        : req.body.email;
-
-      if (legacyEmail) {
-        console.warn('⚠️ Legacy email-based unsubscribe used. Should migrate to token-based.');
-
-        // Find subscriber by email
-        const subscriber = await NewsletterSubscriber.findOne({
-          email: legacyEmail.toLowerCase().trim(),
-        })
-          .maxTimeMS(MAX_QUERY_TIME_MS)
-          .exec();
-
-        if (subscriber) {
-          token = subscriber.unsubscribeToken;
-
-          await logSecurityEvent({
-  type: 'suspicious_activity',
-  severity: 'info',
-  email: legacyEmail,
-  ip: clientIP,
-  userAgent,
-  requestId,
-  metadata: {
-    context: 'newsletter_unsubscribe',
-    reason: 'legacy_email_unsubscribe',
-  },
-});
-        }
-      }
-    }
-
-    // ─────────────────────────────────────────────
     // STEP 5: VALIDATE TOKEN
     // ─────────────────────────────────────────────
     if (!token) {

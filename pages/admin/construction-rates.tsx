@@ -181,7 +181,7 @@ export default function AdminConstructionRatesPage(): React.ReactElement {
   useEffect(() => {
     if (status === 'loading') return;
     if (status === 'unauthenticated') {
-      router.replace('/auth/login');
+      router.replace('/login');
       return;
     }
     const role = (session?.user as { role?: string })?.role;
