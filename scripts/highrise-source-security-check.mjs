@@ -71,6 +71,9 @@ if (exists('public/robots.txt') && exists('pages/robots.txt.tsx')) fail('Both pu
 let pkg;
 try { pkg = JSON.parse(read('package.json')); } catch { fail('package.json is invalid JSON.'); pkg = {}; }
 const deps = { ...(pkg.dependencies ?? {}), ...(pkg.devDependencies ?? {}) };
+// Versions are pinned to the security-patched release approved in
+// commit 0b5f387 ("patch critical/high CVEs"). Bump these deliberately —
+// never silently, and always record the CVE being addressed.
 const expected = {
   next: '15.5.25',
   'next-auth': '4.24.15',

@@ -17,6 +17,7 @@ import {
   Newspaper,
   Bookmark,
   Filter,
+  Home,
 } from 'lucide-react';
 import { Card } from '../components/ui/card';
 import SubscriptionModal from '@/components/ui/SubscriptionModal';
@@ -349,13 +350,6 @@ export default function BlogPage() {
     return latestGridBlogs.slice(2);
   }, [latestGridBlogs]);
 
-  const topCategoryChips = useMemo(() => {
-    return categories
-      .filter((c) => c._id && c.count > 0)
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
-  }, [categories]);
-
   const spotlightCategories = useMemo(() => {
     return categories
       .filter((c) => c._id && c.count > 0)
@@ -382,95 +376,74 @@ export default function BlogPage() {
       </Head>
 
       <div className="min-h-screen bg-[#f7fafc]">
-        {/* Hero / Featured Area */}
-        <section className="relative overflow-hidden bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 text-white">
-          <div className="absolute inset-0 opacity-20 bg-[radial-gradient(circle_at_top_right,_#06b6d4,_transparent_30%),radial-gradient(circle_at_bottom_left,_#0ea5e9,_transparent_25%)]" />
-          <div className="container mx-auto px-4 py-14 md:py-20 relative">
-            <motion.div
-              initial={{ opacity: 0, y: 18 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45 }}
-              className="max-w-4xl mb-12 md:mb-14"
-            >
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/10 backdrop-blur-sm mb-5">
-                <TrendingUp className="w-4 h-4 text-cyan-300" />
-                <span className="text-sm font-medium text-white/90">
-                  Pakistan Real Estate Intelligence
-                </span>
-              </div>
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Blog</span>
+          </nav>
 
-              <h1 className="text-4xl md:text-5xl lg:text-6xl font-extrabold leading-[1.12] md:leading-[1.08] tracking-[-0.02em] mb-5">
-                Insights, analysis, and guides for Pakistan’s{' '}
-                <span className="text-cyan-300">property market</span>
-              </h1>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Insights, analysis, and guides for Pakistan&rsquo;s property market
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>Investment strategy</span>
+            <span className="text-gray-300">•</span>
+            <span>Legal guidance</span>
+            <span className="text-gray-300">•</span>
+            <span>City trends</span>
+            <span className="text-gray-300">•</span>
+            <span>Project intelligence</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Homeownership tips</span>
+          </p>
+        </div>
 
-              <p className="text-white/75 text-lg md:text-xl max-w-3xl leading-[1.65] mb-6">
-                Explore investment strategy, legal guidance, city trends, project intelligence,
-                homeownership tips, and practical real estate knowledge curated for serious buyers,
-                investors, and industry professionals.
-              </p>
-
-              <div className="flex flex-wrap items-center gap-3">
-                {topCategoryChips.slice(0, 6).map((item) => (
-                  <button
-                    key={item._id}
-                    onClick={() => {
-                      setSelectedCategory(item._id);
-                      setCurrentPage(1);
-                    }}
-                    className="px-4 py-2 rounded-full border border-white/15 bg-white/10 text-sm font-medium text-white/90 hover:bg-white/15 transition-all"
-                  >
-                    {item._id} <span className="text-white/60">({item.count})</span>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-
-            {/* Hero Intelligence Panel */}
-            {!loading && (
-              <div className="grid lg:grid-cols-12 gap-6 items-start">
-                <div className="lg:col-span-8">
-                  <div className="grid sm:grid-cols-3 gap-3">
-                    <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4">
-                      <p className="text-xs uppercase tracking-wide text-white/60 mb-2">Published</p>
-                      <p className="text-2xl font-bold text-white">{pagination?.total || blogs.length}</p>
-                      <p className="text-xs text-white/50 mt-1">Articles in editorial archive</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4">
-                      <p className="text-xs uppercase tracking-wide text-white/60 mb-2">Topics</p>
-                      <p className="text-2xl font-bold text-white">{categories.length}</p>
-                      <p className="text-xs text-white/50 mt-1">Active real estate categories</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-4">
-                      <p className="text-xs uppercase tracking-wide text-white/60 mb-2">Featured</p>
-                      <p className="text-2xl font-bold text-white">{featuredBlogs.length}</p>
-                      <p className="text-xs text-white/50 mt-1">Highlighted editorial picks</p>
-                    </div>
-                  </div>
+        {/* Editorial Snapshot (relocated from hero) */}
+        {!loading && (
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-4">
+            <div className="grid lg:grid-cols-12 gap-4 items-start">
+              <div className="lg:col-span-8 grid sm:grid-cols-3 gap-3">
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Published</p>
+                  <p className="text-2xl font-bold text-[#004063]">{pagination?.total || blogs.length}</p>
+                  <p className="text-xs text-gray-400 mt-1">Articles in editorial archive</p>
                 </div>
 
-                <div className="lg:col-span-4">
-                  <div className="rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-5">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Newspaper className="w-4 h-4 text-cyan-300" />
-                      <span className="text-sm font-semibold text-white">Editorial Snapshot</span>
-                    </div>
-                    <p className="text-sm text-white/70 leading-relaxed">
-                      Browse the latest property coverage, legal explainers, investment strategies,
-                      market intelligence, and city-focused housing insights curated for Pakistan.
-                    </p>
-                  </div>
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Topics</p>
+                  <p className="text-2xl font-bold text-[#004063]">{categories.length}</p>
+                  <p className="text-xs text-gray-400 mt-1">Active real estate categories</p>
+                </div>
+
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <p className="text-xs uppercase tracking-wide text-gray-500 mb-2">Featured</p>
+                  <p className="text-2xl font-bold text-[#004063]">{featuredBlogs.length}</p>
+                  <p className="text-xs text-gray-400 mt-1">Highlighted editorial picks</p>
                 </div>
               </div>
-            )}
-          </div>
-        </section>
+
+              <div className="lg:col-span-4 rounded-xl border border-gray-200 bg-white p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Newspaper className="w-4 h-4 text-[#029bba]" />
+                  <span className="text-sm font-semibold text-[#004063]">Editorial Snapshot</span>
+                </div>
+                <p className="text-sm text-gray-500 leading-relaxed">
+                  Browse the latest property coverage, legal explainers, investment strategies,
+                  market intelligence, and city-focused housing insights curated for Pakistan.
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
         {/* Search + Filter Strip */}
-        <section className="relative -mt-6 z-10">
-          <div className="container mx-auto px-4">
+        <section className="relative z-10">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="bg-white rounded-3xl border border-gray-200 shadow-xl p-4 md:p-5">
               <div className="flex flex-col lg:flex-row gap-4">
                 <form onSubmit={handleSearch} className="flex-1">
@@ -516,7 +489,7 @@ export default function BlogPage() {
         </section>
 
         {/* Main Content Area */}
-        <section className="container mx-auto px-4 py-14 md:py-16">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-14 md:py-16">
           {/* Loading */}
           {loading && (
             <div className="flex items-center justify-center py-20">
@@ -1133,7 +1106,7 @@ export default function BlogPage() {
         </section>
 
         {!loading && spotlightCategories.length > 0 && (
-          <section className="container mx-auto px-4 pb-16 md:pb-20">
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-16 md:pb-20">
             <div className="mb-8 md:mb-10">
               <p className="text-xs uppercase tracking-[0.18em] text-[#029bba] font-semibold mb-3">
                 Category Spotlight

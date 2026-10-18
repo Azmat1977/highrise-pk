@@ -188,7 +188,7 @@ export default async function handler(
     if (filters.possession) {
       const map: Record<string, string> = {
         ready_to_move:      'Completed',
-        under_construction: 'Under Construction',
+        under_construction: 'Under Development',
         new_launch:         'Launched',
         pre_launch:         'Pre-Launch',
       };
@@ -252,6 +252,16 @@ export default async function handler(
       const score = typeof p.highriseScore === 'number' ? p.highriseScore : 0;
       const noc   = (p.nocStatus as string | undefined) ?? 'not_applied';
 
+      const rawStatus = String(p.projectStatus ?? '').toLowerCase();
+      let projectStatus: ProjectListing['projectStatus'] = 'under_construction';
+      if (rawStatus === 'completed' || rawStatus === 'ready_to_move') {
+        projectStatus = 'ready_to_move';
+      } else if (rawStatus === 'launched' || rawStatus === 'new_launch') {
+        projectStatus = 'new_launch';
+      } else if (rawStatus === 'pre-launch' || rawStatus === 'pre_launch') {
+        projectStatus = 'pre_launch';
+      }
+
       return {
         _id:              String(p._id ?? ''),
         slug:             String(p.slug ?? ''),
@@ -263,7 +273,7 @@ export default async function handler(
         propertyType:     ['flats'] as PropertyType[],
         projectCategory:  String(p.projectCategory ?? ''),
         projectNature:    String(p.projectNature ?? ''),
-        projectStatus:    'under_construction' as const,
+        projectStatus,
         minPrice:         typeof p.minPrice === 'number' ? p.minPrice : null,
         maxPrice:         typeof p.maxPrice === 'number' ? p.maxPrice : null,
         priceOnRequest:   typeof p.minPrice !== 'number',

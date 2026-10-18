@@ -10,7 +10,7 @@ import {
   Loader2, X, CheckCircle, XCircle, Info,
   TrendingUp, TrendingDown, Minus, Sparkles,
   Home, ShieldCheck, Banknote, Clock, Hammer, Lightbulb,
-  Package, Construction, Plus, ArrowLeft, ArrowRight,
+  Package, Construction, Plus, ArrowLeft, ArrowRight, ChevronRight,
   Building, Building2, Briefcase, Factory, Snowflake,
   Store, ShoppingBag, Trees, AlertTriangle, Database,
 } from 'lucide-react';
@@ -606,56 +606,37 @@ export default function ConstructionCalculatorPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-14 md:py-16 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.10),transparent_50%)] pointer-events-none" />
-          <div
-            className="absolute inset-0 opacity-[0.04] pointer-events-none"
-            style={{
-              backgroundImage: 'repeating-linear-gradient(45deg, #fff 0, #fff 1px, transparent 1px, transparent 20px)',
-            }}
-          />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/tools" className="hover:text-[#029bba] font-medium transition-colors">
+              Tools
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Construction Cost Calculator</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-3xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-5">
-                <Construction className="w-4 h-4 text-[#06b6d4]" />
-                Pakistan&apos;s First Multi-Property Cost Engine
-              </div>
-
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight tracking-tight">
-                Banane Ka <span className="text-[#06b6d4] underline decoration-[#06b6d4]/40 decoration-4 underline-offset-4">Kharcha</span> Kitna Aayega?
-              </h1>
-
-              <p className="text-base md:text-lg text-white/85 max-w-2xl mx-auto mb-5">
-                Calculate cost for any property type — house, villa, apartment building, shop, plaza,
-                warehouse, factory, or mixed-use tower. <strong>14 typologies, 10 cities.</strong>
-              </p>
-
-              <div className="flex flex-wrap items-center justify-center gap-4 text-white/80 text-sm">
-                <div className="flex items-center gap-2">
-                  <Package className="w-4 h-4 text-[#06b6d4]" />
-                  <span>Live material rates</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4 text-[#06b6d4]" />
-                  <span>10 major cities</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Layers className="w-4 h-4 text-[#06b6d4]" />
-                  <span>14 property types</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Award className="w-4 h-4 text-[#06b6d4]" />
-                  <span>3 quality grades</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Banane Ka Kharcha Kitna Aayega?
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>14 property types</span>
+            <span className="text-gray-300">•</span>
+            <span>10 cities</span>
+            <span className="text-gray-300">•</span>
+            <span>3 quality grades</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Live material rates</span>
+          </p>
+        </div>
 
         {/* ── PROGRESS BAR ── */}
-        <section className="container mx-auto px-4 py-6">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-6">
           <div className="max-w-3xl mx-auto">
             <div className="flex items-center justify-between mb-2">
               <span className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
@@ -680,7 +661,7 @@ export default function ConstructionCalculatorPage(): React.ReactElement {
         {/* STEP 1 — CATEGORY SELECTION */}
         {/* ═══════════════════════════════════════════════════════ */}
         {step === 1 && (
-          <section className="container mx-auto px-4 pb-12">
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-12">
             <div className="max-w-5xl mx-auto">
               <div className="text-center mb-8">
                 <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">
@@ -724,7 +705,7 @@ export default function ConstructionCalculatorPage(): React.ReactElement {
         {/* STEP 2 — SUB-TYPE SELECTION */}
         {/* ═══════════════════════════════════════════════════════ */}
         {step === 2 && category && (
-          <section className="container mx-auto px-4 pb-12">
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-12">
             <div className="max-w-5xl mx-auto">
               {/* Back + Header */}
               <button
@@ -789,7 +770,7 @@ export default function ConstructionCalculatorPage(): React.ReactElement {
         {/* STEP 3 — SPECIFICATIONS + RESULT */}
         {/* ═══════════════════════════════════════════════════════ */}
         {step === 3 && selectedMeta && (
-          <section className="container mx-auto px-4 pb-12">
+          <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-12">
             <div className="max-w-6xl mx-auto">
               {/* Back + Selected Property Banner */}
               <button
@@ -1216,7 +1197,7 @@ export default function ConstructionCalculatorPage(): React.ReactElement {
 
         {/* ── HOW IT WORKS ── */}
         <section className="bg-white py-14 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-3">
                 <Lightbulb className="w-4 h-4" />
@@ -1275,7 +1256,7 @@ export default function ConstructionCalculatorPage(): React.ReactElement {
 
         {/* ── CTA ── */}
         <section className="bg-gradient-to-br from-[#001f2b] to-[#003553] py-12">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
               Ready to <span className="text-[#06b6d4]">Build Smart</span>?

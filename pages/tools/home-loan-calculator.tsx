@@ -859,230 +859,226 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
 
       <div className="min-h-screen bg-[#f8f9fa]">
 
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/tools" className="hover:text-[#029bba] font-medium transition-colors">
+              Tools
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Home Loan Calculator</span>
+          </nav>
+
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Home Loan Calculator
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>10 Pakistani banks</span>
+            <span className="text-gray-300">•</span>
+            <span>Islamic Diminishing Musharakah + Conventional</span>
+            <span className="text-gray-300">•</span>
+            <span>Full amortization</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">Free forever</span>
+          </p>
+        </div>
+
         {/* ═══════════════════════════════════════════════════════════
-            HERO — Triple Slider Quick Calculator (Zameen-style + premium)
+            QUICK CALCULATOR — Triple Slider (relocated from hero)
         ═══════════════════════════════════════════════════════════ */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] pt-12 pb-20 overflow-hidden">
-          {/* Pattern overlay */}
-          <div
-            className="absolute inset-0 opacity-[0.05] pointer-events-none"
-            style={{
-              backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)',
-              backgroundSize: '28px 28px',
-            }}
-          />
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(6,182,212,0.15),transparent_50%)] pointer-events-none" />
-          <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-transparent via-[#06b6d4] to-transparent" />
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-2">
+          <div className="max-w-5xl">
 
-          <div className="container mx-auto px-4 relative z-10">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-xs text-white/40 mb-8">
-              <Link href="/" className="hover:text-white/70 transition-colors">Home</Link>
-              <ChevronRight className="w-3 h-3" />
-              <Link href="/tools" className="hover:text-white/70 transition-colors">Tools</Link>
-              <ChevronRight className="w-3 h-3" />
-              <span className="text-white/70">Home Loan Calculator</span>
-            </nav>
-
-            {/* Header */}
-            <div className="text-center max-w-3xl mx-auto mb-10">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-[#06b6d4]/20 border border-[#06b6d4]/30 text-[#06b6d4] text-xs font-bold uppercase tracking-wider mb-5">
-                <Sparkles className="w-3.5 h-3.5" />
-                Pakistan&apos;s Most Advanced Loan Calculator
+            {/* Quick Calculator card */}
+            <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 md:p-8">
+              <div className="flex items-center gap-2 mb-5">
+                <Calculator className="w-4 h-4 text-[#029bba]" />
+                <h2 className="text-sm font-bold text-[#004063] uppercase tracking-wider">Quick Estimate</h2>
               </div>
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight">
-                Home Loan{' '}
-                <span className="text-[#06b6d4]">Calculator</span>
-              </h1>
-              <p className="text-white/70 text-base md:text-lg">
-                Compare <span className="text-white font-semibold">10 Pakistani banks</span> in seconds.
-                Islamic Diminishing Musharakah + Conventional mortgages.
-                Full amortization. Free forever.
+
+              <div className="grid lg:grid-cols-3 gap-6 mb-6">
+
+                {/* Property Price */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-gray-500 text-xs font-bold uppercase tracking-wider">
+                      Property Price
+                    </label>
+                    <span className="text-[#004063] font-bold text-sm">
+                      {formatPKRCompact(heroPrice)}
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1_000_000}
+                    max={100_000_000}
+                    step={500_000}
+                    value={heroPrice}
+                    onChange={(e) => setHeroPrice(parseInt(e.target.value, 10))}
+                    className="w-full accent-[#029bba] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <span>10 Lac</span>
+                    <span>10 Cr</span>
+                  </div>
+                </div>
+
+                {/* Down Payment */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-gray-500 text-xs font-bold uppercase tracking-wider">
+                      Down Payment
+                    </label>
+                    <span className="text-[#004063] font-bold text-sm">
+                      {heroDownPct}% ({formatPKRCompact(heroDownPKR)})
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={10}
+                    max={90}
+                    step={5}
+                    value={heroDownPct}
+                    onChange={(e) => setHeroDownPct(parseInt(e.target.value, 10))}
+                    className="w-full accent-[#029bba] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <span>10%</span>
+                    <span>90%</span>
+                  </div>
+                </div>
+
+                {/* Tenure */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-gray-500 text-xs font-bold uppercase tracking-wider">
+                      Loan Period
+                    </label>
+                    <span className="text-[#004063] font-bold text-sm">
+                      {heroTenure} Years
+                    </span>
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={25}
+                    step={1}
+                    value={heroTenure}
+                    onChange={(e) => setHeroTenure(parseInt(e.target.value, 10))}
+                    className="w-full accent-[#029bba] cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-gray-400 mt-1">
+                    <span>1 Yr</span>
+                    <span>25 Yrs</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Result strip */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-[#029bba]/5 rounded-xl border border-[#029bba]/15">
+                <div>
+                  <p className="text-gray-500 text-[10px] uppercase tracking-wider">Loan Amount</p>
+                  <p className="text-[#004063] font-bold text-base mt-0.5">{formatPKRCompact(heroLoan)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-[10px] uppercase tracking-wider">Est. Monthly EMI</p>
+                  <p className="text-[#029bba] font-bold text-base mt-0.5">{formatPKRCompact(heroMonthlyEMI)}</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-[10px] uppercase tracking-wider">Avg. Rate</p>
+                  <p className="text-[#004063] font-bold text-base mt-0.5">{AVG_RATE}% p.a.</p>
+                </div>
+                <div>
+                  <p className="text-gray-500 text-[10px] uppercase tracking-wider">Total Payment</p>
+                  <p className="text-[#004063] font-bold text-base mt-0.5">
+                    {formatPKRCompact(heroMonthlyEMI * heroTenure * 12)}
+                  </p>
+                </div>
+              </div>
+
+              {/* CTA */}
+              <div className="flex flex-col md:flex-row gap-3 mt-5">
+                <button
+                  onClick={handleHeroContinue}
+                  className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#029bba] to-[#06b6d4] hover:from-[#027a94] hover:to-[#029bba] text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2"
+                >
+                  <Calculator className="w-4 h-4" />
+                  Get Bank-Specific Breakdown
+                  <ArrowDown className="w-4 h-4 animate-bounce" />
+                </button>
+                <button
+                  onClick={() => calculatorRef.current?.scrollIntoView({ behavior: 'smooth' })}
+                  className="px-6 py-3.5 rounded-xl bg-gray-100 hover:bg-gray-200 text-[#004063] font-semibold text-sm border border-gray-200 transition-all flex items-center justify-center gap-2"
+                >
+                  <ArrowLeftRight className="w-4 h-4" />
+                  Compare 2 Banks
+                </button>
+              </div>
+
+              <p className="text-center text-[10px] text-gray-400 mt-3">
+                💡 Quick estimate uses {AVG_RATE}% (market average). Scroll down for bank-specific accurate calculation.
               </p>
             </div>
 
-            {/* Quick Calculator — Glass morphism with 3 sliders + result */}
-            <div className="max-w-5xl mx-auto">
-              <div className="bg-white/[0.08] backdrop-blur-xl rounded-3xl border border-white/15 p-6 md:p-8 shadow-2xl">
-                <div className="grid lg:grid-cols-3 gap-6 mb-6">
-
-                  {/* Property Price */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-white/60 text-xs font-bold uppercase tracking-wider">
-                        Property Price
-                      </label>
-                      <span className="text-white font-bold text-sm">
-                        {formatPKRCompact(heroPrice)}
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1_000_000}
-                      max={100_000_000}
-                      step={500_000}
-                      value={heroPrice}
-                      onChange={(e) => setHeroPrice(parseInt(e.target.value, 10))}
-                      className="w-full accent-[#06b6d4] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-white/40 mt-1">
-                      <span>10 Lac</span>
-                      <span>10 Cr</span>
-                    </div>
-                  </div>
-
-                  {/* Down Payment */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-white/60 text-xs font-bold uppercase tracking-wider">
-                        Down Payment
-                      </label>
-                      <span className="text-white font-bold text-sm">
-                        {heroDownPct}% ({formatPKRCompact(heroDownPKR)})
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={10}
-                      max={90}
-                      step={5}
-                      value={heroDownPct}
-                      onChange={(e) => setHeroDownPct(parseInt(e.target.value, 10))}
-                      className="w-full accent-[#06b6d4] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-white/40 mt-1">
-                      <span>10%</span>
-                      <span>90%</span>
-                    </div>
-                  </div>
-
-                  {/* Tenure */}
-                  <div>
-                    <div className="flex items-center justify-between mb-2">
-                      <label className="text-white/60 text-xs font-bold uppercase tracking-wider">
-                        Loan Period
-                      </label>
-                      <span className="text-white font-bold text-sm">
-                        {heroTenure} Years
-                      </span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={25}
-                      step={1}
-                      value={heroTenure}
-                      onChange={(e) => setHeroTenure(parseInt(e.target.value, 10))}
-                      className="w-full accent-[#06b6d4] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] text-white/40 mt-1">
-                      <span>1 Yr</span>
-                      <span>25 Yrs</span>
-                    </div>
-                  </div>
+            {/* Stats */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
+              {[
+                {
+                  icon: <Building2 className="w-5 h-5" />,
+                  value: '10',
+                  label: 'Pakistani Banks',
+                  sub: `${islamicCount} Islamic + ${conventionalCount} Conv.`,
+                },
+                {
+                  icon: <TrendingDown className="w-5 h-5" />,
+                  value: lowestRateBank ? `${lowestRateBank.annualRatePercent}%` : '20.0%',
+                  label: 'Lowest Rate',
+                  sub: lowestRateBank?.bankShortName ?? 'NBP',
+                },
+                {
+                  icon: <Clock className="w-5 h-5" />,
+                  value: '25 Yr',
+                  label: 'Max Tenure',
+                  sub: 'Up to 25 years',
+                },
+                {
+                  icon: <Shield className="w-5 h-5" />,
+                  value: '100%',
+                  label: 'Free Forever',
+                  sub: 'No login required',
+                },
+              ].map((s) => (
+                <div
+                  key={s.label}
+                  className="bg-white border border-gray-200 rounded-xl p-4 hover:border-[#029bba]/40 transition-all"
+                >
+                  <div className="text-[#029bba] mb-2">{s.icon}</div>
+                  <p className="text-[#004063] font-bold text-xl">{s.value}</p>
+                  <p className="text-gray-400 text-[10px] uppercase tracking-wider mt-1">{s.label}</p>
+                  <p className="text-gray-500 text-xs mt-0.5">{s.sub}</p>
                 </div>
+              ))}
+            </div>
 
-                {/* Result strip */}
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 p-4 bg-gradient-to-r from-[#029bba]/20 to-[#06b6d4]/10 rounded-2xl border border-[#06b6d4]/20">
-                  <div>
-                    <p className="text-white/50 text-[10px] uppercase tracking-wider">Loan Amount</p>
-                    <p className="text-white font-bold text-base mt-0.5">{formatPKRCompact(heroLoan)}</p>
-                  </div>
-                  <div>
-                    <p className="text-white/50 text-[10px] uppercase tracking-wider">Est. Monthly EMI</p>
-                    <p className="text-[#06b6d4] font-bold text-base mt-0.5">{formatPKRCompact(heroMonthlyEMI)}</p>
-                  </div>
-                  <div>
-                    <p className="text-white/50 text-[10px] uppercase tracking-wider">Avg. Rate</p>
-                    <p className="text-white font-bold text-base mt-0.5">{AVG_RATE}% p.a.</p>
-                  </div>
-                  <div>
-                    <p className="text-white/50 text-[10px] uppercase tracking-wider">Total Payment</p>
-                    <p className="text-white font-bold text-base mt-0.5">
-                      {formatPKRCompact(heroMonthlyEMI * heroTenure * 12)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* CTA */}
-                <div className="flex flex-col md:flex-row gap-3 mt-5">
-                  <button
-                    onClick={handleHeroContinue}
-                    className="flex-1 py-3.5 rounded-xl bg-gradient-to-r from-[#029bba] to-[#06b6d4] hover:from-[#027a94] hover:to-[#029bba] text-white font-bold text-sm shadow-lg transition-all flex items-center justify-center gap-2"
-                  >
-                    <Calculator className="w-4 h-4" />
-                    Get Bank-Specific Breakdown
-                    <ArrowDown className="w-4 h-4 animate-bounce" />
-                  </button>
-                  <button
-                    onClick={() => calculatorRef.current?.scrollIntoView({ behavior: 'smooth' })}
-                    className="px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white font-semibold text-sm border border-white/20 transition-all flex items-center justify-center gap-2"
-                  >
-                    <ArrowLeftRight className="w-4 h-4" />
-                    Compare 2 Banks
-                  </button>
-                </div>
-
-                <p className="text-center text-[10px] text-white/30 mt-3">
-                  💡 Quick estimate uses {AVG_RATE}% (market average). Scroll down for bank-specific accurate calculation.
-                </p>
-              </div>
-
-              {/* Stats below hero */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-8">
-                {[
-                  {
-                    icon: <Building2 className="w-5 h-5" />,
-                    value: '10',
-                    label: 'Pakistani Banks',
-                    sub: `${islamicCount} Islamic + ${conventionalCount} Conv.`,
-                  },
-                  {
-                    icon: <TrendingDown className="w-5 h-5" />,
-                    value: lowestRateBank ? `${lowestRateBank.annualRatePercent}%` : '20.0%',
-                    label: 'Lowest Rate',
-                    sub: lowestRateBank?.bankShortName ?? 'NBP',
-                  },
-                  {
-                    icon: <Clock className="w-5 h-5" />,
-                    value: '25 Yr',
-                    label: 'Max Tenure',
-                    sub: 'Up to 25 years',
-                  },
-                  {
-                    icon: <Shield className="w-5 h-5" />,
-                    value: '100%',
-                    label: 'Free Forever',
-                    sub: 'No login required',
-                  },
-                ].map((s) => (
-                  <div
-                    key={s.label}
-                    className="bg-white/[0.05] backdrop-blur-sm border border-white/10 rounded-2xl p-4 hover:bg-white/[0.08] transition-all"
-                  >
-                    <div className="text-[#06b6d4] mb-2">{s.icon}</div>
-                    <p className="text-white font-bold text-xl">{s.value}</p>
-                    <p className="text-white/50 text-[10px] uppercase tracking-wider mt-1">{s.label}</p>
-                    <p className="text-white/40 text-xs mt-0.5">{s.sub}</p>
-                  </div>
-                ))}
-              </div>
-
-              {/* Market rate strip */}
-              <div className="mt-6 p-4 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-between flex-wrap gap-3">
-                <div className="flex items-center gap-4 text-sm">
-                  <span className="text-white/50 text-xs uppercase tracking-wider font-bold">Live Rates:</span>
-                  <span className="text-white">
-                    <span className="text-white/50">SBP Policy:</span> <span className="font-bold">{SBP_POLICY_RATE}%</span>
-                  </span>
-                  <span className="text-white">
-                    <span className="text-white/50">KIBOR 6M:</span> <span className="font-bold">{KIBOR_6M}%</span>
-                  </span>
-                </div>
-                <span className="text-[10px] text-white/40">
-                  Updated Jan 2025
+            {/* Market rate strip */}
+            <div className="mt-4 p-4 rounded-xl bg-white border border-gray-200 flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-4 text-sm">
+                <span className="text-gray-400 text-xs uppercase tracking-wider font-bold">Live Rates:</span>
+                <span className="text-[#004063]">
+                  <span className="text-gray-400">SBP Policy:</span> <span className="font-bold">{SBP_POLICY_RATE}%</span>
+                </span>
+                <span className="text-[#004063]">
+                  <span className="text-gray-400">KIBOR 6M:</span> <span className="font-bold">{KIBOR_6M}%</span>
                 </span>
               </div>
+              <span className="text-[10px] text-gray-400">
+                Updated Jan 2025
+              </span>
             </div>
           </div>
         </section>
@@ -1090,7 +1086,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
         {/* ═══════════════════════════════════════════════════════════
             DETAILED CALCULATOR (Bank-specific, Single/Compare modes)
         ═══════════════════════════════════════════════════════════ */}
-        <section ref={calculatorRef} className="container mx-auto px-4 py-16 max-w-7xl">
+        <section ref={calculatorRef} className="mx-auto px-3 sm:px-4 lg:px-6 py-16 max-w-7xl">
 
           {/* Section header */}
           <div className="text-center mb-10">
@@ -1529,7 +1525,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             BANKING PARTNERS GRID
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-white py-16">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
                 <Building2 className="w-4 h-4" />
@@ -1598,7 +1594,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             ABOUT HOME LOANS IN PAKISTAN (SEO Content)
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-[#f8f9fa] py-16">
-          <div className="container mx-auto px-4 max-w-5xl">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-5xl">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
                 <Info className="w-4 h-4" />
@@ -1666,7 +1662,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             ELIGIBILITY CHECKLIST
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-white py-16">
-          <div className="container mx-auto px-4 max-w-6xl">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-6xl">
             <div className="grid lg:grid-cols-2 gap-10 items-center">
               <div>
                 <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
@@ -1717,7 +1713,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             FAQ ACCORDION
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-[#f8f9fa] py-16">
-          <div className="container mx-auto px-4 max-w-4xl">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-4xl">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
                 <HelpCircle className="w-4 h-4" />
@@ -1756,7 +1752,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             LOAN vs RENT INSIGHT BOX
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-white py-16">
-          <div className="container mx-auto px-4 max-w-4xl">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-4xl">
             <div className="bg-gradient-to-br from-[#029bba] to-[#004063] rounded-3xl overflow-hidden shadow-xl">
               <div className="p-8 md:p-10">
                 <div className="flex items-start gap-3 mb-4">
@@ -1815,7 +1811,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             ROSHAN DIGITAL ACCOUNT (Overseas Pakistanis)
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-[#f8f9fa] py-16">
-          <div className="container mx-auto px-4 max-w-5xl">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-5xl">
             <div className="bg-white rounded-3xl border border-gray-200 overflow-hidden shadow-sm">
               <div className="grid md:grid-cols-[1fr_auto] items-center gap-6 p-8 md:p-10">
                 <div>
@@ -1860,7 +1856,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             USEFUL LINKS (SEO) — 30 city links
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-white py-16">
-          <div className="container mx-auto px-4 max-w-6xl">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-6xl">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
                 <MapPin className="w-4 h-4" />
@@ -1912,7 +1908,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             }}
           />
 
-          <div className="container mx-auto px-4 max-w-5xl relative z-10">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-5xl relative z-10">
             <div className="text-center mb-10">
               <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#06b6d4]/20 text-[#06b6d4] text-sm font-semibold mb-4 border border-[#06b6d4]/20">
                 <Award className="w-4 h-4" />
@@ -1968,7 +1964,7 @@ export default function HomeLoanCalculatorPage(): React.ReactElement {
             CROSS-TOOL CTA + Disclaimer
         ═══════════════════════════════════════════════════════════ */}
         <section className="bg-white py-16">
-          <div className="container mx-auto px-4 max-w-6xl">
+          <div className="mx-auto px-3 sm:px-4 lg:px-6 max-w-6xl">
             <div className="grid md:grid-cols-2 gap-6">
               {/* Disclaimer */}
               <div className="p-6 bg-amber-50 border border-amber-200 rounded-2xl">

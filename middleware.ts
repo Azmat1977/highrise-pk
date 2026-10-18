@@ -170,6 +170,9 @@ const PUBLIC_PREFIXES = [
   "/societies/",
   "/blog/",
   "/risk-alerts/",
+
+  // SafeDeal (public service page)
+  "/safedeal",
 ] as const;
 
 /**
@@ -387,6 +390,13 @@ const ROUTE_RULES: readonly RouteRule[] = [
   { path: "/my-listings",       isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/my-projects",       isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/my-saved",          isPrefix: true, level: "auth", denyReason: "auth_required" },
+
+  // ─── SAFEDEAL AREA ─────────────────────────────────────────────
+  // Public service page is in PUBLIC_EXACT_PATHS
+  // Customer dashboard (any authenticated user)
+  { path: "/safedeal/dashboard", isPrefix: true, level: "auth", denyReason: "auth_required" },
+  // SafeDeal case detail (any authenticated user)
+  { path: "/safedeal/dashboard/", isPrefix: true, level: "auth", denyReason: "auth_required" },
 ];
 
 // ═══════════════════════════════════════════════════════════════

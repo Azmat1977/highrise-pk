@@ -70,7 +70,6 @@ import {
 } from '@/types/projects';
 
 import ProjectListingCard from '@/components/projects/ProjectListingCard';
-import { TrustedDevelopersMarquee } from '@/components/projects/TrustedDevelopersMarquee';
 
 // ─── PROPS ────────────────────────────────────────────────────────────────────
 
@@ -724,23 +723,14 @@ export function MainProjectGrid({
                 const isPromotedSlot = index === 2 || project.isFeatured || (loadedProjects.length < 3 && index === 0);
 
                 return (
-                  <React.Fragment key={project._id}>
-                    <div role="listitem" className="h-full">
-                      <ProjectListingCard
-                        project={project}
-                        variant={viewMode === 'list' ? 'list' : 'grid'}
-                        isPromoted={isPromotedSlot}
-                        className="h-full"
-                      />
-                    </div>
-
-                    {/* B2B Ego Tier - Inject after 8th item OR at end if fewer than 8 projects exist */}
-                    {((index + 1) === 8 || (index + 1) === loadedProjects.length) && (
-                      <div className="col-span-full my-4">
-                        <TrustedDevelopersMarquee projects={loadedProjects} />
-                      </div>
-                    )}
-                  </React.Fragment>
+                  <div key={project._id} role="listitem" className="h-full">
+                    <ProjectListingCard
+                      project={project}
+                      variant={viewMode === 'list' ? 'list' : 'grid'}
+                      isPromoted={isPromotedSlot}
+                      className="h-full"
+                    />
+                  </div>
                 );
               })}
 

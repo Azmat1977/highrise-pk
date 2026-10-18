@@ -939,58 +939,32 @@ export default function AgentsDirectoryPage({
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── Hero ── */}
-        <section className="relative bg-[#001f2b] text-white pt-16 pb-32 overflow-hidden">
-          {/* Dot pattern — bg-image not allowed as inline, use pseudo via Tailwind */}
-          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#029bba_1px,transparent_1px)] [background-size:30px_30px]" />
-          <div className="absolute top-0 right-0 w-96 h-96 bg-[#029bba] rounded-full 
-                          blur-[120px] opacity-20 translate-x-1/2 -translate-y-1/2" />
-          <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#029bba] rounded-full 
-                          blur-[100px] opacity-10 -translate-x-1/2 translate-y-1/2" />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Agents</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10 text-center max-w-3xl">
-            {/* Breadcrumbs */}
-            <nav
-              aria-label="Breadcrumb"
-              className="flex items-center justify-center gap-2 
-                         text-sm text-white/60 mb-4"
-            >
-              <Link
-                href="/"
-                className="hover:text-white transition-colors flex items-center gap-1"
-              >
-                <Home className="w-4 h-4" />
-                Home
-              </Link>
-              <span aria-hidden="true">/</span>
-              <span className="text-white" aria-current="page">Agents</span>
-            </nav>
-
-            {/* Trust Pill */}
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full 
-                            bg-white/10 border border-white/20 text-xs font-medium 
-                            text-[#4dd6f5] mb-6 backdrop-blur-sm">
-              <ShieldCheck className="w-3.5 h-3.5" />
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Find Trusted Real Estate Agents in Pakistan
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span className="inline-flex items-center gap-1">
+              <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
               {totalCount} KYC-Verified Property Experts
-            </div>
-
-            <h1 className="text-4xl md:text-5xl font-extrabold mb-6 
-                           tracking-tight leading-tight">
-              Find{' '}
-              <span className="text-[#029bba]">Trusted</span>{' '}
-              Real Estate
-              <br className="hidden md:block" />
-              Agents in Pakistan
-            </h1>
-            <p className="text-lg text-gray-300 mb-8 max-w-2xl mx-auto leading-relaxed">
-              Connect with verified property experts who can help you buy,
-              sell, or rent properties across Pakistan.
-            </p>
-          </div>
-        </section>
+            </span>
+            <span className="text-gray-300">•</span>
+            <span>Buy, sell, or rent across Pakistan</span>
+          </p>
+        </div>
 
         {/* ── Search & Filters Card ── */}
-        <div className="container mx-auto px-4 -mt-12 relative z-20 mb-8">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 mt-4 relative z-20 mb-8">
           <div className="bg-white rounded-2xl shadow-xl border border-gray-100 
                           p-4 md:p-6 max-w-5xl mx-auto">
 
@@ -1161,7 +1135,7 @@ export default function AgentsDirectoryPage({
         </div>
 
         {/* ── Results ── */}
-        <main className="container mx-auto px-4 pb-12">
+        <main className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-12">
           {/* Results Header */}
           <div className="flex flex-col sm:flex-row sm:items-center 
                           justify-between gap-4 mb-8">
@@ -1253,7 +1227,7 @@ export default function AgentsDirectoryPage({
                           rounded-full blur-[150px] opacity-20 
                           -translate-x-1/2 -translate-y-1/2" />
 
-          <div className="container mx-auto px-4 text-center relative z-10">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center relative z-10">
             <div className="w-20 h-20 mx-auto mb-6 rounded-2xl 
                             bg-gradient-to-br from-[#029bba] to-[#004063] 
                             flex items-center justify-center shadow-xl">

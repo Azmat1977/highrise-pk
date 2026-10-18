@@ -23,6 +23,7 @@ import { rateLimitApi } from "@/lib/rateLimit";
 import DeveloperProfile, {
   IDeveloperProfile,
 } from "@/models/DeveloperProfile";
+import Project from "@/models/Projects";
 
 // ============================================
 // TYPES
@@ -117,9 +118,23 @@ interface PublicDeveloperProfile {
   updatedAt: Date;
 }
 
+interface PublicDeveloperProject {
+  _id: string;
+  slug: string;
+  projectName: string;
+  projectStatus: string;
+  city: string;
+  area: string;
+  projectCategory: string;
+  primaryImage?: string;
+  minPrice?: number;
+  maxPrice?: number;
+}
+
 interface SuccessResponse {
   success: true;
   data: PublicDeveloperProfile;
+  projects: PublicDeveloperProject[];
 }
 
 interface ErrorResponse {
@@ -251,6 +266,47 @@ function toPublicProfile(
   };
 }
 
+interface RawPublicProject {
+  _id?: unknown;
+  slug?: string;
+  projectName?: string;
+  projectStatus?: string;
+  city?: string;
+  area?: string;
+  projectCategory?: string;
+  minPrice?: number | null;
+  maxPrice?: number | null;
+  featureImageUrl?: string;
+  images?: Array<{ url?: string; isPrimary?: boolean }>;
+}
+
+function toPublicProjects(
+  raw: RawPublicProject[]
+): PublicDeveloperProject[] {
+  return raw.map((p) => {
+    let primaryImage: string | undefined;
+    if (typeof p.featureImageUrl === "string") {
+      primaryImage = p.featureImageUrl;
+    } else if (Array.isArray(p.images) && p.images.length > 0) {
+      const primary = p.images.find((img) => img?.isPrimary);
+      primaryImage = primary?.url ?? p.images[0]?.url;
+    }
+
+    return {
+      _id: String(p._id ?? ""),
+      slug: String(p.slug ?? ""),
+      projectName: String(p.projectName ?? ""),
+      projectStatus: String(p.projectStatus ?? ""),
+      city: String(p.city ?? ""),
+      area: String(p.area ?? ""),
+      projectCategory: String(p.projectCategory ?? ""),
+      primaryImage,
+      minPrice: typeof p.minPrice === "number" ? p.minPrice : undefined,
+      maxPrice: typeof p.maxPrice === "number" ? p.maxPrice : undefined,
+    };
+  });
+}
+
 // ============================================
 // MAIN HANDLER
 // ============================================
@@ -328,6 +384,37 @@ export default async function handler(
       { $inc: { profileViews: 1 } }
     ).exec();
 
+    // ── Fetch public projects ─────────────────
+    // Canonical relation: Project.developerId references the developer's User id
+    // (same value as DeveloperProfile.user). Only publicly visible projects.
+    const rawProjects = profile.user
+      ? await Project.find({
+          developerId: profile.user,
+          isDeleted: { $ne: true },
+          status: "verified",
+          verificationStatus: "verified",
+          developerApprovalStatus: "approved",
+        })
+          .sort({ createdAt: -1, _id: -1 })
+          .limit(50)
+          .select({
+            _id: 1,
+            slug: 1,
+            projectName: 1,
+            projectStatus: 1,
+            city: 1,
+            area: 1,
+            projectCategory: 1,
+            minPrice: 1,
+            maxPrice: 1,
+            featureImageUrl: 1,
+            "images.url": 1,
+            "images.isPrimary": 1,
+          })
+          .maxTimeMS(3000)
+          .lean<RawPublicProject[]>()
+      : [];
+
     // ── CDN cache headers ─────────────────────
     // Profile pages: 5 min CDN cache, 10 min stale
     res.setHeader(
@@ -338,6 +425,7 @@ export default async function handler(
     return void res.status(200).json({
       success: true,
       data: toPublicProfile(profile),
+      projects: toPublicProjects(rawProjects),
     });
   } catch (err: unknown) {
     return void res.status(500).json({

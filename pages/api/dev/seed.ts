@@ -1,6 +1,7 @@
 import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import dbConnect from '@/lib/dbConnect';
+import { assertWriteAllowed } from '@/lib/dbGuard';
 import Project from '@/models/Projects';
 import Property from '@/models/Property';
 
@@ -8,6 +9,27 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   // Security Guard: Never run in production
   if (process.env.NODE_ENV === 'production') {
     return res.status(403).json({ error: 'Seed scripts are disabled in production.' });
+  }
+
+  // Security Guard (Phase 0): disabled by default — fail-closed
+  if (process.env.DEMO_SEED_ENABLED !== '1') {
+    return res.status(403).json({
+      error:
+        'Demo seeding is disabled by default. Set DEMO_SEED_ENABLED=1 and point MONGODB_URI at an isolated non-production database to enable.',
+    });
+  }
+
+  // Security Guard (Phase 0): only clearly non-production database targets are writable
+  const mongoUri = process.env.MONGODB_URI;
+  if (!mongoUri) {
+    return res.status(500).json({ error: 'MONGODB_URI is not configured.' });
+  }
+  try {
+    assertWriteAllowed(mongoUri, { purpose: 'demo seed endpoint' });
+  } catch (guardError) {
+    return res.status(403).json({
+      error: guardError instanceof Error ? guardError.message : 'Refused by database write guard.',
+    });
   }
 
   await dbConnect();

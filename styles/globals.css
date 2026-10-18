@@ -36,6 +36,12 @@ body {
   color: var(--hr-text);
 }
 
+body {
+  font-family: 'Poppins', sans-serif;
+  background-color: var(--hr-page-bg);
+  color: var(--hr-text);
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: 'Montserrat', sans-serif;
 }

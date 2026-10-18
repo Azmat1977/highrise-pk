@@ -68,8 +68,8 @@ export function ReadyPropertiesCrossSell({ properties, city }: ReadyPropertiesCr
 
         <Link
           href={city
-            ? `/properties?city=${encodeURIComponent(city)}&purpose=sale&type=apartment`
-            : '/properties?purpose=sale&type=apartment'}
+            ? `/properties?city=${encodeURIComponent(city)}&listingType=full_payment&propertyType=Apartment`
+            : '/properties?listingType=full_payment&propertyType=Apartment'}
           className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-white border-2 border-gray-200 text-gray-700 hover:text-[#029bba] hover:border-[#029bba]/40 text-sm font-bold transition-all shadow-sm self-start md:self-auto whitespace-nowrap"
         >
           <span>Browse Ready Units</span>

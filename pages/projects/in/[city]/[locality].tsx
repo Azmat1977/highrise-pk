@@ -774,7 +774,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
     if (filters.possession) {
       const map: Record<string, string> = {
         ready_to_move: 'Completed',
-        under_construction: 'Under Construction',
+        under_construction: 'Under Development',
         new_launch: 'Launched',
         pre_launch: 'Pre-Launch',
       };

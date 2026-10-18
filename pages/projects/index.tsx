@@ -64,6 +64,8 @@ const STATUS_OPTIONS = [
 
 import { MainProjectGrid } from '@/components/projects/MainProjectGrid';
 import FeaturedProjectCarousel from '@/components/projects/FeaturedProjectCarousel';
+import { TrendingProjectsRail } from '@/components/projects/TrendingProjectsRail';
+import { TrustedDevelopersMarquee, type TrustedDeveloperSourceProject } from '@/components/projects/TrustedDevelopersMarquee';
 import ProjectMarketInsights from '@/components/projects/ProjectMarketInsights';
 import ContextualArticles from '@/components/blog/ContextualArticles';
 import { FilterDropdown }  from '@/components/projects/FilterDropdown';
@@ -88,7 +90,11 @@ const PAKISTAN_CITIES = [
   'Mardan', 'Mirpur', 'Abbottabad', 'Kasur', 'Okara', 'Sahiwal',
 ];
 
-const NewProjectsPage: NextPage<ProjectsPageProps> = ({
+type ProjectsPageLocalProps = ProjectsPageProps & {
+  trustedProjects: TrustedDeveloperSourceProject[];
+};
+
+const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
   initialFilters,
   initialProjects,
   totalCount,
@@ -101,6 +107,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
   tabCounts,
   featuredProjects,
   readyProperties = [],
+  trustedProjects = [],
 }) => {
   const router = useRouter();
   const { data: session } = useSession();
@@ -433,31 +440,6 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
             {/* Unified 1-Row Layout */}
             <div className="flex flex-col gap-2.5">
               
-              {/* Search Bar - Flex 1 */}
-              <div className="relative w-full max-w-[720px]">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSearchSubmit();
-                    }
-                  }}
-                  placeholder="Search locality, project, or developer..."
-                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
-                />
-                <button
-                  type="button"
-                  onClick={handleSearchSubmit}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors"
-                >
-                  Search
-                </button>
-              </div>
-
               {/* Tightly Packed Dropdowns (Scrollable on small mobile, inline on desktop) */}
               <div className="w-full flex flex-wrap items-center justify-start gap-2.5 pb-1">
                 
@@ -548,6 +530,31 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
                   <span className="lg:hidden">NOC</span>
                 </button>
               </div>
+
+              {/* Search controls directly underneath the filter row */}
+              <div className="relative w-full max-w-[720px]">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchSubmit();
+                    }
+                  }}
+                  placeholder="Search locality, project, or developer..."
+                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
+                />
+                <button
+                  type="button"
+                  onClick={handleSearchSubmit}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors"
+                >
+                  Search
+                </button>
+              </div>
             </div>
 
             {/* Active Locality Chip (Other filters are visibly active in dropdowns) */}
@@ -565,15 +572,6 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
             )}
           </div>
 
-          <FeaturedProjectCarousel projects={featuredProjects} />
-          <FeaturedProjectCarousel
-            id="prominent-projects-heading"
-            projects={prominentProjects}
-            eyebrow="VERIFIED PROJECTS"
-            title="Prominent Projects to Explore"
-            description="Other verified projects ranked by their current Highrise Shield score."
-          />
-
           {/* MAIN PROJECT RESULTS GRID */}
           <div className="relative z-10">
             <MainProjectGrid
@@ -583,6 +581,19 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
               totalCount={totalCount}
             />
           </div>
+
+          <FeaturedProjectCarousel projects={featuredProjects} />
+          <FeaturedProjectCarousel
+            id="prominent-projects-heading"
+            projects={prominentProjects}
+            eyebrow="VERIFIED PROJECTS"
+            title="Prominent Projects to Explore"
+            description="Other verified projects ranked by their current Highrise Shield score."
+          />
+
+          <TrendingProjectsRail city={filters.city || undefined} />
+
+          <TrustedDevelopersMarquee projects={trustedProjects} />
 
           {/* PRIORITY 2: EXIT-INTENT READY PROPERTIES CROSS-SELL */}
           <ReadyPropertiesCrossSell
@@ -603,14 +614,36 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
             tags={['New Projects', 'Project Reviews', 'Developer News']}
           />
 
-          <section aria-labelledby="list-project-cta" className="flex flex-col gap-4 rounded-xl border border-[#029bba]/20 bg-[#029bba]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 id="list-project-cta" className="text-lg font-black text-[#004063]">Have a project to list?</h2>
-              <p className="mt-1 text-sm text-gray-600">Submit project details for review by the Highrise team.</p>
+          <section aria-label="List with Highrise" className="grid gap-4 lg:grid-cols-2">
+            <div className="flex flex-col gap-4 rounded-xl border border-[#029bba]/20 bg-[#029bba]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="hidden sm:flex w-10 h-10 shrink-0 items-center justify-center rounded-xl bg-[#029bba]/10 text-[#029bba]">
+                  <Home className="w-5 h-5" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-black text-[#004063]">Have a property to sell?</h2>
+                  <p className="mt-1 text-sm text-gray-600">List your apartment, house, shop or office and reach verified buyers across Pakistan.</p>
+                </div>
+              </div>
+              <Link href="/add-property" className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#029bba] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#017a94] focus:outline-none focus:ring-2 focus:ring-[#029bba]/50">
+                List Your Property
+              </Link>
             </div>
-            <Link href="/developer/projects/new" className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#029bba] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#017a94]">
-              List a Project
-            </Link>
+
+            <div className="flex flex-col gap-4 rounded-xl border border-[#004063]/15 bg-[#004063]/[0.04] p-5 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="hidden sm:flex w-10 h-10 shrink-0 items-center justify-center rounded-xl bg-[#004063]/10 text-[#004063]">
+                  <Building2 className="w-5 h-5" />
+                </span>
+                <div>
+                  <h2 className="text-lg font-black text-[#004063]">Have a project to list?</h2>
+                  <p className="mt-1 text-sm text-gray-600">Submit project details for review by the Highrise team.</p>
+                </div>
+              </div>
+              <Link href="/developer/projects/new" className="inline-flex shrink-0 items-center justify-center rounded-lg border-2 border-[#004063]/20 bg-white px-4 py-2.5 text-sm font-bold text-[#004063] transition hover:border-[#029bba] hover:text-[#029bba] focus:outline-none focus:ring-2 focus:ring-[#029bba]/40">
+                List a Project
+              </Link>
+            </div>
           </section>
         </div>
 
@@ -632,7 +665,7 @@ const NewProjectsPage: NextPage<ProjectsPageProps> = ({
   );
 };
 
-export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async ({ query, req }) => {
+export const getServerSideProps: GetServerSideProps<ProjectsPageLocalProps> = async ({ query, req }) => {
   try {
     const clientIp = (req.headers['x-forwarded-for'] as string | undefined)?.split(',')[0]?.trim() ?? req.socket?.remoteAddress ?? 'unknown';
 
@@ -666,6 +699,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
           tabCounts:        [],
           featuredProjects: [],
           readyProperties:  [],
+          trustedProjects:  [],
         },
       };
     }
@@ -699,7 +733,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
     if (filters.possession) {
       const map: Record<string, string> = {
         ready_to_move: 'Completed',
-        under_construction: 'Under Construction',
+        under_construction: 'Under Development',
         new_launch: 'Launched',
         pre_launch: 'Pre-Launch',
       };
@@ -731,6 +765,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
       categoryCounts,
       natureCounts,
       hotspots,
+      trustedRaw,
     ] = await Promise.all([
       Project.find(base)
         .sort(sortMap[filters.sort] ?? sortMap.relevance)
@@ -757,6 +792,26 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
       getProjectCategoryCounts(base),
       getProjectNatureCounts(base),
       getHotspotAreas(filters.city || undefined),
+
+      Project.find({
+        ...base,
+        isTrustedBuilder: true,
+        developerBadge: { $in: ['trusted', 'premium'] },
+      })
+        .sort({ highriseScore: -1, createdAt: -1 })
+        .limit(24)
+        .select({
+          _id: 1, slug: 1, projectName: 1, city: 1, area: 1,
+          developerId: 1,
+          'developerProfile.name': 1,
+          'developerProfile.logoUrl': 1,
+          developerBadge: 1,
+          isTrustedBuilder: 1,
+          highriseScore: 1,
+          createdAt: 1,
+        })
+        .maxTimeMS(3000)
+        .lean(),
     ]);
 
     const projects: ProjectListing[] = (rawProjects as Array<Record<string, unknown>>).map(p => {
@@ -894,6 +949,19 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
       };
     });
 
+    const trustedProjects: TrustedDeveloperSourceProject[] = (
+      trustedRaw as Array<Record<string, unknown>>
+    ).map((p) => {
+      const dev = p.developerProfile as { name?: string; logoUrl?: string } | undefined;
+      return {
+        developerId: p.developerId ? String(p.developerId) : null,
+        developerName: dev?.name ?? '',
+        developerLogoUrl: dev?.logoUrl ?? null,
+        developerBadge: typeof p.developerBadge === 'string' ? p.developerBadge : null,
+        isTrustedBuilder: Boolean(p.isTrustedBuilder),
+      };
+    });
+
     // Query active resale properties for exit-intent cross-sell
     let readyPropertiesMapped: ReadyPropertyItem[] = [];
     try {
@@ -967,6 +1035,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
         tabCounts: [],
         featuredProjects: projects.filter((project) => project.isFeatured && project.isVerified).slice(0, 6),
         readyProperties: readyPropertiesMapped,
+        trustedProjects,
       },
     };
   } catch (err: unknown) {
@@ -984,6 +1053,7 @@ export const getServerSideProps: GetServerSideProps<ProjectsPageProps> = async (
         tabCounts: [],
         featuredProjects: [],
         readyProperties: [],
+        trustedProjects: [],
       },
     };
   }

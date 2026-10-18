@@ -25,7 +25,7 @@ import User from '@/models/User';
 import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import { hasUsablePropertyLocation, normalizePropertyMutationInput } from '@/lib/property/propertyNormalization';
 import { validatePropertyMediaInput, validatePropertyFloorPlanInput } from '@/lib/property/propertyMedia';
-import { normalizeDiscoveryGroup, normalizePropertyType, parsePropertyTypeList, propertyTypesForDiscoveryGroup } from '@/lib/property/propertyTaxonomy';
+import { normalizeDiscoveryGroup, normalizePropertyType, parsePropertyTypeList, propertyTypeSearchTermsForGroup } from '@/lib/property/propertyTaxonomy';
 
 // ═══════════════════════════════════════════════════════════════
 // 🔒 CONSTANTS
@@ -190,6 +190,17 @@ function clampInt(n: number, min: number, max: number): number {
 
 function escapeRegExp(input: string): string {
   return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+const TYPE_TERM_SEPARATOR = '\u0001';
+
+// Matches a taxonomy term while treating spaces, underscores, and hyphens in
+// the stored value as interchangeable (e.g. "Residential Plot" matches
+// "residential_plot"). ReDoS-safe: fixed-width alternation only.
+function typeTermRegex(term: string): RegExp {
+  const normalized = String(term ?? '').trim().replace(/[\s_-]+/g, TYPE_TERM_SEPARATOR);
+  const escaped = escapeRegExp(normalized).split(TYPE_TERM_SEPARATOR).join('[\\s_-]+');
+  return new RegExp(`^${escaped}$`, 'i');
 }
 
 function allowlisted(v: string, set: Set<string>): string {
@@ -661,14 +672,21 @@ async function handleGet(
 
   const rawRequestedTypes = Array.from(
     new Set(
-      [propertyTypeRaw, ...propertyTypesRaw]
-        .map((s) => String(s ?? '').trim())
+      [
+        propertyTypeRaw,
+        ...getStringArray(q['propertyTypes']),
+        ...getStringArray(q['propertyType']),
+      ]
+        .flatMap((t) => String(t ?? '').split(','))
+        .map((s) => s.trim())
         .filter(Boolean)
     )
   );
 
   const canonicalTypes = parsePropertyTypeList(rawRequestedTypes);
-  const groupTypes = requestedGroup ? propertyTypesForDiscoveryGroup(requestedGroup) : [];
+  const groupTypes = requestedGroup && rawRequestedTypes.length === 0
+    ? propertyTypeSearchTermsForGroup(requestedGroup)
+    : [];
 
   const allMatchingTypeStrings = Array.from(
     new Set([
@@ -680,7 +698,7 @@ async function handleGet(
 
   if (allMatchingTypeStrings.length > 0) {
     baseFilter.propertyType = {
-      $in: allMatchingTypeStrings.map((t) => new RegExp(`^${escapeRegExp(t)}$`, 'i')),
+      $in: allMatchingTypeStrings.map((t) => typeTermRegex(t)),
     };
   }
 

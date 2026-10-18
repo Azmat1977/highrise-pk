@@ -3,13 +3,12 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
-import { useRouter } from 'next/router';
 import {
   Search, MapPin, Shield, ShieldCheck, ShieldAlert, ShieldX,
-  AlertTriangle, CheckCircle, XCircle, Clock, Building2,
-  TrendingUp, Award, FileText, Download, ExternalLink,
-  Loader2, ChevronRight, Filter, X, Info, Calendar,
-  ArrowRight, BadgeCheck, Activity, Eye, Banknote,
+  AlertTriangle, XCircle, Clock, Building2,
+  Award,
+  Loader2, ChevronRight, Filter, X, Info,
+  BadgeCheck, Activity, Banknote,
   Sparkles, Home,
 } from 'lucide-react';
 
@@ -130,7 +129,6 @@ function getScoreBg(score: number): string {
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function VerifySocietyPage(): React.ReactElement {
-  const router = useRouter();
 
   // Data
   const [societies, setSocieties] = useState<SocietyListItem[]>([]);
@@ -261,55 +259,62 @@ export default function VerifySocietyPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── HERO ── */}
-        <section className="relative bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-16 md:py-24 overflow-hidden">
-          <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(255,255,255,0.08),transparent_50%)] pointer-events-none" />
+        {/* ── COMPACT PAGE HEADER ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
+          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
+              <Home className="w-3.5 h-3.5" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <Link href="/tools" className="hover:text-[#029bba] font-medium transition-colors">
+              Tools
+            </Link>
+            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <span className="text-[#004063] font-bold">Verify Society</span>
+          </nav>
 
-          <div className="container mx-auto px-4 relative z-10">
-            <div className="max-w-4xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10 border border-white/20 backdrop-blur-sm text-white text-sm font-semibold mb-6">
-                <Shield className="w-4 h-4 text-[#06b6d4]" />
-                Pakistan&apos;s First NOC Verification Tool
+          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+            Verify Any Society Before You Invest
+          </h1>
+          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+            <span>NOC status, approval authority &amp; legal score</span>
+            <span className="text-gray-300">•</span>
+            <span>Risk alerts</span>
+            <span className="text-gray-300">•</span>
+            <span className="text-[#029bba]">LDA · CDA · RDA · KDA</span>
+          </p>
+        </div>
+
+        {/* ── SEARCH ── */}
+        <section className="bg-white border-b border-gray-200">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4">
+            <div className="max-w-2xl">
+              <div className="relative">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
+                <input
+                  type="text"
+                  value={searchInputValue}
+                  onChange={(e) => setSearchInputValue(e.target.value)}
+                  placeholder="Search by society name, city, or area..."
+                  className="w-full h-12 pl-11 pr-4 rounded-xl border border-gray-300 bg-white text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:ring-2 focus:ring-[#029bba]/30 focus:border-[#029bba] outline-none shadow-sm"
+                  autoFocus
+                />
               </div>
 
-              <h1 className="text-3xl md:text-5xl font-bold text-white mb-4 leading-tight tracking-tight">
-                Verify Any <span className="text-[#06b6d4]">Society</span> Before You Invest
-              </h1>
-
-              <p className="text-base md:text-lg text-white/85 max-w-2xl mx-auto mb-8">
-                Check NOC status, approval authority, legal score, and risk alerts.
-                Don&apos;t lose your hard-earned money to scams.
-              </p>
-
-              {/* Hero Search */}
-              <div className="max-w-2xl mx-auto">
-                <div className="relative">
-                  <Search className="absolute left-5 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-                  <input
-                    type="text"
-                    value={searchInputValue}
-                    onChange={(e) => setSearchInputValue(e.target.value)}
-                    placeholder="Search by society name, city, or area..."
-                    className="w-full h-14 pl-14 pr-5 rounded-2xl border border-white/20 bg-white text-slate-900 text-base placeholder:text-slate-400 focus:ring-4 focus:ring-[#029bba]/30 outline-none shadow-2xl"
-                    autoFocus
-                  />
-                </div>
-
-                {/* Quick stats */}
-                <div className="flex flex-wrap items-center justify-center gap-4 md:gap-8 mt-6 text-white/80 text-sm">
-                  <div className="flex items-center gap-2">
-                    <BadgeCheck className="w-4 h-4 text-[#10b981]" />
-                    <span>Verified data</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-[#06b6d4]" />
-                    <span>Real-time alerts</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <Award className="w-4 h-4 text-[#f59e0b]" />
-                    <span>LDA · CDA · RDA · KDA</span>
-                  </div>
-                </div>
+              <div className="flex flex-wrap items-center gap-4 mt-3 text-gray-500 text-xs font-semibold">
+                <span className="flex items-center gap-1.5">
+                  <BadgeCheck className="w-3.5 h-3.5 text-[#10b981]" />
+                  Verified data
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-[#029bba]" />
+                  Real-time alerts
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <Award className="w-3.5 h-3.5 text-[#f59e0b]" />
+                  Official authority data
+                </span>
               </div>
             </div>
           </div>
@@ -317,7 +322,7 @@ export default function VerifySocietyPage(): React.ReactElement {
 
         {/* ── INFO STRIP ── */}
         <section className="bg-[#fef3c7] border-y border-[#f59e0b]/30 py-3">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="flex items-center justify-center gap-2 text-[#92400e] text-sm">
               <Info className="w-4 h-4 flex-shrink-0" />
               <span className="text-center">
@@ -329,7 +334,7 @@ export default function VerifySocietyPage(): React.ReactElement {
 
         {/* ── FILTERS BAR ── */}
         <section className="sticky top-0 z-30 bg-white border-b border-gray-200 shadow-sm">
-          <div className="container mx-auto px-4 py-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4">
             <div className="flex flex-wrap items-center gap-3">
               <button
                 onClick={() => setShowFilters(!showFilters)}
@@ -427,7 +432,7 @@ export default function VerifySocietyPage(): React.ReactElement {
         </section>
 
         {/* ── RESULTS HEADER ── */}
-        <section className="container mx-auto px-4 pt-6">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-6">
           <div className="flex items-center justify-between mb-6">
             <div>
               <p className="text-sm text-gray-600">
@@ -446,7 +451,7 @@ export default function VerifySocietyPage(): React.ReactElement {
         </section>
 
         {/* ── RESULTS GRID ── */}
-        <section className="container mx-auto px-4 pb-16">
+        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-16">
           {loading ? (
             <div className="flex flex-col items-center justify-center py-32">
               <Loader2 className="w-10 h-10 text-[#029bba] animate-spin mb-3" />
@@ -518,7 +523,7 @@ export default function VerifySocietyPage(): React.ReactElement {
 
         {/* ── EDUCATIONAL SECTION ── */}
         <section className="bg-white py-16 border-t border-gray-200">
-          <div className="container mx-auto px-4">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
             <div className="text-center mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
                 <Info className="w-4 h-4" />
@@ -574,7 +579,7 @@ export default function VerifySocietyPage(): React.ReactElement {
 
         {/* ── CTA ── */}
         <section className="bg-gradient-to-br from-[#001f2b] to-[#003553] py-14">
-          <div className="container mx-auto px-4 text-center">
+          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
             <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
             <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
               Don&apos;t Just Verify — <span className="text-[#06b6d4]">Compare Areas Too</span>

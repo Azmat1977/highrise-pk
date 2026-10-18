@@ -11,10 +11,17 @@ import React, { useMemo } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
-import { ProjectListing } from '@/types/projects';
+
+export interface TrustedDeveloperSourceProject {
+  developerId?: string | null;
+  developerName?: string | null;
+  developerLogoUrl?: string | null;
+  developerBadge?: string | null;
+  isTrustedBuilder?: boolean | null;
+}
 
 interface TrustedDevelopersMarqueeProps {
-  projects: ProjectListing[];
+  projects: TrustedDeveloperSourceProject[];
 }
 
 interface DeveloperItem {
@@ -47,8 +54,8 @@ export function TrustedDevelopersMarquee({ projects }: TrustedDevelopersMarqueeP
           map.set(key, {
             id: p.developerId || key,
             name: p.developerName,
-            logoUrl: p.developerLogoUrl,
-            badge: p.developerBadge,
+            logoUrl: p.developerLogoUrl ?? null,
+            badge: p.developerBadge ?? null,
             initials: initials || 'DEV',
             bgColor: 'bg-[#004063]/10',
             textColor: 'text-[#004063]',
