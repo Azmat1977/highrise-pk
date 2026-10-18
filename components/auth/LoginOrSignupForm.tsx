@@ -522,11 +522,28 @@ const LoginOrSignupForm = ({
 
   useEffect(() => {
     if (!router.isReady) return;
+    
     const qMode = getQueryString(router.query, "mode");
-    if (qMode === "signup")  setMode("signup");
-    else if (qMode === "forgot") setMode("forgot");
-    else if (qMode === "reset")  setMode("reset");
-    else if (qMode === "login")  setMode("login");
+    // Securely extract token without altering casing, then strip non-digits for our 6-digit OTP
+    const rawToken = router.query.token || router.query.code;
+    const qToken = String(Array.isArray(rawToken) ? rawToken[0] : rawToken ?? "");
+    const qEmail = getQueryString(router.query, "email");
+
+    if (qMode === "reset" || qToken) {
+      setMode("reset");
+      if (qToken) {
+        setResetCode(qToken.replace(/\D/g, "").slice(0, RESET_CODE_LENGTH));
+      }
+      if (qEmail) {
+        setForm(prev => ({ ...prev, email: qEmail }));
+      }
+    } else if (qMode === "signup") {
+      setMode("signup");
+    } else if (qMode === "forgot") {
+      setMode("forgot");
+    } else if (qMode === "login") {
+      setMode("login");
+    }
   }, [router.isReady, router.query]);
 
   // ─── Turnstile loader ─────────────────────────────────────────
