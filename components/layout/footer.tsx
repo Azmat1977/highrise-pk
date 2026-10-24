@@ -11,13 +11,7 @@ import { colors } from '@/lib/design-system/tokens';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const FOUNDED_YEAR = 2018;
-const PRIMARY_PHONE_DISPLAY = '+92 333 5877106';
-const SECONDARY_PHONE_DISPLAY = '+92 300 5197028';
-const PRIMARY_PHONE_HREF = '+923335877106';
-const SECONDARY_PHONE_HREF = '+923005197028';
 const WHATSAPP_NUMBER = '923335877106';
-const EMAIL = 'info@highrise.pk';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,16 +27,6 @@ interface FooterLink {
 interface FooterColumn {
   title: string;
   links: FooterLink[];
-}
-
-interface Office {
-  city: string;
-  isHQ?: boolean;
-  address: string;
-  phone: string;
-  phoneHref: string;
-  email: string;
-  hours: string;
 }
 
 // ─── Footer Data ──────────────────────────────────────────────────────────────
@@ -83,46 +67,10 @@ const SUPPORT_LINKS: FooterLink[] = [
   { label: 'Terms of Service', href: '/terms-of-service' },
 ];
 
-const OFFICES: Office[] = [
-  {
-    city: 'Lahore',
-    isHQ: true,
-    address: 'Main Boulevard, DHA Phase 6, Lahore',
-    phone: PRIMARY_PHONE_DISPLAY,
-    phoneHref: PRIMARY_PHONE_HREF,
-    email: EMAIL,
-    hours: 'Mon-Fri | 9am-6pm',
-  },
-  {
-    city: 'Islamabad',
-    address: 'Blue Area, F-7 Markaz, Islamabad',
-    phone: SECONDARY_PHONE_DISPLAY,
-    phoneHref: SECONDARY_PHONE_HREF,
-    email: EMAIL,
-    hours: 'Mon-Fri | 9am-6pm',
-  },
-  {
-    city: 'Karachi',
-    address: 'Clifton Block 9, Karachi',
-    phone: PRIMARY_PHONE_DISPLAY,
-    phoneHref: PRIMARY_PHONE_HREF,
-    email: EMAIL,
-    hours: 'Mon-Fri | 9am-6pm',
-  },
-];
-
-const QUICK_STATS = [
-  { label: 'Active Users', value: '100,000+' },
-  { label: 'Verified Societies', value: '500+' },
-  { label: 'Cities Covered', value: '10' },
-  { label: 'Trusted Since', value: `${FOUNDED_YEAR}` },
-];
-
 // ─── Main Component ───────────────────────────────────────────────────────────
 
 export const Footer: React.FC = () => {
   const router = useRouter();
-  const currentYear = new Date().getFullYear();
 
   const [email, setEmail] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -202,36 +150,6 @@ export const Footer: React.FC = () => {
       />
 
       <div className="relative">
-
-        {/* ─── QUICK STATS BAR ── */}
-        <div className="border-b border-white/10 bg-white/[0.02] backdrop-blur-sm">
-          <div className="container mx-auto px-4 py-5">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8">
-              {QUICK_STATS.map((stat) => (
-                <div key={stat.label} className="text-center md:text-left">
-                  <div className="text-xl md:text-2xl font-bold text-white">{stat.value}</div>
-                  <div className="text-[10px] md:text-xs text-white/60 uppercase tracking-wider">{stat.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Status indicator */}
-            <div className="mt-4 pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-3 text-xs">
-              <div className="flex items-center gap-2 text-white/70">
-                <span className="w-2 h-2 rounded-full bg-[#10b981] animate-pulse" />
-                <span className="font-semibold">All Systems Operational</span>
-              </div>
-              <button
-                onClick={handleWhatsApp}
-                className="inline-flex items-center gap-2 text-white/70 hover:text-white transition-colors"
-              >
-                <icons.MessageCircle className="w-3.5 h-3.5" />
-                <span>Need help? WhatsApp us instantly</span>
-                <icons.ArrowRight className="w-3 h-3" />
-              </button>
-            </div>
-          </div>
-        </div>
 
         {/* ─── MAIN FOOTER GRID ── */}
         <div className="container mx-auto px-4 pt-12 pb-8">
@@ -338,7 +256,7 @@ export const Footer: React.FC = () => {
                 Weekly insights: market trends, new societies, risk alerts. <strong>No spam.</strong>
               </p>
 
-              <form onSubmit={handleNewsletterSubmit} className="space-y-2">
+              <form onSubmit={handleNewsletterSubmit} noValidate className="space-y-2">
                 <div className="relative">
                   <icons.Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40 pointer-events-none" />
                   <input
@@ -385,25 +303,6 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* OFFICES SECTION */}
-        <div className="border-t border-white/10 bg-white/[0.02]">
-          <div className="container mx-auto px-4 py-8">
-            <div className="text-center mb-6">
-              <h3 className="text-sm font-bold text-white mb-1 flex items-center justify-center gap-2">
-                <icons.Building className="w-4 h-4 text-[#06b6d4]" />
-                Our Offices Across Pakistan
-              </h3>
-              <p className="text-xs text-white/60">Visit us or call the office nearest to you</p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-5xl mx-auto">
-              {OFFICES.map((office) => (
-                <OfficeCard key={office.city} office={office} />
-              ))}
-            </div>
-          </div>
-        </div>
-
         {/* TRUST BADGES */}
         <div className="border-t border-white/10">
           <div className="container mx-auto px-4 py-6">
@@ -429,9 +328,7 @@ export const Footer: React.FC = () => {
 
               {/* Left: Copyright */}
               <div className="text-white/60 text-center md:text-left">
-                <span>(c) {FOUNDED_YEAR}-{currentYear} </span>
-                <strong className="text-white">Highrise.pk (Pvt) Ltd.</strong>
-                <span> All rights reserved.</span>
+                © 2016 Highrise.pk. All rights reserved.
               </div>
 
               {/* Center: Legal Links */}
@@ -589,64 +486,6 @@ function FooterLinksColumn({
           );
         })}
       </ul>
-    </div>
-  );
-}
-
-// Office Card Sub-Component
-
-interface OfficeCardProps {
-  office: Office;
-}
-
-function OfficeCard({ office }: OfficeCardProps): React.ReactElement {
-  return (
-    <div
-      className={`rounded-2xl p-4 ${
-        office.isHQ
-          ? 'bg-gradient-to-br from-[#029bba]/15 to-[#004063]/15 border border-[#029bba]/30'
-          : 'bg-white/5 border border-white/10'
-      }`}
-    >
-      <div className="flex items-start justify-between mb-3">
-        <h4 className="font-bold text-white text-base flex items-center gap-1.5">
-          <icons.MapPin className="w-4 h-4 text-[#06b6d4]" />
-          {office.city}
-        </h4>
-        {office.isHQ && (
-          <span className="px-2 py-0.5 rounded-full bg-[#06b6d4]/20 text-[#06b6d4] text-[9px] font-bold uppercase">
-            HQ
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-2 text-xs">
-        <div className="flex items-start gap-2 text-white/70">
-          <icons.MapPin className="w-3 h-3 flex-shrink-0 mt-0.5 text-white/40" />
-          <span className="leading-snug">{office.address}</span>
-        </div>
-
-        <a
-          href={`tel:${office.phoneHref}`}
-          className="flex items-center gap-2 text-white/70 hover:text-[#06b6d4] transition-colors group"
-        >
-          <icons.Phone className="w-3 h-3 flex-shrink-0 text-white/40 group-hover:text-[#06b6d4]" />
-          <span>{office.phone}</span>
-        </a>
-
-        <a
-          href={`mailto:${office.email}`}
-          className="flex items-center gap-2 text-white/70 hover:text-[#06b6d4] transition-colors group truncate"
-        >
-          <icons.Mail className="w-3 h-3 flex-shrink-0 text-white/40 group-hover:text-[#06b6d4]" />
-          <span className="truncate">{office.email}</span>
-        </a>
-
-        <div className="flex items-center gap-2 text-white/60">
-          <icons.Clock className="w-3 h-3 flex-shrink-0 text-white/40" />
-          <span>{office.hours}</span>
-        </div>
-      </div>
     </div>
   );
 }

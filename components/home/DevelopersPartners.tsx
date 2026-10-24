@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
-  Building2, Award, BadgeCheck, Star, MapPin, 
-  ArrowRight, Users, ShieldCheck, Loader2 
+import {
+  ArrowRight,
+  BadgeCheck,
+  Briefcase,
+  Building2,
+  Loader2,
+  MapPin,
+  ShieldCheck,
+  Star,
+  UserRound,
 } from 'lucide-react';
 
 interface DeveloperItem {
@@ -21,6 +28,20 @@ interface DeveloperItem {
   logo?: { url: string };
 }
 
+interface AgentItem {
+  slug?: string;
+  displayName?: string;
+  tagline?: string;
+  agentType?: string;
+  agencyName?: string;
+  city?: string;
+  specializations?: string[];
+  verificationLevel?: string;
+  ratings?: { averageRating?: number; totalReviews?: number };
+  stats?: { activeListings?: number };
+  documents?: { profilePhoto?: { url?: string } };
+}
+
 interface PartnerItem {
   _id: string;
   companyName?: string;
@@ -29,154 +50,349 @@ interface PartnerItem {
 
 interface DevelopersPartnersProps {
   developers: DeveloperItem[];
+  agents: AgentItem[];
   trustedPartners: PartnerItem[];
   loadingDevelopers: boolean;
+  loadingAgents: boolean;
   loadingPartners: boolean;
 }
 
-export default function DevelopersPartners({
-  developers, trustedPartners, loadingDevelopers, loadingPartners
-}: DevelopersPartnersProps) {
+function StarRow({ rating, reviews }: { rating?: number; reviews?: number }) {
+  if (typeof rating !== 'number' || rating <= 0) {
+    return <span className="text-xs font-medium text-slate-400">No ratings yet</span>;
+  }
+  const rounded = Math.round(rating);
   return (
-    <section className="relative py-20 bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] overflow-hidden">
-      {/* Decorative background */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#029bba]/10 rounded-full blur-[100px] -translate-y-1/3 translate-x-1/4" />
-        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#06b6d4]/10 rounded-full blur-[100px] translate-y-1/3 -translate-x-1/4" />
-        <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '32px 32px' }} />
-        <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#06b6d4]/40 to-transparent" />
-      </div>
+    <div className="flex items-center gap-1">
+      {Array.from({ length: 5 }).map((_, index) => (
+        <Star
+          key={index}
+          className={`h-3.5 w-3.5 ${
+            index < rounded ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
+          }`}
+        />
+      ))}
+      <span className="ml-1 text-xs font-medium text-slate-500">
+        {rating.toFixed(1)}
+        {typeof reviews === 'number' ? ` (${reviews})` : ''}
+      </span>
+    </div>
+  );
+}
 
-      <div className="container mx-auto px-4 relative z-10 max-w-7xl">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-14">
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10 mb-5">
-            <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-[#029bba] to-[#06b6d4] flex items-center justify-center shadow-inner">
-              <Award className="w-3.5 h-3.5 text-white" />
-            </div>
-            <span className="text-xs font-bold uppercase tracking-wider text-white">Verified Partners</span>
-            <span className="text-[10px] font-bold text-[#06b6d4] bg-[#06b6d4]/10 px-2 py-0.5 rounded-full border border-[#06b6d4]/20">
-              Trusted Network
+export default function DevelopersPartners({
+  developers,
+  agents,
+  trustedPartners,
+  loadingDevelopers,
+  loadingAgents,
+  loadingPartners,
+}: DevelopersPartnersProps) {
+  const [activeTab, setActiveTab] = useState<'developers' | 'agents'>('developers');
+  const isLoading = activeTab === 'developers' ? loadingDevelopers : loadingAgents;
+  const visibleDevelopers = developers.slice(0, 6);
+  const visibleAgents = agents.slice(0, 6);
+  const hasItems = activeTab === 'developers' ? visibleDevelopers.length > 0 : visibleAgents.length > 0;
+
+  return (
+    <section className="bg-white py-16 sm:py-20">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-10 flex flex-col items-center gap-5 text-center">
+          <div>
+            <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#029bba]/10 px-3 py-1 text-xs font-semibold text-[#007196]">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>Verified Network</span>
             </span>
+            <h2 className="text-2xl font-extrabold tracking-tight text-[#001f2b] sm:text-3xl">
+              Top Developers &amp; <span className="text-[#029bba]">Agents</span>
+            </h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">
+              Work with verified builders and licensed agents whose track record is documented on
+              Highrise.pk.
+            </p>
           </div>
-          <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4 tracking-tight">
-            Pakistan&apos;s Most <span className="text-[#06b6d4]">Trusted</span> Developers
-          </h2>
-          <p className="text-lg text-white/70 max-w-2xl mx-auto">
-            Top-rated and verified developers delivering quality housing societies, gated communities, and highrise projects across Pakistan.
-          </p>
+
+          <div
+            role="tablist"
+            aria-label="Developers and agents"
+            className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'developers'}
+              onClick={() => setActiveTab('developers')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+                activeTab === 'developers'
+                  ? 'bg-white text-[#004063] shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              Developers
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'agents'}
+              onClick={() => setActiveTab('agents')}
+              className={`inline-flex items-center gap-1.5 rounded-lg px-4 py-2 text-xs font-semibold transition-colors ${
+                activeTab === 'agents'
+                  ? 'bg-white text-[#004063] shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <UserRound className="h-3.5 w-3.5" />
+              Agents
+            </button>
+          </div>
         </div>
 
-        {/* Developer Grid */}
-        {loadingDevelopers ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-[#06b6d4]" />
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="h-8 w-8 animate-spin text-[#029bba]" />
           </div>
-        ) : developers.length > 0 ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-            {developers.slice(0, 6).map((developer) => (
-              <Link key={developer._id} href={`/developers/${developer.slug || developer._id}`}>
-                <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 hover:bg-white/10 transition-all duration-500 cursor-pointer group h-full flex flex-col hover:-translate-y-1.5 hover:border-[#06b6d4]/50 hover:shadow-[0_20px_40px_rgba(6,182,212,0.15)] relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-[#06b6d4]/10 rounded-full blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-                  
-                  <div className="flex items-start gap-4 mb-6 relative z-10">
-                    <div className="w-16 h-16 rounded-2xl bg-white flex items-center justify-center overflow-hidden flex-shrink-0 shadow-lg p-2">
-                      {developer.logo?.url ? (
-                        <Image src={developer.logo.url} alt={developer.companyName} width={64} height={64} className="object-contain" />
-                      ) : (
-                        <Building2 className="w-8 h-8 text-gray-300" />
-                      )}
-                    </div>
-                    <div className="flex-1 min-w-0 pt-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-white text-lg truncate group-hover:text-[#06b6d4] transition-colors">{developer.companyName}</h3>
-                        {developer.isVerified && <BadgeCheck className="w-4 h-4 text-[#06b6d4] flex-shrink-0" />}
+        ) : hasItems ? (
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {activeTab === 'developers'
+              ? visibleDevelopers.map((developer) => (
+                  <Link
+                    key={developer._id}
+                    href={`/developers/${developer.slug || developer._id}`}
+                    className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:border-[#029bba]/50 hover:shadow-lg"
+                  >
+                    <div>
+                      <div className="mb-4 flex items-start gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5">
+                          {developer.logo?.url ? (
+                            <Image
+                              src={developer.logo.url}
+                              alt={developer.companyName}
+                              width={56}
+                              height={56}
+                              className="h-full w-full object-contain"
+                            />
+                          ) : (
+                            <Building2 className="h-6 w-6 text-slate-300" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <h3 className="truncate font-heading text-base font-bold text-slate-900 transition-colors group-hover:text-[#004063]">
+                              {developer.companyName}
+                            </h3>
+                            {developer.isVerified && (
+                              <BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />
+                            )}
+                          </div>
+                          <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-wider text-[#029bba]">
+                            {developer.developerType || 'Developer'}
+                          </p>
+                          <div className="mt-1.5">
+                            <StarRow rating={developer.rating} reviews={developer.reviewsCount} />
+                          </div>
+                        </div>
                       </div>
-                      <p className="text-[#06b6d4] text-xs font-bold uppercase tracking-wider mb-2">{developer.developerType}</p>
-                      <div className="flex items-center gap-1">
-                        {[...Array(5)].map((_, i) => (
-                          <Star key={i} className={`w-3.5 h-3.5 ${i < (developer.rating || 4) ? 'text-amber-400 fill-amber-400' : 'text-white/20'}`} />
-                        ))}
-                        <span className="text-white/50 text-xs ml-1 font-medium">({developer.reviewsCount || 0})</span>
-                      </div>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-3 gap-3 mb-6 relative z-10 border-y border-white/10 py-4">
-                    {[
-                      { value: developer.completedProjectsCount || 0, label: 'Completed' },
-                      { value: developer.activeProjectsCount || 0, label: 'Active' },
-                      { value: developer.establishedYear || 'N/A', label: 'Since' },
-                    ].map((stat) => (
-                      <div key={stat.label} className="text-center">
-                        <p className="text-xl font-bold text-white mb-0.5">{stat.value}</p>
-                        <p className="text-[10px] uppercase tracking-wider text-white/50 font-bold">{stat.label}</p>
+                      <div className="grid grid-cols-3 gap-2 rounded-xl border border-slate-100 bg-slate-50 py-3">
+                        <div className="border-r border-slate-200 text-center">
+                          <p className="text-base font-bold text-slate-900">
+                            {developer.completedProjectsCount ?? 0}
+                          </p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                            Completed
+                          </p>
+                        </div>
+                        <div className="border-r border-slate-200 text-center">
+                          <p className="text-base font-bold text-slate-900">
+                            {developer.activeProjectsCount ?? 0}
+                          </p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                            Active
+                          </p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-base font-bold text-slate-900">
+                            {developer.establishedYear ?? 'N/A'}
+                          </p>
+                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                            Since
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                      <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                        <MapPin className="h-3.5 w-3.5 text-[#029bba]" />
+                        {developer.city || 'Pakistan'}
+                      </p>
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#004063] transition-colors group-hover:text-[#029bba]">
+                        Profile
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </span>
+                    </div>
+                  </Link>
+                ))
+              : visibleAgents.map((agent) => {
+                  const href = `/agent/${agent.slug || ''}`;
+                  const name = agent.displayName || 'Highrise Agent';
+                  return (
+                    <Link
+                      key={agent.slug || name}
+                      href={href}
+                      className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:border-[#029bba]/50 hover:shadow-lg"
+                    >
+                      <div>
+                        <div className="mb-4 flex items-start gap-4">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100">
+                            {agent.documents?.profilePhoto?.url ? (
+                              <Image
+                                src={agent.documents.profilePhoto.url}
+                                alt={name}
+                                width={56}
+                                height={56}
+                                className="h-full w-full object-cover"
+                              />
+                            ) : (
+                              <UserRound className="h-6 w-6 text-slate-400" />
+                            )}
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-1.5">
+                              <h3 className="truncate font-heading text-base font-bold text-slate-900 transition-colors group-hover:text-[#004063]">
+                                {name}
+                              </h3>
+                              {agent.verificationLevel ? (
+                                <BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />
+                              ) : null}
+                            </div>
+                            <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-wider text-[#029bba]">
+                              {agent.agentType || 'Agent'}
+                              {agent.agencyName ? ` · ${agent.agencyName}` : ''}
+                            </p>
+                            <div className="mt-1.5">
+                              <StarRow
+                                rating={agent.ratings?.averageRating}
+                                reviews={agent.ratings?.totalReviews}
+                              />
+                            </div>
+                          </div>
+                        </div>
+
+                        {agent.specializations && agent.specializations.length > 0 ? (
+                          <div className="mb-3 flex flex-wrap gap-1.5">
+                            {agent.specializations.slice(0, 3).map((specialization) => (
+                              <span
+                                key={specialization}
+                                className="rounded-md border border-slate-200 bg-slate-50 px-2 py-0.5 text-[11px] font-medium text-slate-600"
+                              >
+                                {specialization}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="mb-3 line-clamp-2 text-xs text-slate-500">
+                            {agent.tagline || 'Verified property professional on Highrise.pk.'}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-3">
+                        <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
+                          <MapPin className="h-3.5 w-3.5 text-[#029bba]" />
+                          {agent.city || 'Pakistan'}
+                        </p>
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#004063] transition-colors group-hover:text-[#029bba]">
+                          {typeof agent.stats?.activeListings === 'number'
+                            ? `${agent.stats.activeListings} active`
+                            : 'View profile'}
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-14 text-center">
+            {activeTab === 'developers' ? (
+              <Building2 className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            ) : (
+              <UserRound className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            )}
+            <h3 className="text-base font-bold text-slate-900">
+              {activeTab === 'developers' ? 'No verified developers yet' : 'No verified agents yet'}
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Profiles appear here after verification is completed by our team.
+            </p>
+          </div>
+        )}
+
+        {trustedPartners.length > 0 && (
+          <>
+            <div className="mx-auto mb-6 mt-12 flex max-w-3xl items-center gap-4">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent to-slate-200" />
+              <div className="inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5">
+                <Briefcase className="h-3.5 w-3.5 text-[#029bba]" />
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">
+                  Trusted Service Partners
+                </span>
+              </div>
+              <div className="h-px flex-1 bg-gradient-to-l from-transparent to-slate-200" />
+            </div>
+
+            <div className="relative w-full overflow-hidden">
+              <div className="pointer-events-none absolute bottom-0 left-0 top-0 z-10 w-16 bg-gradient-to-r from-white to-transparent" />
+              <div className="pointer-events-none absolute bottom-0 right-0 top-0 z-10 w-16 bg-gradient-to-l from-white to-transparent" />
+
+              <div className="flex animate-partner-marquee items-center">
+                {[0, 1].map((duplicate) => (
+                  <div key={duplicate} className="flex items-center gap-4 px-2">
+                    {trustedPartners.map((partner, index) => (
+                      <div
+                        key={`${duplicate}-${partner._id}-${index}`}
+                        className="flex h-20 w-44 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white p-4 shadow-sm grayscale transition-all hover:grayscale-0"
+                      >
+                        {loadingPartners ? (
+                          <Loader2 className="h-5 w-5 animate-spin text-slate-300" />
+                        ) : partner.logo?.url ? (
+                          <Image
+                            src={partner.logo.url}
+                            alt={partner.companyName || 'Partner'}
+                            width={130}
+                            height={52}
+                            className="max-h-12 object-contain"
+                          />
+                        ) : (
+                          <span className="text-center text-[11px] font-bold uppercase leading-tight tracking-wide text-slate-400">
+                            {partner.companyName || 'Partner'}
+                          </span>
+                        )}
                       </div>
                     ))}
                   </div>
-
-                  <div className="mt-auto relative z-10 flex items-center justify-between">
-                    <p className="text-white/60 text-sm flex items-center gap-1.5 font-medium">
-                      <MapPin className="w-4 h-4 text-[#06b6d4]" /> {developer.city || 'Pakistan'}
-                    </p>
-                    <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-[#06b6d4] group-hover:border-[#06b6d4] transition-all duration-300 group-hover:scale-110">
-                      <ArrowRight className="w-4 h-4 text-white" />
-                    </div>
-                  </div>
-                </div>
-              </Link>
-            ))}
-          </div>
-        ) : null}
-
-        {/* Elegant Divider */}
-        <div className="flex items-center gap-4 max-w-3xl mx-auto mb-10">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent to-white/15" />
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-white/5 backdrop-blur-sm border border-white/10">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#06b6d4]" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-white/80">Our Partner Network</span>
-          </div>
-          <div className="flex-1 h-px bg-gradient-to-l from-transparent to-white/15" />
-        </div>
-
-        {/* Partner Logos Marquee */}
-        <div className="mb-14 relative w-full overflow-hidden">
-          <div className="absolute left-0 top-0 bottom-0 w-24 bg-gradient-to-r from-[#001f2b] to-transparent z-10 pointer-events-none" />
-          <div className="absolute right-0 top-0 bottom-0 w-24 bg-gradient-to-l from-[#001f2b] to-transparent z-10 pointer-events-none" />
-          
-          <div className="flex animate-partner-marquee">
-            {[...Array(2)].map((_, dupIdx) => (
-              <div key={dupIdx} className="flex items-center gap-6 px-3">
-                {(loadingPartners ? Array(8).fill(null) : trustedPartners).map((partner, index) => (
-                  <div
-                    key={`partner-${dupIdx}-${index}`}
-                    className="flex-shrink-0 w-44 h-24 bg-white rounded-2xl flex items-center justify-center p-5 shadow-lg hover:shadow-[#06b6d4]/20 transition-all duration-300 grayscale hover:grayscale-0 hover:scale-105"
-                  >
-                    {loadingPartners ? (
-                      <Loader2 className="w-6 h-6 text-gray-300 animate-spin" />
-                    ) : partner?.logo?.url ? (
-                      <Image src={partner.logo.url} alt={partner.companyName || 'Partner'} width={130} height={60} className="object-contain max-h-14" />
-                    ) : (
-                      <span className="text-gray-400 text-xs font-bold text-center leading-tight uppercase tracking-wide">{partner?.companyName || `Partner`}</span>
-                    )}
-                  </div>
                 ))}
               </div>
-            ))}
-          </div>
-        </div>
+            </div>
+          </>
+        )}
 
-        {/* CTA */}
-        <div className="text-center flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/developers">
-            <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-gradient-to-r from-[#029bba] to-[#06b6d4] text-white font-bold shadow-xl hover:shadow-[#06b6d4]/20 transition-all hover:-translate-y-0.5">
-              <Users className="w-5 h-5" /> Browse All Developers <ArrowRight className="w-5 h-5" />
-            </button>
+        <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
+          <Link
+            href="/developers"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#004063] px-6 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#029bba] sm:w-auto"
+          >
+            Browse All Developers
+            <ArrowRight className="h-4 w-4" />
           </Link>
-          <Link href="/onboarding/business?role=developer">
-            <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-4 rounded-xl bg-white/5 hover:bg-white/10 backdrop-blur-sm border border-white/20 text-white font-bold transition-all">
-              <Building2 className="w-5 h-5" /> Become a Partner
-            </button>
+          <Link
+            href="/agents"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-[#004063] transition-colors hover:border-[#029bba] hover:text-[#029bba] sm:w-auto"
+          >
+            Browse All Agents
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
       </div>

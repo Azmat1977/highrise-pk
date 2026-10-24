@@ -1,12 +1,21 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
-  MapPin, Star, Heart, Eye, BadgeCheck, BedDouble, Bath, 
-  Maximize, Check, BarChart3, Home, ArrowRight, Loader2
+import {
+  ArrowRight,
+  ArrowUpRight,
+  BadgeCheck,
+  Banknote,
+  BarChart3,
+  Bath,
+  BedDouble,
+  Check,
+  Heart,
+  Loader2,
+  MapPin,
+  Maximize,
 } from 'lucide-react';
 
-// Interfaces matching your index.tsx
 interface PropertyItem {
   _id: string;
   id?: string;
@@ -24,11 +33,15 @@ interface PropertyItem {
   areaUnit?: string;
   isVerified?: boolean;
   isFeatured?: boolean;
+  monthlyInstallment?: number;
+  installmentYears?: number;
 }
 
 interface FeaturedPropertiesProps {
   properties: PropertyItem[];
+  installmentProperties: PropertyItem[];
   loading: boolean;
+  loadingInstallments: boolean;
   favorites: Record<string, boolean>;
   favoritesLoading: Record<string, boolean>;
   onFavoriteToggle: (type: 'property' | 'project', id: string, e?: React.MouseEvent) => void;
@@ -37,230 +50,310 @@ interface FeaturedPropertiesProps {
     toggleCompare: (id: string, type: 'property' | 'project') => Promise<boolean>;
     isMaxReached: boolean;
   };
-  showToast: (msg: string, type: 'success'|'error'|'info') => void;
+  showToast: (msg: string, type: 'success' | 'error' | 'info') => void;
 }
 
-// Helpers
+const FALLBACK_PROPERTY_IMAGE =
+  'https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80';
+
 function formatPKR(price: number, listingType?: string): string {
-  const suffix = listingType === 'rent' ? '/mo' : '';
+  const suffix = listingType === 'rent' ? ' / mo' : '';
+  if (!Number.isFinite(price) || price <= 0) return 'Price on request';
   if (price >= 10_000_000) return `PKR ${(price / 10_000_000).toFixed(2)} Crore${suffix}`;
   if (price >= 100_000) return `PKR ${(price / 100_000).toFixed(2)} Lac${suffix}`;
-  return `PKR ${price.toLocaleString()}${suffix}`;
+  return `PKR ${price.toLocaleString('en-PK')}${suffix}`;
 }
 
-function getLocationLabel(p: PropertyItem): string {
-  return [p.society, p.area, p.city].filter(Boolean).join(', ');
-}
-
-function getAreaLabel(p: PropertyItem): string {
-  if (!p.area) return 'N/A';
-  return `${p.area} ${p.areaUnit || 'Marla'}`;
-}
-
-function getPrimaryImageUrl(p: PropertyItem): string | null {
-  return p.images?.[0]?.url || null;
-}
-
-function listingTypeLabel(type: string): string {
-  const map: Record<string, string> = { full_payment: 'For Sale', installment: 'Installment', rent: 'For Rent' };
-  return map[type] || type;
-}
-
-function toIdString(v: any): string {
-  if (!v) return '';
-  if (typeof v === 'string') return v;
-  if (v._id) return v._id.toString();
-  if (v.id) return v.id.toString();
+function toId(value: unknown): string {
+  if (typeof value === 'string') return value;
+  if (value && typeof value === 'object') {
+    const record = value as { _id?: unknown; id?: unknown };
+    if (typeof record._id === 'string') return record._id;
+    if (typeof record.id === 'string') return record.id;
+  }
   return '';
 }
 
-export default function FeaturedProperties({
-  properties, loading, favorites, favoritesLoading, onFavoriteToggle, compareHelpers, showToast
-}: FeaturedPropertiesProps) {
+function listingLabel(listingType: string): string {
+  if (listingType === 'rent') return 'For Rent';
+  if (listingType === 'installment') return 'Installment';
+  return 'For Sale';
+}
 
+function listingBadgeClass(listingType: string): string {
+  if (listingType === 'rent') return 'bg-[#029bba]';
+  if (listingType === 'installment') return 'bg-[#007196]';
+  return 'bg-[#004063]';
+}
+
+function locationLabel(property: PropertyItem): string {
+  return [property.society, property.area, property.city].filter(Boolean).join(', ');
+}
+
+function areaLabel(property: PropertyItem): string {
+  if (!property.area) return 'Area on request';
+  return `${property.area} ${property.areaUnit || 'Marla'}`;
+}
+
+export default function FeaturedProperties({
+  properties,
+  installmentProperties,
+  loading,
+  loadingInstallments,
+  favorites,
+  favoritesLoading,
+  onFavoriteToggle,
+  compareHelpers,
+  showToast,
+}: FeaturedPropertiesProps) {
+  const [activeTab, setActiveTab] = useState<'new' | 'installment'>('new');
   const { isInCompare, toggleCompare, isMaxReached } = compareHelpers;
 
+  const activeProperties = useMemo(() => {
+    const source = activeTab === 'installment' ? installmentProperties : properties;
+    return source.slice(0, 6);
+  }, [activeTab, installmentProperties, properties]);
+
+  const isLoading = activeTab === 'installment' ? loadingInstallments : loading;
+  const viewAllHref =
+    activeTab === 'installment' ? '/properties?listingType=installment' : '/properties?sort=newest';
+
   return (
-    <section className="py-16 bg-gray-50 border-b border-gray-100">
-      <div className="container mx-auto px-4">
-        <div className="text-center mb-12">
-          <span className="inline-block px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-medium mb-4">
-            <Star className="w-4 h-4 inline mr-1" />
-            New Listings
-          </span>
-          <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-            <span className="text-[#029bba]">Newly Added</span> Properties
-          </h2>
-          <p className="text-gray-600 max-w-2xl mx-auto">
-            Recently added approved listings from across Pakistan.
-          </p>
+    <section className="bg-white py-16 sm:py-20">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 flex flex-col items-center gap-4 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
+          <div>
+            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#029bba]">
+              Curated Opportunities
+            </p>
+            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
+              Featured Properties
+            </h2>
+            <p className="mt-1 text-xs text-slate-600 sm:text-sm">
+              Handpicked homes, apartments and investment listings from our verified inventory.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <div
+              role="tablist"
+              aria-label="Featured property collections"
+              className="inline-flex rounded-xl border border-slate-200 bg-slate-100 p-1"
+            >
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'new'}
+                onClick={() => setActiveTab('new')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === 'new' ? 'bg-white text-[#004063] shadow-sm' : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                New Listings
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={activeTab === 'installment'}
+                onClick={() => setActiveTab('installment')}
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeTab === 'installment'
+                    ? 'bg-white text-[#004063] shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Installments
+              </button>
+            </div>
+
+            <Link
+              href={viewAllHref}
+              className="inline-flex items-center gap-1.5 rounded-xl bg-[#004063]/5 px-4 py-2 text-xs font-semibold text-[#004063] transition-colors hover:bg-[#029bba] hover:text-white"
+            >
+              <span>View All</span>
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-[#029bba]" />
-            <span className="ml-2 text-gray-600">Loading properties...</span>
+            <Loader2 className="h-8 w-8 animate-spin text-[#029bba]" />
+            <span className="ml-3 text-sm text-slate-600">Loading properties&hellip;</span>
           </div>
-        ) : properties.length > 0 ? (
-          <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-7xl mx-auto">
-              {properties.slice(0, 6).map((property) => {
-                const propId = toIdString(property._id) || toIdString(property.id);
-                const fKey = `property:${propId}`;
-                const cardHref = `/property/${property.slug || propId}`;
+        ) : activeProperties.length > 0 ? (
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {activeProperties.map((property) => {
+              const propertyId = toId(property._id) || toId(property.id);
+              const favoriteKey = `property:${propertyId}`;
+              const href = `/property/${property.slug || propertyId}`;
+              const inCompare = isInCompare(propertyId, 'property');
+              const price = formatPKR(property.price, property.listingType);
 
-                return (
-                  <div key={propId} className="overflow-hidden bg-white border border-gray-100 hover:border-[#029bba]/30 rounded-2xl transition-all duration-300 group hover:-translate-y-1 hover:shadow-[0_20px_40px_rgba(2,155,186,0.15)] flex flex-col justify-between">
-                    <div>
-                      <Link href={cardHref} className="block aspect-[16/10] overflow-hidden relative">
-                        {getPrimaryImageUrl(property) ? (
-                          <Image
-                            src={getPrimaryImageUrl(property)!}
-                            alt={property.title}
-                            fill
-                            className="object-cover group-hover:scale-110 transition-transform duration-700 ease-out"
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-gray-400" aria-label="No property image available">
-                            <Home className="h-10 w-10" />
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
+              return (
+                <article
+                  key={propertyId}
+                  className="group flex flex-col overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-sm transition-all duration-300 hover:border-[#029bba]/40 hover:shadow-xl"
+                >
+                  <div className="relative h-56 w-full overflow-hidden bg-slate-100">
+                    <Link href={href} className="relative block h-full w-full">
+                      <Image
+                        src={property.images?.[0]?.url || FALLBACK_PROPERTY_IMAGE}
+                        alt={property.title}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                      />
+                      {!property.images?.[0]?.url && <span className="sr-only">No property image available</span>}
+                    </Link>
+                    <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-transparent to-transparent opacity-70" />
 
-                        {/* Top Left Badges */}
-                        <div className="absolute top-3 left-3 flex flex-col gap-2">
-                          <span className={`px-2.5 py-1 text-xs font-bold rounded-lg shadow-lg backdrop-blur-sm ${
-                            property.listingType === 'rent' ? 'bg-orange-500/90 text-white'
-                            : property.listingType === 'installment' ? 'bg-purple-500/90 text-white'
-                            : 'bg-[#029bba]/90 text-white'
-                          }`}>
-                            {listingTypeLabel(property.listingType)}
-                          </span>
-                          {property.isFeatured && (
-                            <span className="px-2.5 py-1 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-xs font-bold rounded-lg flex items-center gap-1 shadow-lg">
-                              <Star className="w-3 h-3 fill-white" /> Featured
-                            </span>
-                          )}
-                        </div>
+                    <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1.5">
+                      <span
+                        className={`rounded-md px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white shadow-sm ${listingBadgeClass(
+                          property.listingType
+                        )}`}
+                      >
+                        {listingLabel(property.listingType)}
+                      </span>
+                      <span className="rounded-md bg-black/40 px-2 py-1 text-[11px] font-medium text-white backdrop-blur-sm">
+                        {property.propertyType}
+                      </span>
+                    </div>
 
-                        {/* Top Right Buttons */}
-                        <div className="absolute top-3 right-3 flex items-center gap-2 z-10">
-                          {(property.images?.length ?? 0) > 1 && (
-                            <span className="px-2 py-1 bg-black/50 backdrop-blur-sm text-white text-xs font-medium rounded-lg flex items-center gap-1">
-                              <Eye className="w-3 h-3" /> {property.images!.length}
-                            </span>
-                          )}
-                          <button
-                            type="button"
-                            onClick={(e) => onFavoriteToggle('property', propId, e)}
-                            disabled={Boolean(favoritesLoading[fKey])}
-                            className={`w-8 h-8 rounded-full backdrop-blur-sm flex items-center justify-center transition-all shadow-lg ${
-                              favorites[fKey] ? 'bg-red-50 hover:bg-red-100' : 'bg-white/90 hover:bg-white'
-                            }`}
-                          >
-                            <Heart className={`w-4 h-4 transition-colors ${favorites[fKey] ? 'text-red-500' : 'text-gray-600 hover:text-red-500'}`} fill={favorites[fKey] ? 'currentColor' : 'none'} />
-                          </button>
-                        </div>
+                    <button
+                      type="button"
+                      onClick={(event) => onFavoriteToggle('property', propertyId, event)}
+                      disabled={Boolean(favoritesLoading[favoriteKey])}
+                      aria-label={
+                        favorites[favoriteKey]
+                          ? `Remove ${property.title} from favourites`
+                          : `Add ${property.title} to favourites`
+                      }
+                      className={`absolute right-3 top-3 flex items-center justify-center rounded-full p-2 backdrop-blur-md transition-all ${
+                        favorites[favoriteKey]
+                          ? 'bg-rose-500 text-white shadow-md'
+                          : 'bg-white/85 text-slate-700 hover:bg-white hover:text-rose-500'
+                      }`}
+                    >
+                      <Heart className={`h-4 w-4 ${favorites[favoriteKey] ? 'fill-current' : ''}`} />
+                    </button>
 
-                        {/* Bottom Tags */}
-                        <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                          <span className="px-2.5 py-1 bg-white/95 backdrop-blur-sm text-gray-800 text-xs font-semibold rounded-lg shadow-sm">
-                            {property.propertyType}
-                          </span>
-                          {property.isVerified && (
-                            <span className="px-2 py-1 bg-green-500/90 backdrop-blur-sm text-white text-xs font-semibold rounded-lg flex items-center gap-1">
-                              <BadgeCheck className="w-3 h-3" /> Verified
-                            </span>
-                          )}
-                        </div>
-                        <div className="absolute bottom-3 right-3">
-                          <div className="px-3 py-1.5 bg-white rounded-lg shadow-lg">
-                            <p className="text-[#029bba] font-bold text-sm">{formatPKR(property.price, property.listingType)}</p>
-                          </div>
-                        </div>
-                      </Link>
-
-                      {/* Content */}
-                      <div className="p-4">
-                        <Link href={cardHref}>
-                          <h3 className="font-bold text-gray-900 mb-1.5 line-clamp-1 group-hover:text-[#029bba] transition-colors text-base">
-                            {property.title}
-                          </h3>
-                        </Link>
-                        <p className="text-sm text-gray-500 mb-3 flex items-center gap-1.5">
-                          <MapPin className="w-3.5 h-3.5 text-[#029bba] flex-shrink-0" />
-                          <span className="line-clamp-1">{getLocationLabel(property)}</span>
+                    <div className="absolute bottom-3 left-3 text-white">
+                      <p className="font-heading text-xl font-bold drop-shadow-md">{price}</p>
+                      {property.listingType === 'installment' && property.monthlyInstallment ? (
+                        <p className="text-[11px] font-medium text-white/85">
+                          From PKR {property.monthlyInstallment.toLocaleString('en-PK')} / mo
+                          {property.installmentYears ? ` · ${property.installmentYears} yrs` : ''}
                         </p>
-                        <div className="flex items-center gap-2 flex-wrap mb-3">
-                          {(property.bedrooms ?? 0) > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-lg text-xs font-medium text-gray-700">
-                              <BedDouble className="w-3.5 h-3.5 text-gray-500" /> {property.bedrooms} Beds
-                            </span>
-                          )}
-                          {(property.bathrooms ?? 0) > 0 && (
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-lg text-xs font-medium text-gray-700">
-                              <Bath className="w-3.5 h-3.5 text-gray-500" /> {property.bathrooms} Baths
-                            </span>
-                          )}
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-gray-50 rounded-lg text-xs font-medium text-gray-700">
-                            <Maximize className="w-3.5 h-3.5 text-gray-500" /> {getAreaLabel(property)}
-                          </span>
-                        </div>
-
-                        {/* Compare Button */}
-                        <div className="mt-3 relative z-30" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            type="button"
-                            onClick={async (e) => {
-                              e.preventDefault();
-                              if (!isInCompare(propId, 'property') && isMaxReached) {
-                                showToast('Maximum 4 items can be compared', 'error'); return;
-                              }
-                              await toggleCompare(propId, 'property');
-                            }}
-                            className={`w-full py-2.5 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all duration-200 cursor-pointer ${
-                              isInCompare(propId, 'property')
-                                ? 'bg-emerald-50 border-emerald-300 text-emerald-700 hover:bg-emerald-100 shadow-sm'
-                                : 'bg-white border-gray-200 text-gray-700 hover:border-[#029bba] hover:text-[#029bba] hover:bg-[#029bba]/5 shadow-sm'
-                            }`}
-                          >
-                            {isInCompare(propId, 'property') ? (
-                              <><Check className="w-3.5 h-3.5 text-emerald-600" /><span>Added to Compare</span></>
-                            ) : (
-                              <><BarChart3 className="w-3.5 h-3.5 text-[#029bba]" /><span>Add to Compare</span></>
-                            )}
-                          </button>
-                        </div>
-
-                        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center">
-                              <Home className="w-3 h-3 text-white" />
-                            </div>
-                            <span className="text-xs text-gray-500">Highrise Listing</span>
-                          </div>
-                          <Link href={cardHref} className="text-[#029bba] font-semibold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
-                            View Details <ArrowRight className="w-4 h-4" />
-                          </Link>
-                        </div>
-                      </div>
+                      ) : null}
                     </div>
                   </div>
-                );
-              })}
-            </div>
-            <div className="text-center mt-12">
-              <Link href="/properties?sort=newest">
-                <button className="px-8 py-4 rounded-xl bg-[#029bba] hover:bg-[#027a94] text-white font-semibold transition-colors inline-flex items-center gap-2 shadow-lg hover:shadow-xl">
-                  Browse Recent Properties <ArrowRight className="w-5 h-5" />
-                </button>
-              </Link>
-            </div>
-          </>
+
+                  <div className="flex flex-1 flex-col justify-between p-5">
+                    <div>
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        {property.isVerified ? (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700">
+                            <BadgeCheck className="h-3 w-3" /> Verified
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                            Listed
+                          </span>
+                        )}
+                        <span className="flex items-center gap-1 text-xs font-medium text-slate-600">
+                          <MapPin className="h-3.5 w-3.5 text-[#029bba]" />
+                          {property.city || 'Pakistan'}
+                        </span>
+                      </div>
+
+                      <h3 className="mb-1 line-clamp-1 text-base font-semibold text-slate-900 transition-colors group-hover:text-[#007196] sm:text-lg">
+                        <Link href={href}>{property.title}</Link>
+                      </h3>
+
+                      <p className="mb-3 line-clamp-1 text-xs text-slate-600">
+                        {locationLabel(property) || 'Location available on listing'}
+                      </p>
+
+                      <div className="flex items-center gap-4 border-y border-slate-100 py-3 text-xs text-slate-600">
+                        <span className="flex items-center gap-1.5 font-medium">
+                          <Maximize className="h-4 w-4 text-slate-400" />
+                          {areaLabel(property)}
+                        </span>
+                        {property.bedrooms ? (
+                          <span className="flex items-center gap-1.5">
+                            <BedDouble className="h-4 w-4 text-slate-400" />
+                            {property.bedrooms} Beds
+                          </span>
+                        ) : null}
+                        {property.bathrooms ? (
+                          <span className="flex items-center gap-1.5">
+                            <Bath className="h-4 w-4 text-slate-400" />
+                            {property.bathrooms} Baths
+                          </span>
+                        ) : null}
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (!inCompare && isMaxReached) {
+                            showToast('Maximum 4 items can be compared', 'error');
+                            return;
+                          }
+                          await toggleCompare(propertyId, 'property');
+                        }}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-all ${
+                          inCompare
+                            ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            : 'border-slate-200 bg-white text-slate-600 hover:border-[#029bba] hover:text-[#029bba]'
+                        }`}
+                      >
+                        {inCompare ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" /> In Compare
+                          </>
+                        ) : (
+                          <>
+                            <BarChart3 className="h-3.5 w-3.5" /> Compare
+                          </>
+                        )}
+                      </button>
+
+                      <Link
+                        href={href}
+                        className="inline-flex items-center gap-1 rounded-lg bg-slate-100 px-3 py-1.5 text-xs font-medium text-[#004063] transition-colors group-hover:bg-[#029bba] group-hover:text-white"
+                      >
+                        <span>View Details</span>
+                        <ArrowUpRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                </article>
+              );
+            })}
+          </div>
         ) : (
-          <div className="text-center py-16 bg-gray-50 rounded-2xl">
-            <h3 className="text-xl font-semibold text-gray-900">No Recent Properties Yet</h3>
+          <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50 px-6 py-16 text-center">
+            <Banknote className="mx-auto mb-3 h-10 w-10 text-slate-300" />
+            <h3 className="text-lg font-semibold text-slate-900">
+              {activeTab === 'installment' ? 'No installment listings yet' : 'No properties published yet'}
+            </h3>
+            <p className="mx-auto mt-1 max-w-md text-sm text-slate-500">
+              {activeTab === 'installment'
+                ? 'Installment listings will appear here as sellers publish payment-plan inventory.'
+                : 'Approved property listings will appear here as soon as they are published.'}
+            </p>
+            <Link
+              href={viewAllHref}
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#004063] px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#029bba]"
+            >
+              Browse All Properties
+              <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
           </div>
         )}
       </div>

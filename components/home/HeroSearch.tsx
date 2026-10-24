@@ -1,294 +1,369 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/router';
 import {
-  Search, MapPin, Building2, ChevronDown, CheckCircle,
-  Home, TreePine, BedDouble, Crown, Store, Warehouse,
-  Factory, FileText, Maximize, LayoutDashboard
+  Search,
+  MapPin,
+  ChevronDown,
+  Sparkles,
+  ArrowRight,
+  Wallet,
 } from 'lucide-react';
+import { saveRecentSearch, type RecentSearchPurpose } from '@/utils/recentSearches';
+import { POPULAR_CITIES } from '@/lib/pakistanCities';
 
-// ─── Types & Constants ────────────────────────────────────────────────────────
 interface CityItem {
   name: string;
 }
 
-interface HeroSearchProps {
-  cities: CityItem[];
-}
+type SearchTab = 'buy' | 'rent' | 'installment';
 
-const propertyCategories = [
-  {
-    id: 'residential',
-    name: 'Residential',
-    icon: <Home className="w-5 h-5" />,
-    subtypes: [
-      { id: 'House', name: 'House', icon: <Home className="w-4 h-4" /> },
-      { id: 'Apartment', name: 'Flat / Apartment', icon: <Building2 className="w-4 h-4" /> },
-      { id: 'Upper Portion', name: 'Upper Portion', icon: <ChevronDown className="w-4 h-4" /> },
-      { id: 'Lower Portion', name: 'Lower Portion', icon: <ChevronDown className="w-4 h-4" /> },
-      { id: 'Farm House', name: 'Farm House', icon: <TreePine className="w-4 h-4" /> },
-      { id: 'Room', name: 'Room', icon: <BedDouble className="w-4 h-4" /> },
-      { id: 'Penthouse', name: 'Penthouse', icon: <Crown className="w-4 h-4" /> },
-      { id: 'Villa', name: 'Villa', icon: <Home className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'commercial',
-    name: 'Commercial',
-    icon: <Building2 className="w-5 h-5" />,
-    subtypes: [
-      { id: 'Office', name: 'Office', icon: <LayoutDashboard className="w-4 h-4" /> },
-      { id: 'Shop', name: 'Shop', icon: <Store className="w-4 h-4" /> },
-      { id: 'Warehouse', name: 'Warehouse', icon: <Warehouse className="w-4 h-4" /> },
-      { id: 'Factory', name: 'Factory', icon: <Factory className="w-4 h-4" /> },
-      { id: 'Building', name: 'Building', icon: <Building2 className="w-4 h-4" /> },
-      { id: 'Plaza', name: 'Plaza', icon: <Building2 className="w-4 h-4" /> },
-    ],
-  },
-  {
-    id: 'plots',
-    name: 'Plots',
-    icon: <Maximize className="w-5 h-5" />,
-    subtypes: [
-      { id: 'Residential Plot', name: 'Residential Plot', icon: <Home className="w-4 h-4" /> },
-      { id: 'Commercial Plot', name: 'Commercial Plot', icon: <Building2 className="w-4 h-4" /> },
-      { id: 'Agricultural Land', name: 'Agricultural Land', icon: <TreePine className="w-4 h-4" /> },
-      { id: 'Industrial Land', name: 'Industrial Land', icon: <Factory className="w-4 h-4" /> },
-      { id: 'Plot File', name: 'Plot File', icon: <FileText className="w-4 h-4" /> },
-    ],
-  },
+const PROPERTY_TYPES = [
+  { value: '', label: 'All Property Types' },
+  { value: 'House', label: 'House' },
+  { value: 'Apartment', label: 'Apartment / Flat' },
+  { value: 'Villa', label: 'Villa' },
+  { value: 'Penthouse', label: 'Penthouse' },
+  { value: 'Farm House', label: 'Farm House' },
+  { value: 'Upper Portion', label: 'Upper Portion' },
+  { value: 'Lower Portion', label: 'Lower Portion' },
+  { value: 'Residential Plot', label: 'Residential Plot' },
+  { value: 'Commercial Plot', label: 'Commercial Plot' },
+  { value: 'Plot File', label: 'Plot File' },
+  { value: 'Shop', label: 'Shop' },
+  { value: 'Office', label: 'Office' },
+  { value: 'Warehouse', label: 'Warehouse' },
+  { value: 'Building', label: 'Building' },
+  { value: 'Plaza', label: 'Plaza' },
 ];
 
-// ─── Inline Property Type Dropdown ────────────────────────────────────────────
-function PropertyTypeDropdown({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string, category: string) => void;
-}) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+const BUDGETS: Record<SearchTab, Array<{ value: string; label: string }>> = {
+  buy: [
+    { value: '', label: 'Any Budget' },
+    { value: '5000000', label: 'Up to 50 Lac' },
+    { value: '10000000', label: 'Up to 1 Crore' },
+    { value: '30000000', label: 'Up to 3 Crore' },
+    { value: '50000000', label: 'Up to 5 Crore' },
+    { value: '100000000', label: 'Up to 10 Crore' },
+    { value: '200000000', label: 'Up to 20 Crore' },
+  ],
+  installment: [
+    { value: '', label: 'Any Budget' },
+    { value: '5000000', label: 'Up to 50 Lac' },
+    { value: '10000000', label: 'Up to 1 Crore' },
+    { value: '30000000', label: 'Up to 3 Crore' },
+    { value: '50000000', label: 'Up to 5 Crore' },
+    { value: '100000000', label: 'Up to 10 Crore' },
+  ],
+  rent: [
+    { value: '', label: 'Any Rent' },
+    { value: '50000', label: 'Up to 50,000 / mo' },
+    { value: '100000', label: 'Up to 1 Lac / mo' },
+    { value: '200000', label: 'Up to 2 Lac / mo' },
+    { value: '350000', label: 'Up to 3.5 Lac / mo' },
+    { value: '500000', label: 'Up to 5 Lac / mo' },
+  ],
+};
+
+const LISTING_TYPE_BY_TAB: Record<SearchTab, string> = {
+  buy: 'full_payment',
+  rent: 'rent',
+  installment: 'installment',
+};
+
+const TAB_LABELS: Array<{ id: SearchTab; label: string }> = [
+  { id: 'buy', label: 'Buy' },
+  { id: 'rent', label: 'Rent' },
+  { id: 'installment', label: 'Installments' },
+];
+
+// Shared field affordances — one control tier across the whole panel
+const FIELD_LABEL_CLASS =
+  'mb-1 flex items-center gap-1.5 text-[11px] font-medium leading-4 text-slate-500';
+const FIELD_CELL_CLASS =
+  'rounded-xl border border-slate-200 px-3.5 py-2 focus-within:ring-2 focus-within:ring-[#029bba]/40 focus-within:ring-offset-0 lg:rounded-none lg:border-0 lg:px-4 lg:py-2.5';
+const FIELD_CONTROL_CLASS =
+  'w-full appearance-none truncate bg-transparent text-sm font-medium leading-6 text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none';
+
+function buildSearchHref(params: {
+  tab: SearchTab;
+  city: string;
+  area: string;
+  propertyType: string;
+  maxPrice: string;
+}): string {
+  const query = new URLSearchParams();
+  query.set('listingType', LISTING_TYPE_BY_TAB[params.tab]);
+  if (params.city) query.set('city', params.city);
+  if (params.area.trim()) query.set('search', params.area.trim());
+  if (params.propertyType) query.set('propertyType', params.propertyType);
+  if (params.maxPrice) query.set('maxPrice', params.maxPrice);
+  return `/properties?${query.toString()}`;
+}
+
+export default function HeroSearch({ cities }: { cities: CityItem[] }) {
+  const router = useRouter();
+  const suggestionsRef = useRef<HTMLDivElement>(null);
+  const suggestionsListNodeRef = useRef<HTMLDivElement>(null);
+
+  const [activeTab, setActiveTab] = useState<SearchTab>('buy');
+  const [city, setCity] = useState('');
+  const [area, setArea] = useState('');
+  const [propertyType, setPropertyType] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const cityOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const item of cities) {
+      const name = (item?.name || '').trim();
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) continue;
+      seen.add(key);
+      list.push(name);
+    }
+    if (list.length === 0) return POPULAR_CITIES;
+    return list;
+  }, [cities]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) setIsOpen(false);
+      if (
+        suggestionsRef.current &&
+        suggestionsListNodeRef.current &&
+        !suggestionsRef.current.contains(event.target as Node) &&
+        !suggestionsListNodeRef.current.contains(event.target as Node)
+      ) {
+        setShowSuggestions(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setShowSuggestions(false);
     };
     document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const getSelectedLabel = () => {
-    if (!value) return 'Property Type';
-    for (const category of propertyCategories) {
-      const subtype = category.subtypes.find((s) => s.id === value);
-      if (subtype) return subtype.name;
-    }
-    return 'Property Type';
-  };
-
-  const activeCategory = propertyCategories.find((c) => c.id === expandedCategory);
-
-  return (
-    <div className="relative z-[160]" ref={dropdownRef}>
-      <button
-        type="button"
-        onClick={() => setIsOpen(!isOpen)}
-        className="relative z-[150] w-full h-14 pl-12 pr-4 rounded-xl border border-gray-200 bg-white text-slate-900 text-sm focus:border-[#029bba] focus:ring-4 focus:ring-[#029bba]/10 outline-none text-left flex items-center justify-between transition-all hover:border-[#029bba]/50"
-      >
-        <span className={`block truncate pr-3 ${value ? 'text-slate-900 font-bold' : 'text-slate-500 font-medium'}`}>
-          {getSelectedLabel()}
-        </span>
-        <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`} />
-      </button>
-
-      <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 pointer-events-none" />
-
-      {isOpen && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-2xl shadow-2xl border border-gray-200 z-[200] overflow-hidden" style={{ minWidth: '320px' }}>
-          <div className="px-4 py-3 bg-gray-50 border-b border-gray-100">
-            <h4 className="font-semibold text-gray-900 text-sm">Select Property Type</h4>
-          </div>
-          <div className="max-h-72 overflow-y-auto p-2">
-            <div className="p-2 border-b border-gray-100">
-              <div className="grid grid-cols-3 gap-2">
-                {propertyCategories.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => setExpandedCategory(expandedCategory === category.id ? null : category.id)}
-                    className={`px-3 py-3 rounded-xl text-center flex flex-col items-center justify-center gap-2 transition-all ${
-                      expandedCategory === category.id
-                        ? 'bg-[#029bba]/10 text-[#029bba] border border-[#029bba]/20'
-                        : 'bg-slate-50 text-slate-700 border border-slate-200 hover:bg-slate-100'
-                    }`}
-                  >
-                    <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${expandedCategory === category.id ? 'bg-[#029bba] text-white' : 'bg-white text-[#029bba] border border-slate-200'}`}>
-                      {category.icon}
-                    </div>
-                    <span className="text-xs font-semibold leading-tight">{category.name}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            {activeCategory && (
-              <div className="p-2">
-                <div className="px-2 py-2 text-xs font-semibold text-slate-500 uppercase tracking-[0.08em]">{activeCategory.name} Types</div>
-                <div className="space-y-1">
-                  {activeCategory.subtypes.map((subtype) => (
-                    <button
-                      key={subtype.id}
-                      type="button"
-                      onClick={() => { onChange(subtype.id, activeCategory.id); setIsOpen(false); }}
-                      className={`w-full px-4 py-2.5 rounded-xl text-left text-sm flex items-center gap-3 transition-colors ${value === subtype.id ? 'bg-[#029bba] text-white shadow-sm' : 'bg-white text-slate-700 hover:bg-slate-50'}`}
-                    >
-                      <span className={value === subtype.id ? 'text-white' : 'text-slate-400'}>{subtype.icon}</span>
-                      <span className="flex-1 truncate">{subtype.name}</span>
-                      {value === subtype.id && <CheckCircle className="w-4 h-4 ml-auto" />}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
-type TabId = 'full_payment' | 'rent' | 'installment' | 'projects';
-
-export default function HeroSearch({ cities }: HeroSearchProps) {
-  const router = useRouter();
-  const searchContainerRef = useRef<HTMLDivElement>(null);
-
-  // States
-  const [activeTab, setActiveTab] = useState<TabId>('full_payment');
-  const [searchQuery, setSearchQuery] = useState('');
-  const [propertyType, setPropertyType] = useState('');
-  const [propertyCategory, setPropertyCategory] = useState('');
-  const [isCityDropdownOpen, setIsCityDropdownOpen] = useState(false);
-
-  // Close dropdown outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target as Node)) setIsCityDropdownOpen(false);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
     };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    const params = new URLSearchParams();
-    if (searchQuery) params.append('search', searchQuery);
+  const suggestions = useMemo(() => {
+    const term = area.trim().toLowerCase();
+    if (!term) return cityOptions.slice(0, 8);
+    return cityOptions.filter((name) => name.toLowerCase().includes(term)).slice(0, 8);
+  }, [area, cityOptions]);
 
-    if (activeTab === 'projects') {
-      // For projects, just route to /projects with search
-      router.push(`/projects?${params.toString()}`);
-    } else {
-      // For properties
-      params.append('listingType', activeTab);
-      if (propertyType) params.append('propertyType', propertyType);
-      if (propertyCategory) params.append('propertyCategory', propertyCategory);
-      router.push(`/properties?${params.toString()}`);
-    }
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
+    const href = buildSearchHref({ tab: activeTab, city, area, propertyType, maxPrice });
+    const budgetLabel = BUDGETS[activeTab].find((option) => option.value === maxPrice)?.label;
+    const typeLabel = PROPERTY_TYPES.find((option) => option.value === propertyType)?.label;
+
+    saveRecentSearch({
+      purpose: activeTab as RecentSearchPurpose,
+      city: city || 'All Cities',
+      area: area.trim() || undefined,
+      categoryLabel: typeLabel && propertyType ? typeLabel : undefined,
+      maxPriceLabel: maxPrice && budgetLabel && maxPrice ? budgetLabel : undefined,
+      url: href,
+    });
+
+    void router.push(href);
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'full_payment', label: 'Buy' },
-    { id: 'rent', label: 'Rent' },
-    { id: 'installment', label: 'Installments' },
-    { id: 'projects', label: 'Projects' },
-  ];
-
-  const showPropertyType = activeTab !== 'projects';
-
   return (
-    <div className="w-full max-w-5xl mx-auto mt-6 md:mt-8 pb-12 md:pb-14">
-      {/* Attached Tabs */}
-      <div className="flex bg-white/20 backdrop-blur-md rounded-t-2xl w-fit overflow-hidden border border-white/20 border-b-0">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            className={`px-6 py-3 text-sm font-bold transition-all ${
-              activeTab === tab.id
-                ? 'bg-white text-[#001f2b] shadow-sm'
-                : 'text-white hover:bg-white/10'
-            }`}
+    <div className="mx-auto w-full max-w-5xl">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-3 px-1">
+        <div
+          role="tablist"
+          aria-label="Property search intent"
+          className="inline-flex rounded-2xl border border-white/20 bg-white/15 p-1 shadow-md backdrop-blur-md"
+        >
+          {TAB_LABELS.map((tab) => {
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => {
+                  setActiveTab(tab.id);
+                  setMaxPrice('');
+                }}
+                className={`rounded-xl px-4 py-2 text-xs font-semibold transition-colors sm:px-5 sm:text-sm ${
+                  isActive
+                    ? 'bg-white text-[#004063] shadow-sm'
+                    : 'text-white/90 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                {tab.label}
+              </button>
+            );
+          })}
+          <Link
+            href="/projects"
+            className="rounded-xl px-4 py-2 text-xs font-semibold text-white/90 transition-colors hover:bg-white/10 hover:text-white sm:px-5 sm:text-sm"
           >
-            {tab.label}
-          </button>
-        ))}
+            New Projects
+          </Link>
+        </div>
+
+        <Link
+          href="/tools/price-estimator"
+          className="hidden items-center gap-1.5 rounded-xl border border-white/20 bg-white/10 px-3 py-2 text-xs font-medium text-white backdrop-blur-md transition-colors hover:bg-white/20 sm:inline-flex"
+        >
+          <Sparkles className="h-3.5 w-3.5 text-[#8fc2d0]" />
+          <span>Free Price Estimate</span>
+          <ArrowRight className="h-3 w-3 text-white/70" />
+        </Link>
       </div>
 
-      {/* Main Search Box */}
-      <form onSubmit={handleSearch} className={`bg-white p-4 md:p-5 shadow-2xl rounded-b-3xl rounded-tr-3xl border-4 border-white/50 backdrop-blur-sm relative z-50`}>
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-3 items-center">
-          
-          {/* Search Input (Dynamic Span based on Tab) */}
-          <div className={`${showPropertyType ? 'md:col-span-7' : 'md:col-span-10'}`} ref={searchContainerRef}>
-            <div className="relative w-full">
-              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 z-10 pointer-events-none" />
+      <form onSubmit={handleSubmit}>
+        <div className="rounded-2xl border border-white/60 bg-white p-2.5 text-slate-800 shadow-2xl sm:rounded-3xl sm:p-3">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-12 lg:items-end lg:gap-0 lg:divide-x lg:divide-slate-200/70">
+            {/* City */}
+            <div className={`${FIELD_CELL_CLASS} lg:col-span-3`}>
+              <label htmlFor="hero-city" className={FIELD_LABEL_CLASS}>
+                <MapPin className="h-3.5 w-3.5 shrink-0 text-[#029bba]" aria-hidden="true" />
+                <span>City</span>
+              </label>
+              <div className="relative mt-0.5">
+                <select
+                  id="hero-city"
+                  value={city}
+                  onChange={(event) => setCity(event.target.value)}
+                  className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
+                >
+                  <option value="">All Cities</option>
+                  {cityOptions.map((name) => (
+                    <option key={name} value={name}>
+                      {name}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+
+            {/* Location or Society */}
+            <div
+              ref={suggestionsRef}
+              className={`${FIELD_CELL_CLASS} relative sm:col-span-2 lg:col-span-3`}
+            >
+              <label htmlFor="hero-location" className={FIELD_LABEL_CLASS}>
+                <span>Location or Society</span>
+              </label>
               <input
+                id="hero-location"
                 type="text"
-                value={searchQuery}
-                onChange={(e) => { setSearchQuery(e.target.value); setIsCityDropdownOpen(true); }}
-                onFocus={() => setIsCityDropdownOpen(true)}
-                placeholder={activeTab === 'projects' ? "Search for projects by name or location..." : "Search by city, location or society..."}
-                className="w-full h-14 pl-12 pr-4 rounded-xl border border-gray-200 bg-white text-slate-900 text-sm placeholder:text-slate-400 focus:border-[#029bba] focus:ring-4 focus:ring-[#029bba]/10 outline-none transition-all hover:border-[#029bba]/50 font-medium"
+                value={area}
+                onChange={(event) => {
+                  setArea(event.target.value);
+                  setShowSuggestions(true);
+                }}
+                onFocus={() => setShowSuggestions(true)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Escape') setShowSuggestions(false);
+                }}
                 autoComplete="off"
+                placeholder="e.g. DHA, Bahria, F-11"
+                className={`${FIELD_CONTROL_CLASS} pr-6`}
               />
-              {isCityDropdownOpen && searchQuery.length > 0 && (
-                <div className="absolute top-full left-0 right-0 mt-2 bg-white rounded-xl shadow-lg border border-slate-200 z-[170] overflow-hidden">
-                  <div className="max-h-60 overflow-y-auto p-2">
-                    {cities
-                      .filter((city) => city.name.toLowerCase().includes(searchQuery.toLowerCase()))
-                      .slice(0, 10)
-                      .map((city) => (
-                        <button
-                          key={city.name}
-                          type="button"
-                          onClick={() => { setSearchQuery(city.name); setIsCityDropdownOpen(false); }}
-                          className="w-full flex items-center gap-3 text-left px-3 py-2.5 rounded-lg hover:bg-slate-100 transition-colors"
-                        >
-                          <MapPin className="w-4 h-4 text-slate-400" />
-                          <span className="text-sm font-medium text-slate-800">{city.name}</span>
-                        </button>
-                      ))}
-                    {cities.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 && (
-                      <p className="text-center text-sm text-slate-500 px-3 py-4">No locations found</p>
-                    )}
+              {showSuggestions && suggestions.length > 0 && (
+                <div
+                  ref={suggestionsListNodeRef}
+                  className="absolute inset-x-0 top-full z-50 mt-2 rounded-xl border border-slate-200 bg-white p-2 shadow-xl"
+                >
+                  <span className="mb-1.5 block px-1 text-[11px] font-medium text-slate-500">
+                    Popular cities
+                  </span>
+                  <div className="flex max-h-44 flex-wrap gap-1.5 overflow-y-auto">
+                    {suggestions.map((name) => (
+                      <button
+                        key={name}
+                        type="button"
+                        onClick={() => {
+                          setArea(name);
+                          setShowSuggestions(false);
+                        }}
+                        className="rounded-lg border border-slate-100 bg-slate-50 px-2.5 py-1.5 text-[13px] font-medium text-slate-700 transition-colors hover:border-[#029bba]/60 hover:bg-[#029bba]/5 hover:text-[#029bba]"
+                      >
+                        {name}
+                      </button>
+                    ))}
                   </div>
                 </div>
               )}
             </div>
-          </div>
 
-          {/* Property Type Dropdown (Hidden for Projects) */}
-          {showPropertyType && (
-            <div className="md:col-span-3">
-              <PropertyTypeDropdown
-                value={propertyType}
-                onChange={(type, cat) => { setPropertyType(type); setPropertyCategory(cat); }}
-              />
+            {/* Property Type */}
+            <div className={`${FIELD_CELL_CLASS} lg:col-span-2`}>
+              <label htmlFor="hero-type" className={FIELD_LABEL_CLASS}>
+                <span>Property Type</span>
+              </label>
+              <div className="relative mt-0.5">
+                <select
+                  id="hero-type"
+                  value={propertyType}
+                  onChange={(event) => setPropertyType(event.target.value)}
+                  className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
+                >
+                  {PROPERTY_TYPES.map((option) => (
+                    <option key={option.value || 'all'} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+              </div>
             </div>
-          )}
 
-          {/* Search Button */}
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              className="w-full h-14 rounded-xl bg-[#029bba] hover:bg-[#027a94] text-white font-bold transition-all flex items-center justify-center gap-2 shadow-lg hover:shadow-xl active:scale-[0.98]"
-            >
-              <Search className="w-5 h-5" />
-              <span>Search</span>
-            </button>
+            {/* Budget */}
+            <div className={`${FIELD_CELL_CLASS} lg:col-span-2`}>
+              <label htmlFor="hero-budget" className={FIELD_LABEL_CLASS}>
+                <Wallet className="h-3.5 w-3.5 shrink-0 text-[#029bba]" aria-hidden="true" />
+                <span>Budget</span>
+              </label>
+              <div className="relative mt-0.5">
+                <select
+                  id="hero-budget"
+                  value={maxPrice}
+                  onChange={(event) => setMaxPrice(event.target.value)}
+                  className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
+                >
+                  {BUDGETS[activeTab].map((option) => (
+                    <option key={option.value || 'any'} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+                <ChevronDown
+                  className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
+                  aria-hidden="true"
+                />
+              </div>
+            </div>
+
+            {/* Search */}
+            <div className="sm:col-span-2 lg:col-span-2 lg:pl-3">
+              <button
+                type="submit"
+                className="flex h-11 w-full items-center justify-center gap-1.5 rounded-xl bg-[#004063] px-4 text-sm font-semibold text-white shadow-sm transition-colors hover:bg-[#029bba] focus:outline-none focus:ring-2 focus:ring-[#029bba]/50 active:scale-[0.98] lg:h-[46px]"
+              >
+                <Search className="h-4 w-4" strokeWidth={2.25} aria-hidden="true" />
+                <span>Find</span>
+              </button>
+            </div>
           </div>
-
         </div>
       </form>
     </div>
