@@ -114,6 +114,7 @@ const PUBLIC_EXACT_PATHS = new Set<string>([
   "/developers",
   "/agents",
   "/blog",
+  "/cities",
 
   // Tools (all public)
   "/tools",

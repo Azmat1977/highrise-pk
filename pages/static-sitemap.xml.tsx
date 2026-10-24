@@ -114,6 +114,12 @@ export const getServerSideProps: GetServerSideProps = async ({ res }) => {
         priority: 0.9,
       },
       {
+        loc: `${SITE_URL}/cities`,
+        lastmod: formatDate(new Date()),
+        changefreq: 'daily',
+        priority: 0.8,
+      },
+      {
         loc: `${SITE_URL}/risk-alerts`,
         lastmod: formatDate(new Date()),
         changefreq: 'daily',

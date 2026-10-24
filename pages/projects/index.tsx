@@ -82,13 +82,10 @@ import {
   getProjectNatureCounts,
   getHotspotAreas,
 } from '@/lib/cache/projectAggregations';
+import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 
-const PAKISTAN_CITIES = [
-  'Islamabad', 'Lahore', 'Karachi', 'Rawalpindi', 'Multan', 'Peshawar',
-  'Faisalabad', 'Sialkot', 'Gujranwala', 'Bahawalpur', 'Sargodha',
-  'Hyderabad', 'Quetta', 'Sukkur', 'Larkana', 'Sheikhupura', 'Jhelum',
-  'Mardan', 'Mirpur', 'Abbottabad', 'Kasur', 'Okara', 'Sahiwal',
-];
+// Canonical city source — same names as the header mega-menu and /cities.
+const PAKISTAN_CITIES: string[] = CANONICAL_CITIES;
 
 type ProjectsPageLocalProps = ProjectsPageProps & {
   trustedProjects: TrustedDeveloperSourceProject[];

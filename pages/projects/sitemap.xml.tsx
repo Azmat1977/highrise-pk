@@ -3,15 +3,12 @@
 import { GetServerSideProps } from 'next';
 import dbConnect from '@/lib/dbConnect';
 import Project from '@/models/Projects';
+import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://highrise.pk';
 
-const PAKISTAN_CITIES = [
-  'Islamabad', 'Lahore', 'Karachi', 'Rawalpindi', 'Multan', 'Peshawar',
-  'Faisalabad', 'Sialkot', 'Gujranwala', 'Bahawalpur', 'Sargodha',
-  'Hyderabad', 'Quetta', 'Sukkur', 'Larkana', 'Sheikhupura', 'Jhelum',
-  'Mardan', 'Mirpur', 'Abbottabad', 'Kasur', 'Okara', 'Sahiwal',
-];
+// Canonical city source — keeps sitemap URLs in sync with /in/[city] pages.
+const PAKISTAN_CITIES: string[] = CANONICAL_CITIES;
 
 interface SitemapUrl {
   loc: string;
