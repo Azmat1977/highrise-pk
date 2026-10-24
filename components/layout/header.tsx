@@ -15,6 +15,7 @@ import { useSession, signOut } from "next-auth/react";
 import AuthGateModal from "@/components/auth/AuthGateModal";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useCompare } from "@/hooks/useCompare";
+import { POPULAR_CITIES } from "@/lib/pakistanCities";
 
 // ============================================================================
 // CONSTANTS
@@ -299,8 +300,400 @@ function MobileSectionHeader({
 // 🚀 MAIN HEADER COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
+// ============================================================
+// PRIMARY NAVIGATION CONFIG
+// ============================================================
+
+type NavKey = "buy" | "rent" | "projects" | "developers" | "societies" | "agents" | "more";
+
+interface NavLinkItem {
+  label: string;
+  href: string;
+}
+
+interface NavLinksSection {
+  kind: "links";
+  title: string;
+  links: NavLinkItem[];
+}
+
+interface NavCitiesSection {
+  kind: "cities";
+  title: string;
+  base: string;
+  cities: string[];
+  viewAllHref: string;
+}
+
+type NavSection = NavLinksSection | NavCitiesSection;
+
+interface NavItem {
+  key: NavKey;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+  sections: NavSection[];
+  /** Optional city-chip row rendered under the item inside the mobile drawer. */
+  cityArea?: {
+    heading: string;
+    base: string;
+  };
+}
+
+const BUY_BASE = "/properties?listingType=full_payment";
+const RENT_BASE = "/properties?listingType=rent";
+
+const MENU_CITIES = POPULAR_CITIES;
+
+function cityLinks(base: string, queryConnector: "&" | "?", count: number): NavLinkItem[] {
+  return MENU_CITIES.slice(0, count).map((city) => ({
+    label: city,
+    href: `${base}${queryConnector}city=${encodeURIComponent(city)}`,
+  }));
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    key: "buy",
+    label: "Buy",
+    href: BUY_BASE,
+    icon: <icons.Home className="w-5 h-5" />,
+    cityArea: { heading: "Browse Properties by City", base: "/properties" },
+    sections: [
+      {
+        kind: "links",
+        title: "Find Your Home",
+        links: [
+          { label: "All Properties", href: BUY_BASE },
+          { label: "Homes", href: `${BUY_BASE}&propertyCategory=residential` },
+          { label: "Plots", href: `${BUY_BASE}&propertyCategory=plots` },
+          { label: "Commercial", href: `${BUY_BASE}&propertyCategory=commercial` },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Homes & Rooms",
+        links: [
+          { label: "Houses", href: `${BUY_BASE}&propertyType=House` },
+          { label: "Apartments & Flats", href: `${BUY_BASE}&propertyType=Apartment` },
+          { label: "Villas", href: `${BUY_BASE}&propertyType=Villa` },
+          { label: "Penthouses", href: `${BUY_BASE}&propertyType=Penthouse` },
+          { label: "Upper Portions", href: `${BUY_BASE}&propertyType=Upper%20Portion` },
+          { label: "Lower Portions", href: `${BUY_BASE}&propertyType=Lower%20Portion` },
+          { label: "Farm Houses", href: `${BUY_BASE}&propertyType=Farm%20House` },
+          { label: "Rooms", href: `${BUY_BASE}&propertyType=Room` },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Plots & Commercial",
+        links: [
+          { label: "Residential Plots", href: `${BUY_BASE}&propertyType=Residential%20Plot` },
+          { label: "Commercial Plots", href: `${BUY_BASE}&propertyType=Commercial%20Plot` },
+          { label: "Plot Files", href: `${BUY_BASE}&propertyType=Plot%20File` },
+          { label: "Shops", href: `${BUY_BASE}&propertyType=Shop` },
+          { label: "Offices", href: `${BUY_BASE}&propertyType=Office` },
+          { label: "Warehouses", href: `${BUY_BASE}&propertyType=Warehouse` },
+          { label: "Buildings", href: `${BUY_BASE}&propertyType=Building` },
+          { label: "Plazas", href: `${BUY_BASE}&propertyType=Plaza` },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Before You Buy",
+        links: [
+          { label: "Verify Society NOC", href: "/tools/verify-society" },
+          { label: "Fair Price Estimate", href: "/tools/price-estimator" },
+          { label: "Construction Cost", href: "/tools/construction-calculator" },
+          { label: "Risk Alerts", href: "/risk-alerts" },
+        ],
+      },
+      {
+        kind: "cities",
+        title: "Browse by City",
+        base: BUY_BASE,
+        cities: MENU_CITIES,
+        viewAllHref: "/cities",
+      },
+    ],
+  },
+  {
+    key: "rent",
+    label: "Rent",
+    href: RENT_BASE,
+    icon: <icons.Key className="w-5 h-5" />,
+    cityArea: { heading: "Browse Rentals by City", base: "/properties?listingType=rent" },
+    sections: [
+      {
+        kind: "links",
+        title: "Rental Categories",
+        links: [
+          { label: "All Rentals", href: RENT_BASE },
+          { label: "Homes for Rent", href: `${RENT_BASE}&propertyCategory=residential` },
+          { label: "Commercial Rentals", href: `${RENT_BASE}&propertyCategory=commercial` },
+          { label: "Plots for Rent", href: `${RENT_BASE}&propertyCategory=plots` },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Homes & Living",
+        links: [
+          { label: "Houses", href: `${RENT_BASE}&propertyType=House` },
+          { label: "Apartments & Flats", href: `${RENT_BASE}&propertyType=Apartment` },
+          { label: "Villas", href: `${RENT_BASE}&propertyType=Villa` },
+          { label: "Penthouses", href: `${RENT_BASE}&propertyType=Penthouse` },
+          { label: "Upper Portions", href: `${RENT_BASE}&propertyType=Upper%20Portion` },
+          { label: "Lower Portions", href: `${RENT_BASE}&propertyType=Lower%20Portion` },
+          { label: "Rooms", href: `${RENT_BASE}&propertyType=Room` },
+          { label: "Farm Houses", href: `${RENT_BASE}&propertyType=Farm%20House` },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Commercial Rentals",
+        links: [
+          { label: "Offices", href: `${RENT_BASE}&propertyType=Office` },
+          { label: "Shops", href: `${RENT_BASE}&propertyType=Shop` },
+          { label: "Warehouses", href: `${RENT_BASE}&propertyType=Warehouse` },
+          { label: "Factories", href: `${RENT_BASE}&propertyType=Factory` },
+          { label: "Buildings", href: `${RENT_BASE}&propertyType=Building` },
+          { label: "Plazas", href: `${RENT_BASE}&propertyType=Plaza` },
+        ],
+      },
+      {
+        kind: "cities",
+        title: "Browse by City",
+        base: RENT_BASE,
+        cities: MENU_CITIES,
+        viewAllHref: "/cities",
+      },
+    ],
+  },
+  {
+    key: "projects",
+    label: "New Projects",
+    href: "/projects",
+    icon: <icons.Building className="w-5 h-5" />,
+    cityArea: { heading: "Browse Projects by City", base: "/projects" },
+    sections: [
+      {
+        kind: "links",
+        title: "Browse Projects",
+        links: [
+          { label: "All New Projects", href: "/projects" },
+          { label: "On Installments", href: "/projects?installments=true" },
+          { label: "Ready to Move", href: "/projects?possession=ready_to_move" },
+          { label: "Under Construction", href: "/projects?possession=under_construction" },
+          { label: "New Launch", href: "/projects?possession=new_launch" },
+          { label: "Pre-Launch", href: "/projects?possession=pre_launch" },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Project Categories",
+        links: [
+          { label: "High-Rise Developments", href: "/projects?category=high_rise" },
+          { label: "Housing Societies", href: "/projects?category=housing_society" },
+          { label: "Commercial Plazas", href: "/projects?category=commercial_plaza" },
+          { label: "Mixed-Use Projects", href: "/projects?category=mixed_use" },
+          { label: "Gated Communities", href: "/projects?category=gated_community" },
+          { label: "Townhouses & Villas", href: "/projects?category=townhouse" },
+          { label: "Industrial Parks", href: "/projects?category=industrial_park" },
+        ],
+      },
+      {
+        kind: "cities",
+        title: "Projects by City",
+        base: "/projects",
+        cities: MENU_CITIES,
+        viewAllHref: "/cities",
+      },
+      {
+        kind: "links",
+        title: "Using Highrise",
+        links: [
+          { label: "How It Works", href: "/about" },
+          { label: "Contact Sales", href: "/contact" },
+          { label: "Blog & Insights", href: "/blog" },
+          { label: "Risk Alerts", href: "/risk-alerts" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "developers",
+    label: "Developers",
+    href: "/developers",
+    icon: <icons.Building2 className="w-5 h-5" />,
+    cityArea: { heading: "Browse Developers by City", base: "/developers" },
+    sections: [
+      {
+        kind: "links",
+        title: "Developer Directory",
+        links: [
+          { label: "All Developers", href: "/developers" },
+          { label: "High-Rise Projects", href: "/projects?category=high_rise" },
+          { label: "Housing Societies", href: "/projects?category=housing_society" },
+          { label: "Commercial Plazas", href: "/projects?category=commercial_plaza" },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Explore Developments",
+        links: [
+          { label: "New Launches", href: "/projects?possession=new_launch" },
+          { label: "Ready to Move", href: "/projects?possession=ready_to_move" },
+          { label: "Gated Communities", href: "/projects?category=gated_community" },
+          { label: "Mixed-Use Towers", href: "/projects?category=mixed_use" },
+        ],
+      },
+      {
+        kind: "cities",
+        title: "Developers by City",
+        base: "/developers",
+        cities: MENU_CITIES,
+        viewAllHref: "/cities",
+      },
+      {
+        kind: "links",
+        title: "List With Us",
+        links: [
+          { label: "Become a Developer", href: "/onboarding/business?role=developer" },
+          { label: "Developer Onboarding", href: "/onboarding/developer" },
+          { label: "List Your Property", href: "/add-property" },
+        ],
+      },
+    ],
+  },
+  {
+    key: "societies",
+    label: "Societies",
+    href: "/societies",
+    icon: <icons.Landmark className="w-5 h-5" />,
+    cityArea: { heading: "Browse Societies by City", base: "/societies" },
+    sections: [
+      {
+        kind: "links",
+        title: "Discover",
+        links: [
+          { label: "All Societies", href: "/societies" },
+          { label: "Register Society", href: "/onboarding/society" },
+          { label: "Society Projects", href: "/projects?category=housing_society" },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Verification & Risk",
+        links: [
+          { label: "Verify Society NOC", href: "/tools/verify-society" },
+          { label: "Public Risk Alerts", href: "/risk-alerts" },
+          { label: "SafeDeal Support", href: "/safedeal" },
+        ],
+      },
+      {
+        kind: "cities",
+        title: "Societies by City",
+        base: "/societies",
+        cities: MENU_CITIES,
+        viewAllHref: "/cities",
+      },
+    ],
+  },
+  {
+    key: "agents",
+    label: "Agents",
+    href: "/agents",
+    icon: <icons.Users className="w-5 h-5" />,
+    cityArea: { heading: "Browse Agents by City", base: "/agents" },
+    sections: [
+      {
+        kind: "links",
+        title: "Find an Agent",
+        links: [
+          { label: "All Agents", href: "/agents" },
+          { label: "Agent Dashboard", href: "/agent/dashboard" },
+          { label: "Agent Listings", href: "/agent/listings" },
+        ],
+      },
+      {
+        kind: "links",
+        title: "For Professionals",
+        links: [
+          { label: "Become an Agent", href: "/onboarding/business?role=agent" },
+          { label: "Agent Registration", href: "/agent/register" },
+          { label: "List Your Property", href: "/add-property" },
+        ],
+      },
+      {
+        kind: "cities",
+        title: "Agents by City",
+        base: "/agents",
+        cities: MENU_CITIES,
+        viewAllHref: "/cities",
+      },
+    ],
+  },
+  {
+    key: "more",
+    label: "More",
+    href: "/tools",
+    icon: <icons.Sparkles className="w-5 h-5" />,
+    sections: [
+      {
+        kind: "links",
+        title: "Free Tools",
+        links: [
+          { label: "All Research Tools", href: "/tools" },
+          { label: "Verify Society NOC", href: "/tools/verify-society" },
+          { label: "Fair Price Estimator", href: "/tools/price-estimator" },
+          { label: "Construction Calculator", href: "/tools/construction-calculator" },
+          { label: "Home Loan Calculator", href: "/tools/home-loan-calculator" },
+          { label: "Area Unit Converter", href: "/tools/area-unit-converter" },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Platform",
+        links: [
+          { label: "Installment Properties", href: "/properties?listingType=installment" },
+          { label: "Compare Properties", href: "/compare" },
+          { label: "Saved Properties", href: "/saved-properties" },
+          { label: "Blog & Insights", href: "/blog" },
+          { label: "SafeDeal", href: "/safedeal" },
+          { label: "All Cities", href: "/cities" },
+        ],
+      },
+      {
+        kind: "links",
+        title: "Company",
+        links: [
+          { label: "About Us", href: "/about" },
+          { label: "Contact Us", href: "/contact" },
+          { label: "List Your Property", href: "/add-property" },
+          { label: "Become a Developer", href: "/onboarding/developer" },
+        ],
+      },
+    ],
+  },
+];
+
+function isNavItemActive(item: NavItem, pathname: string, asPath: string): boolean {  if (item.key === "buy") return asPath.startsWith("/properties") && /listingType=full_payment/.test(asPath);
+  if (item.key === "rent") return asPath.startsWith("/properties") && /listingType=rent/.test(asPath);
+  if (item.key === "projects") return pathname.startsWith("/projects");
+  if (item.key === "developers") return pathname.startsWith("/developers");
+  if (item.key === "societies") return pathname.startsWith("/societies");
+  if (item.key === "agents") return pathname.startsWith("/agents") || pathname.startsWith("/agent/");
+  if (item.key === "more") {
+    return ["/tools", "/blog", "/about", "/contact", "/safedeal", "/risk-alerts", "/compare", "/saved-properties"].some(
+      (route) => pathname.startsWith(route)
+    );
+  }
+  return false;
+}
+
 export const Header: React.FC = () => {
   const router = useRouter();
+  const navReady = router.isReady;
   const { data: session, status } = useSession();
 
   // ── Favorites & Compare (0ms Optimistic Sync Layer) ────────────
@@ -356,13 +749,20 @@ export const Header: React.FC = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen]       = useState(false);
     const [isAddListingOpen, setIsAddListingOpen]       = useState(false);
   const [loginContext, setLoginContext]                = useState<"contact" | "listing" | "save" | "general" | "compare" | "save_search">("general");
-  const [isToolsDropdownOpen, setIsToolsDropdownOpen] = useState(false);
-  const [isExploreDropdownOpen, setIsExploreDropdownOpen] = useState(false);
-  const [isMobileToolsExpanded, setIsMobileToolsExpanded] = useState(false);
-  const [isMobileExploreExpanded, setIsMobileExploreExpanded] = useState(false);
+  const [activeNav, setActiveNav]                     = useState<NavKey | null>(null);
+  const [isMobileMoreExpanded, setIsMobileMoreExpanded] = useState(false);
   const [isRouteLoading, setIsRouteLoading]           = useState(false);
-  const toolsDropdownRef = useRef<HTMLDivElement>(null);
-  const exploreDropdownRef = useRef<HTMLDivElement>(null);
+  const navRef = useRef<HTMLDivElement>(null);
+  const navCloseTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const navPinnedRef = useRef(false);
+  const activeNavRef = useRef<NavKey | null>(null);
+  const activeTriggerRef = useRef<HTMLButtonElement | null>(null);
+
+  // ── City browsing ──────────────────────────────────────────────
+  // Static canonical city list (lib/pakistanCities) — used by the desktop
+  // mega-menu column chips and the mobile drawer city rows. City chips are
+  // links to supported ?city= filters, so no live fetch is required.
+  const navCities = MENU_CITIES;
 
   const [developerProfile, setDeveloperProfile] = useState<DeveloperProfile | null>(null);
   const [devProfileLoading, setDevProfileLoading] = useState(false);
@@ -444,29 +844,13 @@ export const Header: React.FC = () => {
     };
   }, [fetchDeveloperProfile]);
 
-  // ── Outside click for tools + explore dropdowns ──────────────
+  // --- Close navigation menus on route change ---
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (toolsDropdownRef.current && !toolsDropdownRef.current.contains(event.target as Node)) {
-        setIsToolsDropdownOpen(false);
-      }
-      if (exploreDropdownRef.current && !exploreDropdownRef.current.contains(event.target as Node)) {
-        setIsExploreDropdownOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // ── Close dropdowns on route change ──────────────────────────
-  useEffect(() => {
-    setIsToolsDropdownOpen(false);
-    setIsExploreDropdownOpen(false);
-    setIsMobileToolsExpanded(false);
-    setIsMobileExploreExpanded(false);
+    applyNavState(null, false);
+    setIsMobileMoreExpanded(false);
     setIsMobileMenuOpen(false);
     setIsAddListingOpen(false);
-  }, [router.pathname]);
+  }, [router.pathname, router.asPath]);
 
   // ── Route loading indicator ─────────────────────────────────
   useEffect(() => {
@@ -520,23 +904,121 @@ export const Header: React.FC = () => {
     }
   }, [router]);
 
-  // ─── Navigation links ───────────────────────────────────────────────────────
-  // PRIMARY nav — 5 items 
-  const navLinks = [
-    { label: "Home",       href: "/" },
-    { label: "Properties", href: "/properties" },
-    { label: "Projects",   href: "/projects" },
-    { label: "Societies",  href: "/societies" },
-    { label: "Developers", href: "/developers" },
-  ];
+  // --- Navigation helpers --------------------------------------------------
+  const clearNavCloseTimer = useCallback(() => {
+    if (navCloseTimer.current) {
+      clearTimeout(navCloseTimer.current);
+      navCloseTimer.current = null;
+    }
+  }, []);
 
-  // EXPLORE dropdown items -- consolidated secondary nav
-  const exploreItems = [
-    { label: "Agents",     href: "/agents",     icon: <icons.Users className="w-4 h-4" />,     description: "Find verified property agents" },
-    { label: "Blog",       href: "/blog",       icon: <icons.FileText className="w-4 h-4" />,  description: "Insights & market news" },
-  ];
+  // Single funnel for every open/close transition so the mirror refs and the
+  // pinned (click-opened) flag never drift out of sync with React state.
+  const applyNavState = useCallback((key: NavKey | null, pinned: boolean) => {
+    navPinnedRef.current = key === null ? false : pinned;
+    activeNavRef.current = key;
+    setActiveNav(key);
+  }, []);
 
-  // ═══════════════════════════════════════════════════════════════
+  const openNav = useCallback((key: NavKey) => {
+    clearNavCloseTimer();
+    // Hovering the trigger of an already click-pinned menu keeps it pinned.
+    applyNavState(key, activeNavRef.current === key && navPinnedRef.current);
+  }, [applyNavState, clearNavCloseTimer]);
+
+  // A click-opened (pinned) menu stays open while the pointer wanders; it only
+  // closes via Escape, outside click, link navigation, route change or toggle.
+  const scheduleCloseNav = useCallback(() => {
+    clearNavCloseTimer();
+    if (navPinnedRef.current) return;
+    navCloseTimer.current = setTimeout(() => {
+      navCloseTimer.current = null;
+      if (!navPinnedRef.current) applyNavState(null, false);
+    }, 180);
+  }, [applyNavState, clearNavCloseTimer]);
+
+  const toggleNav = useCallback((key: NavKey, trigger?: HTMLButtonElement) => {
+    if (trigger) activeTriggerRef.current = trigger;
+    clearNavCloseTimer();
+    if (activeNavRef.current === key) {
+      // Clicking an open trigger: closes it if pinned, otherwise pins it.
+      if (navPinnedRef.current) {
+        applyNavState(null, false);
+      } else {
+        navPinnedRef.current = true;
+      }
+    } else {
+      applyNavState(key, true);
+    }
+  }, [applyNavState, clearNavCloseTimer]);
+
+  const closeNavAndFocusTrigger = useCallback(() => {
+    clearNavCloseTimer();
+    applyNavState(null, false);
+    window.requestAnimationFrame(() => activeTriggerRef.current?.focus());
+  }, [applyNavState, clearNavCloseTimer]);
+
+  const handleNavBlur = useCallback((event: React.FocusEvent<HTMLElement>) => {
+    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+      scheduleCloseNav();
+    }
+  }, [scheduleCloseNav]);
+
+  // Keyboard entry point: moves focus from a trigger into its open panel so the
+  // shared mega-menu is reachable with Tab / ArrowDown as well as the pointer.
+  const focusFirstPanelItem = useCallback((key: NavKey) => {
+    const panel = document.getElementById(`nav-panel-${key}`);
+    if (!panel) return;
+    const first = panel.querySelector<HTMLElement>('a[href], button');
+    first?.focus();
+  }, []);
+
+  const handleTriggerKeyDown = useCallback(
+    (event: React.KeyboardEvent<HTMLButtonElement>, key: NavKey) => {
+      const isOpen = activeNavRef.current === key;
+      const wantsPanel =
+        event.key === "ArrowDown" ||
+        (event.key === "Tab" && !event.shiftKey && isOpen);
+      if (!wantsPanel) return;
+      if (!isOpen) {
+        // ArrowDown opens the menu that is not open yet, then steps inside it.
+        openNav(key);
+        window.requestAnimationFrame(() => focusFirstPanelItem(key));
+        event.preventDefault();
+        return;
+      }
+      event.preventDefault();
+      window.requestAnimationFrame(() => focusFirstPanelItem(key));
+    },
+    [focusFirstPanelItem, openNav]
+  );
+
+  useEffect(() => () => clearNavCloseTimer(), [clearNavCloseTimer]);
+
+  // --- Close navigation menus on outside click or Escape ---
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (navRef.current && !navRef.current.contains(event.target as Node)) {
+        if (activeNavRef.current !== null) applyNavState(null, false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        if (activeNavRef.current !== null) {
+          // Returns focus to the trigger that opened the menu.
+          closeNavAndFocusTrigger();
+        }
+        setIsMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [applyNavState, closeNavAndFocusTrigger]);
+
   // 🎨 RENDER
   // ═══════════════════════════════════════════════════════════════
 
@@ -555,7 +1037,21 @@ export const Header: React.FC = () => {
         </div>
       )}
 
-      <header className="bg-white/95 backdrop-blur-md shadow-sm sticky top-0 z-50 border-b border-gray-200/50">
+              {/* backdrop-filter would trap the fixed drawer inside the header's
+                  height, so it is disabled while the menu overlay is open.
+
+                  The pointer boundary for the desktop mega-menu lives here, on
+                  <header>, and not on <nav>: the trigger row (~36px tall) and
+                  the fixed panel are both DOM descendants of the header, so the
+                  pointer can travel between them — including the strip below the
+                  trigger row — without ever "leaving" the interaction region.
+                  The 180ms timer is only a safety grace for a real exit. */}
+              <header
+                className={`bg-white/95 shadow-sm sticky top-0 z-50 border-b border-gray-200/50 ${isMobileMenuOpen ? '' : 'backdrop-blur-md'}`}
+                onMouseEnter={clearNavCloseTimer}
+                onMouseLeave={scheduleCloseNav}
+                onBlur={handleNavBlur}
+              >
         <div className="container mx-auto px-4 h-20 flex items-center justify-between">
 
           {/* LOGO */}
@@ -573,186 +1069,158 @@ export const Header: React.FC = () => {
           </Link>
 
           {/* DESKTOP NAVIGATION */}
-          <nav className="hidden lg:flex items-center space-x-4 xl:space-x-6" role="navigation">
-            {navLinks.map((item) => (
-              <Link
-                key={item.label}
-                href={item.href}
-                className={cx(
-                  "text-[15px] font-semibold transition-colors relative group whitespace-nowrap",
-                  router.pathname === item.href ? "text-[#029bba]" : "text-gray-700 hover:text-[#029bba]"
-                )}
-              >
-                {item.label}
-                <span
-                  className={cx(
-                    "absolute -bottom-1 left-0 h-0.5 bg-[#029bba] transition-all duration-200",
-                    router.pathname === item.href ? "w-0" : "w-0 group-hover:w-full"
-                  )}
-                />
-              </Link>
-            ))}
+          <nav
+            ref={navRef}
+            aria-label="Primary navigation"
+            className="hidden lg:flex items-center gap-1 flex-1 justify-center"
+          >
+            {NAV_ITEMS.map((item) => {
+              const isActive = navReady && isNavItemActive(item, router.pathname, router.asPath);
+              const isOpen = activeNav === item.key;
+              return (
+                <div
+                  key={item.key}
+                  onMouseEnter={() => openNav(item.key)}
+                >
+                  <button
+                    type="button"
+                    aria-haspopup="menu"
+                    aria-expanded={isOpen}
+                    aria-controls={`nav-panel-${item.key}`}
+                    onMouseEnter={(e) => { activeTriggerRef.current = e.currentTarget; }}
+                    onFocus={(e) => { activeTriggerRef.current = e.currentTarget; }}
+                    onClick={(e) => toggleNav(item.key, e.currentTarget)}
+                    onKeyDown={(e) => handleTriggerKeyDown(e, item.key)}
+                    className={cx(
+                      "flex items-center gap-1.5 lg:px-2.5 xl:px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors",
+                      isActive
+                        ? "text-[#029bba] bg-[#029bba]/8"
+                        : "text-gray-700 hover:text-[#029bba] hover:bg-gray-50"
+                    )}
+                  >
+                    {item.label}
+                    <icons.ChevronDown
+                      className={cx(
+                        "w-4 h-4 transition-transform",
+                        isOpen ? "rotate-180 text-[#029bba]" : "text-gray-400"
+                      )}
+                    />
+                  </button>
+                </div>
+              );
+            })}
 
-            {/* TOOLS DROPDOWN */}
-            <div className="relative" ref={toolsDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsToolsDropdownOpen(!isToolsDropdownOpen)}
-                className={cx(
-                  "inline-flex items-center gap-1 text-[15px] font-semibold transition-colors relative group",
-                  router.pathname.startsWith("/tools") ? "text-[#029bba]" : "text-gray-700 hover:text-[#029bba]"
-                )}
-                aria-expanded={isToolsDropdownOpen}
-                aria-haspopup="true"
-              >
-                <icons.Sparkles className="w-4 h-4" />
-                Tools
-                <icons.ChevronDown className={cx("w-3.5 h-3.5 transition-transform", isToolsDropdownOpen && "rotate-180")} />
-              </button>
-
-              {isToolsDropdownOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-96 rounded-2xl border-2 border-gray-100 bg-white shadow-2xl overflow-hidden z-[9999]">
-                  <div className="px-5 py-3 bg-gradient-to-r from-[#029bba] to-[#004063] text-white">
-                    <div className="flex items-center gap-2 mb-1">
-                      <icons.Sparkles className="w-4 h-4 text-[#06b6d4]" />
-                      <h3 className="font-bold text-sm">Free Intelligence Tools</h3>
-                    </div>
-                    <p className="text-xs text-white/80">Make smarter property decisions</p>
-                  </div>
-
-                  <div className="p-2">
-                    <ToolMenuItem
-                      icon={<icons.ShieldCheck className="w-5 h-5" />}
-                      iconBg="from-[#029bba] to-[#004063]"
-                      title="Verify Society NOC"
-                      description="Check legal approval + risk alerts"
-                      href="/tools/verify-society"
-                      badge="Industry-First"
-                      onClick={() => setIsToolsDropdownOpen(false)}
-                    />
-                    <ToolMenuItem
-                      icon={<icons.Banknote className="w-5 h-5" />}
-                      iconBg="from-[#027a94] to-[#003553]"
-                      title="Fair Price Estimator"
-                      description="Data-driven price verdict engine"
-                      href="/tools/price-estimator"
-                      badge="Industry-First"
-                      onClick={() => setIsToolsDropdownOpen(false)}
-                    />
-                    <ToolMenuItem
-                      icon={<icons.Construction className="w-5 h-5" />}
-                      iconBg="from-[#004063] to-[#001f2b]"
-                      title="Construction Calculator"
-                      description="14 property types | 10 cities"
-                      href="/tools/construction-calculator"
-                      badge="Industry-First"
-                      onClick={() => setIsToolsDropdownOpen(false)}
-                    />
-                    <ToolMenuItem
-                      icon={<icons.Calculator className="w-5 h-5" />}
-                      iconBg="from-[#029bba] to-[#003553]"
-                      title="Home Loan Calculator"
-                      description="10 banks | Islamic + Conventional"
-                      href="/tools/home-loan-calculator"
-                      badge="Industry-First"
-                      onClick={() => setIsToolsDropdownOpen(false)}
-                    />
-                    <ToolMenuItem
-                      icon={<icons.Ruler className="w-5 h-5" />}
-                      iconBg="from-[#06b6d4] to-[#029bba]"
-                      title="Area Unit Converter"
-                      description="13 units | 3 Marla standards"
-                      href="/tools/area-unit-converter"
-                      badge="Most Comprehensive"
-                      onClick={() => setIsToolsDropdownOpen(false)}
-                    />
-                  </div>
-
-                  <div className="px-2 pb-2 pt-1 border-t border-gray-100">
-                    <Link
-                      href="/tools"
-                      onClick={() => setIsToolsDropdownOpen(false)}
-                      className="flex items-center justify-center gap-2 w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-bold transition-all shadow-md group"
+            {/* The pointer boundary for these panels is the <header> element
+                (see the handlers above), so no invisible bridge is needed to
+                carry the pointer across the strip under the trigger row. */}
+            {(() => {
+              const activeItem = NAV_ITEMS.find((navItem) => navItem.key === activeNav);
+              if (!activeItem) return null;
+              const colCount = activeItem.sections.length;
+              const widthClass =
+                colCount >= 5 ? "w-[1040px]" : colCount === 4 ? "w-[900px]" : "w-[760px]";
+              const gridClass =
+                colCount >= 5 ? "grid-cols-5" : colCount === 4 ? "grid-cols-4" : "grid-cols-3";
+              return (
+                <div
+                  className="fixed top-20 left-0 right-0 z-50 flex justify-center"
+                  onMouseEnter={clearNavCloseTimer}
+                >
+                  <div
+                    id={`nav-panel-${activeItem.key}`}
+                    role="menu"
+                    aria-label={activeItem.label}
+                    className={cx("w-full pt-2", "max-w-[calc(100vw-2rem)]", widthClass)}
+                    onClick={(event) => {
+                      // Any link inside the panel closes the menu once clicked;
+                      // Navigation itself is handled by <Link> in the same event.
+                      if ((event.target as HTMLElement).closest("a")) {
+                        applyNavState(null, false);
+                      }
+                    }}
+                  >
+                    <div
+                      className={cx(
+                        "rounded-2xl border border-gray-100 bg-white shadow-xl shadow-gray-900/10 p-6",
+                        // Bounded so a tall panel (Buy at 1024x768) never runs past
+                        // the viewport bottom; content scrolls inside the panel.
+                        "max-h-[calc(100vh-6.5rem)] overflow-y-auto overscroll-contain",
+                        "animate-in fade-in slide-in-from-top-2 duration-150"
+                      )}
                     >
-                      <icons.Sparkles className="w-4 h-4" />
-                      View All Tools
-                      <icons.ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                    </Link>
-                  </div>
-                </div>
-              )}
-            </div>
+                      <div className="pb-3 mb-4 border-b border-gray-100">
+                        <div className="flex items-center justify-between gap-4">
+                          <div className="flex items-center gap-2 text-[#004063]">
+                            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#029bba]/10 text-[#029bba]">
+                              {activeItem.icon}
+                            </span>
+                            <span className="text-xs font-bold uppercase tracking-wider">
+                              Explore {activeItem.label}
+                            </span>
+                          </div>
+                          <Link
+                            href={activeItem.href}
+                            className="flex items-center gap-1 text-xs font-semibold text-[#029bba] hover:text-[#007196]"
+                          >
+                            View all
+                            <icons.ArrowRight className="w-3.5 h-3.5" />
+                          </Link>
+                        </div>
+                      </div>
 
-            {/* EXPLORE DROPDOWN */}
-            <div className="relative" ref={exploreDropdownRef}>
-              <button
-                type="button"
-                onClick={() => setIsExploreDropdownOpen(!isExploreDropdownOpen)}
-                className={cx(
-                  "inline-flex items-center gap-1 text-[15px] font-semibold transition-colors relative group whitespace-nowrap",
-                  exploreItems.some(item => router.pathname.startsWith(item.href))
-                    ? "text-[#029bba]"
-                    : "text-gray-700 hover:text-[#029bba]"
-                )}
-                aria-expanded={isExploreDropdownOpen}
-                aria-haspopup="true"
-              >
-                Explore
-                <icons.ChevronDown className={cx("w-3.5 h-3.5 transition-transform", isExploreDropdownOpen && "rotate-180")} />
-              </button>
-
-              {isExploreDropdownOpen && (
-                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-3 w-80 rounded-2xl border-2 border-gray-100 bg-white shadow-2xl overflow-hidden z-[9999]">
-                  <div className="px-5 py-3 bg-gradient-to-r from-[#029bba] to-[#004063] text-white">
-                    <div className="flex items-center gap-2 mb-1">
-                      <icons.Building2 className="w-4 h-4 text-[#06b6d4]" />
-                      <h3 className="font-bold text-sm">Explore Highrise.pk</h3>
+                      <div className={cx("grid gap-6", gridClass)}>
+                        {activeItem.sections.map((section) =>
+                          section.kind === "cities" ? (
+                            <div key={`${activeItem.key}-${section.title}`}>
+                              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                                {section.title}
+                              </p>
+                              <div className="flex flex-wrap items-center gap-2">
+                                {section.cities.map((cityName) => (
+                                  <Link
+                                    key={`${activeItem.key}-city-${cityName}`}
+                                    href={`${section.base}${section.base.includes("?") ? "&" : "?"}city=${encodeURIComponent(cityName)}`}
+                                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-[13px] font-medium text-gray-700 transition-colors hover:border-[#029bba]/60 hover:bg-[#029bba]/5 hover:text-[#029bba]"
+                                  >
+                                    <icons.MapPin className="w-3.5 h-3.5 text-[#029bba]" />
+                                    {cityName}
+                                  </Link>
+                                ))}
+                                <Link
+                                  href={section.viewAllHref}
+                                  className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-semibold text-[#029bba] transition-colors hover:text-[#007196]"
+                                >
+                                  Explore all
+                                  <icons.ArrowRight className="w-3.5 h-3.5" />
+                                </Link>
+                              </div>
+                            </div>
+                          ) : (
+                            <div key={`${activeItem.key}-${section.title}`}>
+                              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                                {section.title}
+                              </p>
+                              <ul className="space-y-1">
+                                {section.links.map((link) => (
+                                  <li key={`${activeItem.key}-${section.title}-${link.href}`}>
+                                    <Link
+                                      href={link.href}
+                                      className="block truncate rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#029bba] transition-colors"
+                                    >
+                                      {link.label}
+                                    </Link>
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )
+                        )}
+                      </div>
                     </div>
-                    <p className="text-xs text-white/80">Discover more of the platform</p>
-                  </div>
-
-                  <div className="p-2">
-                    {exploreItems.map((item) => {
-                      const active = router.pathname.startsWith(item.href);
-                      return (
-                        <Link
-                          key={item.label}
-                          href={item.href}
-                          onClick={() => setIsExploreDropdownOpen(false)}
-                          className={cx(
-                            "flex items-start gap-3 px-3 py-3 rounded-xl transition-all cursor-pointer group",
-                            active
-                              ? "bg-[#029bba]/10"
-                              : "hover:bg-gradient-to-r hover:from-[#029bba]/5 hover:to-[#029bba]/10"
-                          )}
-                        >
-                          <div className={cx(
-                            "w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-colors",
-                            active
-                              ? "bg-[#029bba] text-white"
-                              : "bg-[#029bba]/10 text-[#029bba] group-hover:bg-[#029bba] group-hover:text-white"
-                          )}>
-                            {item.icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className={cx(
-                              "font-bold text-sm transition-colors",
-                              active ? "text-[#029bba]" : "text-gray-900 group-hover:text-[#029bba]"
-                            )}>
-                              {item.label}
-                            </p>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {item.description}
-                            </p>
-                          </div>
-                          <icons.ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] group-hover:translate-x-0.5 transition-all flex-shrink-0 self-center" />
-                        </Link>
-                      );
-                    })}
                   </div>
                 </div>
-              )}
-            </div>
+              );
+            })()}
           </nav>
 
           {/* RIGHT SIDE ACTIONS */}
@@ -768,7 +1236,7 @@ export const Header: React.FC = () => {
               onClick={handleCompareClick}
               aria-label={`Compare${compareCount > 0 ? ` (${compareCount} items)` : ''}`}
               className={cx(
-                "hidden md:flex relative items-center justify-center",
+                "hidden xl:flex relative items-center justify-center",
                 "w-11 h-11 rounded-xl transition-all group",
                 "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#029bba]/40",
                 router.pathname === "/compare" || router.pathname.startsWith("/compare/")
@@ -810,7 +1278,7 @@ export const Header: React.FC = () => {
               onClick={handleShortlistClick}
               aria-label={`Saved Properties${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
               className={cx(
-                "hidden md:flex relative items-center justify-center",
+                "hidden xl:flex relative items-center justify-center",
                 "w-11 h-11 rounded-xl transition-all group",
                 "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#029bba]/40",
                 router.pathname === "/saved-properties"
@@ -850,7 +1318,7 @@ export const Header: React.FC = () => {
             {isLoggedIn && (
               <>
                 {isDevApproved ? (
-                  <div className="relative hidden md:block">
+                  <div className="relative hidden xl:block">
                     <Button
                       type="button"
                       size="sm"
@@ -902,7 +1370,7 @@ export const Header: React.FC = () => {
                       <Button
                         type="button"
                         size="sm"
-                        className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
+                        className="hidden xl:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
                         onClick={() => router.push("/developer/projects/new")}
                       >
                         <icons.Building2 className="w-4 h-4" />
@@ -912,7 +1380,7 @@ export const Header: React.FC = () => {
                       <Button
                         type="button"
                         size="sm"
-                        className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
+                        className="hidden xl:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
                         onClick={() => router.push("/add-property")}
                       >
                         <icons.Plus className="w-4 h-4" />
@@ -930,7 +1398,7 @@ export const Header: React.FC = () => {
                 <Button
                   type="button"
                   size="sm"
-                  className="hidden md:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
+                  className="hidden xl:flex items-center gap-2 bg-gradient-to-r from-[#029bba] to-[#027a94] hover:from-[#027a94] hover:to-[#029bba] text-white text-sm font-semibold rounded-xl px-4 shadow-lg hover:shadow-xl transition-all whitespace-nowrap"
                   onClick={() => {
                     setIsMobileMenuOpen(false);
                     setLoginContext("listing");
@@ -943,7 +1411,7 @@ export const Header: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hidden md:flex items-center gap-2 text-[15px] text-gray-700 hover:text-[#029bba] font-semibold transition-colors"
+                  className="hidden xl:flex items-center gap-2 text-[15px] text-gray-700 hover:text-[#029bba] font-semibold transition-colors"
                   onClick={() => setIsLoginModalOpen(true)}
                 >
                   <icons.User className="w-4 h-4" />
@@ -1306,7 +1774,7 @@ export const Header: React.FC = () => {
               onClick={handleCompareClick}
               aria-label={`Compare${compareCount > 0 ? ` (${compareCount} items)` : ''}`}
               className={cx(
-                "md:hidden relative flex items-center justify-center",
+                "lg:hidden relative flex items-center justify-center",
                 "w-10 h-10 rounded-xl transition-colors",
                 "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#029bba]/40",
                 router.pathname === "/compare" || router.pathname.startsWith("/compare/")
@@ -1344,7 +1812,7 @@ export const Header: React.FC = () => {
               onClick={handleShortlistClick}
               aria-label={`Saved Properties${favoritesCount > 0 ? ` (${favoritesCount} saved)` : ''}`}
               className={cx(
-                "md:hidden relative flex items-center justify-center",
+                "lg:hidden relative flex items-center justify-center",
                 "w-10 h-10 rounded-xl transition-colors",
                 "hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-[#029bba]/40",
                 router.pathname === "/saved-properties"
@@ -1452,110 +1920,101 @@ export const Header: React.FC = () => {
                 )}
               </div>
 
-              {/* Public navigation links */}
+﻿              {/* Public navigation links */}
               <nav className="px-4 py-4" role="navigation">
                 <div className="space-y-1">
-                  {navLinks.map((item) => (
-                    <Link
-                      key={item.label}
-                      href={item.href}
-                      className={cx(
-                        "flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold transition-all min-h-[44px]",
-                        router.pathname === item.href
-                          ? "bg-gradient-to-r from-[#029bba]/10 to-[#029bba]/20 text-[#029bba]"
-                          : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
-                      )}
-                      onClick={() => setIsMobileMenuOpen(false)}
-                    >
-                      <icons.Home className="w-5 h-5" />
-                      {item.label}
-                    </Link>
-                  ))}
+                  {NAV_ITEMS.filter((item) => item.key !== "more").map((item) => {
+                    const isActive = navReady && isNavItemActive(item, router.pathname, router.asPath);
+                    return (
+                      <div key={item.key}>
+                        <Link
+                          href={item.href}
+                          className={cx(
+                            "flex items-center gap-3 px-4 py-3 rounded-xl text-[15px] font-semibold transition-all min-h-[44px]",
+                            isActive
+                              ? "bg-gradient-to-r from-[#029bba]/10 to-[#029bba]/20 text-[#029bba]"
+                              : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
+                          )}
+                          onClick={() => setIsMobileMenuOpen(false)}
+                        >
+                          <span className={isActive ? "text-[#029bba]" : "text-gray-400"}>{item.icon}</span>
+                          {item.label}
+                          <icons.ArrowRight className="w-4 h-4 ml-auto text-gray-300" />
+                        </Link>
+                        {item.cityArea && navCities.length > 0 && (
+                          <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2 pt-0.5">
+                            {navCities.slice(0, 6).map((cityName) => (
+                              <Link
+                                key={`mobile-city-${item.key}-${cityName}`}
+                                href={`${item.cityArea!.base}?city=${encodeURIComponent(cityName)}`}
+                                onClick={() => setIsMobileMenuOpen(false)}
+                                className="inline-flex items-center gap-1 rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-[#029bba]/60 hover:text-[#029bba] min-h-[28px]"
+                              >
+                                <icons.MapPin className="w-3 h-3 text-[#029bba]" />
+                                {cityName}
+                              </Link>
+                            ))}
+                            <Link
+                              href="/cities"
+                              onClick={() => setIsMobileMenuOpen(false)}
+                              className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold text-[#029bba] min-h-[28px]"
+                            >
+                              View All
+                            </Link>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
 
-                  {/* Tools expandable */}
+                  {/* More expandable */}
                   <div>
                     <button
                       type="button"
-                      onClick={() => setIsMobileToolsExpanded(!isMobileToolsExpanded)}
+                      aria-expanded={isMobileMoreExpanded}
+                      aria-controls="mobile-more-panel"
+                      onClick={() => setIsMobileMoreExpanded((current) => !current)}
                       className={cx(
                         "w-full flex items-center justify-between px-4 py-3 rounded-xl text-[15px] font-semibold transition-all min-h-[44px]",
-                        router.pathname.startsWith("/tools")
+                        navReady && isNavItemActive(NAV_ITEMS[NAV_ITEMS.length - 1], router.pathname, router.asPath)
                           ? "bg-gradient-to-r from-[#029bba]/10 to-[#029bba]/20 text-[#029bba]"
                           : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
                       )}
                     >
                       <div className="flex items-center gap-3">
                         <icons.Sparkles className="w-5 h-5" />
-                        Tools
+                        More
                       </div>
-                      <icons.ChevronDown className={cx("w-4 h-4 transition-transform", isMobileToolsExpanded && "rotate-180")} />
+                      <icons.ChevronDown className={cx("w-4 h-4 transition-transform", isMobileMoreExpanded && "rotate-180")} />
                     </button>
                     <div
+                      id="mobile-more-panel"
                       className={cx(
                         "overflow-hidden transition-all duration-300 ease-in-out",
-                        isMobileToolsExpanded ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"
+                        isMobileMoreExpanded ? "max-h-[720px] opacity-100 mt-1" : "max-h-0 opacity-0"
                       )}
                     >
-                      <div className="ml-4 space-y-1 pl-3 border-l-2 border-[#029bba]/20">
-                        <Link href="/tools/verify-society" onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <icons.ShieldCheck className="w-4 h-4 text-[#029bba]" /> Verify Society NOC
-                        </Link>
-                        <Link href="/tools/price-estimator" onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <icons.Banknote className="w-4 h-4 text-[#029bba]" /> Fair Price Estimator
-                        </Link>
-                        <Link href="/tools/construction-calculator" onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <icons.Construction className="w-4 h-4 text-[#029bba]" /> Construction Calculator
-                        </Link>
-                        <Link href="/tools/home-loan-calculator" onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <icons.Calculator className="w-4 h-4 text-[#029bba]" /> Home Loan Calculator
-                        </Link>
-                        <Link href="/tools/area-unit-converter" onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                          <icons.Ruler className="w-4 h-4 text-[#029bba]" /> Area Unit Converter
-                        </Link>
-                        <Link href="/tools" onClick={() => setIsMobileMenuOpen(false)}
-                          className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-bold text-[#029bba] bg-[#029bba]/5 hover:bg-[#029bba]/10 transition-all">
-                          <icons.Sparkles className="w-4 h-4" /> View All Tools
-                          <icons.ArrowRight className="w-3.5 h-3.5 ml-auto" />
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Explore expandable */}
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setIsMobileExploreExpanded(!isMobileExploreExpanded)}
-                      className={cx(
-                        "w-full flex items-center justify-between px-4 py-3 rounded-xl text-[15px] font-semibold transition-all min-h-[44px]",
-                        exploreItems.some(item => router.pathname.startsWith(item.href))
-                          ? "bg-gradient-to-r from-[#029bba]/10 to-[#029bba]/20 text-[#029bba]"
-                          : "text-gray-700 hover:bg-gray-50 active:bg-gray-100"
-                      )}
-                    >
-                      <div className="flex items-center gap-3">
-                        <icons.Building2 className="w-5 h-5" />
-                        Explore
-                      </div>
-                      <icons.ChevronDown className={cx("w-4 h-4 transition-transform", isMobileExploreExpanded && "rotate-180")} />
-                    </button>
-                    <div
-                      className={cx(
-                        "overflow-hidden transition-all duration-300 ease-in-out",
-                        isMobileExploreExpanded ? "max-h-96 opacity-100 mt-1" : "max-h-0 opacity-0"
-                      )}
-                    >
-                      <div className="ml-4 space-y-1 pl-3 border-l-2 border-[#029bba]/20">
-                        {exploreItems.map((item) => (
-                          <Link key={item.label} href={item.href} onClick={() => setIsMobileMenuOpen(false)}
-                            className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all">
-                            <span className="text-[#029bba]">{item.icon}</span> {item.label}
-                          </Link>
+                      <div className="ml-4 space-y-4 pl-3 border-l-2 border-[#029bba]/20">
+                        {NAV_ITEMS[NAV_ITEMS.length - 1].sections
+                          .filter((section) => section.kind === "links")
+                          .map((section) => (
+                          <div key={section.title}>
+                            <p className="px-3 mb-1 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                              {section.title}
+                            </p>
+                            <div className="space-y-0.5">
+                              {(section.kind === "links" ? section.links : []).map((link) => (
+                                <Link
+                                  key={`mobile-more-${section.title}-${link.href}`}
+                                  href={link.href}
+                                  onClick={() => setIsMobileMenuOpen(false)}
+                                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-semibold text-gray-700 hover:bg-[#029bba]/5 hover:text-[#029bba] transition-all"
+                                >
+                                  {link.label}
+                                </Link>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -1828,46 +2287,5 @@ export const Header: React.FC = () => {
 // ═══════════════════════════════════════════════════════════════
 // 🎨 TOOL MENU ITEM (Desktop Tools Dropdown)
 // ═══════════════════════════════════════════════════════════════
-
-interface ToolMenuItemProps {
-  icon: React.ReactElement;
-  iconBg: string;
-  title: string;
-  description: string;
-  href: string;
-  badge: string;
-  onClick: () => void;
-}
-
-const ToolMenuItem: React.FC<ToolMenuItemProps> = ({
-  icon, iconBg, title, description, href, badge, onClick,
-}) => {
-  return (
-    <Link href={href} onClick={onClick}>
-      <div className="group flex items-start gap-3 px-3 py-3 rounded-xl hover:bg-gradient-to-r hover:from-[#029bba]/5 hover:to-[#029bba]/10 transition-all cursor-pointer">
-        <div
-          className={cx(
-            "w-10 h-10 rounded-xl bg-gradient-to-br flex items-center justify-center text-white flex-shrink-0 shadow-sm group-hover:scale-105 transition-transform",
-            iconBg
-          )}
-        >
-          {icon}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-0.5">
-            <h4 className="font-bold text-gray-900 text-sm group-hover:text-[#029bba] transition-colors truncate">
-              {title}
-            </h4>
-            <span className="px-1.5 py-0.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-[9px] font-bold uppercase tracking-wider flex-shrink-0">
-              {badge}
-            </span>
-          </div>
-          <p className="text-xs text-gray-500 truncate">{description}</p>
-        </div>
-        <icons.ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-[#029bba] group-hover:translate-x-0.5 transition-all flex-shrink-0 self-center" />
-      </div>
-    </Link>
-  );
-};
 
 export default Header;
