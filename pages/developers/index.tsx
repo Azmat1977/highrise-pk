@@ -1,6 +1,6 @@
 // pages/developers/index.tsx
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -22,6 +22,7 @@ import {
   Home,
   Loader2,
 } from 'lucide-react';
+import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 
 // ─────────────────────────────────────────────
 // Types
@@ -47,6 +48,7 @@ interface DeveloperSummary {
 interface PageProps {
   developers:   DeveloperSummary[];
   totalCount:   number;
+  apiCities:    string[];
   fetchedAt:    string;
 }
 
@@ -58,16 +60,8 @@ const SITE_URL = 'https://highrise.pk';
 const ISR_REVALIDATE = 60; // seconds
 const INITIAL_LOAD   = 48;
 
-const PAKISTAN_CITIES = [
-  'Islamabad', 'Rawalpindi', 'Lahore', 'Karachi',
-  'Faisalabad', 'Multan', 'Peshawar', 'Quetta',
-  'Gujranwala', 'Sialkot', 'Hyderabad', 'Bahawalpur',
-  'Sargodha', 'Sukkur', 'Larkana', 'Sheikhupura',
-  'Rahim Yar Khan', 'Jhang', 'Mardan', 'Gujrat',
-  'Kasur', 'Mingora', 'Dera Ghazi Khan', 'Nawabshah',
-  'Sahiwal', 'Mirpur', 'Okara', 'Abbottabad',
-  'Murree', 'Muzaffarabad', 'Gilgit', 'Skardu',
-];
+// Canonical city source — same names as the header mega-menu and /cities.
+const PAKISTAN_CITIES: string[] = CANONICAL_CITIES;
 
 const DEVELOPER_TYPES = [
   { value: '',                label: 'All Types'            },
@@ -262,30 +256,45 @@ function buildJsonLd(developers: DeveloperSummary[]): string {
 export const getStaticProps: GetStaticProps<PageProps> = async () => {
   try {
     const res  = await fetch(
-      `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/api/developers?limit=${INITIAL_LOAD}&sort=score`,
+      `${process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000'}/api/developers?limit=${INITIAL_LOAD}&sort=verified`,
       { headers: { 'Content-Type': 'application/json' } }
     );
 
     if (!res.ok) {
       return {
-        props: { developers: [], totalCount: 0, fetchedAt: new Date().toISOString() },
+        props: { developers: [], totalCount: 0, apiCities: [], fetchedAt: new Date().toISOString() },
         revalidate: ISR_REVALIDATE,
       };
     }
 
+    // API contract: { success, data: { developers, pagination, cities } }
+    // (fall back to the old flat shape so an API rollback keeps the page alive)
     const data = await res.json();
+    const payload = (data?.data ?? data) as {
+      developers?: DeveloperSummary[];
+      pagination?: { total?: number };
+      cities?:     unknown[];
+    };
 
     return {
       props: {
-        developers: (data.developers ?? []) as DeveloperSummary[],
-        totalCount: (data.totalCount ?? 0) as number,
+        developers: (payload.developers ?? []) as DeveloperSummary[],
+        totalCount:
+          (data.totalCount as number | undefined) ??
+          (payload.pagination?.total as number | undefined) ??
+          0,
+        apiCities: Array.isArray(payload.cities)
+          ? (payload.cities.filter(
+              (city): city is string => typeof city === 'string' && city.trim().length > 0
+            ).map((city) => city.trim()))
+          : [],
         fetchedAt:  new Date().toISOString(),
       },
       revalidate: ISR_REVALIDATE,
     };
   } catch {
     return {
-      props: { developers: [], totalCount: 0, fetchedAt: new Date().toISOString() },
+      props: { developers: [], totalCount: 0, apiCities: [], fetchedAt: new Date().toISOString() },
       revalidate: ISR_REVALIDATE,
     };
   }
@@ -298,6 +307,7 @@ export const getStaticProps: GetStaticProps<PageProps> = async () => {
 export default function DevelopersDirectoryPage({
   developers,
   totalCount,
+  apiCities,
 }: PageProps): React.ReactElement {
   const router = useRouter();
 
@@ -308,6 +318,32 @@ export default function DevelopersDirectoryPage({
   const [selectedScoreRange, setSelectedScoreRange] = useState('');
   const [selectedRiskLevel,  setSelectedRiskLevel]  = useState('');
   const [verifiedOnly,       setVerifiedOnly]       = useState(false);
+
+  // ── URL-based city filter (?city=Lahore) — deep links + in-page nav ──
+  const cityTouchedRef = useRef(false);
+
+  useEffect(() => {
+    if (!router.isReady) return;
+    const cityParam = typeof router.query.city === 'string' ? router.query.city : '';
+    setSelectedCity(cityParam);
+  }, [router.isReady, router.query.city]);
+
+  useEffect(() => {
+    if (!router.isReady || !cityTouchedRef.current) return;
+    const params: Record<string, string> = {};
+    if (selectedCity) params.city = selectedCity;
+    router.replace(
+      { pathname: '/developers', query: params },
+      undefined,
+      { shallow: true, scroll: false }
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [router.isReady, selectedCity]);
+
+  const handleCityChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
+    cityTouchedRef.current = true;
+    setSelectedCity(event.target.value);
+  };
 
   // ── Load more ──
   const [extraDevs,    setExtraDevs]    = useState<DeveloperSummary[]>([]);
@@ -393,12 +429,26 @@ export default function DevelopersDirectoryPage({
 
   const clearAllFilters = (): void => {
     setSearchTerm('');
+    cityTouchedRef.current = true;
     setSelectedCity('');
     setSelectedType('');
     setSelectedScoreRange('');
     setSelectedRiskLevel('');
     setVerifiedOnly(false);
   };
+
+  // ── City options — endpoint cities first (real records), static list fills gaps ──
+  const cityOptions = useMemo(() => {
+    const seen = new Set<string>();
+    const list: string[] = [];
+    for (const city of [...apiCities, ...PAKISTAN_CITIES]) {
+      const key = city.toLowerCase();
+      if (!city || seen.has(key)) continue;
+      seen.add(key);
+      list.push(city);
+    }
+    return list;
+  }, [apiCities]);
 
   // ─────────────────────────────────────────
   // Load more
@@ -411,7 +461,7 @@ export default function DevelopersDirectoryPage({
     try {
       const nextPage = currentPage + 1;
       const res = await fetch(
-        `/api/developers?page=${nextPage}&limit=${INITIAL_LOAD}&sort=score`,
+        `/api/developers?page=${nextPage}&limit=${INITIAL_LOAD}&sort=verified`,
         { credentials: 'include' }
       );
       const data = await res.json().catch(() => ({}));
@@ -421,7 +471,9 @@ export default function DevelopersDirectoryPage({
         return;
       }
 
-      const incoming = (data.developers ?? []) as DeveloperSummary[];
+      // API contract: { success, data: { developers } } (flat shape kept as fallback)
+      const payload = (data.data ?? data) as { developers?: DeveloperSummary[] };
+      const incoming = (payload.developers ?? []) as DeveloperSummary[];
       if (incoming.length === 0 || incoming.length < INITIAL_LOAD) {
         setNoMorePages(true);
       }
@@ -571,16 +623,16 @@ export default function DevelopersDirectoryPage({
                   </span>
                 </label>
 
-                {/* City */}
+                {/* City — real cities from the API when available, Pakistan list otherwise */}
                 <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
                   <MapPin className="h-4 w-4 shrink-0 text-[#029bba]" />
                   <select
                     value={selectedCity}
-                    onChange={(e) => setSelectedCity(e.target.value)}
+                    onChange={handleCityChange}
                     className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
                   >
                     <option value="">All Cities</option>
-                    {PAKISTAN_CITIES.map((city) => (
+                    {(cityOptions).map((city) => (
                       <option key={city} value={city}>{city}</option>
                     ))}
                   </select>
@@ -656,7 +708,10 @@ export default function DevelopersDirectoryPage({
                 {selectedCity && (
                   <FilterChip
                     label={`City: ${selectedCity}`}
-                    onRemove={() => setSelectedCity('')}
+                    onRemove={() => {
+                      cityTouchedRef.current = true;
+                      setSelectedCity('');
+                    }}
                   />
                 )}
                 {selectedType && (

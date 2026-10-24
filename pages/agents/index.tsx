@@ -3,8 +3,9 @@
 // ISR + SEO + Lead Capture Modal + PII Protection
 // Enterprise: trust-first, audit-trail, no banned libraries
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { GetStaticProps } from 'next';
+import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import Head from 'next/head';
 import Link from 'next/link';
@@ -31,19 +32,14 @@ import {
 } from 'lucide-react';
 import dbConnect from '@/lib/dbConnect';
 import AgentProfile from '@/models/AgentProfile';
+import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? 'https://highrise.pk';
 
-const PAKISTAN_CITIES = [
-  'Islamabad', 'Rawalpindi', 'Lahore', 'Karachi', 'Faisalabad',
-  'Multan', 'Peshawar', 'Quetta', 'Gujranwala', 'Sialkot',
-  'Hyderabad', 'Bahawalpur', 'Sargodha', 'Sukkur', 'Larkana',
-  'Sheikhupura', 'Rahim Yar Khan', 'Jhang', 'Mardan', 'Gujrat',
-  'Kasur', 'Mingora', 'Dera Ghazi Khan', 'Nawabshah', 'Sahiwal',
-  'Mirpur', 'Okara', 'Abbottabad', 'Murree', 'Jhelum',
-] as const;
+// Canonical city source — same names as the header mega-menu and /cities.
+const PAKISTAN_CITIES: string[] = CANONICAL_CITIES;
 
 const AGENT_TYPES = [
   { value: 'individual', label: 'Individual Agent' },
@@ -694,6 +690,7 @@ export default function AgentsDirectoryPage({
   totalCount,
 }: Omit<PageProps, 'lastUpdated'>): React.ReactElement {
   const { data: session } = useSession();
+  const router = useRouter();
 
   // ── Filter State ──
   const [filters, setFilters] = useState<FilterState>({
@@ -705,6 +702,20 @@ export default function AgentsDirectoryPage({
   });
   const [page, setPage]             = useState(1);
   const [isFiltering, setIsFiltering] = useState(false);
+
+  // ── City deep-link support (/agents?city=X) ──
+  useEffect(() => {
+    if (!router.isReady) return;
+    const cityQ = router.query.city;
+    if (typeof cityQ === 'string' && cityQ) {
+      const match = PAKISTAN_CITIES.find(
+        (cityName) => cityName.toLowerCase() === cityQ.trim().toLowerCase()
+      );
+      if (match) {
+        setFilters((prev) => ({ ...prev, city: match }));
+      }
+    }
+  }, [router.isReady, router.asPath]);
 
   // ── Lead Modal ──
   const [modal, setModal] = useState<LeadModalState>({

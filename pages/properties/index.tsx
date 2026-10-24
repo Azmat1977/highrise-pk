@@ -14,7 +14,7 @@ import React, {
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Grid3x3, List } from "lucide-react";
+import { Grid3x3, List, Filter } from "lucide-react";
 import { icons } from "@/lib/design-system/icons";
 
 import { PropertyGrid, PropertyListItem } from "@/components/property/property-grid";
@@ -26,6 +26,7 @@ import { normalizePropertiesList } from "@/lib/property/property";
 import { PropertyGridSkeleton } from "@/components/skeletons/PropertyGridSkeleton";
 import AuthGateModal from "@/components/auth/AuthGateModal";
 import { useSession } from "next-auth/react";
+import { PAKISTAN_CITIES as CANONICAL_CITIES } from "@/lib/pakistanCities";
 
 // ============================================================================
 // TYPES
@@ -38,6 +39,7 @@ interface FilterState {
   propertyCategory: string;
   propertyType: string;
   listingType: string;
+  condition: string;
   minPrice: string;
   maxPrice: string;
   bedrooms: string;
@@ -66,11 +68,9 @@ type FilterKey = keyof FilterState;
 // CONSTANTS
 // ============================================================================
 
-const PAKISTAN_CITIES = [
-  "Islamabad",  "Rawalpindi", "Lahore",     "Karachi",    "Faisalabad",
-  "Multan",     "Peshawar",   "Quetta",     "Gujranwala", "Sialkot",
-  "Hyderabad",  "Bahawalpur", "Sargodha",   "Sukkur",     "Larkana",
-] as const;
+// Canonical city source — the /cities directory, mega-menus and this page
+// all agree on the same names.
+const PAKISTAN_CITIES: string[] = CANONICAL_CITIES;
 
 const PROPERTY_CATEGORIES: Record<
   string,
@@ -166,6 +166,7 @@ const VALID_SORTS = [
 
 const VALID_LISTING_TYPES = ["", "full_payment", "rent", "installment"];
 const VALID_CATEGORIES   = ["", "residential", "commercial", "plots"];
+const VALID_CONDITIONS   = ["", "new_launch", "under_construction", "near_completion", "completed", "ready_possession"];
 const VALID_BEDROOMS     = ["", "1", "2", "3", "4", "5"];
 
 const LEGACY_QUERY_KEYS = ["purpose", "type", "price_min", "price_max"] as const;
@@ -173,7 +174,7 @@ const LEGACY_QUERY_KEYS = ["purpose", "type", "price_min", "price_max"] as const
 const PAGE_LIMIT = 12;
 const DEFAULT_FILTERS: FilterState = {
   search: "", city: "", society: "", propertyCategory: "", propertyType: "",
-  listingType: "", minPrice: "", maxPrice: "", bedrooms: "", sort: "",
+  listingType: "", condition: "", minPrice: "", maxPrice: "", bedrooms: "", sort: "",
   listingSource: "",
 };
 
@@ -183,6 +184,7 @@ const SEO_CANONICAL_KEYS = new Set([
   "propertyCategory",
   "propertyType",
   "listingType",
+  "condition",
   "sort",
   "listingSource",
 ]);
@@ -396,9 +398,19 @@ export default function PropertiesListingPage(): React.ReactElement {
   
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const fetchAbortRef = useRef<AbortController | null>(null);
-  const initializedRef = useRef(false);
+  const prevQueryRef = useRef<string>("");
+
+  // Buy/Rent tab state (derived from filters.listingType)
+  const [activeTab, setActiveTab] = useState<"buy" | "rent" | "installment" | "all">(() => {
+    const lt = filters.listingType;
+    if (lt === "full_payment") return "buy";
+    if (lt === "rent") return "rent";
+    if (lt === "installment") return "installment";
+    return "all";
+  });
 
   // Scroll listener for sticky search bar
   useEffect(() => {
@@ -486,6 +498,7 @@ export default function PropertiesListingPage(): React.ReactElement {
         propertyCategory: clampEnum(next.propertyCategory, VALID_CATEGORIES),
         propertyType: clampEnum(next.propertyType, ALL_TYPE_VALUES),
         listingType: clampEnum(next.listingType, VALID_LISTING_TYPES),
+        condition: clampEnum(next.condition, VALID_CONDITIONS),
         minPrice: clampText(String(next.minPrice).replace(/[^\d]/g, ""), 12),
         maxPrice: clampText(String(next.maxPrice).replace(/[^\d]/g, ""), 12),
         bedrooms: clampEnum(next.bedrooms, VALID_BEDROOMS),
@@ -506,10 +519,17 @@ export default function PropertiesListingPage(): React.ReactElement {
     [router]
   );
 
+  // Initialize filters from URL on mount and on router.query changes
   useEffect(() => {
     if (!router.isReady) return;
 
     const q = router.query;
+    const queryString = JSON.stringify(q);
+    
+    // Skip if query hasn't actually changed (prevents loops)
+    if (prevQueryRef.current === queryString) return;
+    prevQueryRef.current = queryString;
+
     const safeFilters: FilterState = {
       search: clampText(q.search, 80),
       city: clampEnum(q.city, CITIES_ALLOW),
@@ -522,6 +542,7 @@ export default function PropertiesListingPage(): React.ReactElement {
       listingType:
         clampEnum(q.listingType, VALID_LISTING_TYPES) ||
         resolveLegacyListingType(q.purpose),
+      condition: clampEnum(q.condition, VALID_CONDITIONS),
       minPrice:
         clampText(String(q.minPrice ?? "").replace(/[^\d]/g, ""), 12) ||
         clampText(String(q.price_min ?? "").replace(/[^\d]/g, ""), 12),
@@ -536,19 +557,36 @@ export default function PropertiesListingPage(): React.ReactElement {
     setFilters(safeFilters);
     setSearchDraft(safeFilters.search);
 
+    // Sync activeTab with listingType from URL
+    const lt = safeFilters.listingType;
+    if (lt === "full_payment") setActiveTab("buy");
+    else if (lt === "rent") setActiveTab("rent");
+    else if (lt === "installment") setActiveTab("installment");
+    else setActiveTab("all");
+
     const pageParam = clampInt(q.page, 1, 500);
     setCurrentPage(pageParam);
 
     if (LEGACY_QUERY_KEYS.some((k) => k in q)) {
       updateURL(safeFilters, pageParam);
     }
-
-    initializedRef.current = true;
   }, [router.isReady, router.query, updateURL]);
 
-  const fetchProperties = useCallback(async () => {
-    if (!initializedRef.current) return;
+  // Tab change handler - maps tab to listingType and updates URL
+  const handleTabChange = useCallback((tab: "buy" | "rent" | "installment" | "all") => {
+    setActiveTab(tab);
+    let listingType: string = "";
+    if (tab === "buy") listingType = "full_payment";
+    else if (tab === "rent") listingType = "rent";
+    else if (tab === "installment") listingType = "installment";
+    
+    const next: FilterState = { ...filters, listingType };
+    setFilters(next);
+    setCurrentPage(1);
+    updateURL(next, 1);
+  }, [filters, updateURL]);
 
+  const fetchProperties = useCallback(async () => {
     if (fetchAbortRef.current) {
       fetchAbortRef.current.abort();
     }
@@ -580,6 +618,8 @@ export default function PropertiesListingPage(): React.ReactElement {
       types.slice(0, 12).forEach((t) => params.append("propertyTypes", clampText(t, 40)));
 
       if (safeListingType) params.append("listingType", safeListingType);
+      const safeCondition = clampEnum(filters.condition, VALID_CONDITIONS);
+      if (safeCondition) params.append("condition", safeCondition);
       if (filters.minPrice) params.append("minPrice", clampText(filters.minPrice, 12));
       if (filters.maxPrice) params.append("maxPrice", clampText(filters.maxPrice, 12));
       if (safeBedrooms) params.append("bedrooms", safeBedrooms);
@@ -639,6 +679,7 @@ export default function PropertiesListingPage(): React.ReactElement {
     filters.city,
     filters.society,
     filters.listingType,
+    filters.condition,
     filters.bedrooms,
     filters.sort,
     filters.minPrice,
@@ -661,6 +702,15 @@ export default function PropertiesListingPage(): React.ReactElement {
     (key: FilterKey, value: string) => {
       const next: FilterState = { ...filters, [key]: value };
       if (key === "propertyCategory") next.propertyType = "";
+      
+      // Sync activeTab when listingType changes
+      if (key === "listingType") {
+        if (value === "full_payment") setActiveTab("buy");
+        else if (value === "rent") setActiveTab("rent");
+        else if (value === "installment") setActiveTab("installment");
+        else setActiveTab("all");
+      }
+      
       setFilters(next);
       setCurrentPage(1);
       updateURL(next, 1);
@@ -903,7 +953,34 @@ export default function PropertiesListingPage(): React.ReactElement {
                 </button>
               </div>
 
-              {/* Tightly Packed Dropdowns (Scrollable on small mobile, inline on desktop) */}
+              {/* Buy / Rent / Installment Tabs — always visible, replaces listingType dropdown */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Listing purpose">
+                {[
+                  { value: "all", label: "All", icon: icons.Grid3X3 },
+                  { value: "buy", label: "Buy", icon: icons.Home },
+                  { value: "rent", label: "Rent", icon: icons.KeyRound },
+                  { value: "installment", label: "Installments", icon: icons.CreditCard },
+                ].map((tab) => (
+                  <button
+                    key={tab.value}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeTab === tab.value}
+                    aria-label={`${tab.label} properties`}
+                    onClick={() => handleTabChange(tab.value as "buy" | "rent" | "installment" | "all")}
+                    className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                      activeTab === tab.value
+                        ? "bg-[#029bba] text-white shadow-sm"
+                        : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-[#029bba]/30 hover:text-[#029bba]"
+                    }`}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    {tab.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Primary Filters Row — City, Category (always visible) */}
               <div className="w-full flex flex-wrap items-center justify-start gap-2 pb-1">
                 
                 {/* City — content-sized, not fixed tab width */}
@@ -942,23 +1019,23 @@ export default function PropertiesListingPage(): React.ReactElement {
                   <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
 
-                {/* Listing Type */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                    <icons.TrendingUp className="w-3.5 h-3.5 text-[#029bba]" />
-                  </div>
-                  <select
-                    value={filters.listingType}
-                    onChange={(e) => handleFilterChange("listingType", e.target.value)}
-                    className="h-9 w-auto min-w-[7.5rem] max-w-[11rem] pl-8 pr-7 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
+                {/* Mobile: More Filters Trigger */}
+                <div className="lg:hidden shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
+                    className="h-9 px-4 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-700 flex items-center gap-1.5 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm"
                   >
-                    {LISTING_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
+                    <icons.Filter className="w-3.5 h-3.5 text-[#029bba]" />
+                    <span>Filters</span>
+                    <icons.ChevronDown className="w-3.5 h-3.5 text-[#029bba]" />
+                  </button>
                 </div>
+              </div>
 
+              {/* Desktop: Advanced Filters Row (hidden on mobile) */}
+              <div className="hidden lg:flex flex-wrap items-center justify-start gap-2 pb-1">
+                
                 {/* Property Type */}
                 <div className="relative shrink-0">
                   <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
@@ -1011,7 +1088,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                 </div>
 
                 {/* Price Range */}
-                <div className="relative shrink-0 hidden lg:block">
+                <div className="relative shrink-0">
                   <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
                     <icons.DollarSign className="w-3.5 h-3.5 text-[#029bba]" />
                   </div>
@@ -1031,6 +1108,89 @@ export default function PropertiesListingPage(): React.ReactElement {
                   <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 </div>
               </div>
+
+              {/* Mobile Filter Drawer */}
+              {mobileFiltersOpen && (
+                <div className="lg:hidden animate-slideDown bg-white border-t border-gray-200 px-4 py-3 -mx-4">
+                  <div className="flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-sm font-bold text-gray-900">Advanced Filters</h4>
+                      <button
+                        type="button"
+                        onClick={() => setMobileFiltersOpen(false)}
+                        className="p-1 text-gray-400 hover:text-gray-600"
+                      >
+                        <icons.X className="w-5 h-5" />
+                      </button>
+                    </div>
+                    <div className="flex flex-col gap-3">
+                      {/* Property Type */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Property Type</label>
+                        <select
+                          value={filters.propertyType}
+                          onChange={(e) => handleFilterChange("propertyType", e.target.value)}
+                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
+                        >
+                          {getFilteredPropertyTypes().map((t) => (
+                            <option key={t.value} value={t.value}>{t.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Bedrooms */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Bedrooms</label>
+                        <select
+                          value={filters.bedrooms}
+                          onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
+                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
+                        >
+                          {BEDROOM_OPTIONS.map((b) => (
+                            <option key={b.value} value={b.value}>{b.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                      {/* Listing Source */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Listing Source</label>
+                        <select
+                          value={filters.listingSource}
+                          onChange={(e) => handleFilterChange("listingSource", e.target.value)}
+                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
+                        >
+                          <option value="">All Sources</option>
+                          <option value="owner">Direct Owner</option>
+                          <option value="agent">Agent Listed</option>
+                        </select>
+                      </div>
+                      {/* Price Range */}
+                      <div>
+                        <label className="block text-xs font-bold text-gray-700 mb-1">Price Range</label>
+                        <select
+                          value={
+                            filters.minPrice && filters.maxPrice
+                              ? `${filters.minPrice}-${filters.maxPrice}`
+                              : ""
+                          }
+                          onChange={(e) => setPriceRange(e.target.value)}
+                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
+                        >
+                          {PRICE_RANGES.map((r) => (
+                            <option key={r.value} value={r.value}>{r.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setMobileFiltersOpen(false)}
+                      className="mt-2 px-4 py-2.5 rounded-xl bg-[#029bba] text-white text-xs font-bold transition-colors"
+                    >
+                      Apply Filters
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Active Filters Display */}
@@ -1378,6 +1538,29 @@ export default function PropertiesListingPage(): React.ReactElement {
           </button>
         </div>
       </div>
+
+      <style jsx>{`
+        @keyframes slideDown {
+          from {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        .animate-slideDown {
+          animation: slideDown 0.2s ease-out forwards;
+        }
+        .scrollbar-hide::-webkit-scrollbar {
+          display: none;
+        }
+        .scrollbar-hide {
+          -ms-overflow-style: none;
+          scrollbar-width: none;
+        }
+      `}</style>
     </>
   );
 }

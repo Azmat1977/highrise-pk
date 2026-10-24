@@ -734,10 +734,12 @@ export const getStaticPaths: GetStaticPaths = async () => {
     );
     const data = await res.json().catch(() => ({}));
 
-    const slugs: string[] = Array.isArray(data.developers)
-      ? data.developers
-          .map((d: { slug?: string }) => d.slug)
-          .filter((s: unknown): s is string => typeof s === 'string' && s.length > 0)
+    // API contract: { success, data: { developers } } (flat shape kept as fallback)
+    const payload = (data?.data ?? data) as { developers?: Array<{ slug?: string }> };
+    const slugs: string[] = Array.isArray(payload.developers)
+      ? payload.developers
+          .map((d) => d?.slug)
+          .filter((s): s is string => typeof s === 'string' && s.length > 0)
       : [];
 
     return {

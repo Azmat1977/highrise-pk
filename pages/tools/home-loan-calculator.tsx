@@ -429,7 +429,7 @@ function ResultCard({ result, isWinner, winnerLabel }: ResultCardProps): React.R
             {
               label:  result.financingType === 'islamic' ? 'Total Profit' : 'Total Interest',
               value:  formatPKR(result.totalProfit),
-              sub:    `${result.totalCostOfFinancing}% of loan`,
+              sub:    `${Number(result.totalCostOfFinancing).toFixed(1)}% of loan`,
               icon:   <Percent className="w-4 h-4" />,
               color:  'text-[#ef4444]',
             },

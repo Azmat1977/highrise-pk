@@ -17,6 +17,7 @@ import {
   Grid3x3, List, ArrowRight, ChevronDown, Star,
   Database, Lock,
 } from 'lucide-react';
+import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -126,12 +127,8 @@ const CATEGORY_LABELS: Record<string, string> = {
   township: 'Township',
 };
 
-const PAKISTAN_CITIES = [
-  'Islamabad', 'Lahore', 'Karachi', 'Rawalpindi', 'Multan', 'Peshawar',
-  'Faisalabad', 'Sialkot', 'Gujranwala', 'Bahawalpur', 'Sargodha',
-  'Hyderabad', 'Quetta', 'Sukkur', 'Larkana', 'Sheikhupura', 'Jhelum',
-  'Mardan', 'Mirpur', 'Abbottabad', 'Kasur', 'Okara', 'Sahiwal',
-];
+// Canonical city source — same names as the header mega-menu and /cities.
+const PAKISTAN_CITIES: string[] = CANONICAL_CITIES;
 
 const PAKISTAN_AUTHORITIES = [
   'CDA', 'RDA', 'LDA', 'KDA', 'FDA', 'MDA', 'DHA', 'PHATA',
@@ -214,8 +211,10 @@ export default function SocietiesBrowsePage(): React.ReactElement {
       setSearchInputValue(q.search);
     }
     if (typeof q.page === 'string') setPage(Number(q.page) || 1);
+    // Rerun when the city query param changes so navigating between two
+    // city deep links while already on /societies updates the filter.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [router.isReady]);
+  }, [router.isReady, router.query.city]);
 
   // ═══════════════════════════════════════════════════════════════
   // FETCH DATA
@@ -265,8 +264,17 @@ export default function SocietiesBrowsePage(): React.ReactElement {
   // URL SYNC — Write to URL when filters change
   // ═══════════════════════════════════════════════════════════════
 
+  // Skip the very first post-ready render: on deep links (e.g. /societies?city=Lahore)
+  // the filter state is still empty at that point, so an eager write would briefly
+  // strip the query params and cause the read-sync effect to clear the filters.
+  const hydratedRef = useRef(false);
+
   useEffect(() => {
     if (!router.isReady) return;
+    if (!hydratedRef.current) {
+      hydratedRef.current = true;
+      return;
+    }
     const params: Record<string, string> = {};
     if (search) params.search = search;
     if (city) params.city = city;

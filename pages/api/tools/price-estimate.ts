@@ -6,6 +6,7 @@ import Property from '@/models/Property';
 import Society from '@/models/Society';
 import { rateLimitSearch, setRateLimitHeaders, getClientIp } from '@/lib/rateLimit';
 import { logSecurityEvent } from '@/lib/security/logSecurityEvent';
+import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import type { FilterQuery } from 'mongoose';
 
 // ─── Local Doc Shapes ────────────────────────────────────────────────────────
@@ -16,7 +17,7 @@ interface ComparablePropertyDoc {
   slug?: string;
   price: number;
   area?: number;
-  areaUnit?: string;
+  unit?: string;
   bedrooms?: number;
   city?: string;
   society?: string;
@@ -97,6 +98,7 @@ const SIZE_TO_SQFT: Record<string, number> = {
   'Marla': 272.25,      // 1 Marla = 272.25 sqft (standard Punjab)
   'Kanal': 5445,        // 1 Kanal = 20 Marla = 5445 sqft
   'Sq Ft': 1,
+  'Sq. Ft.': 1,         // data-shape alias seen in seeded Property.unit values
   'Sq Yd': 9,           // 1 Sq Yd = 9 sqft
 };
 
@@ -318,9 +320,9 @@ export default async function handler(
 
     // Build progressive filter (try strictest first, broaden if no results)
     const baseFilter: FilterQuery<Record<string, unknown>> = {
+      ...PUBLIC_PROPERTY_FILTER,
       city: { $regex: `^${escapeRegex(input.city)}$`, $options: 'i' },
       propertyType: input.propertyType,
-      isPublished: true,
       ...listingTypeFilter,
     };
 
@@ -329,11 +331,11 @@ export default async function handler(
       ? { ...baseFilter, society: { $regex: escapeRegex(input.society), $options: 'i' } }
       : baseFilter;
 
-    // Area filter (locality match)
+    // Area filter (locality match — "area" is a free-text label; Property.area is numeric)
     const withAreaFilter = {
       ...withSocietyFilter,
       $or: [
-        { area: { $regex: escapeRegex(input.area), $options: 'i' } },
+        { locality: { $regex: escapeRegex(input.area), $options: 'i' } },
         { society: { $regex: escapeRegex(input.area), $options: 'i' } },
       ],
     };
@@ -348,7 +350,7 @@ export default async function handler(
     let comparables = await Property.find(withBedroomsFilter)
       .sort({ createdAt: -1 })
       .limit(50)
-      .select('_id title slug price area areaUnit bedrooms city society propertyType listingType createdAt')
+      .select('_id title slug price area unit bedrooms city society propertyType listingType createdAt')
       .lean();
 
     // If <5 comparables, drop bedrooms filter
@@ -356,7 +358,7 @@ export default async function handler(
       comparables = await Property.find(withAreaFilter)
         .sort({ createdAt: -1 })
         .limit(50)
-        .select('_id title slug price area areaUnit bedrooms city society propertyType listingType createdAt')
+        .select('_id title slug price area unit bedrooms city society propertyType listingType createdAt')
         .lean();
     }
 
@@ -365,7 +367,7 @@ export default async function handler(
       comparables = await Property.find(baseFilter)
         .sort({ createdAt: -1 })
         .limit(50)
-        .select('_id title slug price area areaUnit bedrooms city society propertyType listingType createdAt')
+        .select('_id title slug price area unit bedrooms city society propertyType listingType createdAt')
         .lean();
     }
 
@@ -374,8 +376,8 @@ export default async function handler(
     const typedComparables = comparables as unknown as ComparablePropertyDoc[];
 
     const sizeFiltered = typedComparables.filter((c) => {
-      if (!c.area || !c.areaUnit) return false;
-      const compSqft = normalizeToSqft(c.area, c.areaUnit);
+      if (!c.area || !c.unit) return false;
+      const compSqft = normalizeToSqft(c.area, c.unit);
       if (compSqft <= 0) return false;
       const ratio = compSqft / targetSqft;
       return ratio >= 0.75 && ratio <= 1.35; // within ±25-35%
@@ -438,8 +440,8 @@ export default async function handler(
     // Calculate price per sqft for each comparable
     const pricesPerSqft: number[] = [];
     for (const c of finalComparables) {
-      if (!c.area || !c.areaUnit || c.price <= 0) continue;
-      const compSqft = normalizeToSqft(c.area, c.areaUnit);
+      if (!c.area || !c.unit || c.price <= 0) continue;
+      const compSqft = normalizeToSqft(c.area, c.unit);
       if (compSqft <= 0) continue;
       pricesPerSqft.push(c.price / compSqft);
     }
@@ -519,13 +521,13 @@ export default async function handler(
       const newHalf = sortedByDate.slice(half);
 
       const oldAvg = oldHalf.reduce((s, c) => {
-        if (!c.area || !c.areaUnit) return s;
-        return s + (c.price / normalizeToSqft(c.area, c.areaUnit));
+        if (!c.area || !c.unit) return s;
+        return s + (c.price / normalizeToSqft(c.area, c.unit));
       }, 0) / Math.max(1, oldHalf.length);
 
       const newAvg = newHalf.reduce((s, c) => {
-        if (!c.area || !c.areaUnit) return s;
-        return s + (c.price / normalizeToSqft(c.area, c.areaUnit));
+        if (!c.area || !c.unit) return s;
+        return s + (c.price / normalizeToSqft(c.area, c.unit));
       }, 0) / Math.max(1, newHalf.length);
 
       if (oldAvg > 0 && newAvg > 0) {
@@ -568,7 +570,7 @@ export default async function handler(
         title: c.title,
         price: c.price,
         size: c.area ?? 0,
-        sizeUnit: c.areaUnit ?? 'Marla',
+        sizeUnit: c.unit ?? 'Marla',
         bedrooms: c.bedrooms,
         daysAgo: daysBetween(c.createdAt),
         slug: c.slug,
