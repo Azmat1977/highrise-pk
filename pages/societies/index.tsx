@@ -3,7 +3,7 @@
 // Pakistan's first directory of intelligence-scored housing societies.
 // Industry-first: verified NOC + risk scores + comparable analysis.
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -18,6 +18,8 @@ import {
   Database, Lock,
 } from 'lucide-react';
 import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
+import { PageSearchShell } from '@/components/search/PageSearchShell';
+import type { SearchField } from '@/components/search/UnifiedSearchBar';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -183,7 +185,6 @@ export default function SocietiesBrowsePage(): React.ReactElement {
   const [category, setCategory] = useState('');
   const [sortBy, setSortBy] = useState('overallScore');
   const [page, setPage] = useState(1);
-  const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
 
   // UI
@@ -361,6 +362,42 @@ export default function SocietiesBrowsePage(): React.ReactElement {
   );
 
   // ═══════════════════════════════════════════════════════════════
+  // PHASE 5 — SEARCH SHELL FIELDS
+  // Descriptors only: values read/write this page's own filter state.
+  // ═══════════════════════════════════════════════════════════════
+
+  const searchFields: SearchField[] = useMemo(
+    () => [
+      {
+        key: 'city',
+        kind: 'select',
+        label: 'City',
+        icon: MapPin,
+        searchable: true,
+        grow: 1.1,
+        value: city,
+        onChange: (value) => { setCity(value); setPage(1); },
+        options: [
+          { value: '', label: 'All Cities' },
+          ...cityOptions.map((cityName) => ({ value: cityName, label: cityName })),
+        ],
+      },
+      {
+        key: 'society',
+        kind: 'text',
+        label: 'Society Name',
+        icon: Search,
+        grow: 1.4,
+        placeholder: 'Search societies by name',
+        value: searchInputValue,
+        onChange: setSearchInputValue,
+        onSubmit: () => { setSearch(searchInputValue.trim()); setPage(1); },
+      },
+    ],
+    [city, cityOptions, searchInputValue]
+  );
+
+  // ═══════════════════════════════════════════════════════════════
   // RENDER
   // ═══════════════════════════════════════════════════════════════
 
@@ -410,31 +447,35 @@ export default function SocietiesBrowsePage(): React.ReactElement {
       </Head>
 
       <div className="min-h-screen bg-gray-50">
-        <header className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-4 md:pt-5 pb-4">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-              <Home className="w-3.5 h-3.5" />
-              <span>Home</span>
-            </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span className="font-medium text-gray-600">Societies</span>
-          </nav>
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-            Verified Societies in Pakistan
-          </h1>
-          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-            <span>{pagination.total.toLocaleString()} Societies</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-emerald-600">NOC Status & Risk Scores</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-[#029bba]">12 Authorities Tracked</span>
-          </p>
-        </header>
+        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
+        <PageSearchShell
+          title="Explore Housing Societies"
+          subtitle="Find society details and NOC verification status."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <Home className="w-3 h-3" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <span className="text-white">Societies</span>
+            </nav>
+          }
+          fields={searchFields}
+          onSubmit={() => { setSearch(searchInputValue.trim()); setPage(1); }}
+          submitLabel="Search"
+          mobileLabel="Search Societies"
+          activeFilterCount={activeFilterCount}
+          onReset={handleClearFilters}
+        />
 
         {/* ═══════════════════════════════════════════════════════════════
             DISCLAIMER STRIP
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-1">
+        <section className="max-w-[1440px] mx-auto px-3 pt-3 pb-1 sm:px-4 lg:px-6">
           <div className="rounded-xl border border-[#f59e0b]/30 bg-[#fef3c7] px-4 py-3">
             <div className="flex items-center justify-center gap-2 text-[#92400e] text-xs md:text-sm">
               <Info className="w-4 h-4 flex-shrink-0" />
@@ -448,168 +489,139 @@ export default function SocietiesBrowsePage(): React.ReactElement {
         {/* ═══════════════════════════════════════════════════════════════
             FILTERS BAR (Sticky)
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="sticky top-[64px] z-30 bg-white border-y border-gray-200 shadow-sm">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-3">
-            <div className="space-y-2.5">
+        {/* ═══════════════════════════════════════════════════════════════
+            SECONDARY FILTERS (non-sticky; the search shell above is sticky)
+        ═══════════════════════════════════════════════════════════════ */}
+        <section className="max-w-[1440px] mx-auto px-3 pt-3 pb-2 sm:px-4 lg:px-6">
+          <div className="flex flex-wrap items-center gap-2">
 
-              <div className="flex items-center gap-2">
-              <div className="relative min-w-0 w-full max-w-[720px] flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchInputValue}
-                  onChange={(e) => setSearchInputValue(e.target.value)}
-                  placeholder="Search societies by name..."
-                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
-                />
-                <button
-                  type="button"
-                  onClick={() => { setSearch(searchInputValue.trim()); setPage(1); }}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-[#029bba] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#004063]"
-                >
-                  Search
-                </button>
-              </div>
-
-              {/* Mobile filter toggle */}
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gray-100 px-3 py-2 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 md:hidden"
+            {/* City */}
+            <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <MapPin className="h-4 w-4 shrink-0 text-[#029bba]" />
+              <select
+                value={city}
+                onChange={(e) => { setCity(e.target.value); setPage(1); }}
+                aria-label="City"
+                className="cursor-pointer border-none bg-transparent text-xs font-bold text-gray-700 outline-none focus:ring-0"
               >
-                <Filter className="w-4 h-4" />
-                Filters
-                {activeFilterCount > 0 && (
-                  <span className="ml-1 inline-flex items-center justify-center w-5 h-5 rounded-full bg-[#029bba] text-white text-[10px] font-bold">
-                    {activeFilterCount}
-                  </span>
-                )}
-                <ChevronDown className={`w-4 h-4 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+                <option value="">All Cities</option>
+                {cityOptions.map((cityName) => (
+                  <option key={cityName} value={cityName}>{cityName}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* NOC Status */}
+            <select
+              value={nocStatus}
+              onChange={(e) => { setNocStatus(e.target.value); setPage(1); }}
+              aria-label="NOC status"
+              className="h-9 w-auto min-w-[9rem] max-w-none shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
+            >
+              <option value="">Any NOC Status</option>
+              <option value="approved">✅ Approved</option>
+              <option value="pending">⏳ Pending</option>
+              <option value="under_review">🔍 Under Review</option>
+              <option value="illegal">⛔ Illegal</option>
+              <option value="disputed">⚠️ Disputed</option>
+              <option value="cancelled">❌ Cancelled</option>
+              <option value="expired">📅 Expired</option>
+            </select>
+
+            {/* Risk Level */}
+            <select
+              value={riskLevel}
+              onChange={(e) => { setRiskLevel(e.target.value); setPage(1); }}
+              aria-label="Risk level"
+              className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
+            >
+              <option value="">Any Risk Level</option>
+              <option value="safe">🟢 Safe</option>
+              <option value="caution">🟡 Caution</option>
+              <option value="high_risk">🔴 High Risk</option>
+              <option value="avoid">⛔ Avoid</option>
+            </select>
+
+            {/* Category */}
+            <select
+              value={category}
+              onChange={(e) => { setCategory(e.target.value); setPage(1); }}
+              aria-label="Category"
+              className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
+            >
+              <option value="">Any Category</option>
+              <option value="housing_scheme">Housing Scheme</option>
+              <option value="gated_community">Gated Community</option>
+              <option value="apartment_complex">Apartment Complex</option>
+              <option value="commercial_zone">Commercial Zone</option>
+              <option value="mixed_use">Mixed Use</option>
+              <option value="township">Township</option>
+            </select>
+
+            {/* Authority */}
+            <select
+              value={authority}
+              onChange={(e) => { setAuthority(e.target.value); setPage(1); }}
+              aria-label="Authority"
+              className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
+            >
+              <option value="">Any Authority</option>
+              {authorityOptions.map((authorityName) => (
+                <option key={authorityName} value={authorityName}>
+                  {authorityName.replace(/_/g, ' ')}
+                </option>
+              ))}
+            </select>
+
+            <select
+              value={sortBy}
+              onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
+              className="h-9 w-auto min-w-[7.5rem] max-w-none shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
+              aria-label="Sort societies"
+            >
+              <option value="overallScore">Best Score</option>
+              <option value="legalScore">Legal Score</option>
+              <option value="growthScore">Growth Score</option>
+              <option value="name">Name (A-Z)</option>
+              <option value="viewCount">Most Viewed</option>
+              <option value="createdAt">Newest</option>
+            </select>
+
+            {/* Clear filters */}
+            {activeFilterCount > 0 && (
+              <button
+                onClick={handleClearFilters}
+                className="inline-flex items-center gap-1 rounded-xl px-3 py-2 text-sm font-semibold text-[#ef4444] transition-colors hover:bg-red-50"
+              >
+                <X className="w-4 h-4" />
+                Clear ({activeFilterCount})
               </button>
-              <div className="hidden md:ml-auto md:flex items-center gap-1 p-1 bg-gray-100 rounded-xl" aria-label="Society view mode">
-                <button
-                  type="button"
-                  onClick={() => setViewMode('grid')}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    viewMode === 'grid' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  aria-label="Grid view"
-                  title="Grid view"
-                >
-                  <Grid3x3 className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('list')}
-                  className={`p-1.5 rounded-lg transition-colors ${
-                    viewMode === 'list' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
-                  }`}
-                  aria-label="List view"
-                  title="List view"
-                >
-                  <List className="w-4 h-4" />
-                </button>
-              </div>
-              </div>
+            )}
 
-              {/* Desktop / mobile-expandable filters */}
-              <div className={`${showFilters ? 'flex' : 'hidden'} w-full min-w-0 flex-wrap items-center gap-2 md:flex`}>
-
-                {/* City */}
-                <select
-                  value={city}
-                  onChange={(e) => { setCity(e.target.value); setPage(1); }}
-                  className="h-9 w-auto min-w-[6.5rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
-                >
-                  <option value="">All Cities</option>
-                  {cityOptions.map((cityName) => (
-                    <option key={cityName} value={cityName}>{cityName}</option>
-                  ))}
-                </select>
-
-                {/* NOC Status */}
-                <select
-                  value={nocStatus}
-                  onChange={(e) => { setNocStatus(e.target.value); setPage(1); }}
-                  className="h-9 w-auto min-w-[9rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
-                >
-                  <option value="">Any NOC Status</option>
-                  <option value="approved">✅ Approved</option>
-                  <option value="pending">⏳ Pending</option>
-                  <option value="under_review">🔍 Under Review</option>
-                  <option value="illegal">⛔ Illegal</option>
-                  <option value="disputed">⚠️ Disputed</option>
-                  <option value="cancelled">❌ Cancelled</option>
-                  <option value="expired">📅 Expired</option>
-                </select>
-
-                {/* Risk Level */}
-                <select
-                  value={riskLevel}
-                  onChange={(e) => { setRiskLevel(e.target.value); setPage(1); }}
-                  className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
-                >
-                  <option value="">Any Risk Level</option>
-                  <option value="safe">🟢 Safe</option>
-                  <option value="caution">🟡 Caution</option>
-                  <option value="high_risk">🔴 High Risk</option>
-                  <option value="avoid">⛔ Avoid</option>
-                </select>
-
-                {/* Category */}
-                <select
-                  value={category}
-                  onChange={(e) => { setCategory(e.target.value); setPage(1); }}
-                  className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
-                >
-                  <option value="">Any Category</option>
-                  <option value="housing_scheme">Housing Scheme</option>
-                  <option value="gated_community">Gated Community</option>
-                  <option value="apartment_complex">Apartment Complex</option>
-                  <option value="commercial_zone">Commercial Zone</option>
-                  <option value="mixed_use">Mixed Use</option>
-                  <option value="township">Township</option>
-                </select>
-
-                {/* Authority */}
-                <select
-                  value={authority}
-                  onChange={(e) => { setAuthority(e.target.value); setPage(1); }}
-                  className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
-                >
-                  <option value="">Any Authority</option>
-                  {authorityOptions.map((authorityName) => (
-                    <option key={authorityName} value={authorityName}>
-                      {authorityName.replace(/_/g, ' ')}
-                    </option>
-                  ))}
-                </select>
-
-                <select
-                  value={sortBy}
-                  onChange={(e) => { setSortBy(e.target.value); setPage(1); }}
-                  className="h-9 w-auto min-w-[7.5rem] max-w-none shrink-0 whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none cursor-pointer focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
-                  aria-label="Sort societies"
-                >
-                  <option value="overallScore">Best Score</option>
-                  <option value="legalScore">Legal Score</option>
-                  <option value="growthScore">Growth Score</option>
-                  <option value="name">Name (A-Z)</option>
-                  <option value="viewCount">Most Viewed</option>
-                  <option value="createdAt">Newest</option>
-                </select>
-
-                {/* Clear filters */}
-                {activeFilterCount > 0 && (
-                  <button
-                    onClick={handleClearFilters}
-                    className="inline-flex items-center gap-1 px-3 py-2 rounded-xl text-sm font-semibold text-[#ef4444] hover:bg-red-50 transition-colors"
-                  >
-                    <X className="w-4 h-4" />
-                    Clear ({activeFilterCount})
-                  </button>
-                )}
-              </div>
-
+            {/* View mode */}
+            <div className="ml-auto flex items-center gap-1 rounded-xl bg-gray-100 p-1" aria-label="Society view mode">
+              <button
+                type="button"
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  viewMode === 'grid' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+                aria-label="Grid view"
+                title="Grid view"
+              >
+                <Grid3x3 className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('list')}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  viewMode === 'list' ? 'bg-white text-[#029bba] shadow-sm' : 'text-gray-500 hover:text-gray-700'
+                }`}
+                aria-label="List view"
+                title="List view"
+              >
+                <List className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </section>

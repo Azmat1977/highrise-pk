@@ -11,6 +11,7 @@ import {
   ShieldCheck, Banknote, Construction, Sparkles, ArrowRight,
   Ruler, Info, Home, ChevronRight,
 } from 'lucide-react';
+import { PageTitleBanner } from '@/components/layout/PageTitleBanner';
 import {
   AREA_UNITS,
   UNITS_BY_CATEGORY,
@@ -181,32 +182,26 @@ export default function AreaUnitConverterPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── COMPACT PAGE HEADER ── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-              <Home className="w-3.5 h-3.5" />
-              <span>Home</span>
-            </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <Link href="/tools" className="hover:text-[#029bba] font-medium transition-colors">
-              Tools
-            </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span className="text-[#004063] font-bold">Area Unit Converter</span>
-          </nav>
-
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-            Area Unit Converter
-          </h1>
-          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-            <span>Marla, Kanal, Sqft, Sqyd, Acre + 7 more</span>
-            <span className="text-gray-300">•</span>
-            <span>12 Pakistani &amp; international units</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-[#029bba]">Free &amp; instant</span>
-          </p>
-        </div>
+        {/* ── PHASE 5 PAGE BANNER ── */}
+        <PageTitleBanner
+          title="Area Unit Converter"
+          subtitle="Convert Marla, Kanal, square feet, square yards and acres instantly."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <Home className="w-3 h-3" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <Link href="/tools" className="transition-colors hover:text-white">Tools</Link>
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <span className="text-white">Area Unit Converter</span>
+            </nav>
+          }
+        />
 
         {/* ── BANNER ── */}
         {banner && (

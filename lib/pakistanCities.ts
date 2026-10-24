@@ -175,6 +175,23 @@ export const POPULAR_CITIES: string[] = PAKISTAN_CITIES_META
 
 export const CURATED_CITY_NAMES = ["Islamabad", "Lahore", "Karachi", "Rawalpindi"] as const;
 
+/**
+ * Cities the homepage always shows in "Explore Properties by Major Cities",
+ * even when the database has no listings for them yet. The carousel merges
+ * these with whatever the API returns, so the section never collapses to
+ * three cards just because only three cities have stock today.
+ */
+export const HOMEPAGE_CITY_NAMES: string[] = [
+  "Islamabad",
+  "Lahore",
+  "Karachi",
+  "Rawalpindi",
+  "Faisalabad",
+  "Multan",
+  "Peshawar",
+  "Quetta",
+];
+
 export const CITY_PROVINCES: CityProvince[] = [
   "Federal",
   "Punjab",

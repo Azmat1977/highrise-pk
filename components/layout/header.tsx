@@ -16,6 +16,7 @@ import AuthGateModal from "@/components/auth/AuthGateModal";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useCompare } from "@/hooks/useCompare";
 import { POPULAR_CITIES } from "@/lib/pakistanCities";
+import { useStickySearchActive } from "@/hooks/useStickySearchActive";
 
 // ============================================================================
 // CONSTANTS
@@ -677,6 +678,11 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
+// Lightweight projection of the primary nav for surfaces that only need plain
+// links (the compact sticky search header). Keeps one source of truth.
+export const PRIMARY_NAV_LINKS: ReadonlyArray<{ key: NavKey; label: string; href: string }> =
+  NAV_ITEMS.map(({ key, label, href }) => ({ key, label, href }));
+
 function isNavItemActive(item: NavItem, pathname: string, asPath: string): boolean {  if (item.key === "buy") return asPath.startsWith("/properties") && /listingType=full_payment/.test(asPath);
   if (item.key === "rent") return asPath.startsWith("/properties") && /listingType=rent/.test(asPath);
   if (item.key === "projects") return pathname.startsWith("/projects");
@@ -750,6 +756,10 @@ export const Header: React.FC = () => {
     const [isAddListingOpen, setIsAddListingOpen]       = useState(false);
   const [loginContext, setLoginContext]                = useState<"contact" | "listing" | "save" | "general" | "compare" | "save_search">("general");
   const [activeNav, setActiveNav]                     = useState<NavKey | null>(null);
+  // Geometry of the mega-menu card, measured from the open trigger so the panel
+  // hangs directly under it instead of stretching across the whole viewport.
+  const [panelBox, setPanelBox]                       = useState<{ left: number; width: number } | null>(null);
+  const stickySearchActive = useStickySearchActive();
   const [isMobileMoreExpanded, setIsMobileMoreExpanded] = useState(false);
   const [isRouteLoading, setIsRouteLoading]           = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
@@ -995,6 +1005,39 @@ export const Header: React.FC = () => {
 
   useEffect(() => () => clearNavCloseTimer(), [clearNavCloseTimer]);
 
+  // Keep the mega-menu card aligned to its trigger: centred under the trigger,
+  // clamped inside the viewport, width driven by the number of sections.
+  useEffect(() => {
+    if (!activeNav) {
+      setPanelBox(null);
+      return;
+    }
+    const item = NAV_ITEMS.find((navItem) => navItem.key === activeNav);
+    if (!item) return;
+
+    const measure = () => {
+      const cols = item.sections.length;
+      const desired = cols >= 5 ? 1080 : cols === 4 ? 880 : 720;
+      const viewportWidth = window.innerWidth;
+      const width = Math.min(desired, viewportWidth - 32);
+      const headerLeft =
+        document.querySelector("header")?.getBoundingClientRect().left ?? 0;
+      const triggerRect = activeTriggerRef.current?.getBoundingClientRect();
+      const centre = triggerRect
+        ? triggerRect.left + triggerRect.width / 2
+        : viewportWidth / 2;
+      const left = Math.min(
+        Math.max(centre - width / 2 - headerLeft, 16),
+        viewportWidth - width - 16
+      );
+      setPanelBox({ left, width });
+    };
+
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [activeNav]);
+
   // --- Close navigation menus on outside click or Escape ---
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -1047,7 +1090,7 @@ export const Header: React.FC = () => {
                   trigger row — without ever "leaving" the interaction region.
                   The 180ms timer is only a safety grace for a real exit. */}
               <header
-                className={`bg-white/95 shadow-sm sticky top-0 z-50 border-b border-gray-200/50 ${isMobileMenuOpen ? '' : 'backdrop-blur-md'}`}
+                className={`bg-white/95 shadow-sm sticky top-0 z-50 border-b border-gray-200/50 transition-transform duration-200 ease-out motion-reduce:transition-none ${isMobileMenuOpen ? '' : 'backdrop-blur-md'} ${stickySearchActive ? '-translate-y-full pointer-events-none' : ''}`}
                 onMouseEnter={clearNavCloseTimer}
                 onMouseLeave={scheduleCloseNav}
                 onBlur={handleNavBlur}
@@ -1080,7 +1123,13 @@ export const Header: React.FC = () => {
               return (
                 <div
                   key={item.key}
-                  onMouseEnter={() => openNav(item.key)}
+                  onMouseEnter={(e) => {
+                    // Record the trigger *before* opening so the panel can be
+                    // measured against the right element on first paint.
+                    const trigger = e.currentTarget.querySelector("button");
+                    if (trigger) activeTriggerRef.current = trigger;
+                    openNav(item.key);
+                  }}
                 >
                   <button
                     type="button"
@@ -1115,99 +1164,116 @@ export const Header: React.FC = () => {
                 carry the pointer across the strip under the trigger row. */}
             {(() => {
               const activeItem = NAV_ITEMS.find((navItem) => navItem.key === activeNav);
-              if (!activeItem) return null;
+              if (!activeItem || !panelBox) return null;
               const colCount = activeItem.sections.length;
-              const widthClass =
-                colCount >= 5 ? "w-[1040px]" : colCount === 4 ? "w-[900px]" : "w-[760px]";
-              const gridClass =
-                colCount >= 5 ? "grid-cols-5" : colCount === 4 ? "grid-cols-4" : "grid-cols-3";
+              // The trailing city column holds 2-up chips, so it gets extra
+              // width instead of truncating "Islamabad" / "Rawalpindi".
+              const endsWithCities =
+                activeItem.sections[colCount - 1]?.kind === "cities";
+              const gridTemplate = Array.from({ length: colCount })
+                .map((_, index) =>
+                  endsWithCities && index === colCount - 1 ? "1.5fr" : "1fr"
+                )
+                .join(" ");
               return (
                 <div
-                  className="fixed top-20 left-0 right-0 z-50 flex justify-center"
+                  className="absolute top-full z-50"
+                  style={{ left: panelBox.left, width: panelBox.width }}
                   onMouseEnter={clearNavCloseTimer}
                 >
-                  <div
-                    id={`nav-panel-${activeItem.key}`}
-                    role="menu"
-                    aria-label={activeItem.label}
-                    className={cx("w-full pt-2", "max-w-[calc(100vw-2rem)]", widthClass)}
-                    onClick={(event) => {
-                      // Any link inside the panel closes the menu once clicked;
-                      // Navigation itself is handled by <Link> in the same event.
-                      if ((event.target as HTMLElement).closest("a")) {
-                        applyNavState(null, false);
-                      }
-                    }}
-                  >
+                  {/* pt-2 is part of the card's own hover surface: it covers the
+                      gap between the header and the card so a slow pointer
+                      crossing it never leaves the interaction region. */}
+                  <div className="pt-2">
                     <div
-                      className={cx(
-                        "rounded-2xl border border-gray-100 bg-white shadow-xl shadow-gray-900/10 p-6",
-                        // Bounded so a tall panel (Buy at 1024x768) never runs past
-                        // the viewport bottom; content scrolls inside the panel.
-                        "max-h-[calc(100vh-6.5rem)] overflow-y-auto overscroll-contain",
-                        "animate-in fade-in slide-in-from-top-2 duration-150"
-                      )}
+                      id={`nav-panel-${activeItem.key}`}
+                      role="menu"
+                      aria-label={activeItem.label}
+                      className="nav-panel-enter overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-[0_30px_70px_-24px_rgba(0,64,99,0.45)] ring-1 ring-black/[0.02]"
+                      onClick={(event) => {
+                        // Any link inside the panel closes the menu once clicked;
+                        // Navigation itself is handled by <Link> in the same event.
+                        if ((event.target as HTMLElement).closest("a")) {
+                          applyNavState(null, false);
+                        }
+                      }}
                     >
-                      <div className="pb-3 mb-4 border-b border-gray-100">
-                        <div className="flex items-center justify-between gap-4">
-                          <div className="flex items-center gap-2 text-[#004063]">
-                            <span className="flex items-center justify-center w-8 h-8 rounded-lg bg-[#029bba]/10 text-[#029bba]">
-                              {activeItem.icon}
-                            </span>
-                            <span className="text-xs font-bold uppercase tracking-wider">
-                              Explore {activeItem.label}
-                            </span>
+                      <div className="h-[3px] w-full bg-gradient-to-r from-[#004063] via-[#029bba] to-[#004063]" />
+
+                      <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+                        <div className="flex min-w-0 items-center gap-2.5">
+                          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#004063] text-white">
+                            {activeItem.icon}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[9.5px] font-bold uppercase tracking-[0.16em] text-slate-400">
+                              Browse
+                            </p>
+                            <p className="truncate text-[13.5px] font-bold leading-tight text-[#001f2b]">
+                              {activeItem.label}
+                            </p>
                           </div>
-                          <Link
-                            href={activeItem.href}
-                            className="flex items-center gap-1 text-xs font-semibold text-[#029bba] hover:text-[#007196]"
-                          >
-                            View all
-                            <icons.ArrowRight className="w-3.5 h-3.5" />
-                          </Link>
                         </div>
+                        <Link
+                          href={activeItem.href}
+                          className="group flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-bold text-[#029bba] transition-colors hover:bg-[#029bba]/10 hover:text-[#007196]"
+                        >
+                          View all
+                          <icons.ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
+                        </Link>
                       </div>
 
-                      <div className={cx("grid gap-6", gridClass)}>
+                      <div
+                        className={cx(
+                          "grid gap-x-6 gap-y-5 p-5",
+                          // Tall menus (Buy at short desktop heights) scroll
+                          // inside the card instead of running off screen.
+                          "max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain"
+                        )}
+                        style={{ gridTemplateColumns: gridTemplate }}
+                      >
                         {activeItem.sections.map((section) =>
                           section.kind === "cities" ? (
                             <div key={`${activeItem.key}-${section.title}`}>
-                              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                              <p className="mb-2.5 flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                <span className="h-px w-3 bg-[#029bba]/60" aria-hidden="true" />
                                 {section.title}
                               </p>
-                              <div className="flex flex-wrap items-center gap-2">
+                              <div className="grid grid-cols-2 gap-1.5">
                                 {section.cities.map((cityName) => (
                                   <Link
                                     key={`${activeItem.key}-city-${cityName}`}
                                     href={`${section.base}${section.base.includes("?") ? "&" : "?"}city=${encodeURIComponent(cityName)}`}
-                                    className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-[13px] font-medium text-gray-700 transition-colors hover:border-[#029bba]/60 hover:bg-[#029bba]/5 hover:text-[#029bba]"
+                                    className="group flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-1.5 py-1.5 text-[12px] font-semibold text-slate-600 transition-colors hover:border-[#029bba]/50 hover:bg-white hover:text-[#007196]"
                                   >
-                                    <icons.MapPin className="w-3.5 h-3.5 text-[#029bba]" />
-                                    {cityName}
+                                    <icons.MapPin className="h-3 w-3 shrink-0 text-[#029bba]" />
+                                    <span className="truncate">{cityName}</span>
                                   </Link>
                                 ))}
-                                <Link
-                                  href={section.viewAllHref}
-                                  className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-semibold text-[#029bba] transition-colors hover:text-[#007196]"
-                                >
-                                  Explore all
-                                  <icons.ArrowRight className="w-3.5 h-3.5" />
-                                </Link>
                               </div>
+                              <Link
+                                href={section.viewAllHref}
+                                className="mt-2 inline-flex items-center gap-1 rounded-md px-1 py-1 text-[12px] font-bold text-[#029bba] transition-colors hover:text-[#007196]"
+                              >
+                                Explore all cities
+                                <icons.ArrowRight className="h-3.5 w-3.5" />
+                              </Link>
                             </div>
                           ) : (
                             <div key={`${activeItem.key}-${section.title}`}>
-                              <p className="mb-2 text-[11px] font-bold uppercase tracking-wider text-gray-400">
+                              <p className="mb-2 flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.14em] text-slate-400">
+                                <span className="h-px w-3 bg-[#029bba]/60" aria-hidden="true" />
                                 {section.title}
                               </p>
-                              <ul className="space-y-1">
+                              <ul className="space-y-0.5">
                                 {section.links.map((link) => (
                                   <li key={`${activeItem.key}-${section.title}-${link.href}`}>
                                     <Link
                                       href={link.href}
-                                      className="block truncate rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-50 hover:text-[#029bba] transition-colors"
+                                      className="group flex items-center justify-between gap-2 rounded-md px-2 py-[7px] text-[13px] font-medium text-slate-600 transition-colors hover:bg-[#029bba]/[0.07] hover:text-[#004063]"
                                     >
-                                      {link.label}
+                                      <span className="truncate">{link.label}</span>
+                                      <icons.ChevronRight className="h-3 w-3 shrink-0 text-[#029bba] opacity-0 transition-opacity group-hover:opacity-100" />
                                     </Link>
                                   </li>
                                 ))}

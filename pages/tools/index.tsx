@@ -11,6 +11,7 @@ import {
   Home, MapPin, Award, Database, Lock, CheckCircle, Zap, TrendingUp,
   Bot, Calculator, Clock, Star, Heart, ChevronRight,
 } from 'lucide-react';
+import { PageTitleBanner } from '@/components/layout/PageTitleBanner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -243,43 +244,24 @@ export default function ToolsHubPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ─── COMPACT PAGE HEADER ─────────────────────────────────── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-              <Home className="w-3.5 h-3.5" />
-              <span>Home</span>
-            </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span className="text-[#004063] font-bold">Tools</span>
-          </nav>
-
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-                Property Intelligence Tools
-              </h1>
-              <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-                <span>5 free tools</span>
-                <span className="text-gray-300">•</span>
-                <span>No signup required</span>
-                <span className="text-gray-300">•</span>
-                <span className="text-[#029bba]">Instant results</span>
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-gray-500 text-xs font-semibold shrink-0">
-              <span className="flex items-center gap-1.5">
-                <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />
-                100% Free Forever
-              </span>
-              <span className="flex items-center gap-1.5">
-                <CheckCircle className="w-3.5 h-3.5 text-[#10b981]" />
-                Mobile-Friendly
-              </span>
-            </div>
-          </div>
-        </div>
+        {/* ─── PHASE 5 PAGE BANNER ─────────────────────────────────── */}
+        <PageTitleBanner
+          title="Property Intelligence Tools"
+          subtitle="Free calculators, converters and verification tools for smarter property decisions."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <Home className="w-3 h-3" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <span className="text-white">Tools</span>
+            </nav>
+          }
+        />
 
         {/* ─── QUICK STATS BAR ──────────────────────────────────────── */}
         <section className="bg-white border-b border-gray-200">

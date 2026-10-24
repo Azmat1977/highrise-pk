@@ -14,8 +14,10 @@ import React, {
 import Head from "next/head";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { Grid3x3, List, Filter } from "lucide-react";
+import { Grid3x3, List } from "lucide-react";
 import { icons } from "@/lib/design-system/icons";
+import { PageSearchShell } from "@/components/search/PageSearchShell";
+import type { SearchField } from "@/components/search/UnifiedSearchBar";
 
 import { PropertyGrid, PropertyListItem } from "@/components/property/property-grid";
 import { PropertyCard } from "@/components/property/property-card";
@@ -398,7 +400,6 @@ export default function PropertiesListingPage(): React.ReactElement {
   
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
-  const [mobileFiltersOpen, setMobileFiltersOpen] = useState(false);
 
   const fetchAbortRef = useRef<AbortController | null>(null);
   const prevQueryRef = useRef<string>("");
@@ -822,6 +823,95 @@ export default function PropertiesListingPage(): React.ReactElement {
     ];
   }, [pageTitle, pageDescription, canonicalUrl, baseCanonical, SITE_URL]);
 
+  // ── Phase 5 search shell fields ───────────────────────────────────────────
+  // Descriptors only: every value reads and writes this page's existing filter
+  // state, so the banner bar and the sticky bar can never drift apart.
+  const searchFields: SearchField[] = useMemo(
+    () => [
+      {
+        key: "category",
+        kind: "select",
+        label: "Category",
+        icon: icons.Grid3X3,
+        grow: 0.9,
+        value: activeTab,
+        onChange: (value) =>
+          handleTabChange(value as "buy" | "rent" | "installment" | "all"),
+        options: [
+          { value: "all", label: "All Listings" },
+          { value: "buy", label: "Buy" },
+          { value: "rent", label: "Rent" },
+          { value: "installment", label: "Installments" },
+        ],
+      },
+      {
+        key: "city",
+        kind: "select",
+        label: "City",
+        icon: icons.MapPin,
+        searchable: true,
+        value: filters.city,
+        onChange: (value) => handleFilterChange("city", value),
+        options: [
+          { value: "", label: "All Cities" },
+          ...PAKISTAN_CITIES.map((city) => ({ value: city, label: city })),
+        ],
+      },
+      {
+        key: "society",
+        kind: "text",
+        label: "Location",
+        icon: icons.Building2,
+        grow: 1.3,
+        placeholder: "Society, phase or project",
+        value: searchDraft,
+        onChange: setSearchDraft,
+        onSubmit: () => handleSearch(),
+      },
+      {
+        key: "propertyType",
+        kind: "select",
+        label: "Type",
+        icon: icons.Home,
+        grow: 1.05,
+        value: filters.propertyType,
+        onChange: (value) => handleFilterChange("propertyType", value),
+        options: getFilteredPropertyTypes().map((type) => ({
+          value: type.value,
+          label: type.label,
+        })),
+      },
+      {
+        key: "budget",
+        kind: "select",
+        label: "Budget",
+        icon: icons.DollarSign,
+        value:
+          filters.minPrice && filters.maxPrice
+            ? `${filters.minPrice}-${filters.maxPrice}`
+            : "",
+        onChange: setPriceRange,
+        options: PRICE_RANGES.map((range) => ({
+          value: range.value,
+          label: range.label,
+        })),
+      },
+    ],
+    [
+      activeTab,
+      filters.city,
+      filters.propertyType,
+      filters.minPrice,
+      filters.maxPrice,
+      searchDraft,
+      handleTabChange,
+      handleFilterChange,
+      handleSearch,
+      getFilteredPropertyTypes,
+      setPriceRange,
+    ]
+  );
+
   return (
     <>
       <Head>
@@ -864,417 +954,179 @@ export default function PropertiesListingPage(): React.ReactElement {
       />
 
       <div className="min-h-screen bg-[#f8f9fa]">
-        {/* COMPACT BREADCRUMBS & HEADER ZONE (No Hero Banner) */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
-          
-          <div>
-            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-              <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-                <icons.Home className="w-3.5 h-3.5" />
+        {/* PHASE 5 - unified navy banner + single-row search shell.
+            Full-bleed on purpose: it sits outside the 1440px results container
+            so the navy band reaches both edges of the viewport. */}
+        <PageSearchShell
+          title="Find Properties in Pakistan"
+          subtitle="Search verified listings across top societies."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <icons.Home className="h-3 w-3" />
                 <span>Home</span>
               </Link>
-              <icons.ChevronRight className="w-3 h-3 text-gray-300" />
-              <Link href="/properties" className="hover:text-[#029bba] font-medium transition-colors">
+              <icons.ChevronRight className="h-3 w-3 text-blue-200/40" />
+              <Link href="/properties" className="transition-colors hover:text-white">
                 Properties
               </Link>
               {filters.city && (
                 <>
-                  <icons.ChevronRight className="w-3 h-3 text-gray-300" />
-                  <span className="text-[#004063] font-bold">{filters.city}</span>
+                  <icons.ChevronRight className="h-3 w-3 text-blue-200/40" />
+                  <span className="text-white">{filters.city}</span>
                 </>
               )}
             </nav>
+          }
+          fields={searchFields}
+          onSubmit={handleSearch}
+          submitLabel="Search"
+          mobileLabel="Search Properties"
+          activeFilterCount={activeFilterCount}
+          onReset={clearAllFilters}
+        />
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-                  {filters.city ? `Verified Properties in ${filters.city}` : 'Verified Properties in Pakistan'}
-                </h1>
-                <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-                  <span>{pagination.total.toLocaleString()} Properties</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-emerald-600">Verified Listings</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-[#029bba]">Trusted Owners</span>
-                </p>
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
+          {/* Secondary refinements sit below the banner so the shell itself can
+              stay a strict single row on desktop. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveSearchClick}
+                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] px-3.5 py-2 text-xs font-bold text-white shadow-md transition-all hover:from-[#004063] hover:to-[#029bba] active:scale-95"
+              >
+                <icons.Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                <span>Save Search &amp; Get Alerts</span>
+              </button>
+
+              <div className="relative shrink-0">
+                <icons.Bed className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
+                <select
+                  value={filters.bedrooms}
+                  onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
+                  aria-label="Bedrooms"
+                  className="h-9 cursor-pointer appearance-none rounded-xl border border-gray-300 bg-white pl-8 pr-7 text-xs font-bold text-gray-700 shadow-sm outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]"
+                >
+                  {BEDROOM_OPTIONS.map((b) => (
+                    <option key={b.value} value={b.value}>{b.label}</option>
+                  ))}
+                </select>
+                <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
-                <button
-                  type="button"
-                  onClick={handleSaveSearchClick}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#004063] hover:to-[#029bba] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+              <div className="relative shrink-0">
+                <icons.UserCheck className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
+                <select
+                  value={filters.listingSource}
+                  onChange={(e) => handleFilterChange("listingSource", e.target.value)}
+                  aria-label="Listing source"
+                  className="h-9 cursor-pointer appearance-none rounded-xl border border-gray-300 bg-white pl-8 pr-7 text-xs font-bold text-gray-700 shadow-sm outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]"
                 >
-                  <icons.Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  <span>Save Search & Get Alerts</span>
-                </button>
-
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => clearAllFilters()}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors"
-                  >
-                    <icons.RotateCcw className="w-3.5 h-3.5" />
-                    Reset Filters ({activeFilterCount})
-                  </button>
-                )}
+                  <option value="">All Sources</option>
+                  <option value="owner">Direct Owner</option>
+                  <option value="agent">Agent Listed</option>
+                </select>
+                <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
               </div>
             </div>
-          </div>
 
-          {/* COMPACT STICKY SEARCH & FILTER BAR */}
-          <div className={`transition-all duration-300 md:sticky md:top-[64px] z-30 relative ${
-            isSticky ? 'bg-white shadow-sm border-b border-gray-200 py-3 -mx-4 px-4 sm:mx-0 sm:px-0' : 'bg-transparent'
-          }`}>
-            
-            <div className="flex flex-col gap-2.5">
-              <div className="relative w-full min-w-0 max-w-[720px]">
-                <icons.Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchDraft}
-                  onChange={(e) => setSearchDraft(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSearch();
-                    }
-                  }}
-                  placeholder="Search locality, society, or project name..."
-                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
-                />
-                <button
-                  type="button"
-                  onClick={handleSearch}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors"
-                >
-                  Search
-                </button>
-              </div>
-
-              {/* Buy / Rent / Installment Tabs — always visible, replaces listingType dropdown */}
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-hide" role="tablist" aria-label="Listing purpose">
-                {[
-                  { value: "all", label: "All", icon: icons.Grid3X3 },
-                  { value: "buy", label: "Buy", icon: icons.Home },
-                  { value: "rent", label: "Rent", icon: icons.KeyRound },
-                  { value: "installment", label: "Installments", icon: icons.CreditCard },
-                ].map((tab) => (
-                  <button
-                    key={tab.value}
-                    type="button"
-                    role="tab"
-                    aria-selected={activeTab === tab.value}
-                    aria-label={`${tab.label} properties`}
-                    onClick={() => handleTabChange(tab.value as "buy" | "rent" | "installment" | "all")}
-                    className={`flex-shrink-0 inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
-                      activeTab === tab.value
-                        ? "bg-[#029bba] text-white shadow-sm"
-                        : "bg-white text-gray-700 border border-gray-200 hover:bg-gray-50 hover:border-[#029bba]/30 hover:text-[#029bba]"
-                    }`}
-                  >
-                    <tab.icon className="w-3.5 h-3.5" />
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
-
-              {/* Primary Filters Row — City, Category (always visible) */}
-              <div className="w-full flex flex-wrap items-center justify-start gap-2 pb-1">
-                
-                {/* City — content-sized, not fixed tab width */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                    <icons.MapPin className="w-3.5 h-3.5 text-[#029bba]" />
-                  </div>
-                  <select
-                    value={filters.city}
-                    onChange={(e) => handleFilterChange("city", e.target.value)}
-                    className="h-9 w-auto min-w-[7.5rem] max-w-[11rem] pl-8 pr-7 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
-                  >
-                    <option value="">All Cities</option>
-                    {PAKISTAN_CITIES.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
-                </div>
-
-                {/* Category */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                    <icons.Grid3X3 className="w-3.5 h-3.5 text-[#029bba]" />
-                  </div>
-                  <select
-                    value={filters.propertyCategory}
-                    onChange={(e) => handleFilterChange("propertyCategory", e.target.value)}
-                    className="h-9 w-auto min-w-[8rem] max-w-[12rem] pl-8 pr-7 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
-                  >
-                    <option value="">All Categories</option>
-                    <option value="residential">Residential</option>
-                    <option value="commercial">Commercial</option>
-                    <option value="plots">Plots & Land</option>
-                  </select>
-                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
-                </div>
-
-                {/* Mobile: More Filters Trigger */}
-                <div className="lg:hidden shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setMobileFiltersOpen(!mobileFiltersOpen)}
-                    className="h-9 px-4 rounded-xl border border-gray-300 bg-white text-xs font-bold text-gray-700 flex items-center gap-1.5 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm"
-                  >
-                    <icons.Filter className="w-3.5 h-3.5 text-[#029bba]" />
-                    <span>Filters</span>
-                    <icons.ChevronDown className="w-3.5 h-3.5 text-[#029bba]" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Desktop: Advanced Filters Row (hidden on mobile) */}
-              <div className="hidden lg:flex flex-wrap items-center justify-start gap-2 pb-1">
-                
-                {/* Property Type */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                    <icons.Home className="w-3.5 h-3.5 text-[#029bba]" />
-                  </div>
-                  <select
-                    value={filters.propertyType}
-                    onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-                    className="h-9 w-auto min-w-[7.5rem] max-w-[12rem] pl-8 pr-7 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
-                  >
-                    {getFilteredPropertyTypes().map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
-                </div>
-
-                {/* Bedrooms */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                    <icons.Bed className="w-3.5 h-3.5 text-[#029bba]" />
-                  </div>
-                  <select
-                    value={filters.bedrooms}
-                    onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
-                    className="h-9 w-auto min-w-[6.5rem] max-w-[9rem] pl-8 pr-7 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
-                  >
-                    {BEDROOM_OPTIONS.map((b) => (
-                      <option key={b.value} value={b.value}>{b.label}</option>
-                    ))}
-                  </select>
-                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
-                </div>
-
-                {/* Listing Source */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                    <icons.UserCheck className="w-3.5 h-3.5 text-[#029bba]" />
-                  </div>
-                  <select
-                    value={filters.listingSource}
-                    onChange={(e) => handleFilterChange("listingSource", e.target.value)}
-                    className="h-9 w-auto min-w-[7.5rem] max-w-[11rem] pl-8 pr-7 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
-                  >
-                    <option value="">All Sources</option>
-                    <option value="owner">Direct Owner</option>
-                    <option value="agent">Agent Listed</option>
-                  </select>
-                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
-                </div>
-
-                {/* Price Range */}
-                <div className="relative shrink-0">
-                  <div className="absolute inset-y-0 left-2.5 flex items-center pointer-events-none">
-                    <icons.DollarSign className="w-3.5 h-3.5 text-[#029bba]" />
-                  </div>
-                  <select
-                    value={
-                      filters.minPrice && filters.maxPrice
-                        ? `${filters.minPrice}-${filters.maxPrice}`
-                        : ""
-                    }
-                    onChange={(e) => setPriceRange(e.target.value)}
-                    className="h-9 w-auto min-w-[7.5rem] max-w-[12rem] pl-8 pr-7 bg-white border border-gray-300 rounded-xl text-xs font-bold text-gray-700 focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer shadow-sm appearance-none"
-                  >
-                    {PRICE_RANGES.map((r) => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                  <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
-                </div>
-              </div>
-
-              {/* Mobile Filter Drawer */}
-              {mobileFiltersOpen && (
-                <div className="lg:hidden animate-slideDown bg-white border-t border-gray-200 px-4 py-3 -mx-4">
-                  <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="text-sm font-bold text-gray-900">Advanced Filters</h4>
-                      <button
-                        type="button"
-                        onClick={() => setMobileFiltersOpen(false)}
-                        className="p-1 text-gray-400 hover:text-gray-600"
-                      >
-                        <icons.X className="w-5 h-5" />
-                      </button>
-                    </div>
-                    <div className="flex flex-col gap-3">
-                      {/* Property Type */}
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Property Type</label>
-                        <select
-                          value={filters.propertyType}
-                          onChange={(e) => handleFilterChange("propertyType", e.target.value)}
-                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
-                        >
-                          {getFilteredPropertyTypes().map((t) => (
-                            <option key={t.value} value={t.value}>{t.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {/* Bedrooms */}
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Bedrooms</label>
-                        <select
-                          value={filters.bedrooms}
-                          onChange={(e) => handleFilterChange("bedrooms", e.target.value)}
-                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
-                        >
-                          {BEDROOM_OPTIONS.map((b) => (
-                            <option key={b.value} value={b.value}>{b.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                      {/* Listing Source */}
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Listing Source</label>
-                        <select
-                          value={filters.listingSource}
-                          onChange={(e) => handleFilterChange("listingSource", e.target.value)}
-                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
-                        >
-                          <option value="">All Sources</option>
-                          <option value="owner">Direct Owner</option>
-                          <option value="agent">Agent Listed</option>
-                        </select>
-                      </div>
-                      {/* Price Range */}
-                      <div>
-                        <label className="block text-xs font-bold text-gray-700 mb-1">Price Range</label>
-                        <select
-                          value={
-                            filters.minPrice && filters.maxPrice
-                              ? `${filters.minPrice}-${filters.maxPrice}`
-                              : ""
-                          }
-                          onChange={(e) => setPriceRange(e.target.value)}
-                          className="h-10 w-full pl-3 pr-8 bg-white border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] outline-none cursor-pointer appearance-none"
-                        >
-                          {PRICE_RANGES.map((r) => (
-                            <option key={r.value} value={r.value}>{r.label}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setMobileFiltersOpen(false)}
-                      className="mt-2 px-4 py-2.5 rounded-xl bg-[#029bba] text-white text-xs font-bold transition-colors"
-                    >
-                      Apply Filters
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Active Filters Display */}
-            {hasActiveFilters && (
-              <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Active:</span>
-                
-                {filters.search && (
-                  <FilterChip
-                    icon={<icons.Search className="w-3 h-3 text-[#029bba]" />}
-                    label={`"${filters.search}"`}
-                    onClear={() => clearFilter("search")}
-                  />
-                )}
-                {filters.city && (
-                  <FilterChip
-                    icon={<icons.MapPin className="w-3 h-3 text-[#029bba]" />}
-                    label={filters.city}
-                    onClear={() => clearFilter("city")}
-                  />
-                )}
-                {filters.society && (
-                  <FilterChip
-                    icon={<icons.Building2 className="w-3 h-3 text-[#029bba]" />}
-                    label={filters.society}
-                    onClear={() => clearFilter("society")}
-                  />
-                )}
-                {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
-                  <FilterChip
-                    icon={PROPERTY_CATEGORIES[filters.propertyCategory].icon}
-                    label={PROPERTY_CATEGORIES[filters.propertyCategory].label}
-                    onClear={() => clearFilter("propertyCategory")}
-                  />
-                )}
-                {filters.propertyType && (
-                  <FilterChip
-                    icon={<icons.Home className="w-3 h-3 text-[#029bba]" />}
-                    label={filters.propertyType}
-                    onClear={() => clearFilter("propertyType")}
-                  />
-                )}
-                {filters.listingType && (
-                  <FilterChip
-                    icon={<icons.TrendingUp className="w-3 h-3 text-[#029bba]" />}
-                    label={
-                      LISTING_TYPES.find((t) => t.value === filters.listingType)?.label ??
-                      filters.listingType
-                    }
-                    onClear={() => clearFilter("listingType")}
-                  />
-                )}
-                {filters.bedrooms && (
-                  <FilterChip
-                    icon={<icons.Bed className="w-3 h-3 text-[#029bba]" />}
-                    label={`${filters.bedrooms} Bed${parseInt(filters.bedrooms, 10) > 1 ? "s" : ""}`}
-                    onClear={() => clearFilter("bedrooms")}
-                  />
-                )}
-                {filters.listingSource && (
-                  <FilterChip
-                    icon={<icons.UserCheck className="w-3 h-3 text-[#029bba]" />}
-                    label={filters.listingSource === 'owner' ? "Owner Direct" : "Agent Listed"}
-                    onClear={() => clearFilter("listingSource")}
-                  />
-                )}
-                {(filters.minPrice || filters.maxPrice) && (
-                  <FilterChip
-                    icon={<icons.DollarSign className="w-3 h-3 text-[#029bba]" />}
-                    label={
-                      PRICE_RANGES.find(
-                        (p) => p.value === `${filters.minPrice}-${filters.maxPrice}`
-                      )?.label ?? "Custom Price"
-                    }
-                    onClear={() => setPriceRange("")}
-                  />
-                )}
-
-                <button type="button" onClick={clearAllFilters} className="text-[11px] font-bold text-red-500 hover:underline ml-1">
-                  Clear All
-                </button>
-              </div>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={() => clearAllFilters()}
+                className="inline-flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-100"
+              >
+                <icons.RotateCcw className="h-3.5 w-3.5" />
+                Reset Filters ({activeFilterCount})
+              </button>
             )}
           </div>
+
+          {/* Active Filters Display */}
+          {hasActiveFilters && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[10px] font-bold uppercase tracking-wider text-gray-400">Active:</span>
+
+              {filters.search && (
+                <FilterChip
+                  icon={<icons.Search className="w-3 h-3 text-[#029bba]" />}
+                  label={`"${filters.search}"`}
+                  onClear={() => clearFilter("search")}
+                />
+              )}
+              {filters.city && (
+                <FilterChip
+                  icon={<icons.MapPin className="w-3 h-3 text-[#029bba]" />}
+                  label={filters.city}
+                  onClear={() => clearFilter("city")}
+                />
+              )}
+              {filters.society && (
+                <FilterChip
+                  icon={<icons.Building2 className="w-3 h-3 text-[#029bba]" />}
+                  label={filters.society}
+                  onClear={() => clearFilter("society")}
+                />
+              )}
+              {filters.propertyCategory && PROPERTY_CATEGORIES[filters.propertyCategory] && (
+                <FilterChip
+                  icon={PROPERTY_CATEGORIES[filters.propertyCategory].icon}
+                  label={PROPERTY_CATEGORIES[filters.propertyCategory].label}
+                  onClear={() => clearFilter("propertyCategory")}
+                />
+              )}
+              {filters.propertyType && (
+                <FilterChip
+                  icon={<icons.Home className="w-3 h-3 text-[#029bba]" />}
+                  label={filters.propertyType}
+                  onClear={() => clearFilter("propertyType")}
+                />
+              )}
+              {filters.listingType && (
+                <FilterChip
+                  icon={<icons.TrendingUp className="w-3 h-3 text-[#029bba]" />}
+                  label={
+                    LISTING_TYPES.find((t) => t.value === filters.listingType)?.label ??
+                    filters.listingType
+                  }
+                  onClear={() => clearFilter("listingType")}
+                />
+              )}
+              {filters.bedrooms && (
+                <FilterChip
+                  icon={<icons.Bed className="w-3 h-3 text-[#029bba]" />}
+                  label={`${filters.bedrooms} Bed${parseInt(filters.bedrooms, 10) > 1 ? "s" : ""}`}
+                  onClear={() => clearFilter("bedrooms")}
+                />
+              )}
+              {filters.listingSource && (
+                <FilterChip
+                  icon={<icons.UserCheck className="w-3 h-3 text-[#029bba]" />}
+                  label={filters.listingSource === 'owner' ? "Owner Direct" : "Agent Listed"}
+                  onClear={() => clearFilter("listingSource")}
+                />
+              )}
+              {(filters.minPrice || filters.maxPrice) && (
+                <FilterChip
+                  icon={<icons.DollarSign className="w-3 h-3 text-[#029bba]" />}
+                  label={
+                    PRICE_RANGES.find(
+                      (p) => p.value === `${filters.minPrice}-${filters.maxPrice}`
+                    )?.label ?? "Custom Price"
+                  }
+                  onClear={() => setPriceRange("")}
+                />
+              )}
+
+              <button type="button" onClick={clearAllFilters} className="ml-1 text-[11px] font-bold text-red-500 hover:underline">
+                Clear All
+              </button>
+            </div>
+          )}
 
           {/* RECENTLY VIEWED AT TOP */}
           <RecentlyViewed />

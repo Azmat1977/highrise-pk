@@ -1,12 +1,14 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, ChevronLeft, ChevronRight, Landmark, MapPin } from 'lucide-react';
 import {
   CURATED_CITY_NAMES,
+  HOMEPAGE_CITY_NAMES,
   PAKISTAN_CITIES_META,
   type PakistaniCityMeta,
 } from '@/lib/pakistanCities';
+import { CityLandmarkArt } from '@/components/home/CityLandmarkArt';
 
 interface CityItem {
   name: string;
@@ -30,13 +32,6 @@ const CURATED_META_BY_NAME = new Map<string, PakistaniCityMeta>(
   ])
 );
 
-const GRADIENT_TILES = [
-  'bg-gradient-to-br from-[#029bba] via-[#007196] to-[#004063]',
-  'bg-gradient-to-br from-[#004063] via-[#02394f] to-[#001f2b]',
-  'bg-gradient-to-br from-[#026b80] via-[#029bba] to-[#004063]',
-  'bg-gradient-to-br from-[#014d69] via-[#007196] to-[#001f2b]',
-];
-
 function isUsableImage(value: unknown): value is string {
   if (typeof value !== 'string') return false;
   const clean = value.trim().toLowerCase();
@@ -55,7 +50,36 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
   const [cards, setCards] = useState(4);
   const [index, setIndex] = useState(0);
 
-  const pickedCities = cities.filter((city) => city.name && city.isActive !== false);
+  const pickedCities = useMemo<CityItem[]>(() => {
+    const fromDb = cities.filter((city) => city.name && city.isActive !== false);
+
+    // Curated homepage set: keep the API row (real counts + photos) for any city
+    // we already have, then fill the gaps so the section never collapses to the
+    // two or three cities that happen to have stock today.
+    const curated = HOMEPAGE_CITY_NAMES.map((name) => {
+      const match = fromDb.find((city) => city.name.trim().toLowerCase() === name.toLowerCase());
+      if (match) return match;
+      const meta = CURATED_META_BY_NAME.get(name);
+      return {
+        name,
+        province: meta?.province,
+        tagline: meta?.tagline,
+        description: meta?.description,
+        landmarkTitle: meta?.landmark?.title,
+        landmarkKicker: meta?.landmark?.kicker,
+        isActive: true,
+      } as CityItem;
+    });
+
+    // Anything the API marks as featured-on-homepage joins the curated list.
+    const extra = fromDb.filter(
+      (city) =>
+        city.isFeaturedOnHomepage &&
+        !curated.some((c) => c.name.toLowerCase() === city.name.trim().toLowerCase())
+    );
+
+    return [...curated, ...extra];
+  }, [cities]);
 
   useEffect(() => {
     setCards(getViewportCards());
@@ -71,7 +95,8 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
     setIndex((current) => Math.min(current, maxIndex));
   }, [maxIndex]);
 
-  useLayoutEffect(() => {
+  // Post-paint measurement (useEffect, not useLayoutEffect) so SSR stays warning-free.
+  useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
     const first = track.firstElementChild as HTMLElement | null;
@@ -168,7 +193,7 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
               id="cities-carousel-track"
               className="flex min-w-0 gap-6 transition-transform duration-500 ease-out motion-reduce:transition-none"
             >
-              {pickedCities.map((city, slot) => {
+              {pickedCities.map((city) => {
                 const count = city.propertyCount ?? 0;
                 const curated = CURATED_META_BY_NAME.get(city.name);
                 const kicker = (city.tagline ?? curated?.tagline ?? city.province ?? 'Pakistan') as string;
@@ -178,7 +203,6 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
                   curated?.description ??
                   (city.province ? `Verified listings across ${city.province}.` : 'Browse verified listings.');
                 const image = city.imageUrl ?? city.image;
-                const gradient = GRADIENT_TILES[slot % GRADIENT_TILES.length];
                 return (
                   <article
                     key={city.name}
@@ -199,14 +223,10 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
                             className="object-cover transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
                           />
                         ) : (
-                          <div className={`${gradient} absolute inset-0 flex flex-col items-center justify-center gap-3`} aria-hidden="true">
-                            <span className="flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur-sm">
-                              <Landmark className="h-7 w-7 text-white/70" />
-                            </span>
-                            <span className="font-heading text-lg font-black uppercase tracking-[0.25em] text-white/30">
-                              {city.name.slice(0, 2)}
-                            </span>
-                          </div>
+                          <CityLandmarkArt
+                            city={city.name}
+                            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
+                          />
                         )}
                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/10" />
 

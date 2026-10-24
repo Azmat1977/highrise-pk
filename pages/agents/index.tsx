@@ -33,6 +33,8 @@ import {
 import dbConnect from '@/lib/dbConnect';
 import AgentProfile from '@/models/AgentProfile';
 import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
+import { PageSearchShell } from '@/components/search/PageSearchShell';
+import type { SearchField } from '@/components/search/UnifiedSearchBar';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -800,6 +802,47 @@ export default function AgentsDirectoryPage({
     setPage(1);
   };
 
+  // ── Phase 5 search shell ──────────────────────────────────────────────────
+  const activeFilterCount = [
+    filters.search.trim(),
+    filters.city,
+    filters.agentType,
+    filters.specialization,
+    filters.verifiedOnly ? 'verified' : '',
+  ].filter(Boolean).length;
+
+  // Descriptors only: the shell reads and writes this page's own state.
+  const searchFields: SearchField[] = useMemo(
+    () => [
+      {
+        key: 'city',
+        kind: 'select',
+        label: 'City',
+        icon: MapPin,
+        searchable: true,
+        grow: 1.1,
+        value: filters.city,
+        onChange: (value) => updateFilter('city', value),
+        options: [
+          { value: '', label: 'All Cities' },
+          ...PAKISTAN_CITIES.map((city) => ({ value: city, label: city })),
+        ],
+      },
+      {
+        key: 'agent',
+        kind: 'text',
+        label: 'Agent Name',
+        icon: Search,
+        grow: 1.4,
+        placeholder: 'Name, city or agency',
+        value: filters.search,
+        onChange: (value) => updateFilter('search', value),
+        onSubmit: () => updateFilter('search', filters.search.trim()),
+      },
+    ],
+    [filters.city, filters.search]
+  );
+
   // ── Modal Handlers ──
   const openModal = useCallback(
     (agent: PublicAgent, intent: 'call' | 'whatsapp') => {
@@ -950,199 +993,141 @@ export default function AgentsDirectoryPage({
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── COMPACT PAGE HEADER ── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-              <Home className="w-3.5 h-3.5" />
-              <span>Home</span>
-            </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span className="text-[#004063] font-bold">Agents</span>
-          </nav>
+        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
+        <PageSearchShell
+          title="Find Real Estate Agents"
+          subtitle="Connect with verified property professionals."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <Home className="w-3 h-3" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <span className="text-white">Agents</span>
+            </nav>
+          }
+          fields={searchFields}
+          onSubmit={() => updateFilter('search', filters.search.trim())}
+          submitLabel="Search"
+          mobileLabel="Search Agents"
+          activeFilterCount={activeFilterCount}
+          onReset={clearAllFilters}
+        />
 
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-            Find Trusted Real Estate Agents in Pakistan
-          </h1>
-          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
-              {totalCount} KYC-Verified Property Experts
-            </span>
-            <span className="text-gray-300">•</span>
-            <span>Buy, sell, or rent across Pakistan</span>
-          </p>
-        </div>
+        {/* ── Secondary filters (kept below the banner so the shell stays one row) ── */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-4 pb-2">
+          <div className="flex flex-wrap items-center gap-2">
 
-        {/* ── Search & Filters Card ── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 mt-4 relative z-20 mb-8">
-          <div className="bg-white rounded-2xl shadow-xl border border-gray-100 
-                          p-4 md:p-6 max-w-5xl mx-auto">
-
-            {/* Search Row */}
-            <div className="flex flex-col lg:flex-row gap-3">
-              <div className="flex-1 relative">
-                <Search className="absolute left-4 top-1/2 -translate-y-1/2 
-                                   w-5 h-5 text-gray-400 pointer-events-none" />
+            {/* Verified Toggle */}
+            <label className="flex h-9 cursor-pointer select-none items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <div className="relative flex-shrink-0">
                 <input
-                  type="search"
-                  placeholder="Search by name, city or agency..."
-                  value={filters.search}
-                  onChange={(e) => updateFilter('search', e.target.value)}
-                  aria-label="Search agents"
-                  className="block w-full h-14 pl-11 pr-4 bg-gray-50 border 
-                             border-gray-100 rounded-xl text-gray-900 
-                             placeholder-gray-400 focus:ring-2 
-                             focus:ring-[#029bba] focus:border-[#029bba] 
-                             focus:bg-white transition-all text-sm"
+                  type="checkbox"
+                  checked={filters.verifiedOnly}
+                  onChange={(e) => updateFilter('verifiedOnly', e.target.checked)}
+                  className="peer sr-only"
+                  aria-label="Verified agents only"
                 />
+                <div className="h-5 w-9 rounded-full bg-gray-200 transition-colors peer-checked:bg-[#029bba]" />
+                <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
               </div>
+              <span className="flex items-center gap-1 text-xs font-medium text-gray-700">
+                <CheckCircle2 className="h-3.5 w-3.5 text-[#029bba]" />
+                Verified Only
+              </span>
+            </label>
+
+            {/* Agent Type */}
+            <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <Briefcase className="h-4 w-4 flex-shrink-0 text-[#029bba]" />
+              <select
+                value={filters.agentType}
+                onChange={(e) => updateFilter('agentType', e.target.value)}
+                aria-label="Filter by agent type"
+                className="cursor-pointer border-none bg-transparent text-xs font-bold text-gray-700 focus:outline-none focus:ring-0"
+              >
+                <option value="">All Types</option>
+                {AGENT_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Filter Row */}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 items-stretch">
+            {/* Specialization */}
+            <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <Award className="h-4 w-4 flex-shrink-0 text-[#029bba]" />
+              <select
+                value={filters.specialization}
+                onChange={(e) => updateFilter('specialization', e.target.value)}
+                aria-label="Filter by specialization"
+                className="cursor-pointer border-none bg-transparent text-xs font-bold text-gray-700 focus:outline-none focus:ring-0"
+              >
+                <option value="">All Specializations</option>
+                {SPECIALIZATIONS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
 
-                {/* Verified Toggle */}
-                <label className="flex items-center gap-2 h-12 px-3 bg-gray-50 
-                                  rounded-xl border border-gray-100 cursor-pointer 
-                                  select-none">
-                  <div className="relative flex-shrink-0">
-                    <input
-                      type="checkbox"
-                      checked={filters.verifiedOnly}
-                      onChange={(e) => updateFilter('verifiedOnly', e.target.checked)}
-                      className="sr-only peer"
-                      aria-label="Verified agents only"
-                    />
-                    <div className="w-9 h-5 bg-gray-200 rounded-full 
-                                    peer-checked:bg-[#029bba] transition-colors" />
-                    <div className="absolute left-0.5 top-0.5 w-4 h-4 bg-white 
-                                    rounded-full shadow peer-checked:translate-x-4 
-                                    transition-transform" />
-                  </div>
-                  <span className="text-xs font-medium text-gray-700 
-                                   flex items-center gap-1">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#029bba]" />
-                    Verified Only
-                  </span>
-                </label>
+            {hasActiveFilters && (
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <X className="h-3.5 w-3.5" />
+                Clear All
+              </button>
+            )}
+          </div>
 
-                {/* City */}
-                <div className="flex items-center gap-2 h-12 px-3 bg-gray-50 
-                                rounded-xl border border-gray-100">
-                  <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <select
-                    value={filters.city}
-                    onChange={(e) => updateFilter('city', e.target.value)}
-                    aria-label="Filter by city"
-                    className="w-full bg-transparent border-none text-sm 
-                               text-gray-700 focus:ring-0 focus:outline-none 
-                               cursor-pointer"
-                  >
-                    <option value="">All Cities</option>
-                    {PAKISTAN_CITIES.map((city) => (
-                      <option key={city} value={city}>{city}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Agent Type */}
-                <div className="flex items-center gap-2 h-12 px-3 bg-gray-50 
-                                rounded-xl border border-gray-100">
-                  <Briefcase className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <select
-                    value={filters.agentType}
-                    onChange={(e) => updateFilter('agentType', e.target.value)}
-                    aria-label="Filter by agent type"
-                    className="w-full bg-transparent border-none text-sm 
-                               text-gray-700 focus:ring-0 focus:outline-none 
-                               cursor-pointer"
-                  >
-                    <option value="">All Types</option>
-                    {AGENT_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Specialization */}
-                <div className="flex items-center gap-2 h-12 px-3 bg-gray-50 
-                                rounded-xl border border-gray-100">
-                  <Award className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                  <select
-                    value={filters.specialization}
-                    onChange={(e) => updateFilter('specialization', e.target.value)}
-                    aria-label="Filter by specialization"
-                    className="w-full bg-transparent border-none text-sm 
-                               text-gray-700 focus:ring-0 focus:outline-none 
-                               cursor-pointer"
-                  >
-                    <option value="">All Specializations</option>
-                    {SPECIALIZATIONS.map((s) => (
-                      <option key={s.value} value={s.value}>{s.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Active Filter Tags */}
-              {hasActiveFilters && (
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  {filters.search && (
-                    <FilterTag
-                      label={`Search: "${filters.search}"`}
-                      onRemove={() => updateFilter('search', '')}
-                    />
-                  )}
-                  {filters.city && (
-                    <FilterTag
-                      label={`City: ${filters.city}`}
-                      onRemove={() => updateFilter('city', '')}
-                    />
-                  )}
-                  {filters.agentType && (
-                    <FilterTag
-                      label={AGENT_TYPES.find((t) => t.value === filters.agentType)?.label ?? filters.agentType}
-                      onRemove={() => updateFilter('agentType', '')}
-                    />
-                  )}
-                  {filters.specialization && (
-                    <FilterTag
-                      label={SPECIALIZATIONS.find((s) => s.value === filters.specialization)?.label ?? filters.specialization}
-                      onRemove={() => updateFilter('specialization', '')}
-                    />
-                  )}
-                  {filters.verifiedOnly && (
-                    <span className="inline-flex items-center gap-1 px-3 py-1 
-                                     bg-green-100 text-green-700 rounded-full 
-                                     text-sm font-medium">
-                      <CheckCircle2 className="w-3.5 h-3.5" />
-                      Verified Only
-                      <button
-                        type="button"
-                        onClick={() => updateFilter('verifiedOnly', false)}
-                        aria-label="Remove verified filter"
-                        className="hover:text-red-600 transition-colors"
-                      >
-                        <X className="w-3.5 h-3.5" />
-                      </button>
-                    </span>
-                  )}
-                 <button
+          {/* Active Filter Tags */}
+          {hasActiveFilters && (
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              {filters.search && (
+                <FilterTag
+                  label={`Search: "${filters.search}"`}
+                  onRemove={() => updateFilter('search', '')}
+                />
+              )}
+              {filters.city && (
+                <FilterTag
+                  label={`City: ${filters.city}`}
+                  onRemove={() => updateFilter('city', '')}
+                />
+              )}
+              {filters.agentType && (
+                <FilterTag
+                  label={AGENT_TYPES.find((t) => t.value === filters.agentType)?.label ?? filters.agentType}
+                  onRemove={() => updateFilter('agentType', '')}
+                />
+              )}
+              {filters.specialization && (
+                <FilterTag
+                  label={SPECIALIZATIONS.find((s) => s.value === filters.specialization)?.label ?? filters.specialization}
+                  onRemove={() => updateFilter('specialization', '')}
+                />
+              )}
+              {filters.verifiedOnly && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-700">
+                  <CheckCircle2 className="h-3.5 w-3.5" />
+                  Verified Only
+                  <button
                     type="button"
-                    onClick={clearAllFilters}
-                    className="text-sm text-gray-500 hover:text-red-600 
-                               px-3 py-1 rounded-lg hover:bg-red-50 
-                               transition-colors flex items-center gap-1"
+                    onClick={() => updateFilter('verifiedOnly', false)}
+                    aria-label="Remove verified filter"
+                    className="transition-colors hover:text-red-600"
                   >
-                    <X className="w-3.5 h-3.5" />
-                    Clear All
+                    <X className="h-3.5 w-3.5" />
                   </button>
-                </div>
+                </span>
               )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* ── Results ── */}

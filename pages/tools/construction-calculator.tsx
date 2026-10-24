@@ -14,6 +14,7 @@ import {
   Building, Building2, Briefcase, Factory, Snowflake,
   Store, ShoppingBag, Trees, AlertTriangle, Database,
 } from 'lucide-react';
+import { PageTitleBanner } from '@/components/layout/PageTitleBanner';
 
 // ─── Types (mirror lib/constructionRates.ts) ──────────────────────────────────
 
@@ -606,34 +607,26 @@ export default function ConstructionCalculatorPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── COMPACT PAGE HEADER ── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-              <Home className="w-3.5 h-3.5" />
-              <span>Home</span>
-            </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <Link href="/tools" className="hover:text-[#029bba] font-medium transition-colors">
-              Tools
-            </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span className="text-[#004063] font-bold">Construction Cost Calculator</span>
-          </nav>
-
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-            Banane Ka Kharcha Kitna Aayega?
-          </h1>
-          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-            <span>14 property types</span>
-            <span className="text-gray-300">•</span>
-            <span>10 cities</span>
-            <span className="text-gray-300">•</span>
-            <span>3 quality grades</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-[#029bba]">Live material rates</span>
-          </p>
-        </div>
+        {/* ── PHASE 5 PAGE BANNER ── */}
+        <PageTitleBanner
+          title="Banane Ka Kharcha Kitna Aayega?"
+          subtitle="Estimate construction material and per-Marla build cost for your plot."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <Home className="w-3 h-3" />
+                <span>Home</span>
+              </Link>
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <Link href="/tools" className="transition-colors hover:text-white">Tools</Link>
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <span className="text-white">Construction Cost Calculator</span>
+            </nav>
+          }
+        />
 
         {/* ── PROGRESS BAR ── */}
         <section className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-6">

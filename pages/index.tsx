@@ -704,7 +704,7 @@ export default function HomePage(): React.ReactElement {
           setTurnstileToken={setTurnstileToken}
         />
 
-        <PopularSearches cities={cities.map((city) => city.name)} />
+        <PopularSearches />
 
         <FinalCta />
 

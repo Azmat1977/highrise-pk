@@ -23,6 +23,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
+import { PageSearchShell } from '@/components/search/PageSearchShell';
+import type { SearchField } from '@/components/search/UnifiedSearchBar';
 
 // ─────────────────────────────────────────────
 // Types
@@ -340,11 +342,6 @@ export default function DevelopersDirectoryPage({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router.isReady, selectedCity]);
 
-  const handleCityChange = (event: React.ChangeEvent<HTMLSelectElement>): void => {
-    cityTouchedRef.current = true;
-    setSelectedCity(event.target.value);
-  };
-
   // ── Load more ──
   const [extraDevs,    setExtraDevs]    = useState<DeveloperSummary[]>([]);
   const [loadingMore,  setLoadingMore]  = useState(false);
@@ -492,6 +489,51 @@ export default function DevelopersDirectoryPage({
     }
   };
 
+  // ── Phase 5 search shell ──────────────────────────────────────────────────
+  const activeFilterCount = [
+    searchTerm,
+    selectedCity,
+    selectedType,
+    selectedScoreRange,
+    selectedRiskLevel,
+    verifiedOnly ? 'verified' : '',
+  ].filter(Boolean).length;
+
+  // Descriptors only: the shell reads and writes this page's own state.
+  const searchFields: SearchField[] = useMemo(
+    () => [
+      {
+        key: 'city',
+        kind: 'select',
+        label: 'City',
+        icon: MapPin,
+        searchable: true,
+        grow: 1.1,
+        value: selectedCity,
+        onChange: (value) => {
+          cityTouchedRef.current = true;
+          setSelectedCity(value);
+        },
+        options: [
+          { value: '', label: 'All Cities' },
+          ...cityOptions.map((city) => ({ value: city, label: city })),
+        ],
+      },
+      {
+        key: 'developer',
+        kind: 'text',
+        label: 'Developer Name',
+        icon: Search,
+        grow: 1.4,
+        placeholder: 'Search by developer name',
+        value: searchTerm,
+        onChange: setSearchTerm,
+        onSubmit: () => setSearchTerm(searchTerm.trim()),
+      },
+    ],
+    [selectedCity, searchTerm, cityOptions]
+  );
+
   // ─────────────────────────────────────────
   // ISR fallback skeleton
   // ─────────────────────────────────────────
@@ -515,6 +557,7 @@ export default function DevelopersDirectoryPage({
   // ─────────────────────────────────────────
 
   const jsonLd = buildJsonLd(developers);
+
 
   // ─────────────────────────────────────────
   // Render
@@ -555,193 +598,155 @@ export default function DevelopersDirectoryPage({
       </Head>
 
       <div className="min-h-screen bg-gray-50">
-        <header className="mx-auto max-w-[1440px] px-3 pt-4 pb-4 sm:px-4 md:pt-5 lg:px-6">
-          <nav aria-label="Breadcrumb" className="mb-2 flex items-center gap-2 text-xs text-gray-500">
-            <Link href="/" className="flex items-center gap-1 font-medium transition-colors hover:text-[#029bba]">
-              <Home className="h-3.5 w-3.5" />
-              <span>Home</span>
-            </Link>
-            <span className="text-gray-300">/</span>
-            <span className="font-medium text-gray-600">Developers</span>
-          </nav>
-          <h1 className="text-xl font-black leading-tight tracking-tight text-[#004063] md:text-2xl lg:text-3xl">
-            Verified Developers in Pakistan
-          </h1>
-          <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
-            <span>{totalCount.toLocaleString()} Developers</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-emerald-600">KYC Verified</span>
-            <span className="text-gray-300">•</span>
-            <span className="text-[#029bba]">Trust Score Rated</span>
-          </p>
-        </header>
+        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
+        <PageSearchShell
+          title="Discover Verified Developers"
+          subtitle="Browse top builders and their portfolios."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <Home className="h-3 w-3" />
+                <span>Home</span>
+              </Link>
+              <span className="text-blue-200/40">/</span>
+              <span className="text-white">Developers</span>
+            </nav>
+          }
+          fields={searchFields}
+          onSubmit={() => setSearchTerm(searchTerm.trim())}
+          submitLabel="Search"
+          mobileLabel="Search Developers"
+          activeFilterCount={activeFilterCount}
+          onReset={clearAllFilters}
+        />
 
-        {/* ── Search & Filters ── */}
-        <div className="mx-auto max-w-[1440px] px-3 pb-4 sm:px-4 lg:px-6">
-          <div>
+        {/* ── Secondary filters (kept below the banner so the shell stays one row) ── */}
+        <div className="mx-auto max-w-[1440px] px-3 pt-4 pb-2 sm:px-4 lg:px-6">
+          <div className="flex flex-wrap items-center gap-2">
 
-            {/* Search row */}
-            <div className="flex flex-col items-stretch gap-2.5">
-              <div className="relative min-w-0 w-full max-w-[720px]">
-                <Search className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#029bba]" />
+            {/* Verified toggle */}
+            <label className="flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <div className="relative">
                 <input
-                  type="text"
-                  placeholder="Search by developer name or city..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="h-11 w-full rounded-xl border border-gray-300 bg-white pl-10 pr-20 text-sm font-semibold text-gray-900 placeholder-gray-400 outline-none transition-all focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/20"
+                  type="checkbox"
+                  checked={verifiedOnly}
+                  onChange={(e) => setVerifiedOnly(e.target.checked)}
+                  className="peer sr-only"
                 />
-                <button
-                  type="button"
-                  onClick={() => setSearchTerm(searchTerm.trim())}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg bg-[#029bba] px-3 py-1.5 text-xs font-bold text-white transition-colors hover:bg-[#004063]"
-                >
-                  Search
-                </button>
+                <div className="h-5 w-9 rounded-full bg-gray-200 transition-colors peer-checked:bg-[#029bba]" />
+                <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
               </div>
+              <span className="flex items-center gap-1 text-[13px] font-medium text-gray-700">
+                <CheckCircle2 className="h-4 w-4 text-[#029bba]" />
+                Verified
+              </span>
+            </label>
+
+            {/* Type */}
+            <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <Briefcase className="h-4 w-4 shrink-0 text-[#029bba]" />
+              <select
+                value={selectedType}
+                onChange={(e) => setSelectedType(e.target.value)}
+                aria-label="Developer type"
+                className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
+              >
+                {DEVELOPER_TYPES.map((t) => (
+                  <option key={t.value} value={t.value}>{t.label}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Filter row */}
-            <div className="mt-2.5">
-              <div className="flex flex-wrap items-center justify-start gap-2">
-
-                {/* Verified toggle */}
-                <label className="flex h-9 cursor-pointer items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
-                  <div className="relative">
-                    <input
-                      type="checkbox"
-                      checked={verifiedOnly}
-                      onChange={(e) => setVerifiedOnly(e.target.checked)}
-                      className="peer sr-only"
-                    />
-                    <div className="h-5 w-9 rounded-full bg-gray-200 transition-colors peer-checked:bg-[#029bba]" />
-                    <div className="absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform peer-checked:translate-x-4" />
-                  </div>
-                  <span className="flex items-center gap-1 text-[13px] font-medium text-gray-700">
-                    <CheckCircle2 className="h-4 w-4 text-[#029bba]" />
-                    Verified
-                  </span>
-                </label>
-
-                {/* City — real cities from the API when available, Pakistan list otherwise */}
-                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
-                  <MapPin className="h-4 w-4 shrink-0 text-[#029bba]" />
-                  <select
-                    value={selectedCity}
-                    onChange={handleCityChange}
-                    className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
-                  >
-                    <option value="">All Cities</option>
-                    {(cityOptions).map((city) => (
-                      <option key={city} value={city}>{city}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Type */}
-                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
-                  <Briefcase className="h-4 w-4 shrink-0 text-[#029bba]" />
-                  <select
-                    value={selectedType}
-                    onChange={(e) => setSelectedType(e.target.value)}
-                    className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
-                  >
-                    {DEVELOPER_TYPES.map((t) => (
-                      <option key={t.value} value={t.value}>{t.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Trust score */}
-                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
-                  <Award className="h-4 w-4 shrink-0 text-[#029bba]" />
-                  <select
-                    value={selectedScoreRange}
-                    onChange={(e) => setSelectedScoreRange(e.target.value)}
-                    className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
-                  >
-                    {TRUST_SCORE_RANGES.map((r) => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Risk level */}
-                <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
-                  <AlertTriangle className="h-4 w-4 shrink-0 text-[#029bba]" />
-                  <select
-                    value={selectedRiskLevel}
-                    onChange={(e) => setSelectedRiskLevel(e.target.value)}
-                    className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
-                  >
-                    {RISK_LEVELS.map((r) => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              {/* Clear filters */}
-              {hasActiveFilters && (
-                <div className="mt-3 flex justify-start">
-                  <button
-                    type="button"
-                    onClick={clearAllFilters}
-                    className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
-                  >
-                    <X className="h-4 w-4" />
-                    Clear All Filters
-                  </button>
-                </div>
-              )}
+            {/* Trust score */}
+            <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <Award className="h-4 w-4 shrink-0 text-[#029bba]" />
+              <select
+                value={selectedScoreRange}
+                onChange={(e) => setSelectedScoreRange(e.target.value)}
+                aria-label="Trust score"
+                className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
+              >
+                {TRUST_SCORE_RANGES.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
             </div>
 
-            {/* Active filter chips */}
+            {/* Risk level */}
+            <div className="flex h-9 items-center gap-2 rounded-xl border border-gray-300 bg-white px-3">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-[#029bba]" />
+              <select
+                value={selectedRiskLevel}
+                onChange={(e) => setSelectedRiskLevel(e.target.value)}
+                aria-label="Risk level"
+                className="w-full cursor-pointer border-none bg-transparent text-sm text-gray-700 outline-none focus:ring-0"
+              >
+                {RISK_LEVELS.map((r) => (
+                  <option key={r.value} value={r.value}>{r.label}</option>
+                ))}
+              </select>
+            </div>
+
             {hasActiveFilters && (
-              <div className="mt-4 flex flex-wrap gap-2">
-                {searchTerm && (
-                  <FilterChip
-                    label={`Search: "${searchTerm}"`}
-                    onRemove={() => setSearchTerm('')}
-                  />
-                )}
-                {selectedCity && (
-                  <FilterChip
-                    label={`City: ${selectedCity}`}
-                    onRemove={() => {
-                      cityTouchedRef.current = true;
-                      setSelectedCity('');
-                    }}
-                  />
-                )}
-                {selectedType && (
-                  <FilterChip
-                    label={`Type: ${DEVELOPER_TYPES.find((t) => t.value === selectedType)?.label ?? selectedType}`}
-                    onRemove={() => setSelectedType('')}
-                  />
-                )}
-                {selectedScoreRange && (
-                  <FilterChip
-                    label={`Score: ${TRUST_SCORE_RANGES.find((r) => r.value === selectedScoreRange)?.label ?? selectedScoreRange}`}
-                    onRemove={() => setSelectedScoreRange('')}
-                  />
-                )}
-                {selectedRiskLevel && (
-                  <FilterChip
-                    label={`Risk: ${RISK_LEVELS.find((r) => r.value === selectedRiskLevel)?.label ?? selectedRiskLevel}`}
-                    onRemove={() => setSelectedRiskLevel('')}
-                  />
-                )}
-                {verifiedOnly && (
-                  <FilterChip
-                    label="Verified Only"
-                    onRemove={() => setVerifiedOnly(false)}
-                    green
-                  />
-                )}
-              </div>
+              <button
+                type="button"
+                onClick={clearAllFilters}
+                className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
+              >
+                <X className="h-4 w-4" />
+                Clear All Filters
+              </button>
             )}
           </div>
+
+          {/* Active filter chips */}
+          {hasActiveFilters && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {searchTerm && (
+                <FilterChip
+                  label={`Search: "${searchTerm}"`}
+                  onRemove={() => setSearchTerm('')}
+                />
+              )}
+              {selectedCity && (
+                <FilterChip
+                  label={`City: ${selectedCity}`}
+                  onRemove={() => {
+                    cityTouchedRef.current = true;
+                    setSelectedCity('');
+                  }}
+                />
+              )}
+              {selectedType && (
+                <FilterChip
+                  label={`Type: ${DEVELOPER_TYPES.find((t) => t.value === selectedType)?.label ?? selectedType}`}
+                  onRemove={() => setSelectedType('')}
+                />
+              )}
+              {selectedScoreRange && (
+                <FilterChip
+                  label={`Score: ${TRUST_SCORE_RANGES.find((r) => r.value === selectedScoreRange)?.label ?? selectedScoreRange}`}
+                  onRemove={() => setSelectedScoreRange('')}
+                />
+              )}
+              {selectedRiskLevel && (
+                <FilterChip
+                  label={`Risk: ${RISK_LEVELS.find((r) => r.value === selectedRiskLevel)?.label ?? selectedRiskLevel}`}
+                  onRemove={() => setSelectedRiskLevel('')}
+                />
+              )}
+              {verifiedOnly && (
+                <FilterChip
+                  label="Verified Only"
+                  onRemove={() => setVerifiedOnly(false)}
+                  green
+                />
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Results ── */}

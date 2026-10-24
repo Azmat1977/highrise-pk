@@ -9,10 +9,12 @@
 import type { GetServerSideProps, NextPage } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
 import AuthGateModal from '@/components/auth/AuthGateModal';
+import { PageSearchShell } from '@/components/search/PageSearchShell';
+import type { SearchField } from '@/components/search/UnifiedSearchBar';
 
 import {
   Search,
@@ -320,6 +322,84 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
       ],
     };
 
+  // ── Phase 5 search shell fields ───────────────────────────────────────────
+  // Descriptors only; every value reads/writes this page's existing filter
+  // state so the banner bar and the sticky bar share one source of truth.
+  const searchFields: SearchField[] = useMemo(
+    () => [
+      {
+        key: 'city',
+        kind: 'select',
+        label: 'City',
+        icon: MapPin,
+        searchable: true,
+        value: filters.city || '',
+        onChange: (value) => updateFilters({ city: value }),
+        options: [
+          { value: '', label: 'All Cities' },
+          ...citiesToShow.map((c) => ({
+            value: c.city,
+            label: c.city,
+            count: c.count > 0 ? c.count : undefined,
+          })),
+        ],
+      },
+      {
+        key: 'category',
+        kind: 'select',
+        label: 'Category',
+        icon: Building2,
+        value: filters.category || '',
+        onChange: (value) => updateFilters({ category: value as ProjectCategory | '' }),
+        options: [
+          { value: '', label: 'All Categories' },
+          ...(Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[]).map((key) => ({
+            value: key,
+            label: PROJECT_CATEGORY_LABELS[key],
+          })),
+        ],
+      },
+      {
+        key: 'status',
+        kind: 'select',
+        label: 'Status',
+        icon: Clock,
+        value: filters.installments ? 'installments' : filters.possession || '',
+        onChange: (value) => {
+          if (value === 'installments') {
+            updateFilters({ installments: true, possession: '' });
+          } else {
+            updateFilters({ installments: false, possession: value as PossessionStatus | '' });
+          }
+        },
+        options: [
+          { value: '', label: 'Any Status' },
+          ...STATUS_OPTIONS.map((opt) => ({ value: opt.value, label: opt.label })),
+        ],
+      },
+      {
+        key: 'locality',
+        kind: 'text',
+        label: 'Project / Locality',
+        icon: Search,
+        grow: 1.3,
+        placeholder: 'Project, locality or developer',
+        value: searchTerm,
+        onChange: setSearchTerm,
+        onSubmit: handleSearchSubmit,
+      },
+    ],
+    [
+      filters.city,
+      filters.category,
+      filters.installments,
+      filters.possession,
+      searchTerm,
+      citiesToShow,
+      updateFilters,
+    ]
+  );
+
   return (
     <>
       <Head>
@@ -369,205 +449,109 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
       />
 
       <div className="bg-gray-50 min-h-screen">
-        {/* TRULIA-STYLE WIDE CONTAINER SHELL (1440px) */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
-
-          {/* BREADCRUMBS & HEADER ZONE - COMPACT */}
-          <div>
-            <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-              <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-                <Home className="w-3.5 h-3.5" />
+        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
+        <PageSearchShell
+          title="Explore Real Estate Projects"
+          subtitle="Discover under-construction and completed developments."
+          breadcrumb={
+            <nav
+              aria-label="Breadcrumb"
+              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+            >
+              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+                <Home className="w-3 h-3" />
                 <span>Home</span>
               </Link>
-              <ChevronRight className="w-3 h-3 text-gray-300" />
-              <Link href="/projects" className="hover:text-[#029bba] font-medium transition-colors">
+              <ChevronRight className="w-3 h-3 text-blue-200/40" />
+              <Link href="/projects" className="transition-colors hover:text-white">
                 New Projects
               </Link>
               {filters.city && (
                 <>
-                  <ChevronRight className="w-3 h-3 text-gray-300" />
-                  <span className="text-[#004063] font-bold">{filters.city}</span>
+                  <ChevronRight className="w-3 h-3 text-blue-200/40" />
+                  <span className="text-white">{filters.city}</span>
                 </>
               )}
             </nav>
+          }
+          fields={searchFields}
+          onSubmit={handleSearchSubmit}
+          submitLabel="Search"
+          mobileLabel="Search Projects"
+          activeFilterCount={activeFilterCount}
+          onReset={() => updateFilters(DEFAULT_FILTERS)}
+        />
 
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div>
-                <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-                  {filters.city ? `Verified Projects in ${filters.city}` : 'Verified Projects in Pakistan'}
-                </h1>
-                <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-                  <span>{totalCount.toLocaleString()} Projects</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-emerald-600">NOC Approved</span>
-                  <span className="text-gray-300">•</span>
-                  <span className="text-[#029bba]">Installments Available</span>
-                </p>
-              </div>
+        {/* TRULIA-STYLE WIDE CONTAINER SHELL (1440px) */}
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
 
-              <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto shrink-0">
-                <button
-                  type="button"
-                  onClick={handleSaveSearchClick}
-                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#004063] hover:to-[#029bba] text-white text-xs font-bold transition-all shadow-md active:scale-95"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                  <span>Save Search & Get Alerts</span>
-                </button>
+          {/* Secondary refinements + save search — kept out of the banner so the
+              shell itself can stay a strict single row on desktop. */}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={handleSaveSearchClick}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#004063] hover:to-[#029bba] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+              >
+                <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                <span>Save Search &amp; Get Alerts</span>
+              </button>
 
-                {activeFilterCount > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => updateFilters(DEFAULT_FILTERS)}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors"
-                  >
-                    <RotateCcw className="w-3.5 h-3.5" />
-                    Reset Filters ({activeFilterCount})
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* TRULIA-STYLE COMPACT SEARCH & FILTER BAR */}
-          <div className={`transition-all duration-300 md:sticky md:top-[64px] z-30 relative ${
-            isSticky ? 'bg-white shadow-sm border-b border-gray-200 py-3 -mx-4 px-4 sm:mx-0 sm:px-0' : 'bg-transparent'
-          }`}>
-            
-            {/* Unified 1-Row Layout */}
-            <div className="flex flex-col gap-2.5">
-              
-              {/* Tightly Packed Dropdowns (Scrollable on small mobile, inline on desktop) */}
-              <div className="w-full flex flex-wrap items-center justify-start gap-2.5 pb-1">
-                
-                <div className="w-[140px] shrink-0">
-                  <FilterDropdown
-                    icon={MapPin}
-                    placeholder="All Cities"
-                    value={filters.city || ''}
-                    onChange={(v) => updateFilters({ city: v })}
-                    compact
-                    searchable
-                    options={[
-                      { value: '', label: 'All Cities' },
-                      ...citiesToShow.map((c) => ({
-                        value: c.city,
-                        label: c.city,
-                        count: c.count > 0 ? c.count : undefined,
-                      })),
-                    ]}
-                  />
-                </div>
-
-                <div className="w-[140px] shrink-0">
-                  <FilterDropdown
-                    icon={Building2}
-                    placeholder="Category"
-                    value={filters.category || ''}
-                    onChange={(v) => updateFilters({ category: v as ProjectCategory | '' })}
-                    compact
-                    options={[
-                      { value: '', label: 'All Categories' },
-                      ...(Object.keys(PROJECT_CATEGORY_LABELS) as ProjectCategory[]).map((key) => ({
-                        value: key,
-                        label: PROJECT_CATEGORY_LABELS[key],
-                      })),
-                    ]}
-                  />
-                </div>
-
-                <div className="w-[150px] shrink-0">
-                  <FilterDropdown
-                    icon={Clock}
-                    placeholder="Status"
-                    value={filters.installments ? 'installments' : (filters.possession || '')}
-                    onChange={(v) => {
-                      if (v === 'installments') {
-                        updateFilters({ installments: true, possession: '' });
-                      } else {
-                        updateFilters({ installments: false, possession: v as PossessionStatus | '' });
-                      }
-                    }}
-                    compact
-                    options={[
-                      { value: '', label: 'Any Status' },
-                      ...STATUS_OPTIONS.map((opt) => ({
-                        value: opt.value,
-                        label: opt.label,
-                      })),
-                    ]}
-                  />
-                </div>
-
-                <div className="w-[140px] shrink-0">
-                  <FilterDropdown
-                    icon={Banknote}
-                    placeholder="Budget"
-                    value={getMatchingBudgetTier(filters.minBudget, filters.maxBudget) || ''}
-                    onChange={(v) => updateFilters(budgetTierToRange(v as BudgetTierKey | ''))}
-                    compact
-                    options={[
-                      { value: '', label: 'Any Budget' },
-                      ...BUDGET_TIERS.map((t) => ({ value: t.key, label: t.label })),
-                    ]}
-                  />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => updateFilters({ noc: !filters.noc })}
-                  className={`shrink-0 h-9 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
-                    filters.noc
-                      ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
-                      : 'bg-white border-gray-300 text-gray-700 hover:border-emerald-500/40 hover:text-emerald-600 shadow-sm'
-                  }`}
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-[#029bba]" />
-                  <span className="hidden lg:inline">NOC Approved</span>
-                  <span className="lg:hidden">NOC</span>
-                </button>
-              </div>
-
-              {/* Search controls directly underneath the filter row */}
-              <div className="relative w-full max-w-[720px]">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-[#029bba] pointer-events-none" />
-                <input
-                  type="text"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSearchSubmit();
-                    }
-                  }}
-                  placeholder="Search locality, project, or developer..."
-                  className="w-full h-11 pl-10 pr-20 bg-white border border-gray-300 rounded-xl text-sm font-semibold text-gray-900 placeholder-gray-400 focus:bg-white focus:ring-2 focus:ring-[#029bba] focus:border-[#029bba] focus:outline-none transition-all shadow-sm"
+              <div className="w-[150px] shrink-0">
+                <FilterDropdown
+                  icon={Banknote}
+                  placeholder="Budget"
+                  value={getMatchingBudgetTier(filters.minBudget, filters.maxBudget) || ''}
+                  onChange={(v) => updateFilters(budgetTierToRange(v as BudgetTierKey | ''))}
+                  compact
+                  options={[
+                    { value: '', label: 'Any Budget' },
+                    ...BUDGET_TIERS.map((t) => ({ value: t.key, label: t.label })),
+                  ]}
                 />
-                <button
-                  type="button"
-                  onClick={handleSearchSubmit}
-                  className="absolute right-1.5 top-1/2 -translate-y-1/2 px-3 py-1.5 bg-[#029bba] hover:bg-[#004063] text-white text-xs font-bold rounded-lg transition-colors"
-                >
-                  Search
-                </button>
               </div>
+
+              <button
+                type="button"
+                onClick={() => updateFilters({ noc: !filters.noc })}
+                aria-pressed={filters.noc}
+                className={`shrink-0 h-9 px-3 rounded-xl border text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                  filters.noc
+                    ? 'bg-emerald-500 border-emerald-500 text-white shadow-sm'
+                    : 'bg-white border-gray-300 text-gray-700 hover:border-emerald-500/40 hover:text-emerald-600 shadow-sm'
+                }`}
+              >
+                <ShieldCheck className="w-3.5 h-3.5" />
+                <span>NOC Approved</span>
+              </button>
             </div>
 
-            {/* Active Locality Chip (Other filters are visibly active in dropdowns) */}
-            {filters.locality && (
-              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Active:</span>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-[11px] font-bold text-gray-700">
-                  {filters.locality}
-                  <button type="button" onClick={() => updateFilters({ locality: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
-                </span>
-                <button type="button" onClick={() => updateFilters(DEFAULT_FILTERS)} className="text-[11px] font-bold text-red-500 hover:underline ml-1">
-                  Clear All
-                </button>
-              </div>
+            {activeFilterCount > 0 && (
+              <button
+                type="button"
+                onClick={() => updateFilters(DEFAULT_FILTERS)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-red-50 border border-red-100 text-red-600 text-xs font-bold hover:bg-red-100 transition-colors"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset Filters ({activeFilterCount})
+              </button>
             )}
           </div>
+
+          {/* Active Locality Chip (Other filters are visibly active in the shell) */}
+          {filters.locality && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mr-1">Active:</span>
+              <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-gray-100 border border-gray-200 rounded text-[11px] font-bold text-gray-700">
+                {filters.locality}
+                <button type="button" onClick={() => updateFilters({ locality: '' })} className="hover:text-red-500"><X className="w-3 h-3" /></button>
+              </span>
+              <button type="button" onClick={() => updateFilters(DEFAULT_FILTERS)} className="text-[11px] font-bold text-red-500 hover:underline ml-1">
+                Clear All
+              </button>
+            </div>
+          )}
 
           {/* MAIN PROJECT RESULTS GRID */}
           <div className="relative z-10">
