@@ -1,0 +1,1049 @@
+Dear, this is an excellent idea. I recommend using Google AI Studio to create a beautiful, cohesive frontend prototype for Highrise.pk, while OpenCode Nemotron continues working on your actual application and backend.
+
+The important thing is to design all five pages as parts of one real-estate platform, rather than generating five unrelated website mockups. Once the designs are ready, we can integrate them into your existing Next.js application while preserving MongoDB, authentication, APIs, verification workflows, and lead management.
+
+For Highrise.pk, I would aim for a premium combination of modern Pakistani real-estate discovery, international-quality property presentation, and your brand's core differentiator: trust, transparency, and verified property information.
+
+## Master design prompt for Google AI Studio
+
+Open Google AI Studio, start a new app in its Build mode, and paste the complete prompt below. It instructs the AI to build the five pages together, with a shared design system and working frontend interactions.
+
+# HIGHRISE.PK — PREMIUM REAL ESTATE PLATFORM
+
+## Complete Frontend Design & Interactive Prototype
+
+### 1. YOUR ROLE
+
+Act as an elite product designer, award-winning UI/UX architect, senior React/TypeScript frontend engineer, real-estate marketplace specialist, and design-system engineer.
+
+Design and build a complete, polished, production-quality frontend prototype for **Highrise.pk**, a Pakistani real-estate discovery and property intelligence platform.
+
+This is not a generic property listing website. Highrise.pk aims to help people in Pakistan and overseas Pakistanis discover properties, compare developments, evaluate builders, understand payment plans, and make more informed real-estate decisions.
+
+The interface must communicate:
+
+- Trust and transparency.
+- Professionalism and credibility.
+- Modern real-estate intelligence.
+- Ease of discovery.
+- High-quality property photography.
+- Clear, organized property information.
+- Confidence when exploring projects and developers.
+
+Create a beautiful, cohesive, fully responsive website with five complete pages:
+
+1. Homepage.
+2. Properties listing/search page.
+3. Property detail page.
+4. Projects listing/discovery page.
+5. Project detail page.
+
+All five pages must look like one premium, established brand.
+
+Do not stop at a wireframe, a landing page, or a collection of static cards. Build the complete interactive frontend prototype.
+
+---
+
+# 2. BRAND IDENTITY — MUST FOLLOW EXACTLY
+
+## Brand positioning
+
+Brand name: Highrise.pk
+
+Brand promise: Elevating Real Estate in Pakistan.
+
+Present Highrise.pk as a trusted, transparent, intelligent Pakistani real-estate platform, not merely a classifieds portal.
+
+Do not claim that a property, builder, society, project, or NOC is verified unless the prototype clearly labels it as sample content and does not imply real-world verification.
+
+## Brand colors
+
+Use this existing brand palette without replacing it with a different color scheme.
+
+- Primary cyan: `#029bba`
+- Deep navy: `#004063`
+- Secondary blue: `#007196`
+- Accent cyan: `#0188aa`
+- Bright cyan: `#38aec7`
+- Soft blue: `#8fc2d0`
+- Pale blue: `#bbd8e0`
+- Light neutral: `#ecedee`
+- White: `#ffffff`
+
+Use white and subtle neutral backgrounds as the primary canvas, deep navy for important headings, and cyan/blue for actions, active states, and selected highlights.
+
+Use restrained gradients, elegant shadows, subtle borders, and sophisticated contrast.
+
+Avoid excessive saturated backgrounds, large areas of dark color, neon effects, excessive glassmorphism, and colorful gradients everywhere.
+
+## Typography
+
+- Headings and hero titles: Montserrat, preferably 600–700 weight.
+- Body text, navigation, forms, and supporting information: Poppins, preferably 400–500 weight.
+- Use a clear typographic hierarchy and comfortable line heights.
+
+## Visual personality
+
+The website should feel:
+
+- Premium but accessible.
+- Minimal yet informative.
+- Modern and intelligent.
+- Elegant rather than flashy.
+- Trustworthy rather than sales-heavy.
+- Spacious rather than crowded.
+
+Use polished rounded cards, consistent spacing, generous left/right whitespace, subtle hover transitions, clean iconography, and high-quality real-estate imagery.
+
+Use Lucide icons or an existing compatible icon library.
+
+Do not use emoji as interface icons.
+
+---
+
+# 3. TECHNICAL IMPLEMENTATION
+
+Build an actual running frontend application using the React and TypeScript environment available in Google AI Studio.
+
+Prefer Tailwind CSS and reusable React components when supported by the generated environment. If the environment provides a different working setup, use its existing configuration rather than breaking it.
+
+Requirements:
+
+- Reusable components and a coherent design system.
+- Functional client-side navigation and routing.
+- Five separately accessible page routes.
+- Reusable property cards, project cards, developer cards, buttons, badges, filters, breadcrumbs, and section headings.
+- Responsive desktop, tablet, and mobile layouts.
+- Accessible semantic HTML, labels, keyboard navigation, and visible focus states.
+- Consistent spacing and typography.
+- Useful loading, empty, and error states where appropriate.
+- No unnecessary dependencies.
+- No dead links or buttons that appear functional but do nothing.
+- No horizontal overflow on mobile.
+
+Suggested routes:
+
+- `/`
+- `/properties`
+- `/properties/sample-property`
+- `/projects`
+- `/projects/sample-project`
+
+Use the routing solution supported by the existing environment.
+
+Keep the application easy to export, review, and integrate into an existing Next.js Pages Router application later.
+
+## Important backend separation
+
+This is a FRONTEND-FIRST DESIGN PROTOTYPE.
+
+Do not connect to MongoDB, create API endpoints, modify a production database, or require real credentials.
+
+Use a clearly separated mock-data layer with realistic sample records. Build reusable interfaces and components so real API data can replace sample data later.
+
+Never hardcode mock data throughout multiple components when it can be shared through a data module.
+
+Clearly mark demonstration records as sample content in the code and do not represent them as real, verified listings.
+
+Make all major interactions work locally using React state, URL query parameters, and client-side navigation as appropriate.
+
+---
+
+# 4. SHARED SITE HEADER
+
+Design one polished header shared by all five pages.
+
+### Top-level navigation
+
+- Highrise.pk logo on the left.
+- Properties.
+- Projects.
+- Tools.
+- For Owners / List Property.
+- Developers.
+- A prominent but restrained action for listing a property.
+- Login / Sign Up or a profile menu.
+- Mobile navigation menu.
+
+Keep the header white, clean, and compact, with the logo clearly visible.
+
+Use the brand colors for active navigation, hover underlines, and primary actions.
+
+The navigation should have proper spacing and not feel overcrowded.
+
+If a Tools dropdown is implemented, make it usable with mouse, touch, and keyboard.
+
+Do not invent functional account authentication. Login and signup may lead to a clearly identified prototype screen or placeholder route.
+
+### Shared footer
+
+Create a sophisticated footer with:
+
+- Highrise.pk logo.
+- Tagline: “Elevating Real Estate in Pakistan”.
+- Property discovery links.
+- Project and developer links.
+- Relevant property tools.
+- About and contact links.
+- Social media link placeholders.
+- Privacy Policy and Terms links.
+- Footer copyright: `© 2016 Highrise.pk. All rights reserved.`
+
+Use a refined layout with appropriate whitespace and responsive columns.
+
+---
+
+# 5. PAGE ONE — HOMEPAGE
+
+Route: `/`
+
+The homepage should introduce the brand, immediately help users search, and showcase valuable properties and projects.
+
+Unlike internal pages, the homepage may have a distinctive hero section.
+
+## Section A — Premium hero
+
+Create a visually impressive, spacious hero using an architectural or luxury residential photograph with excellent composition.
+
+The design should be original and sophisticated, not a clone of another real-estate website.
+
+Suggested headline:
+
+**Find Your Place. Invest With Confidence.**
+
+Supporting copy:
+
+“Explore properties, discover trusted developments, and make more informed real-estate decisions across Pakistan.”
+
+Include a prominent interactive search panel with tabs:
+
+- Buy.
+- Rent.
+- Projects.
+
+For Buy and Rent, include suitable controls for:
+
+- City.
+- Area or society.
+- Property type.
+- Budget.
+- Search button.
+
+For Projects, include:
+
+- City.
+- Project category.
+- Development status.
+- Search button.
+
+Use sensible defaults, validation, and clearly visible selected states.
+
+Search must navigate to the relevant listing page with selected filters represented in the URL.
+
+Do not make the hero excessively tall. The search functionality and featured content should be visible early on desktop and accessible on mobile.
+
+## Section B — Explore property categories
+
+Build elegant image-led category cards for:
+
+- Residential Plots.
+- Houses.
+- Apartments and Flats.
+- Commercial Plots.
+- Shops and Offices.
+- Farmhouses and Agricultural Land, where applicable.
+
+Use relevant photography, clean labels, and subtle hover interactions.
+
+Clicking a category should open `/properties` with the appropriate category filter.
+
+## Section C — Featured properties
+
+Create a premium, responsive property-card grid or carousel.
+
+Each card may show:
+
+- Property photograph.
+- Price in PKR.
+- Location.
+- Property type and purpose.
+- Size in Pakistani units.
+- Bedrooms and bathrooms where applicable.
+- Clearly labeled sample verification status.
+- Favorite button.
+- View Details action.
+
+Use a mixture of sample residential and commercial properties.
+
+Make the layout attractive without cramming every specification onto each card.
+
+## Section D — Discover projects
+
+Showcase selected sample developments with large architectural photographs and attractive project cards.
+
+Include:
+
+- Project name.
+- Location.
+- Developer name.
+- Development status.
+- Indicative price or price range, clearly identified as sample data.
+- View Project action.
+
+Provide a link to explore all projects.
+
+## Section E — Trust and transparency
+
+Create a distinctive, elegant section that explains Highrise.pk's approach to transparency.
+
+Suggested heading:
+
+**More Clarity. More Confidence. Better Decisions.**
+
+Create three or four visual feature blocks:
+
+1. Verification-focused discovery.
+2. Transparent property information.
+3. Developer and project insights.
+4. Informed property decisions.
+
+Explain that verification labels depend on the scope of checks performed. Do not imply that verification guarantees investment returns or eliminates all risk.
+
+## Section F — Featured developers
+
+Create elegant developer cards showing:
+
+- Sample developer logo or initials.
+- Developer name.
+- Established year, when available.
+- Number of associated projects, when available.
+- Short description.
+- Project links.
+
+All figures must be consistent with the sample dataset.
+
+## Section G — Property intelligence and tools
+
+Present a polished selection of relevant tools:
+
+- Construction Cost Calculator.
+- Property Area Converter.
+- Property Comparison.
+- Installment Calculator.
+- True Cost / Buying Cost Estimator, where applicable.
+
+These are prototype navigation links unless their corresponding tools are actually implemented in this frontend.
+
+Do not create fake calculation results or claim that a tool is fully operational when it is not.
+
+## Section H — Final discovery CTA
+
+Use a tasteful, compact call to action inviting users to discover properties and projects.
+
+Avoid excessive promotional copy.
+
+---
+
+# 6. PAGE TWO — PROPERTY LISTING AND SEARCH
+
+Route: `/properties`
+
+This page is a core product page. Prioritize search usability, clarity, relevant results, and excellent property cards.
+
+Do not add a generic oversized hero section.
+
+## Page introduction
+
+Use a compact page heading such as:
+
+**Explore Properties in Pakistan**
+
+Add a short supporting description and breadcrumbs.
+
+Keep the title and content aligned within the shared page container.
+
+## Search panel
+
+Create a prominent, well-organized search panel directly below the page heading.
+
+Include:
+
+- Buy / Rent selector.
+- City.
+- Area or society.
+- Property category.
+- Minimum price.
+- Maximum price.
+- Minimum size.
+- Maximum size.
+- Bedrooms where applicable.
+- Additional filters in a collapsible panel.
+
+Use appropriate PKR formatting and sensible Pakistani property terminology.
+
+Provide Search, Reset Filters, and active-filter chips.
+
+On mobile, make advanced filters available through a clean drawer or expandable panel.
+
+## Results area
+
+Display the number of matching results and sorting controls.
+
+Sorting options may include:
+
+- Most relevant.
+- Newest.
+- Price: low to high.
+- Price: high to low.
+
+Provide a grid/list view toggle if it can be implemented cleanly.
+
+Property cards must be visually consistent with the homepage while allowing more useful information on this page.
+
+Include:
+
+- Property image.
+- Sale or rent label.
+- Price.
+- Property title.
+- City and area.
+- Size.
+- Bedrooms and bathrooms where applicable.
+- Supported verification indicator.
+- Favorite control.
+- View Details action.
+
+Include pagination or a functional Load More interaction.
+
+### Required search behavior
+
+- Every filter must affect the actual displayed sample results.
+- Buy and Rent must return distinct, appropriately categorized results.
+- Search state should be synchronized with URL query parameters.
+- Refreshing or sharing a filtered URL should restore the filter state.
+- Reset should clear the relevant filters.
+- Pagination should preserve filters.
+- If there are no matches, show a helpful empty state with an easy way to reset filters.
+
+Use realistic sample data across Islamabad, Rawalpindi, Lahore, Karachi, and other relevant Pakistani locations.
+
+Do not imply the sample results represent live inventory.
+
+---
+
+# 7. PAGE THREE — PROPERTY DETAIL
+
+Route: `/properties/sample-property`
+
+This page should feel like a premium property presentation, combining beautiful imagery with practical information and a clear enquiry experience.
+
+Do not turn it into a generic project landing page.
+
+## Section A — Breadcrumbs and property heading
+
+Show a breadcrumb trail and a compact property title area.
+
+Include:
+
+- Property title.
+- Location.
+- Property type.
+- Sale or rent status.
+- Price in PKR.
+- Size.
+- Sample verification label where appropriate.
+- Share action.
+- Favorite action.
+
+## Section B — Image gallery
+
+Create an elegant image gallery with:
+
+- One dominant main image.
+- Supporting thumbnails.
+- A View All Photos interaction.
+- Fullscreen or modal gallery navigation.
+- Keyboard-accessible close and previous/next controls.
+
+Use high-quality architectural, interior, and exterior photographs.
+
+Keep gallery proportions polished and responsive.
+
+## Section C — Main content and enquiry sidebar
+
+Use a balanced two-column desktop layout.
+
+The main content should include:
+
+### Overview
+
+- Property description.
+- Price and size.
+- Property type and purpose.
+- Bedrooms and bathrooms where applicable.
+- Covered area or plot area when relevant.
+- Floor information where available.
+- Furnishing and availability where relevant.
+
+### Key features
+
+Use clean icon-and-label rows.
+
+### Description
+
+Create readable paragraphs with appropriate spacing and line length.
+
+### Location
+
+Show the area, society, city, and a map preview when supported.
+
+A static map illustration is acceptable for the prototype if clearly identified. Do not imply a real interactive map or exact property coordinates when none exist.
+
+### Additional information
+
+Show only relevant sections supported by the sample record.
+
+### Similar properties
+
+Display a few related sample listings and working navigation to their detail routes.
+
+## Enquiry sidebar
+
+Create a professional enquiry card containing:
+
+- Sample agent/owner name.
+- Profile photograph or initials.
+- Contact preferences.
+- Name field.
+- Phone field.
+- Email field, if useful.
+- Message field.
+- Send Enquiry button.
+
+The form must validate required fields and show a clear success state explaining that the enquiry is a prototype and has not been sent to a real owner.
+
+Never transmit contact details to an external service.
+
+On mobile, make the enquiry action easy to find without covering important content.
+
+---
+
+# 8. PAGE FOUR — PROJECT LISTING AND DISCOVERY
+
+Route: `/projects`
+
+This page is one of Highrise.pk's most important differentiators.
+
+Its design should feel like a premium development-discovery platform, with rich architectural imagery, organized project information, developer discovery, and contextual filtering.
+
+Do not use a generic homepage-style hero.
+
+## Section A — Page header and filters
+
+Use a compact heading:
+
+**Discover Real Estate Projects**
+
+Supporting copy:
+
+“Explore residential and commercial developments, compare project details, and learn more about the developers behind them.”
+
+Add a polished filter panel directly below the heading with:
+
+- All Cities.
+- Category.
+- Development Status.
+- Budget.
+- NOC / Approval Information.
+
+Keep the controls visible and logically arranged on desktop.
+
+On mobile, use a compact filter layout or drawer.
+
+Every filter must work against the sample project dataset.
+
+Clearly distinguish a sample approval label from actual regulatory verification.
+
+## Section B — Featured project spotlight
+
+Create an original, visually distinctive project showcase inspired by the idea of sequential project discovery.
+
+Do not copy the exact layout or wording of competing websites.
+
+### Layout
+
+Use a large architectural image and a structured information panel.
+
+Display:
+
+- Project name.
+- Developer name.
+- City and location.
+- Project category.
+- Development status.
+- Sample price range.
+- Short overview.
+- View Project button.
+- Previous and Next controls.
+
+Include a timeline-style visual showing relevant milestones when sample dates are supplied.
+
+Never invent construction progress percentages or claim actual possession dates.
+
+### Interactive behavior
+
+Users should be able to:
+
+1. View the currently featured project.
+2. Navigate to the next project from the same developer.
+3. Navigate backward.
+4. Move to another developer's portfolio when appropriate.
+5. See the image, project name, developer name, and supporting details update together.
+6. Open the correct project detail page.
+
+Build the behavior using React state and the shared sample dataset.
+
+The experience should feel smooth and premium without distracting animation.
+
+## Section C — Trending Projects
+
+Create a visually strong project grid or horizontal carousel.
+
+Each project card should include:
+
+- Architectural image.
+- Project name.
+- Developer.
+- Location.
+- Development status.
+- Sample price range.
+- View Project action.
+
+Make previous/next controls functional if a carousel is used.
+
+Avoid horizontal overflow and preserve touch-friendly scrolling on mobile.
+
+## Section D — Highlighted Projects
+
+Create a separate, polished section for highlighted developments.
+
+Use a different but consistent card composition, such as larger image-led cards with compact project facts.
+
+Do not duplicate the exact same project repeatedly simply to fill the page.
+
+## Section E — Featured Developers
+
+Create a premium developer discovery section.
+
+Each card should display:
+
+- Logo or initials.
+- Developer name.
+- Established year, when available.
+- Number of associated projects.
+- Short description.
+- A compact list of associated project names.
+
+### Interactive project selection
+
+When a visitor selects a project name inside a developer card:
+
+- Update the selected project image.
+- Update the displayed project information.
+- Keep the developer identity correct.
+- Provide a View Project action.
+- Ensure keyboard and mobile interactions work.
+
+Use actual relationships within the sample dataset rather than hardcoding unrelated information into each card.
+
+## Section F — Trusted Developers
+
+Present a clean selection of sample developer profiles with transparent labels.
+
+Use distinct visual treatments for:
+
+- Verification status.
+- Editorially featured developers.
+- Ordinary sample profiles.
+
+Do not imply that a paid feature means a developer has passed verification.
+
+Do not fabricate delivery records, review scores, credentials, or trust ratings.
+
+## Section G — Additional discovery
+
+Include a restrained section for relevant resale units, ready-to-move projects, installment-based developments, or related real-estate insights when appropriate sample records exist.
+
+Avoid an excessively long page filled with repetitive sections.
+
+## Section H — Project empty states
+
+If a selected combination of filters returns no results, show a clear message, a reset action, and suggestions to broaden the search.
+
+---
+
+# 9. PAGE FIVE — PROJECT DETAIL
+
+Route: `/projects/sample-project`
+
+The project detail page must be clearly different from an individual property detail page.
+
+A project represents a development that may contain multiple units, property types, facilities, payment plans, and related resale properties.
+
+## Section A — Project identity
+
+Display:
+
+- Project name.
+- Location.
+- Developer name.
+- Project category.
+- Development status.
+- Supported verification information.
+- Sample price range, if available.
+- Share action.
+- Primary enquiry or site-visit action.
+
+Use a compact title area rather than an oversized generic hero.
+
+## Section B — Project gallery
+
+Use a premium image gallery featuring architectural exteriors, interiors, facilities, and relevant development photographs.
+
+Provide gallery navigation and a View All interaction.
+
+Use suitable responsive image proportions.
+
+## Section C — Project overview
+
+Present:
+
+- Project description.
+- Developer information.
+- Project category.
+- Location.
+- Available project milestones.
+- Development status.
+- Relevant project specifications.
+
+Use clean fact cards or structured information rows.
+
+## Section D — Developer profile
+
+Create an elegant developer panel with:
+
+- Logo or initials.
+- Name.
+- Short description.
+- Established year where available.
+- Other associated projects.
+- Supported verification status.
+- View Developer Projects action.
+
+Use only information provided by the sample dataset.
+
+## Section E — Amenities and facilities
+
+Present available amenities in a clean icon grid.
+
+Do not display every possible amenity on every project. Use the amenities that belong to the selected sample record.
+
+## Section F — Floor plans and available units
+
+Show suitable sample unit categories, such as:
+
+- Apartments.
+- Shops.
+- Offices.
+- Residential plots.
+- Commercial plots.
+
+Each unit type should display relevant information when available:
+
+- Unit type.
+- Size.
+- Indicative price.
+- Bedrooms or other relevant specifications.
+- Availability label.
+
+Selecting a unit category should update the displayed unit information or filter the available sample units.
+
+Do not imply that the sample inventory is real or currently available.
+
+## Section G — Payment plans
+
+Create a polished installment/payment-plan panel.
+
+When sample payment-plan data exists, show:
+
+- Booking amount or percentage.
+- Down payment.
+- Installment frequency.
+- Installment amount.
+- Duration.
+- Applicable additional payments.
+
+Clearly label all figures as illustrative sample data.
+
+Do not fabricate payment schedules for a project that lacks payment-plan data.
+
+## Section H — Location and nearby facilities
+
+Show the project location and relevant nearby facilities if the sample dataset provides them.
+
+A clearly labeled illustrative map is acceptable when a real map service is not configured.
+
+## Section I — Project enquiry and site visit
+
+Provide a clear form for requesting project information or a site visit.
+
+Include relevant fields such as:
+
+- Name.
+- Phone.
+- Email, if needed.
+- Enquiry type.
+- Message.
+
+Validate the form and display an honest prototype confirmation without sending real messages or storing personal information in an external service.
+
+## Section J — Related developments
+
+Show related projects from the same developer or relevant category.
+
+Include a compact selection of resale properties associated with the project only if the sample relationships support it.
+
+---
+
+# 10. SHARED COMPONENTS AND SAMPLE DATA
+
+Build reusable components, including:
+
+- SiteHeader.
+- SiteFooter.
+- SearchTabs.
+- PropertySearchForm.
+- ProjectFilterPanel.
+- PropertyCard.
+- ProjectCard.
+- DeveloperCard.
+- VerificationBadge.
+- PriceDisplay.
+- PropertyGallery.
+- ProjectSpotlight.
+- DeveloperProjectSelector.
+- Breadcrumbs.
+- EnquiryForm.
+- Pagination.
+- EmptyState.
+- LoadingSkeleton.
+- ResponsiveModal or Drawer.
+- SectionHeading.
+
+Use a shared sample-data layer containing consistent property, project, developer, and unit records.
+
+Define clear TypeScript interfaces for these records.
+
+Example conceptual relationships:
+
+- A developer has multiple projects.
+- A project belongs to the correct developer.
+- A project may be associated with a society.
+- A project may have several unit types.
+- A property may be associated with a parent project.
+- Featured projects reference actual sample project IDs.
+- Similar properties and related projects use valid sample IDs.
+
+Ensure all relationships remain consistent across the five pages.
+
+Do not invent production API response shapes. Keep the sample-data layer separate from the future backend integration layer.
+
+---
+
+# 11. IMAGE AND CONTENT DIRECTION
+
+Use high-quality real-estate photography that reflects the Pakistani market.
+
+Suitable visual subjects include:
+
+- Contemporary houses in Islamabad.
+- Modern apartment developments.
+- High-rise residential and commercial buildings.
+- Residential and commercial plots.
+- Modern interiors.
+- Architectural renderings of developments.
+- Construction and development environments.
+
+Use consistent photographic quality and thoughtful cropping.
+
+Use properly accessible image URLs or assets supported by the environment.
+
+Avoid broken image links, repeated images across every card, irrelevant foreign luxury architecture, watermarks, and stretched photographs.
+
+If remote images are used, provide appropriate fallbacks and alt text.
+
+Do not rely on one image to represent every property or project.
+
+All sample prices, dates, specifications, developers, and verification labels must be clearly identified as prototype content and remain internally consistent.
+
+Use PKR for currency and Pakistani terminology for locations and property sizes.
+
+Avoid fabricated testimonials, real-world endorsements, and unsupported claims about market performance.
+
+---
+
+# 12. RESPONSIVE DESIGN REQUIREMENTS
+
+Design and test at these representative viewport widths:
+
+- Desktop: 1440px.
+- Laptop: 1280px.
+- Tablet: 768px.
+- Mobile: 390px.
+- Small mobile: 360px.
+
+On desktop:
+
+- Use generous side margins.
+- Keep content within a consistent maximum-width container.
+- Use well-proportioned columns.
+- Keep key information easy to scan.
+
+On tablet:
+
+- Adjust grid columns and spacing.
+- Ensure filters remain practical.
+- Avoid cramped card layouts.
+
+On mobile:
+
+- Use a compact navigation menu.
+- Stack sections logically.
+- Use touch-friendly controls.
+- Make search filters easy to open and use.
+- Prevent text, buttons, galleries, and cards from overflowing.
+- Ensure enquiry actions remain accessible.
+- Keep font sizes readable.
+
+All five pages must be fully responsive, not merely scaled-down desktop layouts.
+
+---
+
+# 13. INTERACTION AND QUALITY REQUIREMENTS
+
+Implement and verify the following interactions:
+
+- Navigation between all five routes.
+- Homepage Buy/Rent/Projects search tabs.
+- Property search and filtering.
+- Project filtering.
+- Sorting.
+- Pagination or Load More.
+- Property favorites.
+- Image gallery navigation.
+- Project spotlight navigation.
+- Developer project selection.
+- Unit-category selection.
+- Related property/project navigation.
+- Share interaction with graceful fallback.
+- Form validation.
+- Honest prototype submission confirmations.
+- Filter reset.
+- Mobile menu and filter drawer.
+- Empty states.
+
+Every visible button, link, dropdown, and interactive card must have a meaningful action.
+
+Do not use fake backend success messages.
+
+Use clear loading and error feedback where an interaction requires it.
+
+Respect reduced-motion preferences and avoid unnecessary animations.
+
+---
+
+# 14. DESIGN QUALITY BAR
+
+The result should resemble a carefully art-directed, premium property platform.
+
+Prioritize:
+
+1. Strong visual hierarchy.
+2. Beautiful real-estate photography.
+3. Balanced whitespace.
+4. Consistent brand identity.
+5. Clear information architecture.
+6. Excellent property cards.
+7. High-quality search controls.
+8. Distinctive project discovery.
+9. Trustworthy presentation of information.
+10. Responsive, functional interactions.
+
+Avoid:
+
+- Generic AI-generated layouts.
+- Repeated hero sections.
+- Oversized headings on every page.
+- Excessive rounded cards nested inside other rounded cards.
+- Too many gradients.
+- Excessive badges.
+- Unnecessary animations.
+- Dense paragraphs and cluttered property cards.
+- Identical layouts for property and project detail pages.
+- Decorative charts containing fabricated market statistics.
+- Placeholder buttons that do nothing.
+
+Every section must justify its place in the user journey.
+
+---
+
+# 15. FINAL EXECUTION INSTRUCTIONS
+
+Build the complete application, not just a design description.
+
+Work in this order:
+
+1. Establish the shared design system and application routing.
+2. Create the shared header, footer, and reusable components.
+3. Build the homepage.
+4. Build the property listing page and functional filters.
+5. Build the property detail page and gallery.
+6. Build the project listing page and interactive project/developer discovery.
+7. Build the project detail page with unit and payment-plan sections.
+8. Connect all pages through consistent sample data.
+9. Test every major interaction.
+10. Review all five pages at desktop and mobile widths.
+11. Fix visual inconsistencies, broken links, runtime errors, and responsive defects.
+12. Ensure the complete application can run in the provided environment.
+
+At completion, provide:
+
+- The routes created.
+- The shared components created.
+- The sample-data models and relationships.
+- The interactions implemented.
+- The checks actually performed.
+- Any incomplete features or environment limitations.
+- Clear instructions for exporting or accessing the generated source code.
+
+Do not stop after the homepage. Do not replace functional pages with static mockups. Do not connect to a real backend.
+
+**Final objective: a visually outstanding, cohesive, interactive five-page Highrise.pk frontend that is ready for a separate, careful integration with the existing Next.js, TypeScript, Tailwind, MongoDB, and API architecture.**
+
+## 6. How to get the best result from Google AI Studio
+
+I recommend following this process rather than trying to integrate everything at once.
+
+1. Generate all five pages. Let AI Studio establish the overall design system, navigation, reusable components, and sample data first.
+2. Refine the design before exporting. Focus on the homepage, property cards, project spotlight, and detail-page layouts. Ask it to correct visual inconsistencies without rewriting working functionality.
+3. Test the prototype. Check search filters, navigation, galleries, project switching, responsive layouts, and form validation.
+4. Export or obtain the source code. Preserve the generated project separately from your existing `C:\dev\highrise-pk` repository.
+5. Integrate one page at a time. Have OpenCode compare the generated components with the current implementation and selectively adapt the design to your existing Pages Router, APIs, MongoDB models, and authentication system.
+
+### One crucial instruction for integration
+
+Do not ask OpenCode to replace all five existing pages with the generated source in one operation. Your current application already has authentication, property/project relationships, verification logic, and lead workflows that must be preserved.
+
+Instead, ask it to reuse the new visual components while retaining the existing backend contracts and business logic, then test each page before proceeding to the next.
+
+This approach gives Highrise.pk the visual quality you want without sacrificing the work already completed.

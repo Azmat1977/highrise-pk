@@ -1,0 +1,6 @@
+{
+  "name": "Highrise.pk — Elevating Real Estate in Pakistan",
+  "description": "Pakistani real-estate discovery & property intelligence platform for verified properties, developments, developers, and payment plans.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
