@@ -29,7 +29,7 @@ const eslintConfig = [
     },
   },
 
-  {
+{
     ignores: [
       'node_modules/**',
       '.next/**',
@@ -40,10 +40,13 @@ const eslintConfig = [
       'public/uploads/**',
       '.highrise-backups/**',
       '_backup_v641_cleanup/**',
+      'highrise-homepage-reference/**',
       'highrise-auth-foundation/**',
       'highrise-signup-verification-v1/**',
       'highrise-trusted-auth-sessions/**',
       'highrise-trusted-auth-sessions-v2/**',
+      '.agents/**',
+      '.claude/**',
     ],
   },
 ];

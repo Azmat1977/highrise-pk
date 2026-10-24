@@ -39,6 +39,7 @@
   ],
   "exclude": [
     "node_modules",
+    "highrise-homepage-reference",
     "_backup_v641_cleanup",
     ".highrise-backups",
     "highrise-auth-foundation",
