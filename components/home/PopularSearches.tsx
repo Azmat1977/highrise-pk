@@ -1,15 +1,17 @@
 import React from 'react';
 import Link from 'next/link';
-import { ArrowUpRight, Building2, Flame } from 'lucide-react';
+import { ArrowUpRight, Flame } from 'lucide-react';
 
 // Every entry is a plain search URL — no counts, no "verified" claims, so the
-// section stays honest even when a city has no live stock.
+// section stays honest even when a city has no live stock. The list is long on
+// purpose: these are the long-tail city + type + intent queries people actually
+// search, and they give the homepage a dense, crawlable internal-link block.
 const POPULAR_SEARCHES = [
   { label: 'Houses for sale in Lahore', href: '/properties?city=Lahore&propertyType=House' },
   { label: 'Apartments for rent in Karachi', href: '/properties?city=Karachi&propertyType=Apartment&listingType=rent' },
   { label: 'Installment plots in Islamabad', href: '/properties?city=Islamabad&propertyCategory=plots&listingType=installment' },
   { label: 'Shops for sale in Faisalabad', href: '/properties?city=Faisalabad&propertyType=Shop' },
-  { label: 'Houses on installments in Rawalpindi', href: '/properties?city=Rawalpindi&propertyType=House&listingType=installment' },
+  { label: 'Installment houses in Rawalpindi', href: '/properties?city=Rawalpindi&propertyType=House&listingType=installment' },
   { label: 'Farm houses for sale in Multan', href: '/properties?city=Multan&propertyType=Farm%20House' },
   { label: 'Offices for rent in Islamabad', href: '/properties?city=Islamabad&propertyType=Office&listingType=rent' },
   { label: 'Plots for sale in Peshawar', href: '/properties?city=Peshawar&propertyCategory=plots' },
@@ -17,17 +19,22 @@ const POPULAR_SEARCHES = [
   { label: 'Commercial plots in Karachi', href: '/properties?city=Karachi&propertyCategory=commercial' },
   { label: 'Houses for sale in Islamabad', href: '/properties?city=Islamabad&propertyType=House' },
   { label: 'Plot files in Rawalpindi', href: '/properties?city=Rawalpindi&propertyType=Plot%20File' },
-];
-
-const PROPERTY_TYPES = [
-  { label: 'Houses', href: '/properties?propertyType=House' },
-  { label: 'Apartments', href: '/properties?propertyType=Apartment' },
-  { label: 'Upper Portions', href: '/properties?propertyType=Upper%20Portion' },
-  { label: 'Residential Plots', href: '/properties?propertyType=Residential%20Plot' },
-  { label: 'Commercial Plots', href: '/properties?propertyType=Commercial%20Plot' },
-  { label: 'Shops', href: '/properties?propertyType=Shop' },
-  { label: 'Offices', href: '/properties?propertyType=Office' },
-  { label: 'Plot Files', href: '/properties?propertyType=Plot%20File' },
+  { label: 'Flats for rent in Lahore', href: '/properties?city=Lahore&propertyType=Apartment&listingType=rent' },
+  { label: 'Upper portions for rent in Karachi', href: '/properties?city=Karachi&propertyType=Upper%20Portion&listingType=rent' },
+  { label: 'Villas for sale in Islamabad', href: '/properties?city=Islamabad&propertyType=Villa' },
+  { label: 'Shops for rent in Lahore', href: '/properties?city=Lahore&propertyType=Shop&listingType=rent' },
+  { label: 'Residential plots in Islamabad', href: '/properties?city=Islamabad&propertyType=Residential%20Plot' },
+  { label: 'Houses for rent in Rawalpindi', href: '/properties?city=Rawalpindi&propertyType=House&listingType=rent' },
+  { label: 'Offices for sale in Karachi', href: '/properties?city=Karachi&propertyType=Office' },
+  { label: 'Houses for sale in Quetta', href: '/properties?city=Quetta&propertyType=House' },
+  { label: 'Apartments for rent in Islamabad', href: '/properties?city=Islamabad&propertyType=Apartment&listingType=rent' },
+  { label: 'Penthouses for sale in Karachi', href: '/properties?city=Karachi&propertyType=Penthouse' },
+  { label: 'Houses for sale in Gujranwala', href: '/properties?city=Gujranwala&propertyType=House' },
+  { label: 'Installment plots in Karachi', href: '/properties?city=Karachi&propertyCategory=plots&listingType=installment' },
+  { label: 'Warehouses for rent in Karachi', href: '/properties?city=Karachi&propertyType=Warehouse&listingType=rent' },
+  { label: 'Houses for sale in Sialkot', href: '/properties?city=Sialkot&propertyType=House' },
+  { label: 'Commercial plots in Islamabad', href: '/properties?city=Islamabad&propertyType=Commercial%20Plot' },
+  { label: 'Houses for sale in Hyderabad', href: '/properties?city=Hyderabad&propertyType=House' },
 ];
 
 export default function PopularSearches() {
@@ -47,17 +54,17 @@ export default function PopularSearches() {
           </p>
         </div>
 
-        {/* Trending searches — full width, three balanced columns. */}
+        {/* Trending searches — full width, four dense columns on desktop. */}
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
           <h3 className="mb-4 text-xs font-bold uppercase tracking-wider text-slate-500">
             Trending Searches
           </h3>
-          <ul className="grid grid-cols-1 gap-x-8 gap-y-1 md:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2 lg:grid-cols-4">
             {POPULAR_SEARCHES.map((item) => (
               <li key={item.href}>
                 <Link
                   href={item.href}
-                  className="group flex items-center justify-between gap-3 rounded-lg border-b border-transparent px-2 py-2 text-sm text-slate-700 transition-colors hover:bg-[#029bba]/5 hover:text-[#004063]"
+                  className="group flex items-center gap-1.5 rounded-lg border-b border-transparent px-2 py-[7px] text-[13px] text-slate-700 transition-colors hover:bg-[#029bba]/5 hover:text-[#004063]"
                 >
                   <span className="truncate">{item.label}</span>
                   <ArrowUpRight className="h-3.5 w-3.5 shrink-0 text-slate-300 transition-colors group-hover:text-[#029bba]" />
@@ -65,24 +72,6 @@ export default function PopularSearches() {
               </li>
             ))}
           </ul>
-        </div>
-
-        {/* Browse by type — a compact strip so those links stay reachable. */}
-        <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm sm:flex-row sm:items-center sm:gap-4">
-          <h3 className="flex shrink-0 items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">
-            <Building2 className="h-3.5 w-3.5 text-[#029bba]" /> Browse by Type
-          </h3>
-          <div className="flex flex-wrap gap-2">
-            {PROPERTY_TYPES.map((type) => (
-              <Link
-                key={type.href}
-                href={type.href}
-                className="rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-700 transition-colors hover:border-[#029bba] hover:bg-white hover:text-[#004063]"
-              >
-                {type.label}
-              </Link>
-            ))}
-          </div>
         </div>
       </div>
     </section>
