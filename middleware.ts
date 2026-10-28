@@ -277,6 +277,8 @@ const ROUTE_RULES: readonly RouteRule[] = [
   { path: "/agent/register",  isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/agent/onboarding",isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/agent/kyc",       isPrefix: true, level: "auth", denyReason: "auth_required" },
+  { path: "/agent/verify", isPrefix: true, level: "verifiedAgent", denyReason: "agent_verification_required" },
+  { path: "/agent/profile", isPrefix: true, level: "verifiedAgent", denyReason: "agent_verification_required" },
 
   // Tier 2: Verified agent (or admin) for full agent tools
   {
