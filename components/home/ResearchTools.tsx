@@ -228,7 +228,7 @@ export default function ResearchTools() {
                     </div>
 
                     <div className="mb-3">
-                      <p className="flex items-center gap-1.5 font-heading text-sm font-bold leading-snug text-slate-900 transition-colors group-hover:text-[#004063]">
+                      <p className="flex items-center gap-1.5 text-sm font-bold leading-snug text-slate-900 transition-colors group-hover:text-[#004063]">
                         <MapPin className="h-3.5 w-3.5 shrink-0 text-[#029bba]" />
                         <span className="truncate">
                           {entry.city}
@@ -295,7 +295,7 @@ export default function ResearchTools() {
               <Link
                 key={tool.id}
                 href={tool.href}
-                className="group flex w-[270px] shrink-0 snap-start flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 text-left shadow-sm transition-all duration-300 hover:border-[#004063] hover:shadow-lg sm:w-[290px]"
+                className="group flex w-full shrink-0 snap-start flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 text-left shadow-sm transition-all duration-300 hover:border-[#004063] hover:shadow-lg sm:w-[290px]"
               >
                 <div>
                   <span className="mb-2 inline-block rounded-md border border-[#004063]/10 bg-[#004063]/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#004063]">

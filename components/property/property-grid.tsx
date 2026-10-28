@@ -151,6 +151,11 @@ interface PropertyGridProps {
 
   // enterprise: allow passing an explicit grid id for testing/a11y hooks
   gridId?: string;
+
+  // Optional override for the grid-view column classes. Lets a page narrow the
+  // columns when an ad rail shares the row (e.g. xl:grid-cols-2). List view and
+  // all other behaviour are untouched; omitting it keeps the default 1/2/3 grid.
+  gridClassName?: string;
 }
 
 function resolvePropertyKey(property: PropertyListItem, index: number): string {
@@ -185,8 +190,10 @@ export const PropertyGrid: React.FC<PropertyGridProps> = React.memo(
     emptyTitle = 'No properties found',
     emptyHint = 'Try adjusting your filters or search again.',
     gridId = 'property-grid',
+    gridClassName,
   }) => {
     const safeProperties: PropertyListItem[] = Array.isArray(properties) ? properties : [];
+    const gridViewClasses = gridClassName ?? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6";
 
     if (loading) {
       const count = Math.max(1, Number.isFinite(skeletonCount) ? skeletonCount : 6);
@@ -194,7 +201,7 @@ export const PropertyGrid: React.FC<PropertyGridProps> = React.memo(
       return (
         <div
           id={gridId}
-          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+          className={gridViewClasses}
           aria-busy="true"
           aria-live="polite"
           aria-label="Loading properties"
@@ -231,11 +238,7 @@ export const PropertyGrid: React.FC<PropertyGridProps> = React.memo(
     return (
       <div
         id={gridId}
-        className={
-          viewMode === "grid"
-            ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            : "grid grid-cols-1 gap-4"
-        }
+        className={viewMode === "grid" ? gridViewClasses : "grid grid-cols-1 gap-4"}
         aria-label={viewMode === "grid" ? "Properties grid" : "Properties list"}
         role="list"
       >

@@ -781,7 +781,7 @@ export function MainProjectGrid({
                   </span>
                 </button>
 
-                <p className="text-xs text-gray-400 mt-3">
+                <p className="text-xs text-gray-500 mt-3">
                   Showing {showingCount} of {totalCount} · {loadMoreCount + 1} of {MAX_LOAD_MORE_CLICKS} loads
                 </p>
               </div>
@@ -829,7 +829,7 @@ export function MainProjectGrid({
 
             {/* End of results indicator - Clean inline divider */}
             {!showLoadMore && !showPagination && totalCount > 0 && !loading && (
-              <div className="mt-6 flex items-center gap-4 text-xs font-bold text-gray-400">
+              <div className="mt-6 flex items-center gap-4 text-xs font-bold text-gray-500">
                 <div className="flex-1 h-px bg-gray-200" />
                 <span className="flex items-center gap-1.5 whitespace-nowrap">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />

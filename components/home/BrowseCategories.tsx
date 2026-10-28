@@ -1,6 +1,15 @@
-import React, { useState } from 'react';
+import React, { useId, useState } from 'react';
 import Link from 'next/link';
-import { Home, MapPin, Building2, Layers, ArrowUpRight, ChevronRight, Compass, SlidersHorizontal } from 'lucide-react';
+import {
+  ArrowUpRight,
+  Building2,
+  ChevronRight,
+  Compass,
+  Home,
+  LandPlot,
+} from 'lucide-react';
+
+import SectionHeading from '@/components/ui/SectionHeading';
 
 type SubTabKey = 'popular' | 'types' | 'more';
 
@@ -12,23 +21,29 @@ interface CategoryChip {
 
 interface CategoryGroup {
   id: string;
+  /** Card title — kept to the three primary discovery buckets. */
   name: string;
+  /** Short label used by the "Explore all …" link. */
+  shortName: string;
   tagline: string;
   icon: React.ComponentType<{ className?: string }>;
-  iconBg: string;
-  iconColor: string;
   browseCategory: string;
   subTabs: Array<{ key: SubTabKey; label: string; chips: CategoryChip[] }>;
 }
 
+/** One icon treatment for all three cards, so the trio reads as a set. */
+const ICON_TILE = 'bg-[#029bba]/[0.10] text-[#007196]';
+
+// Three primary buckets, matching how buyers actually start a search.
+// Everything else (apartments, portions, plot files, warehouses…) stays
+// reachable through the tabs below and the full filter panel on /properties.
 const GROUPS: CategoryGroup[] = [
   {
     id: 'homes',
-    name: 'Homes & Villas',
-    tagline: 'Independent houses, villas and family portions',
+    name: 'Homes',
+    shortName: 'homes',
+    tagline: 'Houses, apartments, villas and family portions across Pakistan.',
     icon: Home,
-    iconBg: 'bg-[#004063]/10',
-    iconColor: 'text-[#004063]',
     browseCategory: 'residential',
     subTabs: [
       {
@@ -36,11 +51,11 @@ const GROUPS: CategoryGroup[] = [
         label: 'Popular',
         chips: [
           { title: 'Houses', subtitle: 'All residential homes', query: { propertyType: 'House' } },
+          { title: 'Apartments', subtitle: 'Flats in towers', query: { propertyType: 'Apartment' } },
           { title: 'Villas', subtitle: 'Gated luxury homes', query: { propertyType: 'Villa' } },
-          { title: 'Upper Portion', subtitle: 'Independent upper floors', query: { propertyType: 'Upper Portion' } },
-          { title: 'Lower Portion', subtitle: 'Ground floor units', query: { propertyType: 'Lower Portion' } },
-          { title: 'Farm House', subtitle: 'Country estates', query: { propertyType: 'Farm House' } },
-          { title: 'Penthouse', subtitle: 'Top-floor living', query: { propertyType: 'Penthouse' } },
+          { title: 'Upper Portions', subtitle: 'Independent upper floors', query: { propertyType: 'Upper Portion' } },
+          { title: 'Farm Houses', subtitle: 'Country estates', query: { propertyType: 'Farm House' } },
+          { title: 'Penthouses', subtitle: 'Top-floor living', query: { propertyType: 'Penthouse' } },
         ],
       },
       {
@@ -48,11 +63,11 @@ const GROUPS: CategoryGroup[] = [
         label: 'Type',
         chips: [
           { title: 'House', subtitle: 'Standalone unit', query: { propertyType: 'House' } },
-          { title: 'Room', subtitle: 'Single room listings', query: { propertyType: 'Room' } },
-          { title: 'Villa', subtitle: 'Luxury detached', query: { propertyType: 'Villa' } },
-          { title: 'Farm House', subtitle: 'Land + built area', query: { propertyType: 'Farm House' } },
+          { title: 'Apartment', subtitle: 'Standard flat', query: { propertyType: 'Apartment' } },
           { title: 'Upper Portion', subtitle: 'Rental or sale', query: { propertyType: 'Upper Portion' } },
           { title: 'Lower Portion', subtitle: 'Independent entry', query: { propertyType: 'Lower Portion' } },
+          { title: 'Room', subtitle: 'Single room listings', query: { propertyType: 'Room' } },
+          { title: 'Farm House', subtitle: 'Land + built area', query: { propertyType: 'Farm House' } },
         ],
       },
       {
@@ -64,18 +79,17 @@ const GROUPS: CategoryGroup[] = [
           { title: '3 Beds', subtitle: 'Standard family home', query: { propertyType: 'House', bedrooms: '3' } },
           { title: '4 Beds', subtitle: 'Executive size', query: { propertyType: 'House', bedrooms: '4' } },
           { title: '5 Beds', subtitle: 'Large residences', query: { propertyType: 'House', bedrooms: '5' } },
-          { title: 'For Rent', subtitle: 'Monthly rentals', query: { propertyType: 'House', listingType: 'rent' } },
+          { title: 'Homes for Rent', subtitle: 'Monthly rentals', query: { propertyCategory: 'residential', listingType: 'rent' } },
         ],
       },
     ],
   },
   {
     id: 'plots',
-    name: 'Plots & Land',
-    tagline: 'Residential, commercial and investment plots',
-    icon: MapPin,
-    iconBg: 'bg-[#029bba]/10',
-    iconColor: 'text-[#007196]',
+    name: 'Plots',
+    shortName: 'plots',
+    tagline: 'Residential and commercial plots, files and land for investment.',
+    icon: LandPlot,
     browseCategory: 'plots',
     subTabs: [
       {
@@ -85,9 +99,9 @@ const GROUPS: CategoryGroup[] = [
           { title: 'Residential Plots', subtitle: 'Housing society plots', query: { propertyType: 'Residential Plot' } },
           { title: 'Commercial Plots', subtitle: 'Main boulevard land', query: { propertyType: 'Commercial Plot' } },
           { title: 'Plot Files', subtitle: 'Early-phase bookings', query: { propertyType: 'Plot File' } },
+          { title: 'On Installments', subtitle: 'Payment plan plots', query: { propertyType: 'Residential Plot', listingType: 'installment' } },
           { title: 'Agricultural Land', subtitle: 'Farm and rural land', query: { propertyType: 'Agricultural Land' } },
           { title: 'Industrial Land', subtitle: 'Warehouse and factory land', query: { propertyType: 'Industrial Land' } },
-          { title: 'On Installments', subtitle: 'Payment plan plots', query: { propertyType: 'Residential Plot', listingType: 'installment' } },
         ],
       },
       {
@@ -118,11 +132,10 @@ const GROUPS: CategoryGroup[] = [
   },
   {
     id: 'commercial',
-    name: 'Commercial & High-Rise',
-    tagline: 'Offices, retail shops, warehouses and plazas',
+    name: 'Commercial',
+    shortName: 'commercial',
+    tagline: 'Shops, offices, plazas and industrial units built for business.',
     icon: Building2,
-    iconBg: 'bg-[#004063]/10',
-    iconColor: 'text-[#004063]',
     browseCategory: 'commercial',
     subTabs: [
       {
@@ -157,55 +170,8 @@ const GROUPS: CategoryGroup[] = [
           { title: '50 Lac - 1 Crore', subtitle: 'Small offices', query: { propertyCategory: 'commercial', minPrice: '5000000', maxPrice: '10000000' } },
           { title: '1 - 3 Crore', subtitle: 'Retail / office', query: { propertyCategory: 'commercial', minPrice: '10000000', maxPrice: '30000000' } },
           { title: '3 - 5 Crore', subtitle: 'Prime commercial', query: { propertyCategory: 'commercial', minPrice: '30000000', maxPrice: '50000000' } },
-          { title: '5 - 10 Crore', subtitle: 'Large floorplates', query: { propertyCategory: 'commercial', minPrice: '50000000', maxPrice: '100000000' } },
-          { title: '10 Crore+', subtitle: 'Buildings and plazas', query: { propertyCategory: 'commercial', minPrice: '100000000' } },
-        ],
-      },
-    ],
-  },
-  {
-    id: 'apartments',
-    name: 'Apartments & Flats',
-    tagline: 'High-rise towers, flats and penthouses',
-    icon: Layers,
-    iconBg: 'bg-emerald-500/10',
-    iconColor: 'text-emerald-700',
-    browseCategory: 'residential',
-    subTabs: [
-      {
-        key: 'popular',
-        label: 'Popular',
-        chips: [
-          { title: 'Apartments', subtitle: 'All flats and apartments', query: { propertyType: 'Apartment' } },
-          { title: 'Penthouse', subtitle: 'Top-floor units', query: { propertyType: 'Penthouse' } },
-          { title: '2 Bed Flats', subtitle: 'Family apartments', query: { propertyType: 'Apartment', bedrooms: '2' } },
-          { title: '3 Bed Flats', subtitle: 'Executive apartments', query: { propertyType: 'Apartment', bedrooms: '3' } },
-          { title: 'On Installments', subtitle: 'Payment plan units', query: { propertyType: 'Apartment', listingType: 'installment' } },
-          { title: 'For Rent', subtitle: 'Monthly rentals', query: { propertyType: 'Apartment', listingType: 'rent' } },
-        ],
-      },
-      {
-        key: 'types',
-        label: 'Type',
-        chips: [
-          { title: 'Apartment', subtitle: 'Standard flat', query: { propertyType: 'Apartment' } },
-          { title: 'Penthouse', subtitle: 'Top floor / duplex', query: { propertyType: 'Penthouse' } },
-          { title: 'Villa', subtitle: 'Low-rise gated home', query: { propertyType: 'Villa' } },
-          { title: 'Upper Portion', subtitle: 'Independent floor', query: { propertyType: 'Upper Portion' } },
-          { title: 'Room', subtitle: 'Single room', query: { propertyType: 'Room' } },
-          { title: 'All Residential', subtitle: 'Every home type', query: { propertyCategory: 'residential' } },
-        ],
-      },
-      {
-        key: 'more',
-        label: 'Bedrooms',
-        chips: [
-          { title: '1 Bed', subtitle: 'Compact flat', query: { propertyType: 'Apartment', bedrooms: '1' } },
-          { title: '2 Beds', subtitle: 'Standard family flat', query: { propertyType: 'Apartment', bedrooms: '2' } },
-          { title: '3 Beds', subtitle: 'Executive flat', query: { propertyType: 'Apartment', bedrooms: '3' } },
-          { title: '4 Beds', subtitle: 'Large apartment', query: { propertyType: 'Apartment', bedrooms: '4' } },
-          { title: '5 Beds', subtitle: 'Sky villa scale', query: { propertyType: 'Apartment', bedrooms: '5' } },
-          { title: 'All Apartments', subtitle: 'No bedroom filter', query: { propertyType: 'Apartment' } },
+          { title: 'On Installments', subtitle: 'Payment plan units', query: { propertyCategory: 'commercial', listingType: 'installment' } },
+          { title: 'Commercial for Rent', subtitle: 'Monthly rentals', query: { propertyCategory: 'commercial', listingType: 'rent' } },
         ],
       },
     ],
@@ -222,61 +188,65 @@ function toHref(query: Record<string, string>): string {
 }
 
 export default function BrowseCategories() {
+  const baseId = useId();
   const [activeTabs, setActiveTabs] = useState<Record<string, SubTabKey>>({
     homes: 'popular',
     plots: 'popular',
     commercial: 'popular',
-    apartments: 'popular',
   });
 
   return (
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mx-auto mb-10 max-w-3xl text-center">
-          <span className="mb-3 inline-flex items-center gap-2 rounded-full border border-[#004063]/10 bg-[#004063]/5 px-3 py-1 text-xs font-semibold text-[#004063]">
-            <Compass className="h-3.5 w-3.5 text-[#029bba]" />
-            <span>Interactive Real Estate Directory</span>
-          </span>
-          <h2 className="text-2xl font-extrabold tracking-tight text-[#001f2b] sm:text-3xl">
-            Browse Properties by <span className="text-[#029bba]">Category</span>
-          </h2>
-          <p className="mt-2 text-sm text-slate-600 sm:text-base">
-            Jump straight to the property types and budgets buyers search for most across Pakistan.
-          </p>
-        </div>
+        <SectionHeading
+          className="mb-12"
+          eyebrow="Interactive Real Estate Directory"
+          eyebrowIcon={<Compass className="h-3.5 w-3.5 text-[#029bba]" />}
+          title={
+            <>
+              Browse Properties by <span className="text-[#029bba]">Category</span>
+            </>
+          }
+          subtitle="Start with what you are buying — a home, a plot, or commercial space — then narrow it down by type and budget."
+        />
 
-        <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
           {GROUPS.map((group) => {
             const currentKey = activeTabs[group.id] || 'popular';
-            const activeSubTab = group.subTabs.find((tab) => tab.key === currentKey) ?? group.subTabs[0];
+            const activeSubTab =
+              group.subTabs.find((tab) => tab.key === currentKey) ?? group.subTabs[0];
             const Icon = group.icon;
+            const tablistId = `${baseId}-${group.id}-tablist`;
+            const panelId = `${baseId}-${group.id}-panel`;
 
             return (
               <div
                 key={group.id}
-                className="flex flex-col justify-between overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-shadow duration-300 hover:shadow-md"
+                className="group/card flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#029bba]/40 hover:shadow-lg focus-within:border-[#029bba]/40 focus-within:ring-2 focus-within:ring-[#029bba]/20 motion-reduce:transform-none motion-reduce:transition-none"
               >
-                <div className="border-b border-slate-100 p-5">
-                  <div className="mb-3 flex items-center gap-3">
+                <div className="p-6 sm:p-7">
+                  <div className="flex items-start gap-4">
                     <div
-                      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-100 ${group.iconBg} ${group.iconColor}`}
+                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${ICON_TILE}`}
+                      aria-hidden="true"
                     >
-                      <Icon className="h-5 w-5" />
+                      <Icon className="h-6 w-6" />
                     </div>
-                    <div>
-                      <h3 className="text-base font-bold leading-tight text-slate-900">{group.name}</h3>
-                      <p className="mt-0.5 text-[11px] font-semibold text-[#029bba]">
-                        Verified links only
+                    <div className="min-w-0">
+                      <h3 className="text-lg font-extrabold leading-tight tracking-tight text-[#001f2b]">
+                        {group.name}
+                      </h3>
+                      <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
+                        {group.tagline}
                       </p>
                     </div>
                   </div>
 
-                  <p className="line-clamp-1 text-xs text-slate-500">{group.tagline}</p>
-
                   <div
+                    id={tablistId}
                     role="tablist"
                     aria-label={`${group.name} filters`}
-                    className="mt-4 flex items-center gap-1 border-t border-slate-100 pt-3"
+                    className="mt-5 inline-flex w-full items-center gap-1 rounded-xl bg-slate-50 p-1"
                   >
                     {group.subTabs.map((tab) => {
                       const isActive = currentKey === tab.key;
@@ -285,12 +255,16 @@ export default function BrowseCategories() {
                           key={tab.key}
                           type="button"
                           role="tab"
+                          id={`${tablistId}-${tab.key}`}
                           aria-selected={isActive}
-                          onClick={() => setActiveTabs((prev) => ({ ...prev, [group.id]: tab.key }))}
-                          className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                          aria-controls={panelId}
+                          onClick={() =>
+                            setActiveTabs((prev) => ({ ...prev, [group.id]: tab.key }))
+                          }
+                          className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40 ${
                             isActive
-                              ? 'bg-[#004063] text-white shadow-sm'
-                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+                              ? 'bg-white text-[#004063] shadow-sm'
+                              : 'text-slate-500 hover:text-[#004063]'
                           }`}
                         >
                           {tab.label}
@@ -300,21 +274,26 @@ export default function BrowseCategories() {
                   </div>
                 </div>
 
-                <div className="flex flex-1 flex-col justify-between bg-slate-50/60 p-4">
-                  <div className="grid grid-cols-2 gap-2">
+                <div
+                  id={panelId}
+                  role="tabpanel"
+                  aria-labelledby={`${tablistId}-${activeSubTab.key}`}
+                  className="flex flex-1 flex-col border-t border-slate-100 bg-slate-50/50 p-4 sm:p-5"
+                >
+                  <div className="grid flex-1 grid-cols-2 gap-2">
                     {activeSubTab.chips.map((chip) => (
                       <Link
                         key={`${chip.title}-${chip.subtitle}`}
                         href={toHref(chip.query)}
-                        className="group flex flex-col justify-center rounded-xl border border-slate-200/80 bg-white p-2.5 text-left transition-all duration-200 hover:border-[#004063] hover:shadow-sm"
+                        className="group/chip flex min-h-[62px] flex-col justify-center rounded-xl border border-slate-200/80 bg-white p-3 text-left transition-all duration-200 hover:border-[#029bba] hover:shadow-sm focus-visible:border-[#029bba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
                       >
-                        <span className="flex items-center justify-between gap-1">
-                          <span className="line-clamp-1 text-xs font-bold text-slate-900 transition-colors group-hover:text-[#004063]">
+                        <span className="flex items-start justify-between gap-1">
+                          <span className="line-clamp-1 text-[12.5px] font-bold text-[#001f2b] transition-colors group-hover/chip:text-[#004063]">
                             {chip.title}
                           </span>
-                          <ArrowUpRight className="h-3 w-3 shrink-0 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100" />
+                          <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0 text-slate-300 transition-colors group-hover/chip:text-[#029bba]" />
                         </span>
-                        <span className="mt-0.5 line-clamp-1 text-[10px] font-medium text-slate-500">
+                        <span className="mt-0.5 line-clamp-2 text-[10.5px] font-medium leading-snug text-slate-500">
                           {chip.subtitle}
                         </span>
                       </Link>
@@ -323,13 +302,10 @@ export default function BrowseCategories() {
 
                   <Link
                     href={`/properties?propertyCategory=${group.browseCategory}`}
-                    className="mt-4 flex w-full items-center justify-between border-t border-slate-200/60 pt-3 text-[11px] font-semibold text-[#004063] transition-colors hover:text-[#029bba]"
+                    className="mt-4 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-[#004063] transition-colors hover:border-[#029bba] hover:text-[#007196] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
                   >
-                    <span className="inline-flex items-center gap-1.5">
-                      <SlidersHorizontal className="h-3 w-3" />
-                      View all {group.name.toLowerCase()}
-                    </span>
-                    <ChevronRight className="h-3.5 w-3.5 text-slate-400" />
+                    <span>Explore all {group.shortName}</span>
+                    <ChevronRight className="h-4 w-4 text-slate-400" />
                   </Link>
                 </div>
               </div>

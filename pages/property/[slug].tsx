@@ -471,14 +471,15 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
     const links: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
       { id: "overview", label: "Overview", icon: icons.LayoutGrid },
     ];
-    if (isInstallment) links.push({ id: "payment-plan", label: "Payment Plan", icon: icons.CreditCard });
+    // Description appears before True Cost in visual order (line 700 vs 702)
+    links.push({ id: "description", label: "Description", icon: icons.FileText });
     if (trueCostLoading || !!trueCostBreakdown) links.push({ id: "true-cost", label: "True Cost", icon: icons.Receipt });
+    if (isInstallment) links.push({ id: "payment-plan", label: "Payment Plan", icon: icons.CreditCard });
     const hasCharges = !!trueCostBreakdown || trueCostLoading || !!property.extraCharges || !!property.possessionCharges || !!property.transferCharges || !!property.governmentTaxes;
     if (hasCharges && !isRent) links.push({ id: "charges", label: "Charges", icon: icons.Banknote });
     links.push({ id: "details", label: "Details", icon: icons.Info });
     links.push({ id: "location", label: "Location", icon: icons.MapPin });
     if (property.amenities?.length) links.push({ id: "amenities", label: "Amenities", icon: icons.CheckCircle });
-    links.push({ id: "description", label: "Description", icon: icons.FileText });
     if (property.videoUrl) links.push({ id: "video-section", label: "Video", icon: icons.Play });
     links.push({ id: "contact", label: "Contact", icon: icons.Phone });
     return links;

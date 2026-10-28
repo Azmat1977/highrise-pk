@@ -29,6 +29,10 @@ import { PropertyGridSkeleton } from "@/components/skeletons/PropertyGridSkeleto
 import AuthGateModal from "@/components/auth/AuthGateModal";
 import { useSession } from "next-auth/react";
 import { PAKISTAN_CITIES as CANONICAL_CITIES } from "@/lib/pakistanCities";
+import { hasAd } from "@/lib/ads/inventory";
+import AdSlot from "@/components/ads/AdSlot";
+import { getPageSeoContent } from "@/lib/seo/pageContent";
+import PageSeoContent from "@/components/seo/PageSeoContent";
 
 // ============================================================================
 // TYPES
@@ -387,6 +391,9 @@ export default function PropertiesListingPage(): React.ReactElement {
   // State
   const [filters, setFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
+  // Advertising is not sold yet, so this is false and the sidebar column is
+  // never rendered. Flipping it on in lib/ads/inventory.ts enables the layout.
+  const hasSidebarAd = hasAd("properties.sidebar");
   const [currentPage, setCurrentPage] = useState(1);
   const [searchDraft, setSearchDraft] = useState("");
   const [properties, setProperties] = useState<PropertyListItem[]>([]);
@@ -912,23 +919,23 @@ export default function PropertiesListingPage(): React.ReactElement {
     ]
   );
 
-  return (
-    <>
-      <Head>
-        <title>{pageTitle}</title>
-        <meta name="description" content={pageDescription} />
-        <link rel="canonical" href={canonicalUrl} />
-        {isDeepFiltered && <meta name="robots" content="noindex,follow" />}
-        <meta property="og:type" content="website" />
-        <meta property="og:title" content={pageTitle} />
-        <meta property="og:description" content={pageDescription} />
-        <meta property="og:url" content={canonicalUrl} />
-        <meta name="twitter:card" content="summary_large_image" />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd).replace(/</g, '\\u003c') }}
-        />
-      </Head>
+return (
+      <>
+        <Head>
+          <title>{pageTitle}</title>
+          <meta name="description" content={pageDescription} />
+          <link rel="canonical" href={canonicalUrl} />
+          {isDeepFiltered && <meta name="robots" content="noindex,follow" />}
+          <meta property="og:type" content="website" />
+          <meta property="og:title" content={pageTitle} />
+          <meta property="og:description" content={pageDescription} />
+          <meta property="og:url" content={canonicalUrl} />
+          <meta name="twitter:card" content="summary_large_image" />
+          <script
+            type="application/ld+json"
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(directoryJsonLd).replace(/</g, '\\u003c') }}
+          />
+        </Head>
 
       {toast && (
         <div className="fixed top-5 left-1/2 -translate-x-1/2 z-[9999] px-5 py-3 rounded-xl bg-white border border-gray-200 shadow-2xl flex items-center gap-2.5 animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm sm:max-w-md">
@@ -989,20 +996,25 @@ export default function PropertiesListingPage(): React.ReactElement {
           onReset={clearAllFilters}
         />
 
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
-          {/* Secondary refinements sit below the banner so the shell itself can
-              stay a strict single row on desktop. */}
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleSaveSearchClick}
-                className="inline-flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] px-3.5 py-2 text-xs font-bold text-white shadow-md transition-all hover:from-[#004063] hover:to-[#029bba] active:scale-95"
-              >
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          <div className="my-6 space-y-6 md:my-8">
+            {/* Toolbar row: quick filters left, save-search right. Aligned to
+                the same content container as the search shell above. */}
+            <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+              {/* Right cluster: save search (pinned right at every breakpoint) */}
+              <div className="order-2 flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={handleSaveSearchClick}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-[#017a8a] px-3.5 py-2 text-xs font-bold text-white transition-all hover:bg-[#004063] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/60 focus-visible:ring-offset-2"
+                >
                 <icons.Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                 <span>Save Search &amp; Get Alerts</span>
               </button>
+              </div>
 
+              {/* Left cluster: quick filters */}
+              <div className="order-1 flex flex-wrap items-center gap-2">
               <div className="relative shrink-0">
                 <icons.Bed className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
                 <select
@@ -1032,18 +1044,18 @@ export default function PropertiesListingPage(): React.ReactElement {
                 </select>
                 <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
               </div>
+                {activeFilterCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => clearAllFilters()}
+                    className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 text-xs font-bold text-red-600 transition-colors hover:bg-red-100"
+                  >
+                    <icons.RotateCcw className="h-3.5 w-3.5" />
+                    Reset Filters ({activeFilterCount})
+                  </button>
+                )}
+              </div>
             </div>
-
-            {activeFilterCount > 0 && (
-              <button
-                type="button"
-                onClick={() => clearAllFilters()}
-                className="inline-flex items-center gap-1.5 rounded-xl border border-red-100 bg-red-50 px-3 py-1.5 text-xs font-bold text-red-600 transition-colors hover:bg-red-100"
-              >
-                <icons.RotateCcw className="h-3.5 w-3.5" />
-                Reset Filters ({activeFilterCount})
-              </button>
-            )}
           </div>
 
           {/* Active Filters Display */}
@@ -1171,7 +1183,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                     onClick={() => setViewMode("grid")}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                       viewMode === "grid"
-                        ? "bg-[#029bba] text-white shadow-sm"
+                        ? "bg-[#017a8a] text-white shadow-sm"
                         : "text-gray-500 hover:bg-gray-50 hover:text-[#029bba]"
                     }`}
                   >
@@ -1186,7 +1198,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                     onClick={() => setViewMode("list")}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-bold transition-all ${
                       viewMode === "list"
-                        ? "bg-[#029bba] text-white shadow-sm"
+                        ? "bg-[#017a8a] text-white shadow-sm"
                         : "text-gray-500 hover:bg-gray-50 hover:text-[#029bba]"
                     }`}
                   >
@@ -1260,7 +1272,7 @@ export default function PropertiesListingPage(): React.ReactElement {
                   )}
                   <Link
                     href="/add-property"
-                    className="px-5 py-2.5 bg-[#029bba] hover:bg-[#017a8a] text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
+                    className="px-5 py-2.5 bg-[#017a8a] hover:bg-[#004063] text-white rounded-xl text-xs font-bold transition-colors shadow-sm"
                   >
                     List Your Property
                   </Link>
@@ -1268,7 +1280,40 @@ export default function PropertiesListingPage(): React.ReactElement {
               </div>
             ) : (
               <>
-                <PropertyGrid properties={properties} loading={false} viewMode={viewMode} />
+                {/* Results + optional right ad rail. The rail only exists when
+                    inventory is configured (hasAd); with AD_INVENTORY empty
+                    this is a plain block and the cards use the full container
+                    width — no empty reserved column, no wasted space. */}
+                <div
+                  className={
+                    hasSidebarAd
+                      ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
+                      : undefined
+                  }
+                >
+                  <div className="min-w-0">
+                    <PropertyGrid
+                      properties={properties}
+                      loading={false}
+                      viewMode={viewMode}
+                      gridClassName={
+                        hasSidebarAd
+                          ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 xl:grid-cols-2"
+                          : undefined
+                      }
+                    />
+
+                    <AdSlot id="properties.infeed" variant="infeed" className="mt-8" />
+                  </div>
+
+                  {hasSidebarAd && (
+                    <aside className="hidden xl:block" aria-label="Advertisement">
+                      <div className="sticky top-24 space-y-6">
+                        <AdSlot id="properties.sidebar" variant="sidebar" />
+                      </div>
+                    </aside>
+                  )}
+                </div>
 
                 {pagination.pages > 1 && (
                   <>
@@ -1372,8 +1417,17 @@ export default function PropertiesListingPage(): React.ReactElement {
               List Property
             </Link>
           </section>
-        </div>
 
+          {/* SEO content — professional card at the very bottom of the page,
+              inside the same 1280px container so its gutters match the listings. */}
+          {getPageSeoContent("properties") && (
+            <PageSeoContent
+              {...getPageSeoContent("properties")!}
+              contained={false}
+              className="mt-8 mb-2"
+            />
+          )}
+        </div>
         <CompareBar />
 
         {/* Floating Back to Top Button */}

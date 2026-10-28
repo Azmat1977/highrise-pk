@@ -5,6 +5,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import SharedStatusBadge from '@/components/shared/StatusBadge';
 import {
   Shield,
   FileCheck,
@@ -43,46 +44,48 @@ interface SafeDealCaseListItem {
 
 /* ─── Config ─── */
 
-const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; tone: 'success' | 'warning' | 'danger' | 'info' | 'neutral'; className?: string }> = {
   submitted: {
     label: 'Submitted',
     icon: <Clock className="w-3 h-3" />,
-    className: 'bg-gray-100 text-gray-700',
+    tone: 'neutral',
   },
   under_review: {
     label: 'Under Review',
     icon: <Eye className="w-3 h-3" />,
-    className: 'bg-blue-100 text-blue-700',
+    tone: 'info',
   },
   documents_required: {
     label: 'Documents Needed',
     icon: <AlertCircle className="w-3 h-3" />,
-    className: 'bg-amber-100 text-amber-700',
+    tone: 'warning',
   },
   verification_in_progress: {
     label: 'Verification in Progress',
     icon: <Search className="w-3 h-3" />,
+    // No shared tone for legacy violet -- full className override keeps it.
+    tone: 'neutral',
     className: 'bg-violet-100 text-violet-700',
   },
   consultation_scheduled: {
     label: 'Consultation Scheduled',
     icon: <MessageSquare className="w-3 h-3" />,
-    className: 'bg-emerald-100 text-emerald-700',
+    tone: 'success',
   },
   assessment_completed: {
     label: 'Assessment Ready',
     icon: <CheckCircle className="w-3 h-3" />,
-    className: 'bg-emerald-100 text-emerald-700',
+    tone: 'success',
   },
   closed: {
     label: 'Closed',
     icon: <CheckCircle className="w-3 h-3" />,
-    className: 'bg-gray-100 text-gray-600',
+    tone: 'neutral',
   },
   cancelled: {
     label: 'Cancelled',
     icon: <XCircle className="w-3 h-3" />,
-    className: 'bg-red-100 text-red-700',
+    tone: 'danger',
   },
 };
 
@@ -144,14 +147,17 @@ function getProgressLabel(status: string): string {
   return labelMap[status] ?? 'In progress';
 }
 
+// Thin delegation to the shared design-system badge. The `status`-prop API and
+// the STATUS_CONFIG semantic map stay local; only presentation is shared.
 function StatusBadge({ status }: { status: string }): React.ReactElement {
   const cfg = STATUS_CONFIG[status] ?? STATUS_CONFIG.submitted;
   return (
-    <span
-      className={`inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-bold rounded-full ${cfg.className}`}
-    >
-      {cfg.icon} {cfg.label}
-    </span>
+    <SharedStatusBadge
+      tone={cfg.tone}
+      icon={cfg.icon}
+      label={cfg.label}
+      className={cfg.className}
+    />
   );
 }
 

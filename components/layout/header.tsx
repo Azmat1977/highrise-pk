@@ -15,7 +15,7 @@ import { useSession, signOut } from "next-auth/react";
 import AuthGateModal from "@/components/auth/AuthGateModal";
 import { useFavorites } from "@/hooks/useFavorites";
 import { useCompare } from "@/hooks/useCompare";
-import { POPULAR_CITIES } from "@/lib/pakistanCities";
+import { MEGA_MENU_CITIES } from "@/lib/pakistanCities";
 import { useStickySearchActive } from "@/hooks/useStickySearchActive";
 
 // ============================================================================
@@ -344,14 +344,9 @@ interface NavItem {
 const BUY_BASE = "/properties?listingType=full_payment";
 const RENT_BASE = "/properties?listingType=rent";
 
-const MENU_CITIES = POPULAR_CITIES;
-
-function cityLinks(base: string, queryConnector: "&" | "?", count: number): NavLinkItem[] {
-  return MENU_CITIES.slice(0, count).map((city) => ({
-    label: city,
-    href: `${base}${queryConnector}city=${encodeURIComponent(city)}`,
-  }));
-}
+// Header city shortcuts come from one shared list so every mega menu, the
+// mobile drawer and any future nav surface stay in sync.
+const MENU_CITIES = MEGA_MENU_CITIES;
 
 const NAV_ITEMS: NavItem[] = [
   {
@@ -1017,7 +1012,10 @@ export const Header: React.FC = () => {
 
     const measure = () => {
       const cols = item.sections.length;
-      const desired = cols >= 5 ? 1080 : cols === 4 ? 880 : 720;
+      // Wide enough that no column has to truncate a label or wrap a heading.
+      // 4-column menus carry the longest labels ("Developer Onboarding",
+      // "High-Rise Developments"), so they get close to the 1,200px ceiling.
+      const desired = cols >= 5 ? 1180 : cols === 4 ? 1040 : 840;
       const viewportWidth = window.innerWidth;
       const width = Math.min(desired, viewportWidth - 32);
       const headerLeft =
@@ -1142,6 +1140,7 @@ export const Header: React.FC = () => {
                     onKeyDown={(e) => handleTriggerKeyDown(e, item.key)}
                     className={cx(
                       "flex items-center gap-1.5 lg:px-2.5 xl:px-3.5 py-2 rounded-xl text-sm font-semibold transition-colors",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50",
                       isActive
                         ? "text-[#029bba] bg-[#029bba]/8"
                         : "text-gray-700 hover:text-[#029bba] hover:bg-gray-50"
@@ -1166,15 +1165,9 @@ export const Header: React.FC = () => {
               const activeItem = NAV_ITEMS.find((navItem) => navItem.key === activeNav);
               if (!activeItem || !panelBox) return null;
               const colCount = activeItem.sections.length;
-              // The trailing city column holds 2-up chips, so it gets extra
-              // width instead of truncating "Islamabad" / "Rawalpindi".
-              const endsWithCities =
-                activeItem.sections[colCount - 1]?.kind === "cities";
-              const gridTemplate = Array.from({ length: colCount })
-                .map((_, index) =>
-                  endsWithCities && index === colCount - 1 ? "1.5fr" : "1fr"
-                )
-                .join(" ");
+              // Equal columns: every section is a short, single-column list, so
+              // no column needs extra width (city names sit in one column).
+              const gridTemplate = `repeat(${colCount}, minmax(0, 1fr))`;
               return (
                 <div
                   className="absolute top-full z-50"
@@ -1200,7 +1193,7 @@ export const Header: React.FC = () => {
                     >
                       <div className="h-[3px] w-full bg-gradient-to-r from-[#004063] via-[#029bba] to-[#004063]" />
 
-                      <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/70 px-5 py-3">
+                      <div className="flex items-center justify-between gap-4 border-b border-slate-100 bg-slate-50/60 px-6 py-3.5">
                         <div className="flex min-w-0 items-center gap-2.5">
                           <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#004063] text-white">
                             {activeItem.icon}
@@ -1216,7 +1209,7 @@ export const Header: React.FC = () => {
                         </div>
                         <Link
                           href={activeItem.href}
-                          className="group flex shrink-0 items-center gap-1 rounded-lg px-2 py-1 text-[12px] font-bold text-[#029bba] transition-colors hover:bg-[#029bba]/10 hover:text-[#007196]"
+                          className="group flex shrink-0 items-center gap-1 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-[12px] font-bold text-[#007196] transition-colors hover:border-[#029bba] hover:bg-[#029bba]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
                         >
                           View all
                           <icons.ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" />
@@ -1225,62 +1218,67 @@ export const Header: React.FC = () => {
 
                       <div
                         className={cx(
-                          "grid gap-x-6 gap-y-5 p-5",
+                          "grid gap-x-5 gap-y-6 p-6",
                           // Tall menus (Buy at short desktop heights) scroll
                           // inside the card instead of running off screen.
                           "max-h-[calc(100vh-7.5rem)] overflow-y-auto overscroll-contain"
                         )}
                         style={{ gridTemplateColumns: gridTemplate }}
                       >
-                        {activeItem.sections.map((section) =>
-                          section.kind === "cities" ? (
-                            <div key={`${activeItem.key}-${section.title}`}>
-                              <p className="mb-2.5 flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                                <span className="h-px w-3 bg-[#029bba]/60" aria-hidden="true" />
-                                {section.title}
-                              </p>
-                              <div className="grid grid-cols-2 gap-1.5">
-                                {section.cities.map((cityName) => (
-                                  <Link
-                                    key={`${activeItem.key}-city-${cityName}`}
-                                    href={`${section.base}${section.base.includes("?") ? "&" : "?"}city=${encodeURIComponent(cityName)}`}
-                                    className="group flex items-center gap-1.5 rounded-lg border border-slate-200/80 bg-slate-50/70 px-1.5 py-1.5 text-[12px] font-semibold text-slate-600 transition-colors hover:border-[#029bba]/50 hover:bg-white hover:text-[#007196]"
-                                  >
-                                    <icons.MapPin className="h-3 w-3 shrink-0 text-[#029bba]" />
-                                    <span className="truncate">{cityName}</span>
-                                  </Link>
-                                ))}
-                              </div>
-                              <Link
-                                href={section.viewAllHref}
-                                className="mt-2 inline-flex items-center gap-1 rounded-md px-1 py-1 text-[12px] font-bold text-[#029bba] transition-colors hover:text-[#007196]"
-                              >
-                                Explore all cities
-                                <icons.ArrowRight className="h-3.5 w-3.5" />
-                              </Link>
-                            </div>
-                          ) : (
-                            <div key={`${activeItem.key}-${section.title}`}>
-                              <p className="mb-2 flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.14em] text-slate-400">
-                                <span className="h-px w-3 bg-[#029bba]/60" aria-hidden="true" />
-                                {section.title}
-                              </p>
+                        {activeItem.sections.map((section, sectionIndex, arr) => (
+                          <div
+                            key={`${activeItem.key}-${section.title}`}
+                            className={cx(
+                              "min-w-0 px-3",
+                              // Hairline column rules read cleaner than boxes and
+                              // keep the panel from looking like a grid of cards.
+                              sectionIndex > 0 && "border-l border-slate-100"
+                            )}
+                          >
+                            <p className="mb-2.5 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-500">
+                              <span className="h-px w-3 bg-[#029bba]/60" aria-hidden="true" />
+                              {section.title}
+                            </p>
+
+                            {section.kind === "cities" ? (
+                              <>
+                                <ul className="space-y-0.5">
+                                  {section.cities.map((cityName) => (
+                                    <li key={`${activeItem.key}-city-${cityName}`}>
+                                      <Link
+                                        href={`${section.base}${section.base.includes("?") ? "&" : "?"}city=${encodeURIComponent(cityName)}`}
+                                        className="flex items-center gap-2 rounded-lg px-2 py-[7px] text-[13px] font-semibold text-slate-700 transition-colors hover:bg-[#029bba]/[0.07] hover:text-[#004063] focus-visible:bg-[#029bba]/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
+                                      >
+                                        <icons.MapPin className="h-3.5 w-3.5 shrink-0 text-[#029bba]" />
+                                        <span className="truncate">{cityName}</span>
+                                      </Link>
+                                    </li>
+                                  ))}
+                                </ul>
+                                <Link
+                                  href={section.viewAllHref}
+                                  className="mt-1.5 flex items-center justify-between gap-2 rounded-lg border border-dashed border-slate-200 px-2 py-2 text-[12px] font-bold text-[#007196] transition-colors hover:border-[#029bba] hover:bg-[#029bba]/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
+                                >
+                                  Explore all cities
+                                  <icons.ArrowRight className="h-3.5 w-3.5" />
+                                </Link>
+                              </>
+                            ) : (
                               <ul className="space-y-0.5">
                                 {section.links.map((link) => (
                                   <li key={`${activeItem.key}-${section.title}-${link.href}`}>
                                     <Link
                                       href={link.href}
-                                      className="group flex items-center justify-between gap-2 rounded-md px-2 py-[7px] text-[13px] font-medium text-slate-600 transition-colors hover:bg-[#029bba]/[0.07] hover:text-[#004063]"
+                                      className="flex items-center rounded-lg px-2 py-[7px] text-[13px] font-medium text-slate-600 transition-colors hover:bg-[#029bba]/[0.07] hover:text-[#004063] focus-visible:bg-[#029bba]/[0.07] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
                                     >
                                       <span className="truncate">{link.label}</span>
-                                      <icons.ChevronRight className="h-3 w-3 shrink-0 text-[#029bba] opacity-0 transition-opacity group-hover:opacity-100" />
                                     </Link>
                                   </li>
                                 ))}
                               </ul>
-                            </div>
-                          )
-                        )}
+                            )}
+                          </div>
+                        ))}
                       </div>
                     </div>
                   </div>
@@ -1477,7 +1475,7 @@ export const Header: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="hidden xl:flex items-center gap-2 text-[15px] text-gray-700 hover:text-[#029bba] font-semibold transition-colors"
+                  className="hidden xl:flex items-center gap-2 text-[15px] text-gray-700 hover:text-[#029bba] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50"
                   onClick={() => setIsLoginModalOpen(true)}
                 >
                   <icons.User className="w-4 h-4" />
@@ -1497,7 +1495,7 @@ export const Header: React.FC = () => {
                   <DropdownMenu.Trigger asChild>
                     <button
                       type="button"
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-gray-700 hover:text-[#029bba] hover:bg-gray-50 transition-all border-2 border-transparent hover:border-gray-200"
+                      className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold text-gray-700 hover:text-[#029bba] hover:bg-gray-50 transition-all border-2 border-transparent hover:border-gray-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50"
                       aria-label="User menu"
                     >
                       <icons.UserCircle className="w-5 h-5" />
@@ -1914,7 +1912,7 @@ export const Header: React.FC = () => {
 
             {/* MOBILE MENU BUTTON */}
             <button
-              className="lg:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors"
+              className="lg:hidden p-2 rounded-xl hover:bg-gray-100 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
               aria-label="Toggle mobile menu"
               aria-expanded={isMobileMenuOpen}
@@ -2009,7 +2007,7 @@ export const Header: React.FC = () => {
                         </Link>
                         {item.cityArea && navCities.length > 0 && (
                           <div className="flex flex-wrap items-center gap-1.5 px-4 pb-2 pt-0.5">
-                            {navCities.slice(0, 6).map((cityName) => (
+                            {navCities.map((cityName) => (
                               <Link
                                 key={`mobile-city-${item.key}-${cityName}`}
                                 href={`${item.cityArea!.base}?city=${encodeURIComponent(cityName)}`}

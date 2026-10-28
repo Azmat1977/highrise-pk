@@ -303,24 +303,6 @@ export const Footer: React.FC = () => {
           </div>
         </div>
 
-        {/* TRUST BADGES */}
-        <div className="border-t border-white/10">
-          <div className="container mx-auto px-4 py-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-4">
-              <div className="text-[10px] font-bold uppercase tracking-wider text-white/50">
-                Trust & Security
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-2">
-                <TrustBadge icon={<icons.ShieldCheck className="w-3.5 h-3.5" />} label="SECP Registered" />
-                <TrustBadge icon={<icons.FileText className="w-3.5 h-3.5" />} label="FBR Compliant" />
-                <TrustBadge icon={<icons.Award className="w-3.5 h-3.5" />} label="PTA Verified" />
-                <TrustBadge icon={<icons.Lock className="w-3.5 h-3.5" />} label="AES-256 Encrypted" />
-                <TrustBadge icon={<icons.ShieldCheck className="w-3.5 h-3.5" />} label="SSL Secured" />
-              </div>
-            </div>
-          </div>
-        </div>
-
         {/* BOTTOM BAR */}
         <div className="border-t border-white/10 bg-[#001120]">
           <div className="container mx-auto px-4 py-5">
@@ -487,22 +469,6 @@ function FooterLinksColumn({
         })}
       </ul>
     </div>
-  );
-}
-
-// ─── Sub-Component: Trust Badge ───────────────────────────────────────────────
-
-interface TrustBadgeProps {
-  icon: React.ReactElement;
-  label: string;
-}
-
-function TrustBadge({ icon, label }: TrustBadgeProps): React.ReactElement {
-  return (
-    <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 border border-white/10 text-[11px] font-semibold text-white/80 hover:bg-white/10 hover:border-white/20 transition-colors">
-      <span className="text-[#06b6d4]">{icon}</span>
-      {label}
-    </span>
   );
 }
 

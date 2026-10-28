@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, ChevronLeft, ChevronRight, Landmark, MapPin } from 'lucide-react';
+import SectionHeading from '@/components/ui/SectionHeading';
 import {
   CURATED_CITY_NAMES,
   HOMEPAGE_CITY_NAMES,
@@ -127,24 +128,20 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
       aria-labelledby="cities-carousel-heading"
     >
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-10 flex flex-col gap-5 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
-          <div className="mx-auto max-w-2xl sm:mx-0">
-            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full bg-[#029bba]/10 px-3 py-1 text-xs font-semibold text-[#007196]">
-              <Landmark className="h-3.5 w-3.5 text-[#029bba]" />
-              <span>City Directory</span>
-            </span>
-            <h2
-              id="cities-carousel-heading"
-              className="text-2xl font-extrabold tracking-tight text-[#001f2b] sm:text-3xl"
-            >
-              Explore Properties by <span className="text-[#029bba]">Major Cities</span>
-            </h2>
-            <p className="mt-2 text-sm text-slate-600 sm:text-[15px]">
-              Discover verified homes, towers, and plots across Pakistan&apos;s architectural capitals.
-            </p>
-          </div>
+        <div className="mb-10 flex flex-col items-center gap-5 text-center">
+          <SectionHeading
+            id="cities-carousel-heading"
+            eyebrow="City Directory"
+            eyebrowIcon={<Landmark className="h-3.5 w-3.5 text-[#029bba]" />}
+            title={
+              <>
+                Explore Properties by <span className="text-[#029bba]">Major Cities</span>
+              </>
+            }
+            subtitle="Discover verified homes, towers, and plots across Pakistan's architectural capitals."
+          />
 
-          <div className="flex items-center justify-center gap-2 sm:justify-end">
+          <div className="flex items-center justify-center gap-2">
             <button
               type="button"
               onClick={() => go('prev')}

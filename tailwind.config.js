@@ -88,12 +88,6 @@ module.exports = {
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
 
-        // Pulse glow (trust badges, verified indicators)
-        pulseGlow: {
-          "0%, 100%": { boxShadow: "0 0 0 0 rgba(2, 155, 186, 0.4)" },
-          "50%":       { boxShadow: "0 0 0 8px rgba(2, 155, 186, 0)" },
-        },
-
         // Spinner (loading states)
         spin: {
           "0%":   { transform: "rotate(0deg)" },
@@ -118,15 +112,33 @@ module.exports = {
         // Bottom sheets
         "slide-up":     "slideUp 0.2s ease-out forwards",
 
-        // Trust badges
-        "pulse-glow":   "pulseGlow 2s ease-in-out infinite",
-
         // Spinner (alternative to Tailwind's built-in animate-spin)
         "spin-slow":    "spin 2s linear infinite",
       },
 
       // ── Typography ────────────────────────────────────────────────────────
+      // `body` and `heading` resolve the font-body / font-heading utility
+      // classes used across the app. They match the faces globals.css already
+      // applies (Poppins body, Montserrat h1-h6), so defining them here makes
+      // the classes explicit without changing any rendered page.
       fontFamily: {
+        body: [
+          "Poppins",
+          "Segoe UI",
+          "Tahoma",
+          "Geneva",
+          "Verdana",
+          "sans-serif",
+        ],
+        heading: [
+          "Montserrat",
+          "Poppins",
+          "Segoe UI",
+          "Tahoma",
+          "Geneva",
+          "Verdana",
+          "sans-serif",
+        ],
         sans: [
           "Poppins",
           "Segoe UI",

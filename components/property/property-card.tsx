@@ -1126,7 +1126,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
                       <p className="text-xs font-bold text-gray-800 truncate leading-tight">
                         {property.ownerName}
                       </p>
-                      <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">
+                      <span className="text-[9px] font-bold text-gray-600 uppercase tracking-wider">
                         {property.ownerRole === 'owner' ? 'Direct Owner' : 'Agency Advisor'}
                       </span>
                     </div>
@@ -1192,7 +1192,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
               {/* Time Listed & View Count */}
               {layout === 'grid' && (timeAgo || (property.views !== undefined && property.views > 0)) && (
-                <div className="flex items-center justify-between text-xs text-gray-400 pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-100">
                   {timeAgo && (
                     <div className="flex items-center">
                       <icons.Clock className="w-3 h-3 mr-1" />
@@ -1209,7 +1209,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
               )}
 
               {layout === 'list' && (timeAgo || (property.views !== undefined && property.views > 0)) && (
-                <div className="flex items-center gap-4 border-t border-gray-100 pt-3 text-xs font-semibold text-gray-400">
+                <div className="flex items-center gap-4 border-t border-gray-100 pt-3 text-xs font-semibold text-gray-500">
                   {timeAgo && <span className="inline-flex items-center gap-1"><icons.Clock className="h-3.5 w-3.5" /> Listed {timeAgo}</span>}
                   {property.views !== undefined && property.views > 0 && <span className="inline-flex items-center gap-1"><icons.Eye className="h-3.5 w-3.5" /> {Number(property.views).toLocaleString('en-PK')} views</span>}
                 </div>

@@ -53,7 +53,7 @@ export function StickySearchHeader({
 
   return (
     <header className="fixed inset-x-0 top-0 z-[60] border-b border-slate-200/80 bg-white/95 shadow-[0_6px_24px_-16px_rgba(0,31,43,0.45)] backdrop-blur-md motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-top-1 motion-safe:duration-200">
-      <div className="mx-auto flex h-16 w-full max-w-[1600px] items-center gap-2 px-3 sm:gap-3 sm:px-4 lg:px-6">
+      <div className="mx-auto flex h-16 w-full max-w-[1280px] items-center gap-2 px-4 sm:gap-3 sm:px-6 lg:px-8">
         <Link
           href="/"
           aria-label="Highrise.pk home"

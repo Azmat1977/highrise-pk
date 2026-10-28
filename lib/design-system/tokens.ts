@@ -130,7 +130,9 @@ export const containers = {
   detail: 'max-w-[1120px] mx-auto px-4 sm:px-6 py-6 lg:py-8',
 
   // Functional pages (Directories, Dashboards, Forms, Search)
-  functional: 'max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5',
+  // Aligned with the shared listing frame: same 1280px width and gutters as
+  // PageSearchShell, StickySearchHeader and the listing results containers.
+  functional: 'max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full',
 
   // Marketing pages (Home hero sections)
   marketing: 'max-w-7xl mx-auto px-4 sm:px-6 lg:px-8',

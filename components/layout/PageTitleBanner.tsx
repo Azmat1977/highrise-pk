@@ -62,7 +62,7 @@ export function PageTitleBanner({
         }}
       />
 
-      <div className="relative mx-auto flex w-full max-w-[1440px] flex-col items-center justify-center px-3 pb-16 pt-6 text-center sm:px-4 md:min-h-[152px] md:px-4 md:pb-14 md:pt-5">
+      <div className="relative mx-auto flex w-full max-w-[1280px] flex-col items-center justify-center px-4 pb-16 pt-6 text-center sm:px-6 md:min-h-[152px] md:pb-14 md:pt-5 lg:px-8">
         {breadcrumb ? (
           <div className="mb-2 flex w-full justify-center md:mb-2.5">{breadcrumb}</div>
         ) : null}

@@ -35,6 +35,10 @@ import AgentProfile from '@/models/AgentProfile';
 import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 import { PageSearchShell } from '@/components/search/PageSearchShell';
 import type { SearchField } from '@/components/search/UnifiedSearchBar';
+import { hasAd } from "@/lib/ads/inventory";
+import AdSlot from "@/components/ads/AdSlot";
+import { getPageSeoContent } from "@/lib/seo/pageContent";
+import PageSeoContent from "@/components/seo/PageSeoContent";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -693,6 +697,9 @@ export default function AgentsDirectoryPage({
 }: Omit<PageProps, 'lastUpdated'>): React.ReactElement {
   const { data: session } = useSession();
   const router = useRouter();
+  // Advertising is not sold yet, so this is false and the sidebar rail is
+  // never rendered. Flipping it on in lib/ads/inventory.ts enables the layout.
+  const hasSidebarAd = hasAd("agents.sidebar");
 
   // ── Filter State ──
   const [filters, setFilters] = useState<FilterState>({
@@ -989,37 +996,37 @@ export default function AgentsDirectoryPage({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }}
         />
-      </Head>
+</Head>
 
-      <div className="min-h-screen bg-gray-50">
+      <PageSearchShell
+        title="Find Real Estate Agents"
+        subtitle="Connect with verified property professionals."
+        breadcrumb={
+          <nav
+            aria-label="Breadcrumb"
+            className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+          >
+            <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+              <Home className="w-3 w-3" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 w-3 text-blue-200/40" />
+            <span className="text-white">Agents</span>
+          </nav>
+        }
+        fields={searchFields}
+        onSubmit={() => updateFilter('search', filters.search.trim())}
+        submitLabel="Search"
+        mobileLabel="Search Agents"
+        activeFilterCount={activeFilterCount}
+        onReset={clearAllFilters}
+      />
 
-        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
-        <PageSearchShell
-          title="Find Real Estate Agents"
-          subtitle="Connect with verified property professionals."
-          breadcrumb={
-            <nav
-              aria-label="Breadcrumb"
-              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
-            >
-              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
-                <Home className="w-3 h-3" />
-                <span>Home</span>
-              </Link>
-              <ChevronRight className="w-3 h-3 text-blue-200/40" />
-              <span className="text-white">Agents</span>
-            </nav>
-          }
-          fields={searchFields}
-          onSubmit={() => updateFilter('search', filters.search.trim())}
-          submitLabel="Search"
-          mobileLabel="Search Agents"
-          activeFilterCount={activeFilterCount}
-          onReset={clearAllFilters}
-        />
-
+      {/* Zameen-style content container: everything below the full-width navy
+          search shell sits inside a centered 1280px frame with side gutters. */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
         {/* ── Secondary filters (kept below the banner so the shell stays one row) ── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pt-4 pb-2">
+        <div className="my-6 md:my-8">
           <div className="flex flex-wrap items-center gap-2">
 
             {/* Verified Toggle */}
@@ -1131,7 +1138,7 @@ export default function AgentsDirectoryPage({
         </div>
 
         {/* ── Results ── */}
-        <main className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 pb-12">
+        <div className="pb-12">
           {/* Results Header */}
           <div className="flex flex-col sm:flex-row sm:items-center 
                           justify-between gap-4 mb-8">
@@ -1156,35 +1163,56 @@ export default function AgentsDirectoryPage({
               ))}
             </div>
           ) : paginated.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {paginated.map((agent) => (
-                  <AgentCard
-                    key={agent._id}
-                    agent={agent}
-                    onContact={openModal}
-                  />
-                ))}
+            /* Results + optional right ad rail. The rail only exists when
+               inventory is configured (hasAd); with AD_INVENTORY empty
+               this is a plain block — no reserved column, no wasted space. */
+            <div
+              className={
+                hasSidebarAd
+                  ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
+                  : undefined
+              }
+            >
+              <div className="min-w-0">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                  {paginated.map((agent) => (
+                    <AgentCard
+                      key={agent._id}
+                      agent={agent}
+                      onContact={openModal}
+                    />
+                  ))}
+                </div>
+
+                <AdSlot id="agents.infeed" variant="infeed" className="mt-8" />
+
+                {/* Load More */}
+                {hasMore && (
+                  <div className="text-center mt-10">
+                    <button
+                      type="button"
+                      onClick={() => setPage((p) => p + 1)}
+                      className="px-8 py-3 border border-[#029bba] text-[#029bba]
+                                 rounded-xl text-sm font-semibold hover:bg-[#029bba]
+                                 hover:text-white transition-colors"
+                    >
+                      Load More Agents
+                    </button>
+                    <p className="text-xs text-gray-400 mt-2">
+                      Showing {paginated.length} of {allFiltered.length} agents
+                    </p>
+                  </div>
+                )}
               </div>
 
-              {/* Load More */}
-              {hasMore && (
-                <div className="text-center mt-10">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => p + 1)}
-                    className="px-8 py-3 border border-[#029bba] text-[#029bba] 
-                               rounded-xl text-sm font-semibold hover:bg-[#029bba] 
-                               hover:text-white transition-colors"
-                  >
-                    Load More Agents
-                  </button>
-                  <p className="text-xs text-gray-400 mt-2">
-                    Showing {paginated.length} of {allFiltered.length} agents
-                  </p>
-                </div>
+              {hasSidebarAd && (
+                <aside className="hidden xl:block" aria-label="Advertisement">
+                  <div className="sticky top-24 space-y-6">
+                    <AdSlot id="agents.sidebar" variant="sidebar" />
+                  </div>
+                </aside>
               )}
-            </>
+            </div>
           ) : (
             /* Empty State */
             <div className="text-center py-20 bg-white rounded-2xl 
@@ -1214,16 +1242,17 @@ export default function AgentsDirectoryPage({
               )}
             </div>
           )}
-        </main>
+        </div>
+      </div>
 
-        {/* ── CTA Section ── */}
+        {/* ── CTA Section (full-bleed, own container) ── */}
         <section className="relative bg-[#001f2b] text-white py-20 overflow-hidden">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#029bba_1px,transparent_1px)] [background-size:30px_30px]" />
           <div className="absolute top-0 left-1/2 w-96 h-96 bg-[#029bba] 
                           rounded-full blur-[150px] opacity-20 
                           -translate-x-1/2 -translate-y-1/2" />
 
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center relative z-10">
+          <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full text-center relative z-10">
             <div className="w-20 h-20 mx-auto mb-6 rounded-2xl 
                             bg-gradient-to-br from-[#029bba] to-[#004063] 
                             flex items-center justify-center shadow-xl">
@@ -1261,17 +1290,28 @@ export default function AgentsDirectoryPage({
             </div>
           </div>
         </section>
-      </div>
 
-      {/* ── Lead Modal ── */}
-      <LeadModal
-        state={modal}
-        session={session}
-        onClose={closeModal}
-        onSubmit={handleModalSubmit}
-        onChange={handleModalChange}
-      />
-    </>
+        {/* SEO content — professional card at the very bottom of the page,
+            inside its own 1280px container so its gutters match the listings. */}
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          {getPageSeoContent("agents") && (
+            <PageSeoContent
+              {...getPageSeoContent("agents")!}
+              contained={false}
+              className="my-6 mb-2 md:my-8"
+            />
+          )}
+        </div>
+
+        {/* ── Lead Modal ── */}
+        <LeadModal
+          state={modal}
+          session={session}
+          onClose={closeModal}
+          onSubmit={handleModalSubmit}
+          onChange={handleModalChange}
+        />
+      </>
   );
 }
 

@@ -170,9 +170,16 @@ function NewListingContent(): React.ReactElement {
           {editId ? "Edit Listing" : "Create New Listing"}
         </h1>
         <p className="text-sm text-gray-500 mt-1">
-          {editId
-            ? "Modify your existing property listing"
-            : `${listingCount} of ${listingLimit} listings used - <span className="text-[#029bba] font-semibold">${listingLimit - listingCount} remaining</span>`}
+          {editId ? (
+            "Modify your existing property listing"
+          ) : (
+            <>
+              {listingCount} of {listingLimit} listings used -{" "}
+              <span className="text-[#029bba] font-semibold">
+                {listingLimit - listingCount} remaining
+              </span>
+            </>
+          )}
         </p>
       </div>
 

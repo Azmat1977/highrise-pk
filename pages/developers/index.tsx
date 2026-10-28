@@ -25,6 +25,11 @@ import {
 import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 import { PageSearchShell } from '@/components/search/PageSearchShell';
 import type { SearchField } from '@/components/search/UnifiedSearchBar';
+import { spacing } from '@/lib/design-system/tokens';
+import { hasAd } from "@/lib/ads/inventory";
+import AdSlot from "@/components/ads/AdSlot";
+import { getPageSeoContent } from "@/lib/seo/pageContent";
+import PageSeoContent from "@/components/seo/PageSeoContent";
 
 // ─────────────────────────────────────────────
 // Types
@@ -312,6 +317,9 @@ export default function DevelopersDirectoryPage({
   apiCities,
 }: PageProps): React.ReactElement {
   const router = useRouter();
+  // Advertising is not sold yet, so this is false and the sidebar rail is
+  // never rendered. Flipping it on in lib/ads/inventory.ts enables the layout.
+  const hasSidebarAd = hasAd("developers.sidebar");
 
   // ── Filter state ──
   const [searchTerm,         setSearchTerm]         = useState('');
@@ -541,7 +549,7 @@ export default function DevelopersDirectoryPage({
   if (router.isFallback) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className="mx-auto max-w-[1440px] px-3 py-20 sm:px-4 lg:px-6">
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full py-20">
           <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
             {Array.from({ length: 6 }).map((_, i) => (
               <DeveloperCardSkeleton key={i} />
@@ -597,34 +605,35 @@ export default function DevelopersDirectoryPage({
         />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
-        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
-        <PageSearchShell
-          title="Discover Verified Developers"
-          subtitle="Browse top builders and their portfolios."
-          breadcrumb={
-            <nav
-              aria-label="Breadcrumb"
-              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
-            >
-              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
-                <Home className="h-3 w-3" />
-                <span>Home</span>
-              </Link>
-              <span className="text-blue-200/40">/</span>
-              <span className="text-white">Developers</span>
-            </nav>
-          }
-          fields={searchFields}
-          onSubmit={() => setSearchTerm(searchTerm.trim())}
-          submitLabel="Search"
-          mobileLabel="Search Developers"
-          activeFilterCount={activeFilterCount}
-          onReset={clearAllFilters}
-        />
+      <PageSearchShell
+        title="Discover Verified Developers"
+        subtitle="Browse top builders and their portfolios."
+        breadcrumb={
+          <nav
+            aria-label="Breadcrumb"
+            className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+          >
+            <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+              <Home className="h-3 w-3" />
+              <span>Home</span>
+            </Link>
+            <span className="text-blue-200/40">/</span>
+            <span className="text-white">Developers</span>
+          </nav>
+        }
+        fields={searchFields}
+        onSubmit={() => setSearchTerm(searchTerm.trim())}
+        submitLabel="Search"
+        mobileLabel="Search Developers"
+        activeFilterCount={activeFilterCount}
+        onReset={clearAllFilters}
+      />
 
+      {/* Zameen-style content container: everything below the full-width navy
+          search shell sits inside a centered 1280px frame with side gutters. */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
         {/* ── Secondary filters (kept below the banner so the shell stays one row) ── */}
-        <div className="mx-auto max-w-[1440px] px-3 pt-4 pb-2 sm:px-4 lg:px-6">
+        <div className="my-6 md:my-8">
           <div className="flex flex-wrap items-center gap-2">
 
             {/* Verified toggle */}
@@ -750,7 +759,7 @@ export default function DevelopersDirectoryPage({
         </div>
 
         {/* ── Results ── */}
-        <div className="mx-auto max-w-[1440px] px-3 py-8 sm:px-4 lg:px-6">
+        <div className={spacing.sectionGapLg}>
 
           {featuredDevelopers.length > 0 && (
             <section aria-labelledby="featured-developers-heading" className="mb-10 border-b border-gray-200 pb-8">
@@ -781,38 +790,58 @@ export default function DevelopersDirectoryPage({
             </div>
           </div>
 
-          {/* Grid */}
+          {/* Grid + optional right ad rail. The rail only exists when
+              inventory is configured (hasAd); with AD_INVENTORY empty
+              this is a plain block — no reserved column, no wasted space. */}
           {filteredDevelopers.length > 0 ? (
-            <>
-              {directoryDevelopers.length > 0 && (
-                <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-                  {directoryDevelopers.map((dev) => (
-                    <DeveloperCard key={dev._id} dev={dev} />
-                  ))}
-                </div>
-              )}
+            <div
+              className={
+                hasSidebarAd
+                  ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
+                  : undefined
+              }
+            >
+              <div className="min-w-0">
+                {directoryDevelopers.length > 0 && (
+                  <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
+                    {directoryDevelopers.map((dev) => (
+                      <DeveloperCard key={dev._id} dev={dev} />
+                    ))}
+                  </div>
+                )}
 
-              {/* Load More */}
-              {!hasActiveFilters && !noMorePages && (
-                <div className="mt-12 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => void handleLoadMore()}
-                    disabled={loadingMore}
-                    className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-8 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-[#029bba] hover:text-[#029bba] disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {loadingMore ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      'Load More Developers'
-                    )}
-                  </button>
-                </div>
+                <AdSlot id="developers.infeed" variant="infeed" className="mt-8" />
+
+                {/* Load More */}
+                {!hasActiveFilters && !noMorePages && (
+                  <div className="mt-12 flex justify-center">
+                    <button
+                      type="button"
+                      onClick={() => void handleLoadMore()}
+                      disabled={loadingMore}
+                      className="flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-8 py-3 text-sm font-semibold text-gray-700 shadow-sm transition-all hover:border-[#029bba] hover:text-[#029bba] disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading...
+                        </>
+                      ) : (
+                        'Load More Developers'
+                      )}
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {hasSidebarAd && (
+                <aside className="hidden xl:block" aria-label="Advertisement">
+                  <div className="sticky top-24 space-y-6">
+                    <AdSlot id="developers.sidebar" variant="sidebar" />
+                  </div>
+                </aside>
               )}
-            </>
+            </div>
           ) : (
             /* Empty state */
             <div className="rounded-2xl border border-dashed border-gray-300 bg-white py-20 text-center">
@@ -839,13 +868,24 @@ export default function DevelopersDirectoryPage({
             </div>
           )}
         </div>
-        <div className="mx-auto max-w-[1440px] px-3 pb-8 sm:px-4 lg:px-6">
+
+        <div className="pb-8">
           <ContextualArticles
             title="Developer News & Insights"
             description="Published builder updates, project analysis, and real-estate investment guides."
             tags={['Developer News', 'Market Analysis', 'Project Reviews', 'Investment']}
           />
         </div>
+
+        {/* SEO content — professional card at the very bottom of the page,
+            inside the same 1280px container so its gutters match the listings. */}
+        {getPageSeoContent("developers") && (
+          <PageSeoContent
+            {...getPageSeoContent("developers")!}
+            contained={false}
+            className="mb-2"
+          />
+        )}
       </div>
     </>
   );

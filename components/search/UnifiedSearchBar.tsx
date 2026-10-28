@@ -183,7 +183,7 @@ function SelectFieldCell({
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={`Filter ${field.label.toLowerCase()}…`}
-                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[13px] text-slate-800 placeholder:text-slate-400 focus:border-[#029bba] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#029bba]/15"
+                className="h-9 w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 text-[13px] text-slate-800 placeholder:text-slate-500 focus:border-[#029bba] focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#029bba]/15"
               />
             </div>
           )}
@@ -271,7 +271,7 @@ function TextFieldCell({
           placeholder={field.placeholder ?? ""}
           aria-label={field.label}
           className={cx(
-            "mt-0.5 block w-full truncate border-0 bg-transparent p-0 font-semibold text-[#001f2b] placeholder:font-medium placeholder:text-slate-400 focus:outline-none focus:ring-0",
+            "mt-0.5 block w-full truncate border-0 bg-transparent p-0 font-semibold text-[#001f2b] placeholder:font-medium placeholder:text-slate-500 focus:outline-none focus:ring-0",
             compact ? "text-[12px]" : "text-[12.5px]"
           )}
         />
@@ -332,7 +332,7 @@ function MobileField({
         onChange={(event) => field.onChange(event.target.value)}
         onBlur={onClose}
         placeholder={field.placeholder ?? ""}
-        className="h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 placeholder:font-medium placeholder:text-slate-400 focus:border-[#029bba] focus:outline-none focus:ring-2 focus:ring-[#029bba]/20"
+          className="h-12 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-800 placeholder:font-medium placeholder:text-slate-500 focus:border-[#029bba] focus:outline-none focus:ring-2 focus:ring-[#029bba]/20"
       />
     </div>
   );
@@ -482,7 +482,7 @@ export function UnifiedSearchBar({
         <button
           type="submit"
           className={cx(
-            "flex shrink-0 items-center justify-center gap-2 rounded-r-xl bg-[#029bba] font-bold text-white transition-colors hover:bg-[#004063] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 focus-visible:ring-offset-2",
+            "flex shrink-0 items-center justify-center gap-2 rounded-r-xl bg-[#017a8a] font-bold text-white transition-colors hover:bg-[#004063] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 focus-visible:ring-offset-2",
             compact ? "w-12" : "w-[92px]"
           )}
           aria-label={submitLabel}
@@ -557,7 +557,7 @@ export function UnifiedSearchBar({
               <button
                 type="button"
                 onClick={submit}
-                className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#029bba] text-sm font-bold text-white transition-colors active:bg-[#004063]"
+                className="flex h-12 flex-1 items-center justify-center gap-2 rounded-xl bg-[#017a8a] text-sm font-bold text-white transition-colors active:bg-[#004063]"
               >
                 <Search className="h-4 w-4" />
                 {submitLabel}

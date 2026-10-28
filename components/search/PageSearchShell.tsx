@@ -94,7 +94,7 @@ export function PageSearchShell({
         footer={bannerFooter}
       />
 
-      <div className="relative z-20 mx-auto -mt-8 w-full max-w-[1440px] px-3 sm:px-4 md:-mt-10 lg:px-6">
+      <div className="relative z-20 mx-auto -mt-8 w-full max-w-[1280px] px-4 sm:px-6 md:-mt-10 lg:px-8">
         <UnifiedSearchBar
           fields={fields}
           onSubmit={onSubmit}

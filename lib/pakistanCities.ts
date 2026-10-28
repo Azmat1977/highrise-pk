@@ -176,6 +176,21 @@ export const POPULAR_CITIES: string[] = PAKISTAN_CITIES_META
 export const CURATED_CITY_NAMES = ["Islamabad", "Lahore", "Karachi", "Rawalpindi"] as const;
 
 /**
+ * The four city shortcuts shown inside the header mega menus and the mobile
+ * drawer. Deliberately short: a compact menu only has room for a handful of
+ * city rows before it stops reading as a menu. This is a *navigation* list
+ * only — every other city stays in PAKISTAN_CITIES, the filters, the search
+ * results, the /cities directory and the SEO landing pages. Each menu links to
+ * /cities for the full directory.
+ */
+export const MEGA_MENU_CITIES: string[] = [
+  "Islamabad",
+  "Rawalpindi",
+  "Lahore",
+  "Karachi",
+];
+
+/**
  * Cities the homepage always shows in "Explore Properties by Major Cities",
  * even when the database has no listings for them yet. The carousel merges
  * these with whatever the API returns, so the section never collapses to

@@ -9,7 +9,7 @@ export const typography = {
   // ========================================================================
 
   // Main page title (h1) -- used once per page
-  pageTitle: 'text-xl md:text-2xl lg:text-3xl font-black text-[#004063]',
+  pageTitle: 'text-2xl md:text-3xl font-black text-[#004063] tracking-tight leading-tight',
 
   // Page subtitle -- below pageTitle
   pageSubtitle: 'text-sm md:text-base text-[#666666] font-medium',

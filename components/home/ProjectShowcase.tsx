@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, Building2, Loader2, MapPin, Maximize } from 'lucide-react';
+import SectionHeading from '@/components/ui/SectionHeading';
 
 interface ProjectItem {
   _id: string;
@@ -87,21 +88,15 @@ export default function ProjectShowcase({
   return (
     <section className="border-y border-slate-200/60 bg-slate-100/70 py-16 sm:py-20">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-10 flex flex-col items-center gap-4 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#029bba]">
-              Development Landmarks
-            </p>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Discover Leading Projects
-            </h2>
-            <p className="mt-1 text-xs text-slate-600 sm:text-sm">
-              Verified master developments with live pricing and unit information.
-            </p>
-          </div>
+        <div className="mb-10 flex flex-col items-center gap-5 text-center">
+          <SectionHeading
+            eyebrow="Development Landmarks"
+            title="Discover Leading Projects"
+            subtitle="Verified master developments with live pricing and unit information."
+          />
           <Link
             href="/projects"
-            className="inline-flex items-center gap-1.5 rounded-xl bg-[#004063] px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#029bba]"
+            className="inline-flex items-center gap-1.5 rounded-xl bg-[#004063] px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-[#029bba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50"
           >
             <span>Explore All Projects</span>
             <ArrowRight className="h-3.5 w-3.5" />
@@ -147,7 +142,7 @@ export default function ProjectShowcase({
                         <p className="text-[10px] font-medium uppercase tracking-wider text-slate-200">
                           Starting from
                         </p>
-                        <p className="font-heading text-lg font-bold drop-shadow-md">
+                        <p className="text-lg font-bold drop-shadow-md">
                           {getPriceText(project)}
                         </p>
                       </div>

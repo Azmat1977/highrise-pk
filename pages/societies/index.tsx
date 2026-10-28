@@ -20,6 +20,11 @@ import {
 import { PAKISTAN_CITIES as CANONICAL_CITIES } from '@/lib/pakistanCities';
 import { PageSearchShell } from '@/components/search/PageSearchShell';
 import type { SearchField } from '@/components/search/UnifiedSearchBar';
+import { hasAd } from "@/lib/ads/inventory";
+import AdSlot from "@/components/ads/AdSlot";
+import { getPageSeoContent } from "@/lib/seo/pageContent";
+import PageSeoContent from "@/components/seo/PageSeoContent";
+import StatusBadge from "@/components/shared/StatusBadge";
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -74,49 +79,52 @@ type ViewMode = 'grid' | 'list';
 // CONSTANTS — Design language from /tools/verify-society
 // ═══════════════════════════════════════════════════════════════
 
-const NOC_LABELS: Record<string, { label: string; color: string; icon: React.ReactElement }> = {
+// Statuses map to the shared StatusBadge tones; labels and icons stay the
+// semantic source of truth here. All seven NOC states and four risk states
+// are preserved exactly as before -- only the presentation is shared.
+const NOC_LABELS: Record<string, { label: string; tone: 'success' | 'warning' | 'danger'; icon: React.ReactElement }> = {
   approved: {
     label: 'NOC Approved',
-    color: 'bg-[#10b981] text-white border-[#10b981]',
-    icon: <ShieldCheck className="w-4 h-4" />,
+    tone: 'success',
+    icon: <ShieldCheck className="w-3 h-3" />,
   },
   pending: {
     label: 'NOC Pending',
-    color: 'bg-[#f59e0b] text-white border-[#f59e0b]',
-    icon: <Clock className="w-4 h-4" />,
+    tone: 'warning',
+    icon: <Clock className="w-3 h-3" />,
   },
   under_review: {
     label: 'Under Review',
-    color: 'bg-[#f59e0b] text-white border-[#f59e0b]',
-    icon: <Clock className="w-4 h-4" />,
+    tone: 'warning',
+    icon: <Clock className="w-3 h-3" />,
   },
   illegal: {
     label: 'Declared Illegal',
-    color: 'bg-[#ef4444] text-white border-[#ef4444]',
-    icon: <ShieldX className="w-4 h-4" />,
+    tone: 'danger',
+    icon: <ShieldX className="w-3 h-3" />,
   },
   disputed: {
     label: 'Disputed',
-    color: 'bg-[#ef4444] text-white border-[#ef4444]',
-    icon: <ShieldAlert className="w-4 h-4" />,
+    tone: 'danger',
+    icon: <ShieldAlert className="w-3 h-3" />,
   },
   cancelled: {
     label: 'NOC Cancelled',
-    color: 'bg-[#ef4444] text-white border-[#ef4444]',
-    icon: <XCircle className="w-4 h-4" />,
+    tone: 'danger',
+    icon: <XCircle className="w-3 h-3" />,
   },
   expired: {
     label: 'NOC Expired',
-    color: 'bg-[#f59e0b] text-white border-[#f59e0b]',
-    icon: <AlertTriangle className="w-4 h-4" />,
+    tone: 'warning',
+    icon: <AlertTriangle className="w-3 h-3" />,
   },
 };
 
-const RISK_LABELS: Record<string, { label: string; color: string; bg: string }> = {
-  safe: { label: 'Safe', color: 'text-[#10b981]', bg: 'bg-[#f0fdf4]' },
-  caution: { label: 'Caution', color: 'text-[#f59e0b]', bg: 'bg-[#fef3c7]' },
-  high_risk: { label: 'High Risk', color: 'text-[#ef4444]', bg: 'bg-[#fef2f2]' },
-  avoid: { label: 'Avoid', color: 'text-white', bg: 'bg-[#ef4444]' },
+const RISK_LABELS: Record<string, { label: string; tone: 'success' | 'warning' | 'danger' }> = {
+  safe: { label: 'Safe', tone: 'success' },
+  caution: { label: 'Caution', tone: 'warning' },
+  high_risk: { label: 'High Risk', tone: 'danger' },
+  avoid: { label: 'Avoid', tone: 'danger' },
 };
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -159,6 +167,9 @@ function getScoreBg(score: number): string {
 
 export default function SocietiesBrowsePage(): React.ReactElement {
   const router = useRouter();
+  // Advertising is not sold yet, so this is false and the sidebar rail is
+  // never rendered. Flipping it on in lib/ads/inventory.ts enables the layout.
+  const hasSidebarAd = hasAd("societies.sidebar");
 
   // Data
   const [societies, setSocieties] = useState<SocietyListItem[]>([]);
@@ -444,41 +455,42 @@ export default function SocietiesBrowsePage(): React.ReactElement {
             }),
           }}
         />
-      </Head>
+</Head>
 
-      <div className="min-h-screen bg-gray-50">
-        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
-        <PageSearchShell
-          title="Explore Housing Societies"
-          subtitle="Find society details and NOC verification status."
-          breadcrumb={
-            <nav
-              aria-label="Breadcrumb"
-              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
-            >
-              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
-                <Home className="w-3 h-3" />
-                <span>Home</span>
-              </Link>
-              <ChevronRight className="w-3 h-3 text-blue-200/40" />
-              <span className="text-white">Societies</span>
-            </nav>
-          }
-          fields={searchFields}
-          onSubmit={() => { setSearch(searchInputValue.trim()); setPage(1); }}
-          submitLabel="Search"
-          mobileLabel="Search Societies"
-          activeFilterCount={activeFilterCount}
-          onReset={handleClearFilters}
-        />
+      <PageSearchShell
+        title="Explore Housing Societies"
+        subtitle="Find society details and NOC verification status."
+        breadcrumb={
+          <nav
+            aria-label="Breadcrumb"
+            className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+          >
+            <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+              <Home className="w-3 w-3" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 w-3 text-blue-200/40" />
+            <span className="text-white">Societies</span>
+          </nav>
+        }
+        fields={searchFields}
+        onSubmit={() => { setSearch(searchInputValue.trim()); setPage(1); }}
+        submitLabel="Search"
+        mobileLabel="Search Societies"
+        activeFilterCount={activeFilterCount}
+        onReset={handleClearFilters}
+      />
 
-        {/* ═══════════════════════════════════════════════════════════════
+      {/* Zameen-style content container: everything below the full-width navy
+          search shell sits inside a centered 1280px frame with side gutters. */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        {/* ═════════════════════════════════════════════════════════════════
             DISCLAIMER STRIP
-        ═══════════════════════════════════════════════════════════════ */}
-        <section className="max-w-[1440px] mx-auto px-3 pt-3 pb-1 sm:px-4 lg:px-6">
+        ═════════════════════════════════════════════════════════════════════ */}
+        <section className="pt-6 pb-1 md:pt-8">
           <div className="rounded-xl border border-[#f59e0b]/30 bg-[#fef3c7] px-4 py-3">
             <div className="flex items-center justify-center gap-2 text-[#92400e] text-xs md:text-sm">
-              <Info className="w-4 h-4 flex-shrink-0" />
+              <Info className="w-4 w-4 flex-shrink-0" />
               <span className="text-center">
                 <strong>Always verify with official authorities</strong> before any transaction. Data aggregated from public sources.
               </span>
@@ -486,13 +498,13 @@ export default function SocietiesBrowsePage(): React.ReactElement {
           </div>
         </section>
 
-        {/* ═══════════════════════════════════════════════════════════════
+        {/* ════════════════════════════════════════════════════════════════
             FILTERS BAR (Sticky)
-        ═══════════════════════════════════════════════════════════════ */}
-        {/* ═══════════════════════════════════════════════════════════════
+        ═════════════════════════════════════════════════════════════════════ */}
+        {/* ════════════════════════════════════════════════════════════════════
             SECONDARY FILTERS (non-sticky; the search shell above is sticky)
-        ═══════════════════════════════════════════════════════════════ */}
-        <section className="max-w-[1440px] mx-auto px-3 pt-3 pb-2 sm:px-4 lg:px-6">
+        ════════════════════════════════════════════════════════════════════ */}
+        <section className="pt-3 pb-2">
           <div className="flex flex-wrap items-center gap-2">
 
             {/* City */}
@@ -519,13 +531,13 @@ export default function SocietiesBrowsePage(): React.ReactElement {
               className="h-9 w-auto min-w-[9rem] max-w-none shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
             >
               <option value="">Any NOC Status</option>
-              <option value="approved">✅ Approved</option>
-              <option value="pending">⏳ Pending</option>
-              <option value="under_review">🔍 Under Review</option>
-              <option value="illegal">⛔ Illegal</option>
-              <option value="disputed">⚠️ Disputed</option>
-              <option value="cancelled">❌ Cancelled</option>
-              <option value="expired">📅 Expired</option>
+              <option value="approved">Approved</option>
+              <option value="pending">Pending</option>
+              <option value="under_review">Under Review</option>
+              <option value="illegal">Illegal</option>
+              <option value="disputed">Disputed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="expired">Expired</option>
             </select>
 
             {/* Risk Level */}
@@ -536,10 +548,10 @@ export default function SocietiesBrowsePage(): React.ReactElement {
               className="h-9 w-auto min-w-[8rem] max-w-none shrink-0 cursor-pointer whitespace-nowrap rounded-xl border border-gray-300 bg-white px-3 text-xs font-bold text-gray-700 outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/10"
             >
               <option value="">Any Risk Level</option>
-              <option value="safe">🟢 Safe</option>
-              <option value="caution">🟡 Caution</option>
-              <option value="high_risk">🔴 High Risk</option>
-              <option value="avoid">⛔ Avoid</option>
+              <option value="safe">Safe</option>
+              <option value="caution">Caution</option>
+              <option value="high_risk">High Risk</option>
+              <option value="avoid">Avoid</option>
             </select>
 
             {/* Category */}
@@ -629,7 +641,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
         {/* ═══════════════════════════════════════════════════════════════
             RESULTS HEADER
         ═══════════════════════════════════════════════════════════════ */}
-        <section ref={resultsRef} className="mx-auto max-w-[1440px] px-3 pt-6 sm:px-4 lg:px-6">
+        <section ref={resultsRef} className="pt-6">
           <div className="flex items-center justify-between mb-5">
             <div>
               <p className="text-sm text-gray-600">
@@ -652,7 +664,7 @@ export default function SocietiesBrowsePage(): React.ReactElement {
         {/* ═══════════════════════════════════════════════════════════════
             RESULTS GRID / LIST
         ═══════════════════════════════════════════════════════════════ */}
-        <section className="mx-auto max-w-[1440px] px-3 pb-16 sm:px-4 lg:px-6">
+        <section className="pb-16">
           {loading ? (
             // Skeleton loader
             <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5' : 'space-y-4'}>
@@ -714,83 +726,105 @@ export default function SocietiesBrowsePage(): React.ReactElement {
               </div>
             </div>
           ) : (
-            <>
-              {/* Grid View */}
-              {viewMode === 'grid' && (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {societies.map((s) => (
-                    <SocietyCard key={s._id} society={s} />
-                  ))}
-                </div>
-              )}
-
-              {/* List View */}
-              {viewMode === 'list' && (
-                <div className="space-y-4">
-                  {societies.map((s) => (
-                    <SocietyListItem key={s._id} society={s} />
-                  ))}
-                </div>
-              )}
-
-              {/* Pagination */}
-              {pagination.pages > 1 && (
-                <div className="flex flex-wrap items-center justify-center gap-2 mt-12">
-                  <button
-                    onClick={() => handlePageChange(Math.max(1, page - 1))}
-                    disabled={!pagination.hasPrev}
-                    className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    ← Previous
-                  </button>
-
-                  {/* Page numbers (smart pagination) */}
-                  <div className="flex items-center gap-1">
-                    {Array.from({ length: Math.min(5, pagination.pages) }).map((_, idx) => {
-                      let pageNum: number;
-                      if (pagination.pages <= 5) {
-                        pageNum = idx + 1;
-                      } else if (page <= 3) {
-                        pageNum = idx + 1;
-                      } else if (page >= pagination.pages - 2) {
-                        pageNum = pagination.pages - 4 + idx;
-                      } else {
-                        pageNum = page - 2 + idx;
-                      }
-                      return (
-                        <button
-                          key={pageNum}
-                          onClick={() => handlePageChange(pageNum)}
-                          className={`w-10 h-10 rounded-lg text-sm font-semibold transition-colors ${
-                            page === pageNum
-                              ? 'bg-[#029bba] text-white shadow-md'
-                              : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      );
-                    })}
+            /* Results + optional right ad rail. The rail only exists when
+                inventory is configured (hasAd); with AD_INVENTORY empty
+                this is a plain block — no reserved column, no wasted space. */
+            <div
+              className={
+                hasSidebarAd
+                  ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
+                  : undefined
+              }
+            >
+              <div className="min-w-0">
+                {/* Grid View */}
+                {viewMode === 'grid' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    {societies.map((s) => (
+                      <SocietyCard key={s._id} society={s} />
+                    ))}
                   </div>
+                )}
 
-                  <button
-                    onClick={() => handlePageChange(page + 1)}
-                    disabled={!pagination.hasNext}
-                    className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
-                  >
-                    Next →
-                  </button>
-                </div>
+                {/* List View */}
+                {viewMode === 'list' && (
+                  <div className="space-y-4">
+                    {societies.map((s) => (
+                      <SocietyListItem key={s._id} society={s} />
+                    ))}
+                  </div>
+                )}
+
+                <AdSlot id="societies.infeed" variant="infeed" className="mt-8" />
+
+                {/* Pagination */}
+                {pagination.pages > 1 && (
+                  <div className="flex flex-wrap items-center justify-center gap-2 mt-12">
+                    <button
+                      onClick={() => handlePageChange(Math.max(1, page - 1))}
+                      disabled={!pagination.hasPrev}
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      ← Previous
+                    </button>
+
+                    {/* Page numbers (smart pagination) */}
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, pagination.pages) }).map((_, idx) => {
+                        let pageNum: number;
+                        if (pagination.pages <= 5) {
+                          pageNum = idx + 1;
+                        } else if (page <= 3) {
+                          pageNum = idx + 1;
+                        } else if (page >= pagination.pages - 2) {
+                          pageNum = pagination.pages - 4 + idx;
+                        } else {
+                          pageNum = page - 2 + idx;
+                        }
+                        return (
+                          <button
+                            key={pageNum}
+                            onClick={() => handlePageChange(pageNum)}
+                            className={`w-10 h-10 rounded-lg text-sm font-semibold transition-colors ${
+                              page === pageNum
+                                ? 'bg-[#029bba] text-white shadow-md'
+                                : 'border border-gray-200 text-gray-700 hover:bg-gray-50'
+                            }`}
+                          >
+                            {pageNum}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    <button
+                      onClick={() => handlePageChange(page + 1)}
+                      disabled={!pagination.hasNext}
+                      className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold text-gray-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-gray-50 transition-colors"
+                    >
+                      Next →
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {hasSidebarAd && (
+                <aside className="hidden xl:block" aria-label="Advertisement">
+                  <div className="sticky top-24 space-y-6">
+                    <AdSlot id="societies.sidebar" variant="sidebar" />
+                  </div>
+                </aside>
               )}
-            </>
+            </div>
           )}
         </section>
+      </div>
 
-        {/* ═══════════════════════════════════════════════════════════════
-            HOW WE SCORE (Trust Building)
-        ═══════════════════════════════════════════════════════════════ */}
+      {/* ═══════════════════════════════════════════════════════════════
+          HOW WE SCORE (Trust Building) — full-bleed section, own container
+      ═══════════════════════════════════════════════════════════════ */}
         <section className="bg-white py-16 border-t border-gray-200">
-          <div className="mx-auto max-w-[1440px] px-3 sm:px-4 lg:px-6">
+          <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 w-full">
             <div className="text-center mb-12">
               <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
                 <Activity className="w-4 h-4" />
@@ -861,19 +895,19 @@ export default function SocietiesBrowsePage(): React.ReactElement {
           </div>
         </section>
 
-        <section className="mx-auto max-w-[1440px] px-3 py-8 sm:px-4 lg:px-6">
+        <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 w-full py-8">
           <ContextualArticles
             title="Society News & Verification Guides"
             description="Published updates on housing societies, NOC checks, legal records, and city development."
             tags={['Society Reviews', 'Legal Guide', 'Verification', 'City Guide']}
           />
-        </section>
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════════
             CROSS-TOOL CTA SECTION
         ═══════════════════════════════════════════════════════════════ */}
         <section className="bg-gradient-to-br from-[#001f2b] via-[#003553] to-[#001927] py-16">
-          <div className="mx-auto max-w-[1440px] px-3 sm:px-4 lg:px-6">
+          <div className="mx-auto max-w-[1280px] px-4 sm:px-6 lg:px-8 w-full">
             <div className="max-w-4xl mx-auto text-center">
               <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
               <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
@@ -912,7 +946,18 @@ export default function SocietiesBrowsePage(): React.ReactElement {
             </div>
           </div>
         </section>
-      </div>
+
+        {/* SEO content — professional card at the very bottom of the page,
+            inside its own 1280px container so its gutters match the listings. */}
+        <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+          {getPageSeoContent("societies") && (
+            <PageSeoContent
+              {...getPageSeoContent("societies")!}
+              contained={false}
+              className="my-6 mb-2 md:my-8"
+            />
+          )}
+        </div>
     </>
   );
 }
@@ -953,10 +998,7 @@ function SocietyCard({ society }: SocietyCardProps): React.ReactElement {
 
           {/* NOC Badge */}
           <div className="absolute top-3 left-3">
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full ${noc.color} text-xs font-bold shadow-lg backdrop-blur-sm`}>
-              {noc.icon}
-              {noc.label}
-            </div>
+            <StatusBadge tone={noc.tone} icon={noc.icon} label={noc.label} />
           </div>
 
           {/* Verified Badge */}
@@ -1039,10 +1081,7 @@ function SocietyCard({ society }: SocietyCardProps): React.ReactElement {
 
           {/* Risk + CTA */}
           <div className="mt-auto pt-4 border-t border-gray-100 flex items-center justify-between gap-3">
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${risk.bg} ${risk.color} text-xs font-bold`}>
-              <Shield className="w-3 h-3" />
-              {risk.label}
-            </div>
+            <StatusBadge tone={risk.tone} icon={<Shield className="w-3 h-3" />} label={risk.label} />
             <span className="text-[#029bba] font-semibold text-sm flex items-center gap-1 group-hover:gap-2 transition-all">
               View Report <ChevronRight className="w-4 h-4" />
             </span>
@@ -1084,10 +1123,7 @@ function SocietyListItem({ society }: SocietyCardProps): React.ReactElement {
           <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent" />
 
           <div className="absolute top-3 left-3">
-            <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full ${noc.color} text-[10px] font-bold shadow-lg backdrop-blur-sm`}>
-              {noc.icon}
-              {noc.label}
-            </div>
+            <StatusBadge tone={noc.tone} icon={noc.icon} label={noc.label} />
           </div>
 
           {society.activeAlertCount > 0 && (
@@ -1145,10 +1181,7 @@ function SocietyListItem({ society }: SocietyCardProps): React.ReactElement {
                 <span className="text-gray-500">Infra:</span>
                 <span className={`font-bold ${getScoreColor(society.scores.infrastructure)}`}>{society.scores.infrastructure}</span>
               </div>
-              <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${risk.bg} ${risk.color} text-[10px] font-bold`}>
-                <Shield className="w-2.5 h-2.5" />
-                {risk.label}
-              </div>
+              <StatusBadge tone={risk.tone} icon={<Shield className="w-2.5 h-2.5" />} label={risk.label} />
             </div>
           </div>
 

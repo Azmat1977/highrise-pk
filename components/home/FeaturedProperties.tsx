@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
+import SectionHeading from '@/components/ui/SectionHeading';
 import {
   ArrowRight,
   ArrowUpRight,
@@ -121,18 +122,12 @@ export default function FeaturedProperties({
   return (
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-8 flex flex-col items-center gap-4 text-center sm:flex-row sm:items-end sm:justify-between sm:text-left">
-          <div>
-            <p className="mb-1 text-xs font-bold uppercase tracking-wider text-[#029bba]">
-              Curated Opportunities
-            </p>
-            <h2 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">
-              Featured Properties
-            </h2>
-            <p className="mt-1 text-xs text-slate-600 sm:text-sm">
-              Handpicked homes, apartments and investment listings from our verified inventory.
-            </p>
-          </div>
+        <div className="mb-10 flex flex-col items-center gap-5 text-center">
+          <SectionHeading
+            eyebrow="Curated Opportunities"
+            title="Featured Properties"
+            subtitle="Handpicked homes, apartments and investment listings from our verified inventory."
+          />
 
           <div className="flex flex-wrap items-center justify-center gap-2">
             <div
@@ -240,7 +235,7 @@ export default function FeaturedProperties({
                     </button>
 
                     <div className="absolute bottom-3 left-3 text-white">
-                      <p className="font-heading text-xl font-bold drop-shadow-md">{price}</p>
+                      <p className="text-xl font-bold drop-shadow-md">{price}</p>
                       {property.listingType === 'installment' && property.monthlyInstallment ? (
                         <p className="text-[11px] font-medium text-white/85">
                           From PKR {property.monthlyInstallment.toLocaleString('en-PK')} / mo

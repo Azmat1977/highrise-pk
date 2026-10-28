@@ -8,6 +8,10 @@ import {
   MapPin, Phone, Mail, ArrowRight, Sparkles, BadgeCheck, Banknote,
   Construction, Search, Globe, Star, Zap, Home, ChevronRight,
 } from 'lucide-react';
+import { containers, spacing } from '@/lib/design-system/tokens';
+import SectionHeading from '@/components/ui/SectionHeading';
+import { getPageSeoContent } from '@/lib/seo/pageContent';
+import PageSeoContent from '@/components/seo/PageSeoContent';
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -62,9 +66,9 @@ export default function AboutPage(): React.ReactElement {
 
       <div className="min-h-screen bg-gray-50">
 
-        {/* ── COMPACT PAGE HEADER ── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
+        {/* ── COMPACT PAGE HEADER (centred heading + supporting line) ── */}
+        <div className={`${containers.marketing} py-6 md:py-8 text-center`}>
+          <nav aria-label="Breadcrumb" className="flex items-center justify-center gap-2 text-xs text-gray-500 mb-2">
             <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
               <Home className="w-3.5 h-3.5" />
               <span>Home</span>
@@ -73,35 +77,38 @@ export default function AboutPage(): React.ReactElement {
             <span className="text-[#004063] font-bold">About Us</span>
           </nav>
 
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
-            We&apos;re Ending Real Estate Scams in Pakistan
-          </h1>
-          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
-            <span className="inline-flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
-              Society NOC Verification
-            </span>
-            <span className="text-gray-300">•</span>
-            <span className="inline-flex items-center gap-1">
-              <Banknote className="w-3.5 h-3.5 text-[#10b981]" />
-              Fair Price Engine
-            </span>
-            <span className="text-gray-300">•</span>
-            <span className="inline-flex items-center gap-1">
-              <Construction className="w-3.5 h-3.5 text-[#10b981]" />
-              Construction Calculator
-            </span>
-            <span className="text-gray-300">•</span>
-            <span className="inline-flex items-center gap-1">
-              <AlertTriangle className="w-3.5 h-3.5 text-[#10b981]" />
-              Risk Alert Board
-            </span>
-          </p>
+          <SectionHeading
+            as="h1"
+            title="We&apos;re Ending Real Estate Scams in Pakistan"
+            subtitle={
+              <>
+                <span className="inline-flex items-center gap-1">
+                  <ShieldCheck className="w-3.5 h-3.5 text-[#10b981]" />
+                  Society NOC Verification
+                </span>
+                <span className="text-gray-300">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <Banknote className="w-3.5 h-3.5 text-[#10b981]" />
+                  Fair Price Engine
+                </span>
+                <span className="text-gray-300">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <Construction className="w-3.5 h-3.5 text-[#10b981]" />
+                  Construction Calculator
+                </span>
+                <span className="text-gray-300">•</span>
+                <span className="inline-flex items-center gap-1">
+                  <AlertTriangle className="w-3.5 h-3.5 text-[#10b981]" />
+                  Risk Alert Board
+                </span>
+              </>
+            }
+          />
         </div>
 
         {/* ── MISSION & VISION ── */}
         <section className="py-16 bg-white">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
               <div className="bg-gradient-to-br from-[#029bba] to-[#004063] rounded-2xl p-8 text-white shadow-xl">
                 <div className="w-14 h-14 rounded-2xl bg-white/15 flex items-center justify-center mb-5">
@@ -132,16 +139,20 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── OUR STORY ── */}
         <section className="py-16 bg-gray-50">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-10">
-                <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-semibold mb-4">
-                  <Heart className="w-4 h-4" />
-                  Why We Built This
-                </span>
-                <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                  The Pakistani Real Estate <span className="text-[#029bba]">Truth</span>
-                </h2>
+                <SectionHeading
+                  as="h2"
+                  eyebrow="Why We Built This"
+                  eyebrowIcon={<Heart className="h-4 h-4" />}
+                  title={
+                    <>
+                      The Pakistani Real Estate{' '}
+                      <span className="text-[#029bba]">Truth</span>
+                    </>
+                  }
+                />
               </div>
 
               <div className="bg-white rounded-2xl shadow-md p-8 md:p-10 space-y-6 text-gray-700 leading-relaxed">
@@ -187,19 +198,20 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── WHAT MAKES US DIFFERENT (Anti-Zameen) ── */}
         <section className="py-16 bg-white">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#10b981]/10 text-[#10b981] text-sm font-semibold mb-4">
-                <Star className="w-4 h-4" />
-                What Makes Us Different
-              </span>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-                Not Another <span className="text-[#ef4444] line-through">Listings Site</span>
-                {' '}— An <span className="text-[#029bba]">Intelligence Platform</span>
-              </h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
-                Compare what existing portals offer vs what Highrise.pk delivers
-              </p>
+              <SectionHeading
+                as="h2"
+                eyebrow="What Makes Us Different"
+                eyebrowIcon={<Star className="h-4 h-4" />}
+                title={
+                  <>
+                    Not Another <span className="text-[#ef4444] line-through">Listings Site</span>{' '}
+                    — An <span className="text-[#029bba]">Intelligence Platform</span>
+                  </>
+                }
+                subtitle="Compare what existing portals offer vs what Highrise.pk delivers"
+              />
             </div>
 
             <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-4">
@@ -260,12 +272,19 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── STATS ── */}
         <section className="py-16 bg-gradient-to-br from-[#029bba] to-[#004063] text-white">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="text-center mb-12">
-              <h2 className="text-3xl md:text-4xl font-bold mb-3">
-                Real Impact, <span className="text-[#06b6d4]">Real Numbers</span>
-              </h2>
-              <p className="text-white/80">Building Pakistan&apos;s most trusted property database</p>
+              <SectionHeading
+                as="h2"
+                tone="dark"
+                title={
+                  <>
+                    Real Impact,{' '}
+                    <span className="text-[#06b6d4]">Real Numbers</span>
+                  </>
+                }
+                subtitle="Building Pakistan&apos;s most trusted property database"
+              />
             </div>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 max-w-5xl mx-auto">
@@ -293,15 +312,19 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── OUR PILLARS ── */}
         <section className="py-16 bg-white">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#004063]/10 text-[#004063] text-sm font-semibold mb-4">
-                <Heart className="w-4 h-4" />
-                Our Core Values
-              </span>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-                Six Pillars That <span className="text-[#029bba]">Define Us</span>
-              </h2>
+              <SectionHeading
+                as="h2"
+                eyebrow="Our Core Values"
+                eyebrowIcon={<Heart className="h-4 h-4" />}
+                title={
+                  <>
+                    Six Pillars That{' '}
+                    <span className="text-[#029bba]">Define Us</span>
+                  </>
+                }
+              />
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-6xl mx-auto">
@@ -360,18 +383,20 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── HOW WE WORK ── */}
         <section className="py-16 bg-gray-50">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="text-center mb-12">
-              <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#f59e0b]/10 text-[#d97706] text-sm font-semibold mb-4">
-                <Zap className="w-4 h-4" />
-                Our Process
-              </span>
-              <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
-                How We <span className="text-[#029bba]">Build Trust</span>
-              </h2>
-              <p className="text-gray-600 max-w-2xl mx-auto">
-                A rigorous 4-step process behind every society listed on Highrise.pk
-              </p>
+              <SectionHeading
+                as="h2"
+                eyebrow="Our Process"
+                eyebrowIcon={<Zap className="h-4 h-4" />}
+                title={
+                  <>
+                    How We{' '}
+                    <span className="text-[#029bba]">Build Trust</span>
+                  </>
+                }
+                subtitle="A rigorous 4-step process behind every society listed on Highrise.pk"
+              />
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-5 max-w-6xl mx-auto">
@@ -420,11 +445,12 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── TRUST BADGES ── */}
         <section className="py-12 bg-white border-y border-gray-200">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="text-center mb-8">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gray-500">
-                Registered, Compliant & Secure
-              </h3>
+              <SectionHeading
+                as="h3"
+                title="Registered, Compliant & Secure"
+              />
             </div>
 
             <div className="flex flex-wrap items-center justify-center gap-6 md:gap-12 max-w-4xl mx-auto">
@@ -450,17 +476,22 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── TEAM / JOIN CTA ── */}
         <section className="py-16 bg-gray-50">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="max-w-4xl mx-auto bg-white rounded-2xl shadow-md p-8 md:p-10">
               <div className="grid md:grid-cols-2 gap-8 items-center">
                 <div>
-                  <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#10b981]/10 text-[#10b981] text-xs font-bold mb-4">
-                    <Users className="w-3 h-3" />
-                    We&apos;re Hiring
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-bold text-gray-900 mb-3">
-                    Join the Mission to <span className="text-[#029bba]">End Real Estate Scams</span>
-                  </h2>
+                  <SectionHeading
+                    as="h2"
+                    eyebrow="We&apos;re Hiring"
+                    eyebrowIcon={<Users className="h-3 h-3" />}
+                    title={
+                      <>
+                        Join the Mission to{' '}
+                        <span className="text-[#029bba]">End Real Estate Scams</span>
+                      </>
+                    }
+                    align="left"
+                  />
                   <p className="text-gray-600 mb-5 text-sm leading-relaxed">
                     We&apos;re looking for builders, researchers, data analysts, and ground reporters
                     who want to fix Pakistan&apos;s real estate market. Engineers, designers, journalists,
@@ -497,11 +528,14 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── CONTACT INFO ── */}
         <section className="py-12 bg-white">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
+          <div className={`${containers.marketing} ${spacing.sectionGap}`}>
             <div className="max-w-4xl mx-auto">
               <div className="text-center mb-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">Get in Touch</h2>
-                <p className="text-gray-600 text-sm">We respond within 24 hours</p>
+                <SectionHeading
+                  as="h2"
+                  title="Get in Touch"
+                  subtitle="We respond within 24 hours"
+                />
               </div>
 
               <div className="grid md:grid-cols-3 gap-4">
@@ -529,14 +563,19 @@ export default function AboutPage(): React.ReactElement {
 
         {/* ── FINAL CTA ── */}
         <section className="py-16 bg-gradient-to-br from-[#001f2b] to-[#003553]">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 text-center">
+          <div className={`${containers.marketing} text-center`}>
             <Sparkles className="w-10 h-10 text-[#06b6d4] mx-auto mb-4" />
-            <h2 className="text-2xl md:text-3xl font-bold text-white mb-3">
-              Start with <span className="text-[#06b6d4]">Our Tools</span>
-            </h2>
-            <p className="text-white/80 mb-6 max-w-xl mx-auto">
-              See how Highrise.pk works. Verify a society, check a price, or estimate construction cost — free, no signup needed.
-            </p>
+            <SectionHeading
+              as="h2"
+              tone="dark"
+              title={
+                <>
+                  Start with{' '}
+                  <span className="text-[#06b6d4]">Our Tools</span>
+                </>
+              }
+              subtitle="See how Highrise.pk works. Verify a society, check a price, or estimate construction cost — free, no signup needed."
+            />
             <div className="flex flex-wrap items-center justify-center gap-3">
               <Link href="/tools/verify-society">
                 <button className="px-5 py-3 rounded-xl bg-white text-[#004063] font-semibold hover:bg-gray-100 transition-colors inline-flex items-center gap-2">
@@ -565,6 +604,10 @@ export default function AboutPage(): React.ReactElement {
             </div>
           </div>
         </section>
+
+        {/* SEO Content before footer */}
+        <PageSeoContent {...getPageSeoContent('about')!} />
+
       </div>
     </>
   );

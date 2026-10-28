@@ -48,28 +48,35 @@ export const card = {
 // ============================================================================
 // BUTTONS
 // ============================================================================
+// All variants share one keyboard-focus treatment so tabbing through the
+// site shows a single, clearly visible teal ring (WCAG 2.4.7).
+
+const buttonFocus =
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/60 focus-visible:ring-offset-2';
 
 export const button = {
-  // Primary (teal)
-  primary: 'inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#029bba] text-white font-semibold text-sm rounded-xl hover:bg-[#017a8a] transition-colors',
+  // Primary (deep teal) -- white text reaches WCAG AA (5.1:1) on #017a8a;
+  // hover steps to the locked navy #004063 (11:1). Brand teal #029bba stays
+  // on links, icons, focus rings and surfaces; only the button fill darkens.
+  primary: `inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#017a8a] text-white font-semibold text-sm rounded-xl hover:bg-[#004063] transition-colors ${buttonFocus}`,
 
   // Primary small
-  primarySm: 'inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-[#029bba] text-white font-bold text-xs rounded-lg hover:bg-[#017a8a] transition-colors',
+  primarySm: `inline-flex items-center justify-center gap-1.5 px-3 py-2 bg-[#017a8a] text-white font-bold text-xs rounded-lg hover:bg-[#004063] transition-colors ${buttonFocus}`,
 
   // Outline
-  outline: 'inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-gray-200 text-[#333333] font-semibold text-sm rounded-xl hover:bg-gray-50 transition-colors',
+  outline: `inline-flex items-center justify-center gap-2 px-5 py-2.5 border border-gray-200 text-[#333333] font-semibold text-sm rounded-xl hover:bg-gray-50 transition-colors ${buttonFocus}`,
 
   // Ghost (no border, no bg)
-  ghost: 'inline-flex items-center justify-center gap-2 px-3 py-2 text-[#666666] font-medium text-sm rounded-xl hover:bg-gray-100 transition-colors',
+  ghost: `inline-flex items-center justify-center gap-2 px-3 py-2 text-[#666666] font-medium text-sm rounded-xl hover:bg-gray-100 transition-colors ${buttonFocus}`,
 
   // Danger
-  danger: 'inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#ef4444] text-white font-semibold text-sm rounded-xl hover:bg-red-600 transition-colors',
+  danger: `inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#ef4444] text-white font-semibold text-sm rounded-xl hover:bg-red-600 transition-colors ${buttonFocus}`,
 
   // Success
-  success: 'inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#10b981] text-white font-semibold text-sm rounded-xl hover:bg-emerald-600 transition-colors',
+  success: `inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#10b981] text-white font-semibold text-sm rounded-xl hover:bg-emerald-600 transition-colors ${buttonFocus}`,
 
   // WhatsApp
-  whatsapp: 'inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#25D366] text-white font-medium text-sm rounded-xl hover:bg-[#128C7E] transition-colors',
+  whatsapp: `inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#25D366] text-white font-medium text-sm rounded-xl hover:bg-[#128C7E] transition-colors ${buttonFocus}`,
 
   // Floating action pill (hero overlay buttons)
   floatingPill: 'flex items-center gap-1.5 px-3 py-2 bg-white/95 backdrop-blur-sm border border-gray-200/50 rounded-lg text-sm font-bold text-[#004063] hover:bg-white transition-all shadow-sm',

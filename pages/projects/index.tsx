@@ -15,6 +15,10 @@ import { useSession } from 'next-auth/react';
 import AuthGateModal from '@/components/auth/AuthGateModal';
 import { PageSearchShell } from '@/components/search/PageSearchShell';
 import type { SearchField } from '@/components/search/UnifiedSearchBar';
+import { hasAd } from "@/lib/ads/inventory";
+import AdSlot from "@/components/ads/AdSlot";
+import { getPageSeoContent } from "@/lib/seo/pageContent";
+import PageSeoContent from "@/components/seo/PageSeoContent";
 
 import {
   Search,
@@ -116,6 +120,9 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState(filters.locality || '');
   const [isSticky, setIsSticky] = useState(false);
+  // Advertising is not sold yet, so this is false and the sidebar rail is
+  // never rendered. Flipping it on in lib/ads/inventory.ts enables the layout.
+  const hasSidebarAd = hasAd("projects.sidebar");
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
@@ -441,50 +448,49 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
         </div>
       )}
 
-      <AuthGateModal
+<AuthGateModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         actionDescription="save search alerts"
         title="Save Search Alerts"
       />
 
-      <div className="bg-gray-50 min-h-screen">
-        {/* PHASE 5 - unified navy banner + single-row search shell (full-bleed). */}
-        <PageSearchShell
-          title="Explore Real Estate Projects"
-          subtitle="Discover under-construction and completed developments."
-          breadcrumb={
-            <nav
-              aria-label="Breadcrumb"
-              className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
-            >
-              <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
-                <Home className="w-3 h-3" />
-                <span>Home</span>
-              </Link>
-              <ChevronRight className="w-3 h-3 text-blue-200/40" />
-              <Link href="/projects" className="transition-colors hover:text-white">
-                New Projects
-              </Link>
-              {filters.city && (
-                <>
-                  <ChevronRight className="w-3 h-3 text-blue-200/40" />
-                  <span className="text-white">{filters.city}</span>
-                </>
-              )}
-            </nav>
-          }
-          fields={searchFields}
-          onSubmit={handleSearchSubmit}
-          submitLabel="Search"
-          mobileLabel="Search Projects"
-          activeFilterCount={activeFilterCount}
-          onReset={() => updateFilters(DEFAULT_FILTERS)}
-        />
+      <PageSearchShell
+        title="Explore Real Estate Projects"
+        subtitle="Discover under-construction and completed developments."
+        breadcrumb={
+          <nav
+            aria-label="Breadcrumb"
+            className="flex flex-wrap items-center justify-center gap-2 text-[11px] font-semibold text-blue-100/75"
+          >
+            <Link href="/" className="flex items-center gap-1 transition-colors hover:text-white">
+              <Home className="w-3 h-3" />
+              <span>Home</span>
+            </Link>
+            <ChevronRight className="w-3 w-3 text-blue-200/40" />
+            <Link href="/projects" className="transition-colors hover:text-white">
+              New Projects
+            </Link>
+            {filters.city && (
+              <>
+                <ChevronRight className="w-3 w-3 text-blue-200/40" />
+                <span className="text-white">{filters.city}</span>
+              </>
+            )}
+          </nav>
+        }
+        fields={searchFields}
+        onSubmit={handleSearchSubmit}
+        submitLabel="Search"
+        mobileLabel="Search Projects"
+        activeFilterCount={activeFilterCount}
+        onReset={() => updateFilters(DEFAULT_FILTERS)}
+      />
 
-        {/* TRULIA-STYLE WIDE CONTAINER SHELL (1440px) */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5 space-y-4">
-
+      {/* Zameen-style content container: everything below the full-width navy
+          search shell sits inside a centered 1280px frame with side gutters. */}
+      <div className="max-w-[1280px] mx-auto px-4 sm:px-6 lg:px-8 w-full">
+        <div className="my-6 space-y-6 md:my-8">
           {/* Secondary refinements + save search — kept out of the banner so the
               shell itself can stay a strict single row on desktop. */}
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -492,7 +498,7 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
               <button
                 type="button"
                 onClick={handleSaveSearchClick}
-                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#004063] hover:to-[#029bba] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#017a8a] hover:bg-[#004063] text-white text-xs font-bold transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/60 focus-visible:ring-offset-2"
               >
                 <Sparkles className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
                 <span>Save Search &amp; Get Alerts</span>
@@ -553,14 +559,36 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
             </div>
           )}
 
-          {/* MAIN PROJECT RESULTS GRID */}
+          {/* MAIN PROJECT RESULTS GRID + optional right ad rail. The rail only
+              exists when inventory is configured (hasAd); with AD_INVENTORY
+              empty this is a plain block — no reserved column, no wasted space. */}
           <div className="relative z-10">
-            <MainProjectGrid
-              filters={filters}
-              updateFilters={updateFilters}
-              initialProjects={initialProjects}
-              totalCount={totalCount}
-            />
+            <div
+              className={
+                hasSidebarAd
+                  ? "grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_300px]"
+                  : undefined
+              }
+            >
+              <div className="min-w-0">
+                <MainProjectGrid
+                  filters={filters}
+                  updateFilters={updateFilters}
+                  initialProjects={initialProjects}
+                  totalCount={totalCount}
+                />
+
+                <AdSlot id="projects.infeed" variant="infeed" className="mt-8" />
+              </div>
+
+              {hasSidebarAd && (
+                <aside className="hidden xl:block" aria-label="Advertisement">
+                  <div className="sticky top-24 space-y-6">
+                    <AdSlot id="projects.sidebar" variant="sidebar" />
+                  </div>
+                </aside>
+              )}
+            </div>
           </div>
 
           <FeaturedProjectCarousel projects={featuredProjects} />
@@ -626,6 +654,17 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
               </Link>
             </div>
           </section>
+
+          {/* SEO content — professional card at the very bottom of the page,
+              inside the same 1280px container so its gutters match the listings. */}
+          {getPageSeoContent("projects") && (
+            <PageSeoContent
+              {...getPageSeoContent("projects")!}
+              contained={false}
+              className="mb-2"
+            />
+          )}
+        </div>
         </div>
 
         {/* Floating Back to Top Button (Centered to avoid Aleem Chat widget clash) */}
@@ -641,7 +680,6 @@ const NewProjectsPage: NextPage<ProjectsPageLocalProps> = ({
             <ArrowUp className="w-5 h-5" />
           </button>
         </div>
-      </div>
     </>
   );
 };
