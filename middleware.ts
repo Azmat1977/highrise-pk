@@ -378,128 +378,35 @@ const ROUTE_RULES: readonly RouteRule[] = [
   // ─── USER-ONLY AREAS (any authenticated user) ─────────────
   { path: "/dashboard",         isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/onboarding",        isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/profile",           isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/settings",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/account",           isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/favorites",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
-  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
-  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
-  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
-  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
-  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
-  // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
   // Canonical shortlist / wishlist routes (Header heart + Dashboard card)
   { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/saved-properties",  isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/shortlist",         isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/notifications",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/notifications",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/notifications",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/notifications",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/messages",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/messages",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/messages",          isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/messages",          isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/my-properties",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-properties",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-properties",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-properties",     isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-listings",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-listings",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-listings",       isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/my-listings",       isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/my-projects",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-projects",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-projects",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-projects",       isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-saved",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-saved",          isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/my-saved",          isPrefix: true, level: "auth", denyReason: "auth_required" },
   { path: "/my-saved",          isPrefix: true, level: "auth", denyReason: "auth_required" },
 
-
-
-
-  // ─── SAFEDEAL AREA ─────────────────────────────────────────────
-  // ─── SAFEDEAL AREA ─────────────────────────────────────────────
   // ─── SAFEDEAL AREA ─────────────────────────────────────────────
   // Public service page is in PUBLIC_EXACT_PATHS
-  // Public service page is in PUBLIC_EXACT_PATHS
-  // Customer dashboard (any authenticated user)
   // Customer dashboard (any authenticated user)
   { path: "/safedeal/dashboard", isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/safedeal/dashboard", isPrefix: true, level: "auth", denyReason: "auth_required" },
-  // SafeDeal case detail (any authenticated user)
   // SafeDeal case detail (any authenticated user)
   { path: "/safedeal/dashboard/", isPrefix: true, level: "auth", denyReason: "auth_required" },
-  { path: "/safedeal/dashboard/", isPrefix: true, level: "auth", denyReason: "auth_required" },
-];
 ];
 
-
-// ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
 // 🔐 PATH MATCHING HELPERS
-// 🔐 PATH MATCHING HELPERS
-// ═══════════════════════════════════════════════════════════════
 // ═══════════════════════════════════════════════════════════════
 
-
-/**
 /**
  * Check if pathname is a public exact path or matches a public prefix.
- * Check if pathname is a public exact path or matches a public prefix.
  */
- */
-function isPublicPath(pathname: string): boolean {
 function isPublicPath(pathname: string): boolean {
   if (PUBLIC_EXACT_PATHS.has(pathname)) {
     return true;
