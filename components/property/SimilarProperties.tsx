@@ -2,8 +2,10 @@
 
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Home } from 'lucide-react';
+import { icons } from '@/lib/design-system/icons';
 import PropertyCard from './property-card';
+
+const Home = icons.Home;
 
 interface SimilarPropertiesProps {
   currentProperty: {
