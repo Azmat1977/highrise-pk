@@ -3,8 +3,8 @@
 // components/property/property-card.tsx is NOT changed. /properties, property-grid,
 // and SimilarProperties keep using PropertyCard.
 //
-// Favorites and compare call the same endpoints and dispatch the same sync events
-// as PropertyCard. The Favorites feature itself is not modified.
+// Poster footer: uses property.poster when the list API provides it (Phase 2b).
+// Until then it falls back to the legacy owner fields (ownerName, ownerRole, ownerSlug).
 // Heart and compare sit on the image, outside the title link, so no interactive
 // element is nested inside an anchor. The title link stretches over the whole card.
 
@@ -18,11 +18,27 @@ import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 import ListingTypeBadge from '@/components/property/ListingTypeBadge';
 import type { PropertyCardInput } from '@/components/property/property-card';
 
+export type PosterRole = 'owner' | 'agent' | 'developer' | 'society' | 'platform';
+
+// Contract for the batch poster lookup (Phase 2b). Only name and role are required.
+export interface PosterInfo {
+  name: string;
+  role: PosterRole;
+  organization?: string | null;
+  organizationLogoUrl?: string | null;
+  avatarUrl?: string | null;
+  verified?: boolean;
+  slug?: string | null;
+}
+
 export type HomeListingInput = PropertyCardInput & {
   locality?: string;
   society?: string;
   phase?: string;
   block?: string;
+  ownerRole?: string;
+  ownerSlug?: string;
+  poster?: PosterInfo | null;
 };
 
 export interface HomeListingCardProps {
@@ -30,6 +46,16 @@ export interface HomeListingCardProps {
   // Set only by a section whose API read gate has already confirmed an approved owner.
   ownerListed?: boolean;
 }
+
+const PLACEHOLDER_OWNER_NAME = 'Verified Member';
+
+const ROLE_LABEL: Record<PosterRole, string> = {
+  owner: 'Owner',
+  agent: 'Agent',
+  developer: 'Developer',
+  society: 'Society',
+  platform: 'Platform listing',
+};
 
 function formatPrice(price: number, listingType: string): string {
   if (!Number.isFinite(price) || price <= 0) return 'Price on request';
@@ -64,6 +90,61 @@ function firstImageUrl(p: HomeListingInput): string | null {
   return t.startsWith('https://') || t.startsWith('http://') ? t : null;
 }
 
+// Interim mapping from the legacy owner fields. Remove once the API returns `poster`.
+function resolvePoster(p: HomeListingInput): PosterInfo {
+  const fromApi = p.poster;
+  if (fromApi && (fromApi.name ?? '').trim() !== '') return fromApi;
+
+  const raw = (p.ownerName ?? '').trim();
+  const role = (p.ownerRole ?? '').toLowerCase();
+  if (role === 'admin' || role === 'superadmin') {
+    return { name: 'Highrise Listed', role: 'platform' };
+  }
+  const isPlaceholder = raw === '' || raw === PLACEHOLDER_OWNER_NAME;
+  return {
+    name: isPlaceholder ? 'Private owner' : raw,
+    role: 'owner',
+    slug: p.ownerSlug ?? null,
+  };
+}
+
+function initialsOf(name: string): string {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '';
+  if (parts.length === 1) return (parts[0] ?? '').slice(0, 2).toUpperCase();
+  const first = (parts[0] ?? '').charAt(0);
+  const last = (parts[parts.length - 1] ?? '').charAt(0);
+  return `${first}${last}`.toUpperCase();
+}
+
+function PosterAvatar({ poster }: { poster: PosterInfo }) {
+  const [failed, setFailed] = useState(false);
+  const photo = (poster.avatarUrl ?? '').trim();
+  const logo = (poster.organizationLogoUrl ?? '').trim();
+  const src = photo || logo;
+  const isLogo = photo === '' && logo !== '';
+  const showImage = src !== '' && !failed && (src.startsWith('https://') || src.startsWith('http://'));
+  const initials = initialsOf(poster.name);
+
+  return (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#004063]/10 ring-1 ring-slate-200">
+      {showImage ? (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          onError={() => setFailed(true)}
+          className={isLogo ? 'h-full w-full object-contain p-1' : 'h-full w-full object-cover'}
+        />
+      ) : initials ? (
+        <span className="text-xs font-bold text-[#004063]">{initials}</span>
+      ) : (
+        <icons.User className="h-4 w-4 text-[#004063]" />
+      )}
+    </span>
+  );
+}
+
 const ICON_BUTTON_BASE =
   'flex h-9 w-9 items-center justify-center rounded-full shadow-md transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba] disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -84,7 +165,8 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
   const beds = typeof property.bedrooms === 'number' ? property.bedrooms : 0;
   const baths = typeof property.bathrooms === 'number' ? property.bathrooms : 0;
   const locality = localityLine(property);
-  const poster = (property.ownerName || '').trim();
+  const poster = resolvePoster(property);
+  const orgName = (poster.organization ?? '').trim();
   const image = firstImageUrl(property);
   const href = property.slug
     ? `/property/${property.slug}`
@@ -289,7 +371,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
       <div className="flex flex-1 flex-col p-4">
         {city && <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{city}</p>}
 
-        <h3 className="mt-1 line-clamp-2 min-h-[2.75rem] text-base font-bold leading-snug text-[#004063]">
+        <h3 className="mt-1 line-clamp-2 text-base font-bold leading-snug text-[#004063]">
           <Link
             href={href}
             className="after:absolute after:inset-0 after:content-[''] focus:outline-none focus-visible:underline"
@@ -306,7 +388,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
         )}
 
         {(area || beds > 0 || baths > 0) && (
-          <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
             {area && (
               <span className="inline-flex items-center gap-1 rounded-full bg-gray-100 px-2.5 py-1 text-xs font-bold text-gray-700">
                 <icons.Maximize className="h-3.5 w-3.5 text-[#029bba]" />
@@ -328,10 +410,25 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
           </div>
         )}
 
-        {/* Footer: poster name (agency name arrives in Phase 2b), then View Details */}
-        <div className="mt-auto flex items-center justify-between gap-3 border-t border-gray-100 pt-3">
-          <div className="min-w-0">
-            {poster && <p className="truncate text-xs font-bold text-gray-800">{poster}</p>}
+        {/* Footer: poster avatar and name, then View Details */}
+        <div className="mt-auto flex items-center justify-between gap-3 border-t border-slate-100 pt-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <PosterAvatar poster={poster} />
+            <div className="min-w-0">
+              <p className="flex min-w-0 items-center gap-1 text-sm font-semibold leading-tight text-slate-900">
+                <span className="truncate">{poster.name}</span>
+                {poster.verified && (
+                  <>
+                    <icons.BadgeCheck aria-hidden="true" className="h-3.5 w-3.5 shrink-0 text-[#10b981]" />
+                    <span className="sr-only">Verified</span>
+                  </>
+                )}
+              </p>
+              <p className="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-slate-500">
+                {orgName && <icons.Building2 aria-hidden="true" className="h-3 w-3 shrink-0 text-[#029bba]" />}
+                <span className="truncate">{orgName || ROLE_LABEL[poster.role]}</span>
+              </p>
+            </div>
           </div>
           <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#004063] px-3.5 py-2 text-xs font-bold text-white transition-colors group-hover:bg-[#029bba]">
             View Details
