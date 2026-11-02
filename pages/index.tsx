@@ -7,7 +7,7 @@ import { CheckCircle, Mail, Shield, X } from 'lucide-react';
 import { useCompare } from '@/hooks/useCompare';
 import HomeHero from '@/components/home/HomeHero';
 import BrowseCategories from '@/components/home/BrowseCategories';
-import CitiesCarousel from '@/components/home/CitiesCarousel';
+import CityExplorer from '@/components/cities/CityExplorer';
 import FeaturedProperties from '@/components/home/FeaturedProperties';
 import PremiumAdBanner from '@/components/home/PremiumAdBanner';
 import ResearchTools from '@/components/home/ResearchTools';
@@ -37,6 +37,13 @@ interface PropertyItem {
   society?: string;
   area?: string;
   areaUnit?: string;
+  unit?: string;
+  locality?: string;
+  phase?: string;
+  block?: string;
+  ownerName?: string;
+  ownerRole?: string;
+  ownerListingCount?: number;
   isVerified?: boolean;
   isFeatured?: boolean;
   monthlyInstallment?: number;
@@ -256,6 +263,7 @@ export default function HomePage(): React.ReactElement {
 
   // Data states
   const [featuredProperties, setFeaturedProperties] = useState<PropertyItem[]>([]);
+  const [featuredTotal, setFeaturedTotal] = useState<number | null>(null);
   const [installmentProperties, setInstallmentProperties] = useState<PropertyItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [developers, setDevelopers] = useState<DeveloperItem[]>([]);
@@ -314,8 +322,12 @@ export default function HomePage(): React.ReactElement {
         setFeaturedProperties(
           data?.success && Array.isArray(data.properties) ? data.properties : []
         );
+        setFeaturedTotal(
+          typeof data?.pagination?.total === 'number' ? data.pagination.total : null
+        );
       } catch {
         setFeaturedProperties([]);
+        setFeaturedTotal(null);
       } finally {
         setLoadingProperties(false);
       }
@@ -654,18 +666,12 @@ export default function HomePage(): React.ReactElement {
 
         <BrowseCategories />
 
-        <CitiesCarousel cities={cities} loading={loadingCities} />
+        <CityExplorer isHomepage={true} />
 
         <FeaturedProperties
           properties={featuredProperties}
-          installmentProperties={installmentProperties}
+          total={featuredTotal}
           loading={loadingProperties}
-          loadingInstallments={loadingInstallments}
-          favorites={favoriteMap}
-          favoritesLoading={favoriteLoadingMap}
-          onFavoriteToggle={handleFavoriteToggle}
-          compareHelpers={{ isInCompare, toggleCompare, isMaxReached }}
-          showToast={showToast}
         />
 
         <PremiumAdBanner
