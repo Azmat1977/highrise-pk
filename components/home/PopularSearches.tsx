@@ -46,8 +46,8 @@ export default function PopularSearches() {
             <Flame className="h-3.5 w-3.5 text-[#029bba]" />
             <span>Search Directory</span>
           </span>
-          <h2 className="text-2xl font-extrabold tracking-tight text-[#001f2b] sm:text-3xl">
-            Popular Property Searches
+          <h2 className="text-3xl font-black tracking-tight text-[#004063] sm:text-4xl">
+            Popular <span className="text-[#029bba]">Property Searches</span>
           </h2>
           <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">
             Jump straight into the searches buyers and renters run most often on Highrise.pk.

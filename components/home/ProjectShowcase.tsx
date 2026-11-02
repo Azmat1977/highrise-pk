@@ -91,7 +91,11 @@ export default function ProjectShowcase({
         <div className="mb-10 flex flex-col items-center gap-5 text-center">
           <SectionHeading
             eyebrow="Development Landmarks"
-            title="Discover Leading Projects"
+            title={
+              <>
+                Discover <span className="text-[#029bba]">Leading Projects</span>
+              </>
+            }
             subtitle="Verified master developments with live pricing and unit information."
           />
           <Link
