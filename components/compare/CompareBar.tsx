@@ -1,30 +1,8 @@
 /**
  * components/compare/CompareBar.tsx
  *
- * Sticky bottom compare bar — the game-changer UX pattern.
- * Appears when 1+ items added to compare (bottom of viewport).
- *
- * FEATURES:
- *   ✅ Slides up from bottom when items added
- *   ✅ Shows preview of each item (image + name)
- *   ✅ Individual remove buttons (X on each)
- *   ✅ "Compare Now" CTA (goes to /compare)
- *   ✅ "Clear All" secondary action
- *   ✅ Empty slots visualized ("+ Add another")
- *   ✅ Mobile-optimized (horizontal scroll on small screens)
- *   ✅ Portal render (mounted globally via _app.tsx)
- *   ✅ Hides on /compare page (avoid redundancy)
- *   ✅ Auto-refreshes from backend on mount
- *   ✅ Real-time updates via cross-tab events
- *
- * INDUSTRY PATTERN:
- *   Zameen ❌ — doesn't have this
- *   MagicBricks ✅
- *   Amazon ✅
- *   Zillow ✅
- *
- * This is the SINGLE feature that most differentiates
- * Highrise.pk from Zameen in the compare experience.
+ * Sticky bottom compare bar.
+ * Appears when 1 or more items are added to compare (bottom of viewport).
  */
 
 'use client';
@@ -37,9 +15,14 @@ import { useRouter } from 'next/router';
 import { icons } from '@/lib/design-system/icons';
 import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 import { useCompare } from '@/hooks/useCompare';
-import { MAX_COMPARE_ITEMS, type CompareEntityType } from '@/types/projects';
+import { formatListingPrice } from '@/components/home/HomeListingCard';
+import {
+  COMPARE_STORAGE_KEY,
+  MAX_COMPARE_ITEMS,
+  type CompareEntityType,
+} from '@/types/projects';
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+// TYPES
 
 interface CompareItemDisplay {
   entityType: CompareEntityType;
@@ -52,16 +35,37 @@ interface CompareItemDisplay {
   slug?:      string;
 }
 
-// ─── HELPERS ─────────────────────────────────────────────────────────────────
-
-function formatCompactPrice(price?: number | null): string {
-  if (!price || price <= 0) return '';
-  if (price >= 10_000_000) return `${(price / 10_000_000).toFixed(1)} Cr`;
-  if (price >= 100_000)    return `${(price / 100_000).toFixed(1)} L`;
-  return price.toLocaleString('en-PK');
+interface StoredCompareItem {
+  entityType: CompareEntityType;
+  entityId:   string;
+  title?:     string;
+  imageUrl?:  string | null;
+  price?:     number | null;
+  slug?:      string;
 }
 
-// ─── SLOT COMPONENT ──────────────────────────────────────────────────────────
+function readStoredCompareItems(): StoredCompareItem[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(COMPARE_STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed
+      .filter(
+        (i): i is StoredCompareItem =>
+          Boolean(i) &&
+          typeof i === 'object' &&
+          typeof i.entityId === 'string' &&
+          (i.entityType === 'property' || i.entityType === 'project'),
+      )
+      .slice(0, MAX_COMPARE_ITEMS);
+  } catch {
+    return [];
+  }
+}
+
+// SLOT COMPONENT
 
 function FilledSlot({
   item,
@@ -76,13 +80,16 @@ function FilledSlot({
     ? item.entityType === 'project'
       ? `/projects/${item.slug}`
       : `/property/${item.slug}`
-    : '#';
+    : item.entityType === 'property' && item.entityId
+      ? `/property/${item.entityId}`
+      : '#';
 
   const displayPrice = item.entityType === 'project'
-    ? formatCompactPrice(item.minPrice)
-    : formatCompactPrice(item.price);
+    ? formatListingPrice(item.minPrice ?? item.price)
+    : formatListingPrice(item.price);
 
   const thumbUrl = item.imageUrl ? getOptimizedImageUrl(item.imageUrl, 80) : null;
+  const isTitlePending = !item.title;
 
   return (
     <div className="relative flex-shrink-0 group">
@@ -99,7 +106,7 @@ function FilledSlot({
           {thumbUrl ? (
             <img
               src={thumbUrl}
-              alt={item.title}
+              alt={item.title || 'Compare item'}
               className="w-full h-full object-cover"
               loading="lazy"
             />
@@ -116,12 +123,16 @@ function FilledSlot({
 
         {/* Text */}
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-black text-gray-900 truncate leading-tight">
-            {item.title || 'Untitled'}
-          </p>
+          {isTitlePending ? (
+            <div className="h-3.5 w-24 rounded bg-gray-200 animate-pulse" />
+          ) : (
+            <p className="text-xs font-black text-gray-900 truncate leading-tight">
+              {item.title}
+            </p>
+          )}
           <div className="flex items-center gap-1 mt-0.5">
             {/* Type badge */}
-            <span className={`text-[8px] font-black uppercase tracking-wider ${
+            <span className={`text-[8px] font-black uppercase tracking-wider shrink-0 ${
               item.entityType === 'project'
                 ? 'text-[#029bba]'
                 : 'text-emerald-600'
@@ -130,7 +141,7 @@ function FilledSlot({
             </span>
             {displayPrice && (
               <>
-                <span className="text-[8px] text-gray-300">·</span>
+                <span className="text-[8px] text-gray-300">|</span>
                 <span className="text-[10px] font-bold text-gray-600 truncate">
                   {displayPrice}
                 </span>
@@ -149,7 +160,7 @@ function FilledSlot({
           onRemove();
         }}
         disabled={isRemoving}
-        aria-label={`Remove ${item.title} from comparison`}
+        aria-label={`Remove ${item.title || 'item'} from comparison`}
         className="absolute top-1/2 -translate-y-1/2 right-1.5 z-10
                    w-6 h-6 rounded-full bg-red-500 text-white
                    flex items-center justify-center
@@ -180,7 +191,7 @@ function EmptySlot(): React.ReactElement {
   );
 }
 
-// ─── MAIN COMPONENT ──────────────────────────────────────────────────────────
+// MAIN COMPONENT
 
 export default function CompareBar(): React.ReactElement | null {
   const router = useRouter();
@@ -195,7 +206,6 @@ export default function CompareBar(): React.ReactElement | null {
   } = useCompare({ defaultEntityType: 'project' });
 
   const [items,       setItems]       = useState<CompareItemDisplay[]>([]);
-  const [loading,     setLoading]     = useState(false);
   const [removingId,  setRemovingId]  = useState<string | null>(null);
   const [clearing,    setClearing]    = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -205,55 +215,35 @@ export default function CompareBar(): React.ReactElement | null {
     || router.pathname.startsWith('/compare/')
     || router.asPath?.startsWith('/compare');
 
-   // ── Fetch full item details when count changes ──────────────────────────
+  // Sync tiles immediately from localStorage, then enrich missing fields from API
   const loadItemDetails = useCallback(async () => {
-    if (totalCount === 0) {
+    const localItems = readStoredCompareItems();
+
+    if (localItems.length === 0) {
       setItems([]);
       return;
     }
 
-    // 0ms INSTANT RECONCILIATION from localStorage
-    try {
-      const localRaw = typeof window !== 'undefined'
-        ? localStorage.getItem('highrise_compare_v2')
-        : null;
-      if (localRaw) {
-        const localItems = JSON.parse(localRaw) as Array<{
-          entityType: CompareEntityType;
-          entityId: string;
-          title?: string;
-          imageUrl?: string | null;
-          price?: number | null;
-          slug?: string;
-        }>;
+    // 1. Instant 0ms render from localStorage metadata saved at add time
+    setItems((prev) => {
+      const prevMap = new Map(prev.map(i => [`${i.entityType}:${i.entityId}`, i]));
+      return localItems.map((li) => {
+        const key = `${li.entityType}:${li.entityId}`;
+        const existing = prevMap.get(key);
+        return {
+          entityType: li.entityType,
+          entityId:   li.entityId,
+          title:      li.title || existing?.title || '',
+          imageUrl:   li.imageUrl ?? existing?.imageUrl ?? null,
+          city:       existing?.city,
+          price:      typeof li.price === 'number' ? li.price : existing?.price,
+          minPrice:   existing?.minPrice,
+          slug:       li.slug || existing?.slug,
+        };
+      });
+    });
 
-        if (Array.isArray(localItems) && localItems.length > 0) {
-          setItems((prev) => {
-            const prevMap = new Map(prev.map(i => [`${i.entityType}:${i.entityId}`, i]));
-            return localItems.map((li) => {
-              const key = `${li.entityType}:${li.entityId}`;
-              const existing = prevMap.get(key);
-              if (existing && existing.title && existing.title !== 'Loading...') {
-                return existing;
-              }
-              return {
-                entityType: li.entityType,
-                entityId:   li.entityId,
-                title:      li.title || 'Loading...',
-                imageUrl:   li.imageUrl ?? null,
-                price:      typeof li.price === 'number' ? li.price : undefined,
-                slug:       li.slug,
-              };
-            });
-          });
-        }
-      }
-    } catch {
-      // Non-fatal
-    }
-
-    setLoading(true);
-
+    // 2. Enrich from backend without wiping optimistic local items
     try {
       const sessionId = typeof window !== 'undefined'
         ? localStorage.getItem('highrise_compare_session')
@@ -268,10 +258,7 @@ export default function CompareBar(): React.ReactElement | null {
         cache: 'no-store',
         headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
       });
-      if (!res.ok) {
-        setItems([]);
-        return;
-      }
+      if (!res.ok) return;
 
       const data = await res.json() as {
         success: boolean;
@@ -283,15 +270,14 @@ export default function CompareBar(): React.ReactElement | null {
         };
       };
 
-      if (!data.success || !data.data?.entities) {
-        setItems([]);
-        return;
-      }
+      if (!data.success || !Array.isArray(data.data?.entities)) return;
 
-      const mapped: CompareItemDisplay[] = data.data.entities.map(e => {
+      const serverMap = new Map<string, CompareItemDisplay>();
+      for (const e of data.data.entities) {
         const d = e.data;
+        const idStr = String(d._id ?? '');
+        if (!idStr) continue;
 
-        // Extract image (works for both properties + projects)
         let imageUrl: string | null = null;
         if (typeof d.primaryImage === 'string') {
           imageUrl = d.primaryImage;
@@ -305,58 +291,84 @@ export default function CompareBar(): React.ReactElement | null {
             : first?.url ?? null;
         }
 
-        return {
+        serverMap.set(`${e.entityType}:${idStr}`, {
           entityType: e.entityType,
-          entityId:   String(d._id ?? ''),
-          title:      String(
-            d.projectName    // project
-            ?? d.title       // property
-            ?? 'Untitled'
-          ),
+          entityId:   idStr,
+          title:      String(d.projectName ?? d.title ?? 'Untitled'),
           imageUrl,
           city:       typeof d.city === 'string' ? d.city : undefined,
           price:      typeof d.price === 'number' ? d.price : undefined,
           minPrice:   typeof d.minPrice === 'number' ? d.minPrice : undefined,
           slug:       typeof d.slug === 'string' ? d.slug : undefined,
-        };
-      });
+        });
+      }
 
-      setItems(mapped);
+      const latestLocal = readStoredCompareItems();
+      if (latestLocal.length === 0) {
+        setItems([]);
+        return;
+      }
+
+      setItems((prev) => {
+        const prevMap = new Map(prev.map(i => [`${i.entityType}:${i.entityId}`, i]));
+        return latestLocal.map((li) => {
+          const key = `${li.entityType}:${li.entityId}`;
+          const fromServer = serverMap.get(key);
+          const existing = prevMap.get(key);
+          return {
+            entityType: li.entityType,
+            entityId:   li.entityId,
+            title:      fromServer?.title || li.title || existing?.title || 'Untitled',
+            imageUrl:   fromServer?.imageUrl ?? li.imageUrl ?? existing?.imageUrl ?? null,
+            city:       fromServer?.city ?? existing?.city,
+            price:      fromServer?.price ?? (typeof li.price === 'number' ? li.price : existing?.price),
+            minPrice:   fromServer?.minPrice ?? existing?.minPrice,
+            slug:       fromServer?.slug || li.slug || existing?.slug,
+          };
+        });
+      });
     } catch {
-      setItems([]);
-    } finally {
-      setLoading(false);
+      // Keep local items on network failure
     }
-  }, [totalCount]);
+  }, []);
 
   useEffect(() => {
     void loadItemDetails();
+  }, [totalCount, loadItemDetails]);
 
+  useEffect(() => {
     const handleCompareSync = () => {
       void loadItemDetails();
     };
 
+    const handleStorageSync = (e: StorageEvent) => {
+      if (e.key === COMPARE_STORAGE_KEY) {
+        void loadItemDetails();
+      }
+    };
+
     window.addEventListener('highrise:compare-changed', handleCompareSync);
+    window.addEventListener('storage', handleStorageSync);
     window.addEventListener('focus', handleCompareSync);
 
     return () => {
       window.removeEventListener('highrise:compare-changed', handleCompareSync);
+      window.removeEventListener('storage', handleStorageSync);
       window.removeEventListener('focus', handleCompareSync);
     };
   }, [loadItemDetails]);
 
-  // ── Remove handler ────────────────────────────────────────────────────────
+  // Remove handler
   const handleRemove = useCallback(
     async (item: CompareItemDisplay) => {
       setRemovingId(item.entityId);
       await remove(item.entityId, item.entityType);
       setRemovingId(null);
-      // Items will refresh via useEffect (totalCount changes)
     },
     [remove],
   );
 
-  // ── Clear all handler ─────────────────────────────────────────────────────
+  // Clear all handler
   const handleClearAll = useCallback(async () => {
     setClearing(true);
     await clear();
@@ -365,21 +377,20 @@ export default function CompareBar(): React.ReactElement | null {
     setItems([]);
   }, [clear]);
 
-  // ── Don't render conditions ───────────────────────────────────────────────
-  if (!isReady)         return null;  // Not loaded yet
-  if (isOnComparePage)  return null;  // Hide on compare page
-  if (totalCount === 0) return null;  // Nothing to compare
+  const activeCount = items.length > 0 ? items.length : totalCount;
 
-  // Portal render for guaranteed z-index above everything
+  // Render guards
+  if (!isReady)         return null;
+  if (isOnComparePage)  return null;
+  if (activeCount === 0) return null;
+
   if (typeof document === 'undefined') return null;
 
   const emptySlotCount = Math.max(0, MAX_COMPARE_ITEMS - items.length);
 
   const barContent = (
     <>
-      {/* ═══════════════════════════════════════════════════════════════
-          STICKY COMPARE BAR
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* STICKY COMPARE BAR */}
       <div className="fixed bottom-0 left-0 right-0 z-[9998]
                       bg-white border-t-2 border-[#029bba]
                       shadow-[0_-8px_32px_rgba(0,0,0,0.12)]
@@ -388,7 +399,7 @@ export default function CompareBar(): React.ReactElement | null {
         <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
           <div className="flex items-center gap-3">
 
-            {/* ── Left: Icon + Label ── */}
+            {/* Left: Icon + Label */}
             <div className="hidden md:flex items-center gap-2 flex-shrink-0
                             border-r border-gray-100 pr-3">
               <div className="w-10 h-10 rounded-xl bg-[#029bba]/10
@@ -400,7 +411,7 @@ export default function CompareBar(): React.ReactElement | null {
                   Compare
                 </p>
                 <p className="text-[10px] font-bold text-gray-500">
-                  {totalCount} of {MAX_COMPARE_ITEMS}
+                  {activeCount} of {MAX_COMPARE_ITEMS}
                 </p>
               </div>
             </div>
@@ -409,7 +420,7 @@ export default function CompareBar(): React.ReactElement | null {
             <div className="md:hidden flex flex-col items-center flex-shrink-0
                             px-2 py-1 rounded-lg bg-[#029bba]/10">
               <span className="text-xs font-black text-[#029bba] leading-none">
-                {totalCount}
+                {activeCount}
               </span>
               <span className="text-[8px] font-bold text-[#029bba]/70
                                uppercase leading-none mt-0.5">
@@ -417,33 +428,27 @@ export default function CompareBar(): React.ReactElement | null {
               </span>
             </div>
 
-            {/* ── Center: Items scroll ── */}
+            {/* Center: Items scroll */}
             <div className="flex-1 min-w-0">
-              {loading && items.length === 0 ? (
-                <div className="flex items-center justify-center py-3">
-                  <icons.Loader2 className="w-4 h-4 animate-spin text-[#029bba]" />
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 overflow-x-auto
-                                scrollbar-hide pb-1 -mb-1">
-                  {items.map(item => (
-                    <FilledSlot
-                      key={`${item.entityType}-${item.entityId}`}
-                      item={item}
-                      onRemove={() => void handleRemove(item)}
-                      isRemoving={removingId === item.entityId}
-                    />
-                  ))}
+              <div className="flex items-center gap-2 overflow-x-auto
+                              scrollbar-hide pb-1 -mb-1">
+                {items.map(item => (
+                  <FilledSlot
+                    key={`${item.entityType}-${item.entityId}`}
+                    item={item}
+                    onRemove={() => void handleRemove(item)}
+                    isRemoving={removingId === item.entityId}
+                  />
+                ))}
 
-                  {/* Empty slots */}
-                  {Array.from({ length: emptySlotCount }).map((_, i) => (
-                    <EmptySlot key={`empty-${i}`} />
-                  ))}
-                </div>
-              )}
+                {/* Empty slots */}
+                {Array.from({ length: emptySlotCount }).map((_, i) => (
+                  <EmptySlot key={`empty-${i}`} />
+                ))}
+              </div>
             </div>
 
-            {/* ── Right: Actions ── */}
+            {/* Right: Actions */}
             <div className="flex items-center gap-2 flex-shrink-0">
               {/* Clear all */}
               <button
@@ -490,9 +495,7 @@ export default function CompareBar(): React.ReactElement | null {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════════════
-          CLEAR CONFIRMATION MODAL
-      ═══════════════════════════════════════════════════════════════ */}
+      {/* CLEAR CONFIRMATION MODAL */}
       {showConfirm && (
         <div
           className="fixed inset-0 z-[9999] flex items-center justify-center
@@ -512,7 +515,7 @@ export default function CompareBar(): React.ReactElement | null {
               Clear Comparison?
             </h3>
             <p className="text-sm text-gray-500 mb-6">
-              Remove all {totalCount} item{totalCount > 1 ? 's' : ''} from your comparison list?
+              Remove all {activeCount} item{activeCount > 1 ? 's' : ''} from your comparison list?
               You can add them back anytime.
             </p>
 

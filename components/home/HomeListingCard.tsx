@@ -57,12 +57,16 @@ const ROLE_LABEL: Record<PosterRole, string> = {
   platform: 'Platform listing',
 };
 
-function formatPrice(price: number, listingType: string): string {
-  if (!Number.isFinite(price) || price <= 0) return 'Price on request';
+export function formatListingPrice(price?: number | null, listingType?: string): string {
+  if (typeof price !== 'number' || !Number.isFinite(price) || price <= 0) return '';
   const suffix = listingType === 'rent' ? '/mo' : '';
   if (price >= 10_000_000) return `PKR ${(price / 10_000_000).toFixed(2)} Crore${suffix}`;
   if (price >= 100_000) return `PKR ${(price / 100_000).toFixed(2)} Lac${suffix}`;
   return `PKR ${price.toLocaleString('en-PK')}${suffix}`;
+}
+
+function formatPrice(price: number, listingType: string): string {
+  return formatListingPrice(price, listingType) || 'Price on request';
 }
 
 function formatArea(area: PropertyCardInput['area'], unit?: string): string {

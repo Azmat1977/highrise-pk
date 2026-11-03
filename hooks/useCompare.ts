@@ -1,7 +1,7 @@
 /**
  * hooks/useCompare.ts
  *
- * Enterprise compare hook for Highrise.pk (V2 — multi-entity).
+ * Enterprise compare hook for Highrise.pk (V2 multi-entity).
  * Mirrors useFavorites pattern for consistency.
  *
  * ARCHITECTURE:
@@ -12,16 +12,6 @@
  * DEFAULT ENTITY TYPE:
  *   'project' for project cards
  *   Use useCompare({ defaultEntityType: 'property' }) for property cards
- *
- * FEATURES:
- *   ✅ Instant optimistic UI
- *   ✅ Automatic rollback on failure
- *   ✅ Cross-tab sync
- *   ✅ Debounced clicks
- *   ✅ Duplicate detection
- *   ✅ Limit enforcement (4 max)
- *   ✅ Real total count across BOTH entity types
- *   ✅ SSR safe
  */
 
 'use client';
@@ -176,43 +166,77 @@ export function useCompare(
       const data = await res.json() as CompareListResponse;
       if (!data.success || !data.data) return;
 
-      // Reconcile from server truth
+      // Reconcile from server truth while preserving cached display metadata
+      const localMetaMap = new Map(
+        localItems.map((item) => [`${item.entityType}:${item.entityId}`, item]),
+      );
       const serverItems: CompareItem[] = [];
+
+      const extractServerImage = (d: Record<string, unknown>): string | null => {
+        if (typeof d.primaryImage === 'string') return d.primaryImage;
+        if (typeof d.featureImageUrl === 'string') return d.featureImageUrl;
+        if (Array.isArray(d.images) && d.images.length > 0) {
+          const first = d.images[0] as { url?: string } | string;
+          return typeof first === 'string' ? first : first?.url ?? null;
+        }
+        return null;
+      };
 
       if (Array.isArray(data.data.entities)) {
         // V2 response format
         for (const e of data.data.entities) {
-          const eData = e.data as { _id?: unknown };
+          const eData = e.data as Record<string, unknown>;
           if (eData?._id) {
+            const id = String(eData._id);
+            const prevMeta = localMetaMap.get(`${e.entityType}:${id}`);
+            const rawTitle = eData.projectName ?? eData.title ?? prevMeta?.title;
+            const rawPrice = typeof eData.minPrice === 'number'
+              ? eData.minPrice
+              : typeof eData.price === 'number'
+                ? eData.price
+                : prevMeta?.price ?? null;
             serverItems.push({
               entityType: e.entityType,
-              entityId:   String(eData._id),
-              addedAt:    new Date().toISOString(),
+              entityId:   id,
+              addedAt:    prevMeta?.addedAt || new Date().toISOString(),
+              title:      typeof rawTitle === 'string' ? rawTitle : undefined,
+              imageUrl:   extractServerImage(eData) ?? prevMeta?.imageUrl ?? null,
+              price:      rawPrice,
+              slug:       typeof eData.slug === 'string' ? eData.slug : prevMeta?.slug,
             });
           }
         }
       } else if (Array.isArray(data.data.properties)) {
         // Legacy fallback
         for (const p of data.data.properties) {
-          const pData = p as { _id?: unknown };
+          const pData = p as Record<string, unknown>;
           if (pData?._id) {
+            const id = String(pData._id);
+            const prevMeta = localMetaMap.get(`property:${id}`);
             serverItems.push({
               entityType: 'property',
-              entityId:   String(pData._id),
-              addedAt:    new Date().toISOString(),
+              entityId:   id,
+              addedAt:    prevMeta?.addedAt || new Date().toISOString(),
+              title:      typeof pData.title === 'string' ? pData.title : prevMeta?.title,
+              imageUrl:   extractServerImage(pData) ?? prevMeta?.imageUrl ?? null,
+              price:      typeof pData.price === 'number' ? pData.price : prevMeta?.price ?? null,
+              slug:       typeof pData.slug === 'string' ? pData.slug : prevMeta?.slug,
             });
           }
         }
       }
 
-      // Authenticated/server state is authoritative even when empty.
-      // A zero-item response must clear stale local mirrored comparison state.
-      writeCompareItems(serverItems);
-      const serverIdsForType = serverItems
-        .filter(i => i.entityType === defaultType)
-        .map(i => i.entityId);
-      setCompareIds(serverIdsForType);
-      setTotalCount(serverItems.length);
+      // Authenticated/server state is authoritative even when empty,
+      // unless an optimistic add/remove is currently in flight.
+      if (inFlightRef.current.size === 0) {
+        writeCompareItems(serverItems);
+        const serverIdsForType = serverItems
+          .filter(i => i.entityType === defaultType)
+          .map(i => i.entityId);
+        setCompareIds(serverIdsForType);
+        setTotalCount(serverItems.length);
+        dispatchCompareChange();
+      }
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
         // Fall back to local (already loaded above)
@@ -352,6 +376,7 @@ export function useCompare(
         if (res.ok && data.success) {
           inFlightRef.current.delete(debounceKey);
           setActionState('success');
+          dispatchCompareChange();
           setTimeout(() => setActionState('idle'), 1500);
           return true;
         } else if (data.reason === 'limit_reached') {
