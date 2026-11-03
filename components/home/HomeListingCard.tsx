@@ -286,6 +286,10 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
 
   const handleCompare = async () => {
     if (!propertyId || comparePending) return;
+    if (!isSignedIn) {
+      setShowAuthModal(true);
+      return;
+    }
     await toggleCompare(propertyId, 'property', {
       title,
       imageUrl: image,

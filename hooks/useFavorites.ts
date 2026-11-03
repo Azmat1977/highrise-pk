@@ -158,14 +158,10 @@ export function useFavorites(
 
   // ── Load favorites (guest: localStorage, user: API) ───────────────────────
   const loadFavorites = useCallback(async (): Promise<void> => {
-    // ── Guest mode: read from localStorage ──
+    // ── Guest mode: no favorites until signed in ──
     if (!isLoggedIn) {
-      const guest = readGuestFavorites();
-      const idsForType = guest
-        .filter(f => f.entityType === defaultType)
-        .map(f => f.entityId);
-      setFavoriteIds(idsForType);
-      setTotalCount(guest.length);
+      setFavoriteIds([]);
+      setTotalCount(0);
       setIsReady(true);
       return;
     }
@@ -320,6 +316,9 @@ export function useFavorites(
     ): Promise<boolean> => {
       if (!entityId) return false;
 
+      // Guest users cannot favorite — caller should open AuthGateModal
+      if (!isLoggedIn) return false;
+
       const type        = entityType ?? defaultType;
       const debounceKey = `${type}:${entityId}`;
 
@@ -382,15 +381,7 @@ export function useFavorites(
       writeGuestFavorites(updatedGuest);
       dispatchFavoritesChange();
 
-      // ── Guest mode: done, no API call ──
-      if (!isLoggedIn) {
-        inFlightRef.current.delete(debounceKey);
-        setActionState('success');
-        setTimeout(() => setActionState('idle'), 1500);
-        return true;
-      }
-
-      // ── Logged-in: sync to DB via /toggle ──
+      // ── Sync to DB via /toggle ──
       try {
         const res = await fetch('/api/favorites/toggle', {
           method:      'POST',

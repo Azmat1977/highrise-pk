@@ -17,6 +17,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useSession } from 'next-auth/react';
 import {
   COMPARE_STORAGE_KEY,
   MAX_COMPARE_ITEMS,
@@ -49,6 +50,7 @@ export interface UseCompareReturn {
   actionState:  CompareActionState;
   errorMessage: string | null;
   isMaxReached: boolean;
+  isLoggedIn:   boolean;
 
   isInCompare:  (entityId: string, entityType?: CompareEntityType) => boolean;
   add:          (entityId: string, entityType?: CompareEntityType, meta?: CompareItemMeta) => Promise<boolean>;
@@ -115,6 +117,9 @@ export function useCompare(
 ): UseCompareReturn {
   const defaultType = options.defaultEntityType ?? 'project';
 
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === 'authenticated' && !!session?.user;
+
   const [compareIds,   setCompareIds]   = useState<string[]>([]);
   const [totalCount,   setTotalCount]   = useState(0);
   const [isReady,      setIsReady]      = useState(false);
@@ -126,6 +131,14 @@ export function useCompare(
 
   // ── Load compare state ──────────────────────────────────────────────────
   const loadCompare = useCallback(async (): Promise<void> => {
+    // Guest mode: no compare items until signed in
+    if (!isLoggedIn) {
+      setCompareIds([]);
+      setTotalCount(0);
+      setIsReady(true);
+      return;
+    }
+
     // Start with localStorage for instant UI
     const localItems = readCompareItems();
     const idsForType = localItems
@@ -135,11 +148,8 @@ export function useCompare(
     setTotalCount(localItems.length);
     setIsReady(true);
 
-    // If no compare items locally and guest user, skip network call to prevent noise
-    const sessionId = typeof window !== 'undefined'
-      ? localStorage.getItem('highrise_compare_session')
-      : null;
-    if (localItems.length === 0 && !sessionId) return;
+    // If no compare items locally, skip network call to prevent noise
+    if (localItems.length === 0) return;
 
     // Then fetch from backend to sync/reconcile
     if (abortRef.current) abortRef.current.abort();
@@ -242,7 +252,7 @@ export function useCompare(
         // Fall back to local (already loaded above)
       }
     }
-  }, [defaultType]);
+  }, [defaultType, isLoggedIn]);
 
   // ── Initial load ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -300,6 +310,9 @@ export function useCompare(
     ): Promise<boolean> => {
       if (!entityId) return false;
 
+      // Guest users cannot compare — caller should open AuthGateModal
+      if (!isLoggedIn) return false;
+
       const type        = entityType ?? defaultType;
       const debounceKey = `${type}:${entityId}`;
 
@@ -308,6 +321,17 @@ export function useCompare(
       const currentItems = readCompareItems();
       if (currentItems.some(i => i.entityType === type && i.entityId === entityId)) {
         return true; // Already there
+      }
+
+      // Enforce same-entity-type comparison
+      if (currentItems.length > 0 && currentItems[0].entityType !== type) {
+        setActionState('error');
+        setErrorMessage('You can only compare items of the same type');
+        setTimeout(() => {
+          setActionState('idle');
+          setErrorMessage(null);
+        }, 3000);
+        return false;
       }
 
       if (currentItems.length >= MAX_COMPARE_ITEMS) {
@@ -416,7 +440,7 @@ export function useCompare(
         return true;
       }
     },
-    [compareIds, defaultType],
+    [compareIds, defaultType, isLoggedIn],
   );
 
   // ── REMOVE ───────────────────────────────────────────────────────────────
@@ -426,6 +450,9 @@ export function useCompare(
       entityType?: CompareEntityType,
     ): Promise<boolean> => {
       if (!entityId) return false;
+
+      // Guest users cannot compare
+      if (!isLoggedIn) return false;
 
       const type        = entityType ?? defaultType;
       const debounceKey = `${type}:${entityId}`;
@@ -505,7 +532,7 @@ export function useCompare(
         return true;
       }
     },
-    [compareIds, defaultType],
+    [compareIds, defaultType, isLoggedIn],
   );
 
   // ── TOGGLE ────────────────────────────────────────────────────────────────
@@ -569,6 +596,7 @@ export function useCompare(
     actionState,
     errorMessage,
     isMaxReached: totalCount >= MAX_COMPARE_ITEMS,
+    isLoggedIn,
     isInCompare,
     add,
     remove,

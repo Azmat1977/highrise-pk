@@ -2,13 +2,17 @@
 // Design System v19 Compliant -- Bound central icon lookup and theme colors
 
 import React, { useEffect, useMemo, useCallback, useState } from 'react';
-import { createPortal } from 'react-dom';
+// createPortal removed — AuthGateModal handles its own portal
 import Link from 'next/link';
-import { getSession } from 'next-auth/react';
+// getSession replaced by useSession hook above
 import { icons } from '@/lib/design-system/icons';
 import { colors } from '@/lib/design-system/tokens';
 import { useCompare } from '@/hooks/useCompare';
+import { useSession } from 'next-auth/react';
+import AuthGateModal from '@/components/auth/AuthGateModal';
 import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
+import ListingTypeBadge, { getListingTypeMeta } from '@/components/property/ListingTypeBadge';
+import PropertyTypeBadge from '@/components/property/PropertyTypeBadge';
 
 // ============================================
 // Types (Enterprise: tolerate IdLike drift)
@@ -16,7 +20,7 @@ import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 
 type IdLike = string | number | { toString?: () => string } | null | undefined;
 
-type ListingType = 'full_payment' | 'installment' | 'rent' | 'sale';
+type ListingType = 'full_payment' | 'installment' | 'rent' | 'sale' | string;
 
 type ImageLike = string | { url?: string | null } | null | undefined;
 
@@ -35,8 +39,7 @@ export interface PropertyCardInput {
   name?: string;
 
   price?: number;
-
-  area?: number;
+  area?: number | string | null;
   areaSize?: number;
   size?: number;
 
@@ -82,6 +85,8 @@ export interface PropertyCardInput {
 
   isVerified?: boolean;
   verified?: boolean;
+  verificationStatus?: string;
+  verificationLevel?: string; // Add optional field for verification status
 
   isFeatured?: boolean;
   featured?: boolean;
@@ -272,129 +277,7 @@ function safeImageUrl(input?: string | null): string {
   return '';
 }
 
-// ============================================
-// Login Modal Component
-// ============================================
-
-interface LoginModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  propertyImage: string | null;
-  propertyTitle: string;
-  propertyCity: string;
-  propertyPrice: string;
-}
-
-const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose, propertyImage, propertyTitle, propertyCity, propertyPrice }) => {
-  useEffect(() => {
-    const handleEsc = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-
-    if (isOpen) {
-      document.addEventListener('keydown', handleEsc);
-      document.body.style.overflow = 'hidden';
-    }
-
-    return () => {
-      document.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-  if (typeof window === 'undefined') return null;
-
-  const modalContent = (
-    <div className="fixed inset-0 z-[99999] flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-
-      <div
-        className="relative bg-white rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden"
-        onClick={(e) => e.stopPropagation()}
-        style={{ animation: 'modalFadeIn 0.2s ease-out' }}
-      >
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1.5 rounded-full hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors z-10"
-          aria-label="Close modal"
-        >
-          <icons.X className="w-5 h-5" />
-        </button>
-
-        <div className="pt-8 pb-4 px-6 text-center">
-          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-red-100 to-pink-100 flex items-center justify-center">
-            <icons.Heart className="w-8 h-8 text-red-500" />
-          </div>
-          <h3 className="text-xl font-bold text-gray-900 mb-2">Save Your Favorites</h3>
-          <p className="text-sm text-gray-500">Login to save properties and access them anytime from any device</p>
-        </div>
-
-        <div className="mx-6 p-3 bg-gray-50 rounded-xl mb-4">
-          <div className="flex items-center gap-3">
-            {propertyImage ? (
-              <img src={propertyImage} alt={propertyTitle} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" loading="lazy" />
-            ) : (
-              <div className="w-14 h-14 rounded-lg bg-gray-200 flex items-center justify-center flex-shrink-0">
-                <icons.ImageOff className="w-6 h-6 text-gray-400" />
-              </div>
-            )}
-
-            <div className="flex-1 min-w-0">
-              <p className="font-semibold text-gray-900 text-sm truncate">{propertyTitle}</p>
-              <p className="text-xs text-gray-500 truncate">{propertyCity}</p>
-              <p className="text-sm font-bold text-[#029bba]">{propertyPrice}</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-6 pb-4 space-y-3">
-          <a
-            href="/login"
-            className="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-[#029bba] to-[#017a8a] text-white rounded-xl font-semibold hover:from-[#017a8a] hover:to-[#015a6a] transition-all shadow-lg shadow-[#029bba]/25"
-          >
-            <icons.LogIn className="w-5 h-5" />
-            Login to Save
-          </a>
-
-          <a
-            href="/login?mode=signup"
-            className="flex items-center justify-center gap-2 w-full py-3 border-2 border-gray-200 text-gray-700 rounded-xl font-medium hover:border-[#029bba] hover:text-[#029bba] transition-all"
-          >
-            <icons.UserPlus className="w-5 h-5" />
-            Create Account
-          </a>
-
-          <button onClick={onClose} className="w-full py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors">
-            Maybe later
-          </button>
-        </div>
-
-        <div className="px-6 pb-6">
-          <div className="flex items-center justify-center gap-2 text-xs text-gray-400">
-            <icons.Lock className="w-3 h-3" />
-            <span>Your data is secure with us</span>
-          </div>
-        </div>
-      </div>
-
-      <style jsx global>{`
-        @keyframes modalFadeIn {
-          from {
-            opacity: 0;
-            transform: scale(0.95) translateY(10px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
-          }
-        }
-      `}</style>
-    </div>
-  );
-
-  return createPortal(modalContent, document.body);
-};
+// LoginModal replaced by AuthGateModal (imported above)
 
 // ============================================
 // Property Card Component
@@ -411,6 +294,9 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [mounted, setMounted] = useState(false);
+
+  const { data: session, status: sessionStatus } = useSession();
+  const isSignedIn = sessionStatus === 'authenticated' && Boolean(session?.user);
 
   // Unified Compare Hook
   const {
@@ -441,8 +327,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
     const fetchFavoriteStatus = async () => {
       try {
-        const session = await getSession();
-        if (!session?.user) return;
+        if (!isSignedIn) return;
 
         const res = await fetch(`/api/favorites?mode=ids&_ts=${Date.now()}`, {
           credentials: 'include',
@@ -580,6 +465,10 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
   const hasVideo = !!(property.videoUrl || property.video);
   const timeAgo = formatTimeAgo(property.createdAt);
 
+  // Enterprise verification badge: prioritize canonical verification level over isVerified flag
+  const verificationLevel = property.verificationStatus || (property.isVerified || property.verified ? 'verified' : undefined);
+  const hasVerificationBadge = !!verificationLevel;
+
   const isNewListing = useMemo(() => {
     if (!property.createdAt) return false;
     const createdDate = new Date(property.createdAt);
@@ -635,36 +524,38 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
   };
 
   const purposeInfo = useMemo(() => {
-    const p = purpose.toLowerCase();
-    // Rule Set A: red reserved for errors/deletions only — never for sale badges
-    if (p === 'rent') return { label: 'For Rent', color: 'bg-[#f59e0b]' };
-    if (p === 'installment' || p === 'installments') return { label: 'Installments', color: 'bg-[#7c3aed]' };
-    return { label: 'For Sale', color: 'bg-[#029bba]' };
+    return getListingTypeMeta(purpose);
   }, [purpose]);
+  const PurposeIcon = purposeInfo.icon;
 
   const sourceBadge = useMemo(() => {
-    const role = String(property.ownerRole || '').toLowerCase();
-    if (role === 'owner') {
-      return {
-        label: 'Owner Direct',
-        className: 'bg-[#10b981] text-white',
-        Icon: icons.UserCheck,
-      };
-    }
-    if (role === 'developer') {
+    // Ground truth: the property's own agentId/developerId fields.
+    // This is the same signal the API uses for the "Direct Owner" / "Agent Listed"
+    // filter, so the badge on the card always matches what the filter returns.
+    const hasAgentId = !!(property as any).agentId;
+    const hasDeveloperId = !!(property as any).developerId;
+
+    if (hasDeveloperId) {
       return {
         label: 'Developer',
         className: 'bg-[#029bba] text-white',
         Icon: icons.Building2,
       };
     }
-    // agent, admin, or unknown professional lister
+    if (hasAgentId) {
+      return {
+        label: 'Agent Listed',
+        className: 'bg-[#004063] text-white',
+        Icon: icons.ShieldCheck,
+      };
+    }
+    // No agentId and no developerId → direct owner listing
     return {
-      label: 'Agent Listed',
-      className: 'bg-[#004063] text-white',
-      Icon: icons.ShieldCheck,
+      label: 'Owner Direct',
+      className: 'bg-[#10b981] text-white',
+      Icon: icons.UserCheck,
     };
-  }, [property.ownerRole]);
+  }, [property]);
 
   const getPriceDisplay = useCallback((): string => {
     const formatted = formatPrice(price);
@@ -687,10 +578,8 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
     if (favoriteLoading) return;
 
-    // Check NextAuth session properly
-    const session = await getSession();
-    
-    if (!session?.user) {
+    // Check NextAuth session
+    if (!isSignedIn) {
       // Show login modal only when truly not logged in
       setShowLoginModal(true);
       return;
@@ -787,6 +676,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
     e.stopPropagation();
 
     if (!propertyId) return;
+
+    if (!isSignedIn) {
+      setShowLoginModal(true);
+      return;
+    }
 
     const success = await toggleCompare(propertyId, 'property', {
       title,
@@ -948,11 +842,7 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
               {/* Top Left Badges — compact pills, content-sized (not tab-sized) */}
               <div className="absolute top-3 left-3 flex flex-col gap-1.5 items-start max-w-[70%]">
-                <span
-                  className={`${purposeInfo.color} text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto inline-flex`}
-                >
-                  {purposeInfo.label}
-                </span>
+                <ListingTypeBadge listingType={purpose} size="sm" className="px-2 py-0.5 text-[10px] font-bold rounded-md shadow-md uppercase tracking-wide w-auto" />
 
                 {isPromotedProp ? (
                   <span className="inline-flex items-center gap-1 bg-gradient-to-r from-amber-500 to-[#f59e0b] text-white text-[9px] font-black px-2 py-0.5 rounded-md shadow-md uppercase tracking-wide w-auto">
@@ -995,16 +885,22 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
               {/* Bottom Left Badges */}
               <div className="absolute bottom-3 left-3 flex items-center gap-2">
-                {isVerified && (
-                  <span className="inline-flex items-center gap-1 bg-green-500 text-white text-xs font-medium px-2 py-1 rounded-lg shadow-lg">
+                {/* Single source of truth for verification:
+                    Prioritize the enterprise verification badge if available,
+                    otherwise fallback to the project-linked isVerified status. */}
+                {hasVerificationBadge ? (
+                  <span className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm uppercase tracking-wide">
+                    <icons.Verified className="w-3 h-3" />
+                    Verified
+                  </span>
+                ) : isVerified ? (
+                  <span className="inline-flex items-center gap-1 bg-green-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm uppercase tracking-wide">
                     <icons.CheckCircle className="w-3 h-3" />
                     Verified
                   </span>
-                )}
-
-                {status && !isVerified && (
-                  <span className={`text-xs font-medium px-2.5 py-1 rounded-lg shadow-sm ${getStatusColor(status)}`}>{status}</span>
-                )}
+                ) : status ? (
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shadow-sm uppercase tracking-wide ${getStatusColor(status)}`}>{status}</span>
+                ) : null}
               </div>
 
               {/* Bottom Right - Photo & Video Count */}
@@ -1025,10 +921,11 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
 
             {/* Content Section */}
             <div className={`p-4 ${layout === 'list' ? 'md:min-w-0 md:flex-1 md:p-6' : ''}`}>
-              {layout === 'list' && (developer || isVerified) && (
+              {layout === 'list' && (developer || isVerified || hasVerificationBadge) && (
                 <div className="mb-2 flex min-w-0 items-center gap-2">
                   <span className="truncate text-xs font-bold text-gray-600">{developer || 'Verified Listing'}</span>
                   {isVerified && <icons.BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />}
+                  {hasVerificationBadge && <icons.Verified className="h-4 w-4 shrink-0 text-[#029bba]" />}
                 </div>
               )}
               <h3 className={`font-semibold text-gray-900 line-clamp-2 mb-2 group-hover:text-[#029bba] transition-colors ${layout === 'list' ? 'text-xl md:text-2xl font-black leading-tight' : 'text-lg line-clamp-1'}`}>
@@ -1299,17 +1196,12 @@ export const PropertyCard: React.FC<PropertyCardProps> = ({ property, linkType =
         </div>
       )}
 
-      {/* Login Modal */}
-      {mounted && (
-        <LoginModal
-          isOpen={showLoginModal}
-          onClose={handleCloseModal}
-          propertyImage={currentImage ? getOptimizedImageUrl(currentImage, { width: 200, watermark: true }) : null}
-          propertyTitle={title}
-          propertyCity={city}
-          propertyPrice={getPriceDisplay()}
-        />
-      )}
+      {/* Auth Gate Modal */}
+      <AuthGateModal
+        isOpen={showLoginModal}
+        onClose={handleCloseModal}
+        context="save"
+      />
     </>
   );
 };

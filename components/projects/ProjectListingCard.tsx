@@ -400,6 +400,10 @@ function FeaturedCard({
   async function handleShortlist(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (!isLoggedIn) {
+      setAuthOpen(true);
+      return;
+    }
     const success = await toggle(project._id);
     if (success) {
       onShortlist?.(project._id, !shortlisted);
@@ -861,6 +865,10 @@ function GridCard({
   async function handleShortlist(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (!isLoggedIn) {
+      setAuthOpen(true);
+      return;
+    }
     const success = await toggle(project._id);
     if (success) {
       onShortlist?.(project._id, !shortlisted);
@@ -1291,6 +1299,10 @@ function ListCard({
   async function handleShortlist(e: React.MouseEvent) {
     e.preventDefault();
     e.stopPropagation();
+    if (!isLoggedIn) {
+      setAuthOpen(true);
+      return;
+    }
     const success = await toggle(project._id);
     if (success) {
       onShortlist?.(project._id, !shortlisted);

@@ -425,34 +425,16 @@ function Btn({ variant = "primary", loading, children, ...props }: ButtonProps) 
 
 // --- Context Header Text --------------------------------------
 
-function getContextText(context: AuthContext, mode: AuthMode) {
+function getContextText(_context: AuthContext, mode: AuthMode) {
   if (mode === "signup") {
     return {
       title: "Create your account",
       subtitle: "Join Pakistan's first verified property platform",
     };
   }
-  if (context === "contact") {
-    return {
-      title: "Sign in to see contact details",
-      subtitle: "Phone numbers are protected. Sign in to reveal.",
-    };
-  }
-  if (context === "listing") {
-    return {
-      title: "Sign in to list your property",
-      subtitle: "Create an account to start listing in minutes",
-    };
-  }
-  if (context === "save") {
-    return {
-      title: "Sign in to save properties",
-      subtitle: "Create a free account to save your favorites",
-    };
-  }
   return {
-    title: "Sign in to see contact details",
-    subtitle: "Phone numbers are protected. Sign in to reveal.",
+    title: "Welcome to Highrise.pk",
+    subtitle: "Sign in or create an account to continue",
   };
 }
 
