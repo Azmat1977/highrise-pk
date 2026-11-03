@@ -1,7 +1,7 @@
 ﻿// components/auth/LoginOrSignupForm.tsx
-// Highrise.pk — Enterprise Auth Form
-// V6.0.0 — isModal support | Role selection step | Context-aware messaging
-//           CNIC optional at signup | Pages Router compatible
+// Highrise.pk - Enterprise Auth Form
+// V6.0.0 - isModal support | Role selection step | Context-aware messaging
+//          CNIC optional at signup | Pages Router compatible
 
 import React, {
   useEffect,
@@ -16,14 +16,28 @@ import { useRouter } from "next/router";
 import { signIn } from "next-auth/react";
 import type { ParsedUrlQuery } from "querystring";
 import { sanitizeCallbackUrl } from "@/lib/auth/safeRedirect";
-import {
-  Eye, EyeOff, CheckCircle, Lock, Mail, User, Phone,
-  Copy, Wand2, ShieldCheck, AlertTriangle, Check, X,
-  Loader2, ArrowRight, Home, Building2, Users, Building,
-  Wrench, HardHat, ChevronRight,
-} from "lucide-react";
+import { icons } from "@/lib/design-system/icons";
 
-// ─── Types ────────────────────────────────────────────────────
+const {
+  Eye,
+  EyeOff,
+  Mail,
+  Lock,
+  User,
+  Phone,
+  Check,
+  X,
+  Copy,
+  Sparkles,
+  AlertTriangle,
+  Loader2,
+  ShieldCheck,
+  CheckCircle,
+  ChevronRight,
+  ArrowLeft,
+} = icons;
+
+// --- Types ----------------------------------------------------
 
 type AuthMode = "login" | "signup" | "otp" | "forgot" | "reset" | "role";
 
@@ -38,13 +52,13 @@ type Props = {
   isModal?: boolean;
   context?: AuthContext;
   defaultMode?: "login" | "signup" | "forgot" | "reset";
+  returnTo?: string;
 };
 
-// ─── Role Cards Definition ────────────────────────────────────
+// --- Role Cards Definition ------------------------------------
 
 interface RoleCard {
   id: string;
-  emoji: string;
   title: string;
   description: string;
   badge: string;
@@ -56,7 +70,6 @@ interface RoleCard {
 const ROLE_CARDS: RoleCard[] = [
   {
     id: "buyer",
-    emoji: "🛒",
     title: "Browse & Contact",
     description: "Find properties, contact agents, save favorites",
     badge: "Instant Access",
@@ -66,7 +79,6 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "owner",
-    emoji: "🏠",
     title: "List My Own Property",
     description: "CNIC-verified owner listings. Max 10 properties.",
     badge: "CNIC Verification",
@@ -76,7 +88,6 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "agent",
-    emoji: "👔",
     title: "Property Agent",
     description: "Unlimited listings, lead management, CRM",
     badge: "Professional Verification",
@@ -86,7 +97,6 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "developer",
-    emoji: "🏗",
     title: "Property Developer",
     description: "Projects, units, portfolio, analytics",
     badge: "Company Verification",
@@ -96,7 +106,6 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "society",
-    emoji: "🏢",
     title: "Housing Society",
     description: "Plot management, NOC documents, installments",
     badge: "Society Verification",
@@ -106,7 +115,6 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "provider",
-    emoji: "🔧",
     title: "Service Provider",
     description: "Contractor, vendor, factory, legal services",
     badge: "Coming Soon",
@@ -116,7 +124,6 @@ const ROLE_CARDS: RoleCard[] = [
   },
   {
     id: "labour",
-    emoji: "👷",
     title: "Skilled Labour",
     description: "Register your trade, receive job requests",
     badge: "Coming Soon",
@@ -126,7 +133,7 @@ const ROLE_CARDS: RoleCard[] = [
   },
 ];
 
-// ─── Turnstile Window Type ────────────────────────────────────
+// --- Turnstile Window Type ------------------------------------
 
 interface TurnstileWidget {
   render: (
@@ -148,7 +155,7 @@ function getTurnstile(): TurnstileWidget | null {
   return w.turnstile ?? null;
 }
 
-// ─── API Types ────────────────────────────────────────────────
+// --- API Types ------------------------------------------------
 
 interface ApiSuccessResponse {
   success?: boolean;
@@ -169,13 +176,13 @@ interface FetchResult<T = ApiSuccessResponse> {
   data: T | ApiErrorResponse;
 }
 
-// ─── Constants ────────────────────────────────────────────────
+// --- Constants ------------------------------------------------
 
-const MAX_EMAIL_LEN    = 120;
-const MAX_NAME_LEN     = 80;
-const MAX_PHONE_LEN    = 20;
-const MAX_PASSWORD_LEN = 200;
-const OTP_LENGTH       = 6;
+const MAX_EMAIL_LEN     = 120;
+const MAX_NAME_LEN      = 80;
+const MAX_PHONE_LEN     = 20;
+const MAX_PASSWORD_LEN  = 200;
+const OTP_LENGTH        = 6;
 const RESET_CODE_LENGTH = 6;
 
 const MSG_GENERIC_SIGNUP = "Unable to create account. Please try again.";
@@ -185,7 +192,7 @@ const MSG_GENERIC_FORGOT =
 const MSG_GENERIC_AUTH   = "Unable to continue. Please try again.";
 const MSG_RATE_LIMITED   = "Too many attempts. Please wait before trying again.";
 
-// ─── Fetch Helper ─────────────────────────────────────────────
+// --- Fetch Helper ---------------------------------------------
 
 async function postJson<T = ApiSuccessResponse>(
   url: string,
@@ -219,7 +226,7 @@ function getErrorMessage(data: ApiSuccessResponse | ApiErrorResponse): string {
   return errData.message || errData.error || "";
 }
 
-// ─── Sanitization ─────────────────────────────────────────────
+// --- Sanitization ---------------------------------------------
 
 function normalizeEmailOnSubmit(v: string): string {
   return String(v || "").trim().toLowerCase()
@@ -238,7 +245,7 @@ function normalizePhoneWhileTyping(v: string): string {
   return String(v || "").replace(/[^\d+]/g, "").slice(0, MAX_PHONE_LEN);
 }
 
-// ─── Password Policy ──────────────────────────────────────────
+// --- Password Policy ------------------------------------------
 
 interface PasswordChecks {
   lengthOk: boolean; hasLower: boolean; hasUpper: boolean;
@@ -359,7 +366,7 @@ function cx(...classes: Array<string | false | null | undefined>): string {
   return classes.filter(Boolean).join(" ");
 }
 
-// ─── UI Components ────────────────────────────────────────────
+// --- UI Components --------------------------------------------
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   icon?: React.ReactNode;
@@ -416,7 +423,7 @@ function Btn({ variant = "primary", loading, children, ...props }: ButtonProps) 
   );
 }
 
-// ─── Context Header Text ──────────────────────────────────────
+// --- Context Header Text --------------------------------------
 
 function getContextText(context: AuthContext, mode: AuthMode) {
   if (mode === "signup") {
@@ -428,7 +435,7 @@ function getContextText(context: AuthContext, mode: AuthMode) {
   if (context === "contact") {
     return {
       title: "Sign in to see contact details",
-      subtitle: "Phone numbers are protected — sign in to reveal",
+      subtitle: "Phone numbers are protected. Sign in to reveal.",
     };
   }
   if (context === "listing") {
@@ -444,20 +451,21 @@ function getContextText(context: AuthContext, mode: AuthMode) {
     };
   }
   return {
-    title: "Welcome back",
-    subtitle: "Sign in to your Highrise.pk account",
+    title: "Sign in to see contact details",
+    subtitle: "Phone numbers are protected. Sign in to reveal.",
   };
 }
 
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 // MAIN COMPONENT
-// ═══════════════════════════════════════════════════════════════
+// ===============================================================
 
 const LoginOrSignupForm = ({
   onSuccess,
   isModal = false,
   context = "general",
   defaultMode = "login",
+  returnTo,
 }: Props) => {
   const router = useRouter();
 
@@ -470,10 +478,10 @@ const LoginOrSignupForm = ({
     phone: "",
   });
 
-  const [otp, setOtp]                           = useState("");
-  const [otpCooldown, setOtpCooldown]           = useState(0);
-  const [resetCode, setResetCode]               = useState("");
-  const [newPassword, setNewPassword]           = useState("");
+  const [otp, setOtp]                                 = useState("");
+  const [otpCooldown, setOtpCooldown]                 = useState(0);
+  const [resetCode, setResetCode]                     = useState("");
+  const [newPassword, setNewPassword]                 = useState("");
   const [isResetCodeVerified, setIsResetCodeVerified] = useState(false);
 
   const [error, setError]                       = useState("");
@@ -489,21 +497,33 @@ const LoginOrSignupForm = ({
 
   // Turnstile
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || "";
-  const [turnstileReady, setTurnstileReady]             = useState(false);
-  const signupTurnstileRef                              = useRef<HTMLDivElement | null>(null);
-  const otpTurnstileRef                                 = useRef<HTMLDivElement | null>(null);
-  const signupWidgetIdRef                               = useRef<string | null>(null);
-  const otpWidgetIdRef                                  = useRef<string | null>(null);
-  const [signupTurnstileToken, setSignupTurnstileToken] = useState("");
+  const [turnstileReady, setTurnstileReady]                   = useState(false);
+  const signupTurnstileRef                                    = useRef<HTMLDivElement | null>(null);
+  const otpTurnstileRef                                       = useRef<HTMLDivElement | null>(null);
+  const signupWidgetIdRef                                     = useRef<string | null>(null);
+  const otpWidgetIdRef                                        = useRef<string | null>(null);
+  const [signupTurnstileToken, setSignupTurnstileToken]       = useState("");
   const [otpResendTurnstileToken, setOtpResendTurnstileToken] = useState("");
 
-  // ─── Helpers ──────────────────────────────────────────────────
+  // --- Helpers -------------------------------------------------
 
   const getPostAuthDestination = useCallback((): string => {
-    // Default: land on homepage (user chooses their destination from profile menu)
+    if (returnTo) {
+      return sanitizeCallbackUrl(returnTo, "/");
+    }
     if (!router.isReady) return "/";
-    return sanitizeCallbackUrl(getRedirectParam(router.query), "/");
-  }, [router.isReady, router.query]);
+    const redirectParam = getRedirectParam(router.query);
+    if (redirectParam) {
+      return sanitizeCallbackUrl(redirectParam, "/");
+    }
+    if (isModal && typeof window !== "undefined") {
+      return sanitizeCallbackUrl(
+        window.location.pathname + window.location.search,
+        "/"
+      );
+    }
+    return "/";
+  }, [returnTo, router.isReady, router.query, isModal]);
 
   const clearNotices = useCallback(() => {
     setError(""); setSuccess("");
@@ -518,13 +538,12 @@ const LoginOrSignupForm = ({
     setFailedLoginCount(0);
   }, []);
 
-  // ─── URL mode detection ───────────────────────────────────────
+  // --- URL mode detection --------------------------------------
 
   useEffect(() => {
-    if (!router.isReady) return;
-    
+    if (!router.isReady || isModal) return;
+
     const qMode = getQueryString(router.query, "mode");
-    // Securely extract token without altering casing, then strip non-digits for our 6-digit OTP
     const rawToken = router.query.token || router.query.code;
     const qToken = String(Array.isArray(rawToken) ? rawToken[0] : rawToken ?? "");
     const qEmail = getQueryString(router.query, "email");
@@ -535,7 +554,7 @@ const LoginOrSignupForm = ({
         setResetCode(qToken.replace(/\D/g, "").slice(0, RESET_CODE_LENGTH));
       }
       if (qEmail) {
-        setForm(prev => ({ ...prev, email: qEmail }));
+        setForm((prev) => ({ ...prev, email: qEmail }));
       }
     } else if (qMode === "signup") {
       setMode("signup");
@@ -544,9 +563,9 @@ const LoginOrSignupForm = ({
     } else if (qMode === "login") {
       setMode("login");
     }
-  }, [router.isReady, router.query]);
+  }, [router.isReady, router.query, isModal]);
 
-  // ─── Turnstile loader ─────────────────────────────────────────
+  // --- Turnstile loader ----------------------------------------
 
   useEffect(() => {
     if (!siteKey) return;
@@ -561,7 +580,7 @@ const LoginOrSignupForm = ({
     return () => { try { document.body.removeChild(s); } catch { /* already removed */ } };
   }, [siteKey]);
 
-  // ─── Signup Turnstile ─────────────────────────────────────────
+  // --- Signup Turnstile ----------------------------------------
 
   useEffect(() => {
     if (mode !== "signup" || !turnstileReady || !siteKey || !signupTurnstileRef.current) return;
@@ -580,7 +599,7 @@ const LoginOrSignupForm = ({
     return () => { try { ts.remove(widgetId); } catch { /* removed */ } };
   }, [mode, turnstileReady, siteKey]);
 
-  // ─── OTP Turnstile ────────────────────────────────────────────
+  // --- OTP Turnstile -------------------------------------------
 
   useEffect(() => {
     if (mode !== "otp" || !turnstileReady || !siteKey || !otpTurnstileRef.current) return;
@@ -599,7 +618,7 @@ const LoginOrSignupForm = ({
     return () => { try { ts.remove(widgetId); } catch { /* removed */ } };
   }, [mode, turnstileReady, siteKey]);
 
-  // ─── OTP cooldown ─────────────────────────────────────────────
+  // --- OTP cooldown --------------------------------------------
 
   useEffect(() => {
     if (otpCooldown <= 0) return;
@@ -607,7 +626,7 @@ const LoginOrSignupForm = ({
     return () => window.clearInterval(t);
   }, [otpCooldown]);
 
-  // ─── Auto-verify reset code ───────────────────────────────────
+  // --- Auto-verify reset code ----------------------------------
 
   useEffect(() => {
     if (mode !== "reset" || resetCode.length !== RESET_CODE_LENGTH ||
@@ -632,7 +651,7 @@ const LoginOrSignupForm = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, resetCode, isResetCodeVerified, loading, form.email]);
 
-  // ─── Auto-verify signup OTP (with attempt tracking to prevent loop) ─
+  // --- Auto-verify signup OTP (with attempt tracking) ----------
 
   const otpAttemptedRef = useRef<string>("");
 
@@ -640,7 +659,6 @@ const LoginOrSignupForm = ({
     if (mode !== "otp" || otp.length !== OTP_LENGTH || loading ||
         !form.email || !form.password) return;
 
-    // ✅ Prevent infinite loop: only auto-verify each unique code ONCE
     if (otpAttemptedRef.current === otp) return;
     otpAttemptedRef.current = otp;
 
@@ -680,7 +698,6 @@ const LoginOrSignupForm = ({
         setLoading(false);
         return;
       }
-      // SUCCESS → show role selection
       setSuccess("");
       setMode("role");
       setLoading(false);
@@ -690,7 +707,7 @@ const LoginOrSignupForm = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, otp, loading, form.email, form.password, rememberMe]);
 
-  // ─── Field change handler ─────────────────────────────────────
+  // --- Field change handler ------------------------------------
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
@@ -708,7 +725,7 @@ const LoginOrSignupForm = ({
     if (name === "email" || name === "password") setIsLocked(false);
   }, [clearNotices]);
 
-  // ─── Signup payload ───────────────────────────────────────────
+  // --- Signup payload ------------------------------------------
 
   const signupPayload = useMemo(() => ({
     fullName: normalizeNameOnSubmit(form.fullName),
@@ -718,7 +735,7 @@ const LoginOrSignupForm = ({
     accountType: "individual" as const,
   }), [form]);
 
-  // ─── Handlers ─────────────────────────────────────────────────
+  // --- Handlers ------------------------------------------------
 
   const handleSignup = useCallback(async (opts?: { forResend?: boolean }) => {
     clearNotices(); setLoading(true);
@@ -876,11 +893,10 @@ const LoginOrSignupForm = ({
     if (ok) setSuccess("Password copied."); else setError("Copy failed.");
   }, [newPassword]);
 
-  // ─── Role selection handler ───────────────────────────────────
+  // --- Role selection handler ----------------------------------
 
   const handleRoleSelect = useCallback((role: RoleCard) => {
-    onSuccess(); // close modal if open
-    // Always redirect for explicit role selection, but ONLY if they are not just acting as a buyer
+    onSuccess();
     if (!isModal || role.id !== "buyer") {
       void router.push(role.href);
     }
@@ -893,20 +909,15 @@ const LoginOrSignupForm = ({
     }
   }, [onSuccess, router, getPostAuthDestination, isModal]);
 
-  // ═══════════════════════════════════════════════════════════════
-  // WRAPPER — modal vs full-page
-  // ═══════════════════════════════════════════════════════════════
-
-  // When isModal=true: return content directly (Modal handles scroll/size)
-  // When isModal=false: wrap in full-page card shell (existing behavior)
+  // ===============================================================
+  // WRAPPER - modal vs full-page
+  // ===============================================================
 
   const wrapContent = (children: React.ReactNode) => {
     if (isModal) {
-      // Modal: just the content, no wrapper
       return <>{children}</>;
     }
 
-    // Full page (standalone page usage)
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100 py-8 px-4">
         <div className="w-full max-w-[480px] mx-auto">
@@ -931,16 +942,16 @@ const LoginOrSignupForm = ({
     );
   };
 
-  // ─── Context header (only in modal mode) ─────────────────────
+  // --- Context header (only in modal mode) ---------------------
 
-    const contextHeader = isModal && (mode === "login" || mode === "signup") ? (
-      <div className="mb-5">
-        <div className="flex justify-center mb-4">
-          <Image src="/images/logo.png" alt="Highrise.pk" width={220} height={64}
-            className="h-[64px] w-auto object-contain" priority />
-        </div>
+  const contextHeader = isModal && (mode === "login" || mode === "signup") ? (
+    <div className="mb-5">
+      <div className="flex justify-center mb-4">
+        <Image src="/images/logo.png" alt="Highrise.pk" width={220} height={64}
+          className="h-[64px] w-auto object-contain" priority />
+      </div>
       <div className="text-center">
-        <h2 className="text-xl font-bold text-gray-900">
+        <h2 className="text-xl font-bold text-[#004063]">
           {getContextText(context, mode).title}
         </h2>
         <p className="text-sm text-gray-500 mt-1">
@@ -950,25 +961,25 @@ const LoginOrSignupForm = ({
     </div>
   ) : null;
 
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
   // ROLE SELECTION SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
 
-    if (mode === "role") {
-      return wrapContent(
-        <div>
-          {isModal && (
-            <div className="flex justify-center mb-5">
-              <Image src="/images/logo.png" alt="Highrise.pk" width={200} height={60}
-                className="h-[60px] w-auto object-contain" priority />
-            </div>
-          )}
+  if (mode === "role") {
+    return wrapContent(
+      <div>
+        {isModal && (
+          <div className="flex justify-center mb-5">
+            <Image src="/images/logo.png" alt="Highrise.pk" width={200} height={60}
+              className="h-[60px] w-auto object-contain" priority />
+          </div>
+        )}
 
         <div className="text-center mb-5">
           <div className="w-14 h-14 bg-gradient-to-br from-[#029bba]/20 to-[#029bba]/10 rounded-full flex items-center justify-center mx-auto mb-3">
             <CheckCircle className="w-7 h-7 text-[#029bba]" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Account created! 🎉</h2>
+          <h2 className="text-xl font-bold text-[#004063]">Account created!</h2>
           <p className="text-sm text-gray-600 mt-1">
             What brings you to Highrise.pk?
           </p>
@@ -984,7 +995,6 @@ const LoginOrSignupForm = ({
                 hover:border-[#029bba]/40 hover:bg-[#029bba]/5 transition-all group text-left
                 focus:outline-none focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/20"
             >
-              <span className="text-2xl flex-shrink-0">{role.emoji}</span>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <p className="text-sm font-bold text-gray-900 group-hover:text-[#029bba] transition-colors">
@@ -1010,15 +1020,15 @@ const LoginOrSignupForm = ({
           className="w-full mt-4 py-2.5 text-sm text-gray-500 hover:text-gray-700
             font-medium transition-colors hover:underline underline-offset-4"
         >
-          Skip for now — I&apos;ll decide later
+          Skip for now, I&apos;ll decide later
         </button>
       </div>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
   // LOGIN SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
 
   if (mode === "login") {
     return wrapContent(
@@ -1027,7 +1037,7 @@ const LoginOrSignupForm = ({
 
         {!isModal && (
           <div className="text-center mb-6">
-            <h2 className="text-2xl font-bold text-gray-900">Welcome back</h2>
+            <h2 className="text-2xl font-bold text-[#004063]">Welcome back</h2>
             <p className="text-sm text-gray-600 mt-1">Sign in to your account</p>
           </div>
         )}
@@ -1133,9 +1143,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
   // SIGNUP SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
 
   if (mode === "signup") {
     const { label, color } = getPasswordStrength(form.password);
@@ -1147,14 +1157,13 @@ const LoginOrSignupForm = ({
 
         {!isModal && (
           <div className="text-center mb-5">
-            <h2 className="text-2xl font-bold text-gray-900">Create your account</h2>
+            <h2 className="text-2xl font-bold text-[#004063]">Create your account</h2>
             <p className="text-sm text-gray-600 mt-1">
               Pakistan&apos;s first verified property platform
             </p>
           </div>
         )}
 
-        {/* Trust badge */}
         <div className="mb-4 p-3 bg-gradient-to-r from-[#029bba]/5 to-[#004063]/5 border border-[#029bba]/20 rounded-xl">
           <div className="flex items-center gap-2">
             <ShieldCheck className="w-4 h-4 text-[#029bba] flex-shrink-0" />
@@ -1192,7 +1201,7 @@ const LoginOrSignupForm = ({
               <button type="button"
                 className="p-1.5 rounded-lg text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
                 onClick={suggestSignupPassword} title="Generate strong password">
-                <Wand2 key="generate-password" className="w-4 h-4" />
+                <Sparkles key="generate-password" className="w-4 h-4" />
               </button>
               <button type="button"
                 className={cx("p-1.5 rounded-lg hover:bg-gray-100 transition-colors",
@@ -1203,7 +1212,6 @@ const LoginOrSignupForm = ({
             </div>
           </div>
 
-          {/* Password strength */}
           {form.password && (
             <div className="border-2 border-gray-200 rounded-xl p-3 bg-white">
               <div className="flex items-center justify-between mb-2">
@@ -1239,7 +1247,6 @@ const LoginOrSignupForm = ({
             </div>
           )}
 
-          {/* Turnstile */}
           <div className="border-2 border-gray-200 rounded-xl p-3 bg-white">
             {!siteKey ? (
               <p className="text-xs text-red-600 font-medium">
@@ -1284,9 +1291,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
   // OTP SCREEN
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
 
   if (mode === "otp") {
     const canResend = !loading && otpCooldown <= 0;
@@ -1295,11 +1302,10 @@ const LoginOrSignupForm = ({
         <div className="w-16 h-16 bg-gradient-to-br from-green-100 to-green-200 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
           <CheckCircle className="w-8 h-8 text-green-600" />
         </div>
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Check your email</h2>
+        <h2 className="text-xl font-bold text-[#004063] mb-1">Check your email</h2>
         <p className="text-gray-600 text-sm mb-1">6-digit code sent to:</p>
         <p className="font-bold text-[#029bba] mb-4 text-sm">{normalizeEmailOnSubmit(form.email)}</p>
 
-        {/* ✅ Spam folder warning — enterprise-grade UX */}
         <div className="mb-5 mx-auto max-w-md p-3 bg-amber-50 border border-amber-200 rounded-xl text-left">
           <div className="flex items-start gap-2">
             <AlertTriangle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
@@ -1398,30 +1404,30 @@ const LoginOrSignupForm = ({
             </button>
           </div>
           <button type="button" onClick={() => { clearNotices(); setMode("signup"); }}
-            className="w-full h-10 text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline underline-offset-4">
-            ← Edit details
+            className="w-full h-10 inline-flex items-center justify-center gap-1.5 text-sm font-semibold text-gray-700 hover:text-gray-900 hover:underline underline-offset-4">
+            <ArrowLeft className="w-3.5 h-3.5" /> Edit details
           </button>
         </div>
       </div>
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
   // FORGOT PASSWORD
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
 
   if (mode === "forgot") {
     return wrapContent(
       <>
         <button type="button" onClick={() => { clearNotices(); setMode("login"); }}
           className="text-[#029bba] text-sm font-bold hover:underline underline-offset-4 mb-5 inline-flex items-center gap-1">
-          ← Back to sign in
+          <ArrowLeft className="w-4 h-4" /> Back to sign in
         </button>
         <div className="text-center mb-5">
           <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <Lock className="w-7 h-7 text-amber-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Forgot password?</h2>
+          <h2 className="text-xl font-bold text-[#004063]">Forgot password?</h2>
           <p className="text-sm text-gray-600 mt-1">Enter your email to receive a reset code.</p>
         </div>
         <div className="space-y-3">
@@ -1446,9 +1452,9 @@ const LoginOrSignupForm = ({
     );
   }
 
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
   // RESET PASSWORD
-  // ═══════════════════════════════════════════════════════════════
+  // ===============================================================
 
   if (mode === "reset") {
     const { label, color } = getPasswordStrength(newPassword);
@@ -1458,13 +1464,13 @@ const LoginOrSignupForm = ({
         <button type="button"
           onClick={() => { setMode("forgot"); clearNotices(); setResetCode(""); setNewPassword(""); setIsResetCodeVerified(false); setCopiedResetPw(false); }}
           className="text-[#029bba] text-sm font-bold hover:underline underline-offset-4 mb-5 inline-flex items-center gap-1 float-left">
-          ← Back
+          <ArrowLeft className="w-4 h-4" /> Back
         </button>
         <div className="clear-both pt-2">
           <div className="w-14 h-14 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-3">
             <Lock className="w-7 h-7 text-blue-600" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">Reset password</h2>
+          <h2 className="text-xl font-bold text-[#004063]">Reset password</h2>
           <p className="text-sm text-gray-600 mt-1">
             Code sent to <strong>{normalizeEmailOnSubmit(form.email)}</strong>
           </p>
@@ -1515,7 +1521,7 @@ const LoginOrSignupForm = ({
               <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
                 {[
                   [() => setShowPassword(!showPassword), showPassword ? <EyeOff key="toggle-eye-off" className="w-4 h-4" /> : <Eye key="toggle-eye" className="w-4 h-4" />, "Toggle"],
-                  [suggestResetPassword, <Wand2 key="generate-password" className="w-4 h-4" />, "Generate"],
+                  [suggestResetPassword, <Sparkles key="generate-password" className="w-4 h-4" />, "Generate"],
                   [copyResetPassword, copiedResetPw ? <Check key="copy-success" className="w-4 h-4" /> : <Copy key="copy-password" className="w-4 h-4" />, "Copy"],
                 ].map(([fn, icon, label]) => (
                   <button key={label as string} type="button"
