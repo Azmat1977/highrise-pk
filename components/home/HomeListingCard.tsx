@@ -10,11 +10,11 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/router';
 import { useSession } from 'next-auth/react';
 import { icons } from '@/lib/design-system/icons';
 import { useCompare } from '@/hooks/useCompare';
 import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
+import AuthGateModal from '@/components/auth/AuthGateModal';
 import ListingTypeBadge from '@/components/property/ListingTypeBadge';
 import type { PropertyCardInput } from '@/components/property/property-card';
 
@@ -153,7 +153,6 @@ const ICON_BUTTON_BASE =
   'flex h-9 w-9 items-center justify-center rounded-full shadow-md transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba] disabled:cursor-not-allowed disabled:opacity-50';
 
 export default function HomeListingCard({ property, ownerListed = false }: HomeListingCardProps) {
-  const router = useRouter();
   const { data: session, status } = useSession();
   const isSignedIn = status === 'authenticated' && Boolean(session?.user);
 
@@ -181,6 +180,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
   const [imageFailed, setImageFailed] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
   const [favoriteBusy, setFavoriteBusy] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const {
     isInCompare,
@@ -238,7 +238,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
     if (!propertyId || favoriteBusy) return;
 
     if (!isSignedIn) {
-      router.push('/login');
+      setShowAuthModal(true);
       return;
     }
 
@@ -295,6 +295,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
   };
 
   return (
+    <>
     <article className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow duration-300 hover:shadow-xl">
       {/* Image */}
       <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
@@ -441,6 +442,12 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
         </div>
       </div>
     </article>
+    <AuthGateModal
+      isOpen={showAuthModal}
+      onClose={() => setShowAuthModal(false)}
+      actionDescription="save this property"
+    />
+    </>
   );
 }
 
