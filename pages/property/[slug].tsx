@@ -683,6 +683,8 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
                 priceNegotiable={property.priceNegotiable}
                 unit={property.unit}
                 isRent={isRent}
+                listingType={property.listingType}
+                isPropertyVerified={!!property.isVerified}
                 fullLocation={fullLocation}
                 projectId={property.projectId}
                 listingActor={property.listingActor}
