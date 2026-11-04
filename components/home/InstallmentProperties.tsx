@@ -1,10 +1,11 @@
 import React from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { 
-  Banknote, Calculator, ShieldCheck, Award, 
-  BadgeCheck, ArrowRight, Heart, MapPin, Loader2, Home 
+import {
+  Banknote, Calculator, ShieldCheck, Award,
+  ArrowRight, Heart, MapPin, Loader2, Home
 } from 'lucide-react';
+import { getVerificationBadgeProps, type VerificationLevel } from '@/lib/verification-badges';
 
 interface PropertyItem {
   _id: string;
@@ -21,6 +22,7 @@ interface PropertyItem {
   monthlyInstallment?: number;
   installmentYears?: number;
   downPaymentPercentage?: number;
+  isVerified?: boolean;
 }
 
 interface InstallmentPropertiesProps {
@@ -44,6 +46,13 @@ function toIdString(v: any): string {
   if (v._id) return v._id.toString();
   if (v.id) return v.id.toString();
   return '';
+}
+
+function getVerificationLevel(isVerified: boolean): VerificationLevel {
+  if (isVerified) {
+    return { status: 'fully-verified', documentsVerified: ['CNIC'] };
+  }
+  return { status: 'not-applied' };
 }
 
 export default function InstallmentProperties({
@@ -101,6 +110,9 @@ export default function InstallmentProperties({
               const propId = toIdString(property._id) || toIdString(property.id);
               const fKey = `property:${propId}`;
               const isFeatured = idx === 0;
+              const verificationLevel = getVerificationLevel(!!property.isVerified);
+              const verificationBadge = getVerificationBadgeProps(verificationLevel);
+              const Icon = verificationBadge.icon;
 
               return (
                 <Link key={propId} href={`/property/${property.slug || propId}`}>
@@ -153,6 +165,16 @@ export default function InstallmentProperties({
                         <MapPin className="w-3.5 h-3.5 text-[#029bba]" />
                         <span className="line-clamp-1">{property.society || property.area}, {property.city}</span>
                       </p>
+
+                      {/* Verification Badge - Added here */}
+                      <div className="mb-4">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full ${verificationBadge.color.bg} ${verificationBadge.color.text} px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider border ${verificationBadge.pulse ? 'animate-pulse' : ''}`}
+                          title={verificationBadge.tooltip}
+                        >
+                          <Icon className="h-3 w-3" /> {verificationBadge.label}
+                        </span>
+                      </div>
 
                       {/* Progress Bar (Branded) */}
                       <div className="mb-4 p-3 rounded-xl bg-gradient-to-br from-[#f8fcfd] to-[#eef7fa] border border-[#029bba]/10">

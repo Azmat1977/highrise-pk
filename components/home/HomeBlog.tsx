@@ -23,7 +23,7 @@ export default function HomeBlog({ blogs, loading }: { blogs: BlogItem[]; loadin
             <Newspaper className="w-4 h-4" /> Real Estate Insights
           </span>
           {/* Standardized Heading */}
-          <h2 className="text-3xl md:text-4xl font-extrabold text-[#001f2b] mb-4 tracking-tight">
+          <h2 className="text-3xl md:text-4xl font-black text-[#004063] mb-4 tracking-tight">
             <span className="text-[#029bba]">Latest</span> from Our Blog
           </h2>
           <p className="text-gray-600 max-w-2xl mx-auto text-lg">

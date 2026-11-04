@@ -199,7 +199,7 @@ export default function BrowseCategories() {
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
-          className="mb-12"
+          className="mx-auto max-w-3xl"
           eyebrow="Interactive Real Estate Directory"
           eyebrowIcon={<Compass className="h-3.5 w-3.5 text-[#029bba]" />}
           title={

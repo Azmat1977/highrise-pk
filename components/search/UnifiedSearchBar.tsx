@@ -84,7 +84,7 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 function selectedLabel(field: SelectSearchField): string {
-  if (!field.value) return field.placeholder ?? field.label;
+  if (!field.value) return field.placeholder ?? "";
   return field.options.find((option) => option.value === field.value)?.label ?? field.value;
 }
 

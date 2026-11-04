@@ -103,7 +103,7 @@ export default function DevelopersPartners({
               <ShieldCheck className="h-3.5 w-3.5" />
               <span>Verified Network</span>
             </span>
-            <h2 className="text-2xl font-extrabold tracking-tight text-[#001f2b] sm:text-3xl">
+            <h2 className="text-3xl font-black tracking-tight text-[#004063] sm:text-4xl">
               Top Developers &amp; <span className="text-[#029bba]">Agents</span>
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">

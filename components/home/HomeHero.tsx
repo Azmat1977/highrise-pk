@@ -142,20 +142,39 @@ export default function HomeHero({ cities }: { cities: CityItem[] }) {
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-[#029bba]/40 bg-[#029bba]/20 px-3.5 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-[#bbd8e0]">
+          <div className="mx-auto mb-6 inline-flex flex-wrap items-center justify-center gap-2 rounded-full border border-[#029bba]/40 bg-[#029bba]/20 px-4 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#bbd8e0]">
             <ShieldCheck className="h-4 w-4 text-[#38aec7]" />
-            <span>Pakistan&apos;s First Property Intelligence Platform</span>
+            <span>100% Verified Listings &bull; Screened Sellers &bull; NOC Checked</span>
           </div>
 
-          <h1 className="mx-auto mb-4 max-w-4xl text-3xl font-extrabold leading-tight tracking-tight text-white sm:text-5xl lg:text-6xl">
-            Find Your Place in Pakistan.{' '}
-            <span className="text-[#38aec7]">Invest With Confidence.</span>
+          <h1 className="mx-auto mb-4 max-w-5xl text-2xl font-black leading-tight tracking-tight text-white sm:text-4xl sm:leading-tight lg:text-5xl lg:leading-snug">
+            <span className="block">Find Verified Properties</span>
+            <span className="block text-[#38aec7]">Across Pakistan</span>
           </h1>
 
-          <p className="mx-auto mb-8 max-w-2xl text-sm font-light leading-relaxed text-slate-200 sm:text-base">
-            Explore verified listings, compare trusted developers, verify society NOCs, and estimate fair
-            prices across Pakistan &mdash; all in one place.
+          <p className="mx-auto mb-6 max-w-2xl text-sm font-light leading-relaxed text-slate-200 sm:text-base">
+            Pakistan&apos;s first trust-first property ecosystem. From plot to possession &mdash; every property, project, society, and developer is rigorously screened and verified.
           </p>
+
+          {/* Trust Guarantees Bar */}
+          <div className="mx-auto mb-8 flex max-w-3xl flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-[#bbd8e0]">
+            <span className="flex items-center gap-1.5">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">✓</span>
+              100% Verified Properties
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">✓</span>
+              SECP &amp; CNIC Screened Sellers
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">✓</span>
+              Society NOC Verification
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-400 font-bold text-[10px]">✓</span>
+              Zero-Fraud Guarantee
+            </span>
+          </div>
         </div>
 
         <HeroSearch cities={cities} />

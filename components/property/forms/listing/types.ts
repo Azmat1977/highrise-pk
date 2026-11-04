@@ -103,6 +103,7 @@ export interface ListingFormState {
   description:      string;
   isFeaturedRequested: boolean;
   declaration:      boolean;
+  isVerified?:      boolean;
 }
 
 export const INITIAL_STATE: ListingFormState = {
@@ -130,7 +131,7 @@ export const INITIAL_STATE: ListingFormState = {
   images: [], videoUrl: '', virtualTourUrl: '', droneVideoUrl: '',
   contactPerson: '', contactPhone: '', contactWhatsapp: '',
   showPhoneOnListing: true,
-  description: '', isFeaturedRequested: false, declaration: false,
+  description: '', isFeaturedRequested: false, declaration: false, isVerified: false,
 };
 
 // Property-type-aware amenity registry

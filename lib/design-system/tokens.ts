@@ -61,6 +61,17 @@ export const colors = {
   overlayBg: 'rgba(0, 0, 0, 0.5)',
   overlayBlurBg: 'rgba(0, 0, 0, 0.6)',
 
+  // Carousel specific
+  carouselBg: '#f8f9fa',
+  carouselCardBg: '#ffffff',
+  carouselBorder: '#dce8ee',
+  carouselShadow: 'shadow-sm',
+  carouselKickerBg: '#dff4f8',
+  carouselKickerText: '#015c72',
+  carouselCountBg: '#dff4f8',
+  carouselCountText: '#015c72',
+  carouselScrim: 'rgba(0,41,58,0.6)',
+
   // Borders
   borderDefault: '#e5e7eb',
   borderLight: '#f3f4f6',

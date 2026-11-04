@@ -4,6 +4,7 @@
 import React from "react";
 import { MapPin, CheckCircle } from "lucide-react";
 import VerifiedOwnerBadge from "@/components/badges/VerifiedOwnerBadge";
+import ListingTypeBadge from "@/components/property/ListingTypeBadge";
 import { formatPrice } from "./propertyDetailUtils";
 
 interface PropertyOverviewHeaderProps {
@@ -14,6 +15,8 @@ interface PropertyOverviewHeaderProps {
   priceNegotiable?: boolean;
   unit: string;
   isRent: boolean;
+  listingType?: string | null;
+  isPropertyVerified?: boolean;
   fullLocation: string;
   projectId?: string;
   listingActor?: {
@@ -32,6 +35,8 @@ export default function PropertyOverviewHeader({
   priceNegotiable,
   unit,
   isRent,
+  listingType,
+  isPropertyVerified,
   fullLocation,
   projectId,
   listingActor,
@@ -71,6 +76,14 @@ export default function PropertyOverviewHeader({
             <h1 className="text-xl md:text-2xl font-bold text-gray-900 leading-snug">
               {title}
             </h1>
+            {listingType && (
+              <ListingTypeBadge listingType={listingType} size="md" />
+            )}
+            {isPropertyVerified && (
+              <span className="inline-flex items-center gap-1 bg-emerald-600 text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-sm uppercase tracking-wider">
+                <CheckCircle className="w-3 h-3" /> Verified
+              </span>
+            )}
             {listingActor?.verified && (
               <VerifiedOwnerBadge size="sm" showTooltip />
             )}

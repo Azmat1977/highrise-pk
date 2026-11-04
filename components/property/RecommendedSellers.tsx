@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import { ArrowRight, Building2 } from 'lucide-react';
+import { ArrowRight, Building2, Users } from 'lucide-react';
+import SectionHeading from '@/components/ui/SectionHeading';
 
 interface SellerProperty {
   slug?: string;
@@ -59,16 +60,20 @@ export default function RecommendedSellers({
   if (recommended.length === 0) return null;
 
   return (
-    <section aria-labelledby="recommended-sellers-heading" className="mt-8 border-t border-gray-200 pt-6">
-      <div className="mb-4">
-        <p className="mb-1 text-xs font-bold text-[#029bba]">ACTIVE LISTING CONTACTS</p>
-        <h2 id="recommended-sellers-heading" className="text-xl font-black text-[#004063] md:text-2xl">
-          Recommended Sellers
-        </h2>
-        <p className="mt-1 text-sm text-gray-600">Based on approved public listings matching your current results.</p>
-      </div>
+    <section aria-labelledby="recommended-sellers-heading" className="mt-16 border-t border-gray-200 pt-16">
+      <SectionHeading
+        id="recommended-sellers-heading"
+        eyebrow="Active Listing Contacts"
+        eyebrowIcon={<Users className="h-3.5 w-3.5 text-[#029bba]" />}
+        title={
+          <>
+            Recommended <span className="text-[#029bba]">Sellers</span>
+          </>
+        }
+        subtitle="Based on approved public listings matching your current results."
+      />
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {recommended.map((seller) => (
           <article key={`${seller.role}:${seller.slug}`} className="flex min-w-0 flex-col rounded-xl border border-gray-200 bg-white p-4">
             <div className="mb-3 flex items-center gap-2.5">

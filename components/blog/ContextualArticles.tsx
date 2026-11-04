@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowRight, Clock, Newspaper } from 'lucide-react';
+import SectionHeading from '@/components/ui/SectionHeading';
 
 interface ContextualArticle {
   _id: string;
@@ -71,27 +72,25 @@ export default function ContextualArticles({
   const allArticlesHref = `/blog/search?${new URLSearchParams({ tags: tagQuery }).toString()}`;
 
   return (
-    <section aria-labelledby="contextual-articles-heading" className="border-t border-gray-200 pt-8">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <p className="mb-1 inline-flex items-center gap-1.5 text-xs font-bold text-[#029bba]">
-            <Newspaper className="h-3.5 w-3.5" />
-            HIGHRISE GUIDES
-          </p>
-          <h2 id="contextual-articles-heading" className="text-xl font-black leading-tight text-[#004063] md:text-2xl">
-            {title}
-          </h2>
-          <p className="mt-1 text-sm text-gray-600">{description}</p>
-        </div>
+    <section aria-labelledby="contextual-articles-heading" className="mt-16 border-t border-gray-200 pt-16">
+      <SectionHeading
+        id="contextual-articles-heading"
+        eyebrow="Highrise Guides"
+        eyebrowIcon={<Newspaper className="h-3.5 w-3.5 text-[#029bba]" />}
+        title={title}
+        subtitle={description}
+      />
+
+      <div className="flex justify-end mb-6">
         <Link
           href={allArticlesHref}
-          className="inline-flex shrink-0 items-center gap-1 text-xs font-bold text-[#029bba] hover:text-[#004063]"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-[#004063] px-4 py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#029bba]"
         >
-          View all <ArrowRight className="h-3.5 w-3.5" />
+          View All <ArrowRight className="h-3.5 w-3.5" />
         </Link>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {articles.map((article) => {
           const publishedDate = formatPublishedDate(article.publishedAt);
           return (

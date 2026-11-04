@@ -7,9 +7,12 @@ import {
   CURATED_CITY_NAMES,
   HOMEPAGE_CITY_NAMES,
   PAKISTAN_CITIES_META,
+  getCityMeta,
   type PakistaniCityMeta,
 } from '@/lib/pakistanCities';
 import { CityLandmarkArt } from '@/components/home/CityLandmarkArt';
+import { nearbyIcons, amenityIcons } from '@/lib/design-system/icons';
+import CityCard from '@/components/cities/CityCard';
 
 interface CityItem {
   name: string;
@@ -27,10 +30,7 @@ interface CityItem {
 }
 
 const CURATED_META_BY_NAME = new Map<string, PakistaniCityMeta>(
-  CURATED_CITY_NAMES.map((name) => [
-    name,
-    PAKISTAN_CITIES_META.find((meta) => meta.name === name)!,
-  ])
+  PAKISTAN_CITIES_META.map((meta) => [meta.name, meta])
 );
 
 function isUsableImage(value: unknown): value is string {
@@ -48,21 +48,21 @@ function getViewportCards(): number {
 
 export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]; loading: boolean }) {
   const trackRef = useRef<HTMLDivElement>(null);
-  const [cards, setCards] = useState(4);
-  const [index, setIndex] = useState(0);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(true);
 
   const pickedCities = useMemo<CityItem[]>(() => {
     const fromDb = cities.filter((city) => city.name && city.isActive !== false);
+    const majorCityNames = HOMEPAGE_CITY_NAMES;
 
-    // Curated homepage set: keep the API row (real counts + photos) for any city
-    // we already have, then fill the gaps so the section never collapses to the
-    // two or three cities that happen to have stock today.
-    const curated = HOMEPAGE_CITY_NAMES.map((name) => {
+    return majorCityNames.map((name) => {
       const match = fromDb.find((city) => city.name.trim().toLowerCase() === name.toLowerCase());
-      if (match) return match;
       const meta = CURATED_META_BY_NAME.get(name);
+
       return {
         name,
+        propertyCount: match?.propertyCount ?? 0,
+        imageUrl: match?.imageUrl ?? match?.image ?? meta?.landmark?.image,
         province: meta?.province,
         tagline: meta?.tagline,
         description: meta?.description,
@@ -71,94 +71,78 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
         isActive: true,
       } as CityItem;
     });
-
-    // Anything the API marks as featured-on-homepage joins the curated list.
-    const extra = fromDb.filter(
-      (city) =>
-        city.isFeaturedOnHomepage &&
-        !curated.some((c) => c.name.toLowerCase() === city.name.trim().toLowerCase())
-    );
-
-    return [...curated, ...extra];
   }, [cities]);
 
-  useEffect(() => {
-    setCards(getViewportCards());
-    const handler = () => setCards(getViewportCards());
-    window.addEventListener('resize', handler);
-    return () => window.removeEventListener('resize', handler);
-  }, []);
+  const checkScrollBoundary = () => {
+    const track = trackRef.current;
+    if (!track) return;
+    const { scrollLeft, scrollWidth, clientWidth } = track;
+    setCanScrollLeft(scrollLeft > 10);
+    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
+  };
 
-  const maxIndex = Math.max(0, pickedCities.length - cards);
-  const clampedIndex = Math.min(index, maxIndex);
-
-  useEffect(() => {
-    setIndex((current) => Math.min(current, maxIndex));
-  }, [maxIndex]);
-
-  // Post-paint measurement (useEffect, not useLayoutEffect) so SSR stays warning-free.
   useEffect(() => {
     const track = trackRef.current;
     if (!track) return;
-    const first = track.firstElementChild as HTMLElement | null;
-    if (!first) {
-      track.style.transform = 'translateX(0)';
-      return;
-    }
-    const computed = window.getComputedStyle(track);
-    const gap = parseFloat(computed.columnGap || computed.gap || '0') || 0;
-    const step = first.getBoundingClientRect().width + gap;
-    track.style.transform = `translateX(${-clampedIndex * step}px)`;
-  }, [clampedIndex, cards, loading, pickedCities.length]);
 
-  const go = (direction: 'prev' | 'next') => {
-    setIndex((current) => {
-      const base = Math.min(current, maxIndex);
-      const next = direction === 'prev' ? base - cards : base + cards;
-      return Math.max(0, Math.min(maxIndex, next));
+    checkScrollBoundary();
+    track.addEventListener('scroll', checkScrollBoundary, { passive: true });
+    window.addEventListener('resize', checkScrollBoundary);
+
+    return () => {
+      track.removeEventListener('scroll', checkScrollBoundary);
+      window.removeEventListener('resize', checkScrollBoundary);
+    };
+  }, [pickedCities]);
+
+  const handleScroll = (direction: 'left' | 'right') => {
+    const track = trackRef.current;
+    if (!track) return;
+    const scrollAmount = track.clientWidth * 0.75;
+    track.scrollBy({
+      left: direction === 'left' ? -scrollAmount : scrollAmount,
+      behavior: 'smooth',
     });
   };
 
-  const canPrev = clampedIndex > 0;
-  const canNext = clampedIndex < maxIndex;
-
   return (
     <section
-      className="bg-[#f8fafc] py-16 sm:py-20"
+      className="bg-[#f8fafc] py-12 sm:py-16"
       aria-labelledby="cities-carousel-heading"
     >
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="mb-10 flex flex-col items-center gap-5 text-center">
-          <SectionHeading
-            id="cities-carousel-heading"
-            eyebrow="City Directory"
-            eyebrowIcon={<Landmark className="h-3.5 w-3.5 text-[#029bba]" />}
-            title={
-              <>
-                Explore Properties by <span className="text-[#029bba]">Major Cities</span>
-              </>
-            }
-            subtitle="Discover verified homes, towers, and plots across Pakistan's architectural capitals."
-          />
+        <div className="mb-8 flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+          <div>
+            <div className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#029bba]/10 px-3 py-1 text-xs font-bold text-[#029bba]">
+              <Landmark className="h-3.5 w-3.5" />
+              <span>Regional Discovery</span>
+            </div>
+            <h2 id="cities-carousel-heading" className="text-3xl font-black tracking-tight text-[#004063] sm:text-4xl">
+              Explore Properties by <span className="text-[#029bba]">Major Cities</span>
+            </h2>
+            <p className="mt-2 max-w-2xl text-sm font-semibold text-slate-500 sm:text-base">
+              Discover verified homes, towers, and plots across Pakistan&apos;s architectural capitals. Click any city to view active listings.
+            </p>
+          </div>
 
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              onClick={() => go('prev')}
-              disabled={!canPrev}
+              onClick={() => handleScroll('left')}
+              disabled={!canScrollLeft}
               aria-label="Previous cities"
               aria-controls="cities-carousel-track"
-              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-colors hover:border-[#029bba] hover:text-[#004063] focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:hover:border-slate-100 disabled:hover:text-slate-300"
+              className="rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-sm transition-all hover:border-[#029bba] hover:text-[#004063] focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
             <button
               type="button"
-              onClick={() => go('next')}
-              disabled={!canNext}
+              onClick={() => handleScroll('right')}
+              disabled={!canScrollRight}
               aria-label="Next cities"
               aria-controls="cities-carousel-track"
-              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-colors hover:border-[#029bba] hover:text-[#004063] focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:hover:border-slate-100 disabled:hover:text-slate-300"
+              className="rounded-full border border-slate-200 bg-white p-3 text-slate-700 shadow-sm transition-all hover:border-[#029bba] hover:text-[#004063] focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:opacity-30"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -166,11 +150,11 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
         </div>
 
         {loading ? (
-          <div className="flex gap-6">
+          <div className="flex gap-6 overflow-hidden">
             {Array.from({ length: 4 }).map((_, slot) => (
               <div
                 key={slot}
-                className="w-full sm:w-[calc((100%-1.5rem)/2)] xl:w-[calc((100%-4.5rem)/4)] shrink-0"
+                className="w-[280px] shrink-0 sm:w-[320px] lg:w-[340px]"
               >
                 <div className="animate-pulse overflow-hidden rounded-3xl border border-slate-200 bg-white">
                   <div className="aspect-[4/3] w-full bg-slate-100" />
@@ -184,26 +168,26 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
             ))}
           </div>
         ) : pickedCities.length > 0 ? (
-          <div className="overflow-hidden">
+          <div className="relative">
             <div
               ref={trackRef}
               id="cities-carousel-track"
-              className="flex min-w-0 gap-6 transition-transform duration-500 ease-out motion-reduce:transition-none"
+              className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
             >
               {pickedCities.map((city) => {
                 const count = city.propertyCount ?? 0;
                 const curated = CURATED_META_BY_NAME.get(city.name);
-                const kicker = (city.tagline ?? curated?.tagline ?? city.province ?? 'Pakistan') as string;
+                const kicker = (city.landmarkKicker ?? city.tagline ?? curated?.tagline ?? city.province ?? 'Pakistan') as string;
                 const title = city.landmarkTitle ?? curated?.landmark?.title ?? `Properties in ${city.name}`;
                 const description =
                   city.description ??
                   curated?.description ??
                   (city.province ? `Verified listings across ${city.province}.` : 'Browse verified listings.');
-                const image = city.imageUrl ?? city.image;
+                const image = city.imageUrl ?? city.image ?? curated?.landmark?.image;
                 return (
                   <article
                     key={city.name}
-                    className="group w-full shrink-0 sm:w-[calc((100%-1.5rem)/2)] xl:w-[calc((100%-4.5rem)/4)]"
+                    className="group w-[280px] shrink-0 snap-start sm:w-[320px] lg:w-[340px]"
                   >
                     <Link
                       href={`/properties?city=${encodeURIComponent(city.name)}`}
@@ -212,13 +196,16 @@ export default function CitiesCarousel({ cities, loading }: { cities: CityItem[]
                     >
                       <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-900">
                         {isUsableImage(image) ? (
-                          <Image
-                            src={image}
-                            alt={`${city.name} skyline`}
-                            fill
-                            sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
-                            className="object-cover transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
-                          />
+                          <div className="relative h-full w-full">
+                            <Image
+                              src={image}
+                              alt={`${title || city.name} landmark`}
+                              fill
+                              sizes="(max-width: 640px) 100vw, (max-width: 1280px) 50vw, 25vw"
+                              className="object-cover transition-transform duration-700 group-hover:scale-105 motion-reduce:transition-none"
+                            />
+                            <div className="absolute inset-0 bg-black/40" />
+                          </div>
                         ) : (
                           <CityLandmarkArt
                             city={city.name}

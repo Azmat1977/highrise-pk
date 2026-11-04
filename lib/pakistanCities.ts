@@ -19,7 +19,7 @@ export interface PakistaniCityMeta {
   provinceCapital: boolean;
   tagline?: string;
   description?: string;
-  landmark?: { title: string; kicker: string };
+  landmark?: { title: string; kicker: string; image?: string };
 }
 
 export const PAKISTAN_CITIES_META: readonly PakistaniCityMeta[] = [
@@ -33,7 +33,11 @@ export const PAKISTAN_CITIES_META: readonly PakistaniCityMeta[] = [
     tagline: "The Capital",
     description:
       "Planned sectors, Margalla-backed housing and embassy-zone apartments.",
-    landmark: { title: "Faisal Mosque", kicker: "Islamabad" },
+    landmark: {
+      title: "Faisal Mosque",
+      kicker: "Islamabad",
+      image: "/images/cities/islamabad.jpg",
+    },
   },
   {
     name: "Rawalpindi",
@@ -44,7 +48,11 @@ export const PAKISTAN_CITIES_META: readonly PakistaniCityMeta[] = [
     tagline: "The Twin City",
     description:
       "Twin-city plots, old-city bazaars and cantonment housing next door to Islamabad.",
-    landmark: { title: "Rawat Fort", kicker: "Rawalpindi" },
+    landmark: {
+      title: "Rawat Fort",
+      kicker: "Rawalpindi",
+      image: "/images/cities/rawalpindi.jpg",
+    },
   },
 
   // ── Punjab ──────────────────────────────────────────────────────────────
@@ -57,13 +65,76 @@ export const PAKISTAN_CITIES_META: readonly PakistaniCityMeta[] = [
     tagline: "City of Gardens",
     description:
       "Heritage bazaars to DHA boulevards — Pakistan's cultural capital.",
-    landmark: { title: "Badshahi Mosque", kicker: "Lahore" },
+    landmark: {
+      title: "Badshahi Mosque",
+      kicker: "Lahore",
+      image: "/images/cities/lahore.jpg",
+    },
   },
-  { name: "Faisalabad", province: "Punjab", aliases: ["lyallpur"], popular: true, provinceCapital: false, tagline: "Industrial Hub", description: "Textile capital with emerging mid-rise apartment supply." },
-  { name: "Multan", province: "Punjab", aliases: ["city of saints"], popular: true, provinceCapital: false, tagline: "City of Saints", description: "Sufi heritage city with fast-growing southern suburbs." },
-  { name: "Gujranwala", province: "Punjab", popular: true, provinceCapital: false, description: "Industrial corridor city between Lahore and Sialkot." },
-  { name: "Sialkot", province: "Punjab", popular: true, provinceCapital: false, description: "Export-driven city with strong residential demand." },
-  { name: "Bahawalpur", province: "Punjab", popular: true, provinceCapital: false, description: "Southern Punjab's princely-state capital." },
+  {
+    name: "Faisalabad",
+    province: "Punjab",
+    aliases: ["lyallpur"],
+    popular: true,
+    provinceCapital: false,
+    tagline: "Industrial Hub",
+    description: "Textile capital with emerging mid-rise apartment supply.",
+    landmark: {
+      title: "Ghanta Ghar (Historic Clock Tower)",
+      kicker: "Faisalabad",
+      image: "/images/cities/faisalabad.jpg",
+    },
+  },
+  {
+    name: "Multan",
+    province: "Punjab",
+    aliases: ["city of saints"],
+    popular: true,
+    provinceCapital: false,
+    tagline: "City of Saints",
+    description: "Sufi heritage city with fast-growing southern suburbs.",
+    landmark: {
+      title: "Shrine of Shah Rukn-e-Alam",
+      kicker: "Multan",
+      image: "/images/cities/multan.jpg",
+    },
+  },
+  {
+    name: "Gujranwala",
+    province: "Punjab",
+    popular: true,
+    provinceCapital: false,
+    description: "Industrial corridor city between Lahore and Sialkot.",
+    landmark: {
+      title: "Gateway to the Industrial Hub",
+      kicker: "Gujranwala",
+      image: "https://images.unsplash.com/photo-1603507421183-503697e06a35?auto=format&fit=crop&w=1200&q=80",
+    },
+  },
+  {
+    name: "Sialkot",
+    province: "Punjab",
+    popular: true,
+    provinceCapital: false,
+    description: "Export-driven city with strong residential demand.",
+    landmark: {
+      title: "Sialkot Clock Tower",
+      kicker: "Sialkot",
+      image: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=1200&q=80",
+    },
+  },
+  {
+    name: "Bahawalpur",
+    province: "Punjab",
+    popular: true,
+    provinceCapital: false,
+    description: "Southern Punjab's princely-state capital.",
+    landmark: {
+      title: "Noor Mahal Palace",
+      kicker: "Bahawalpur",
+      image: "https://images.unsplash.com/photo-1614742617781-a9f8f30f5ec8?auto=format&fit=crop&w=1200&q=80",
+    },
+  },
   { name: "Sargodha", province: "Punjab", popular: true, provinceCapital: false },
   { name: "Sukkur", province: "Sindh", popular: true, provinceCapital: false },
   { name: "Larkana", province: "Sindh", popular: true, provinceCapital: false },
@@ -102,7 +173,11 @@ export const PAKISTAN_CITIES_META: readonly PakistaniCityMeta[] = [
     tagline: "City of Lights",
     description:
       "Seafront high-rises and commercial corridors in Pakistan's financial hub.",
-    landmark: { title: "Mazar-e-Quaid", kicker: "Karachi" },
+    landmark: {
+      title: "Mazar-e-Quaid",
+      kicker: "Karachi",
+      image: "/images/cities/karachi.jpg",
+    },
   },
   { name: "Hyderabad", province: "Sindh", popular: true, provinceCapital: false },
   { name: "Nawabshah", province: "Sindh", aliases: ["shaheed benazirabad"], popular: false, provinceCapital: false },
@@ -122,6 +197,11 @@ export const PAKISTAN_CITIES_META: readonly PakistaniCityMeta[] = [
     provinceCapital: true,
     tagline: "Gateway to KPK",
     description: "Frontier heritage city with expanding Regi Model Town supply.",
+    landmark: {
+      title: "Bab-e-Khyber",
+      kicker: "Peshawar",
+      image: "/images/cities/peshawar.jpg",
+    },
   },
   { name: "Abbottabad", province: "Khyber Pakhtunkhwa", popular: false, provinceCapital: false },
   { name: "Mardan", province: "Khyber Pakhtunkhwa", popular: false, provinceCapital: false },
@@ -144,6 +224,11 @@ export const PAKISTAN_CITIES_META: readonly PakistaniCityMeta[] = [
     provinceCapital: true,
     tagline: "Fruit Garden of Pakistan",
     description: "High-altitude capital with established plot-and-house market.",
+    landmark: {
+      title: "Quetta Skyline",
+      kicker: "Quetta",
+      image: "/images/cities/quetta.jpg",
+    },
   },
   { name: "Gwadar", province: "Balochistan", popular: false, provinceCapital: false },
   { name: "Turbat", province: "Balochistan", aliases: ["kech"], popular: false, provinceCapital: false },

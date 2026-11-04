@@ -2,7 +2,7 @@
 // Highrise.pk - Public Property Search & Discovery Directory
 // Design System Locked: tokens from @/lib/design-system/tokens | icons from @/lib/design-system/icons
 // Layout Sync: Mirrors pages/projects/index.tsx (No hero, compact sticky search, 1440px wrapper)
-// Pure ASCII comments | Zero react-hot-toast
+import SectionHeading from "@/components/ui/SectionHeading";
 
 import React, {
   useState,
@@ -51,6 +51,7 @@ interface FilterState {
   bedrooms: string;
   sort: string;
   listingSource: string;
+  verifiedOnly: boolean;
 }
 
 interface PaginationInfo {
@@ -181,7 +182,7 @@ const PAGE_LIMIT = 12;
 const DEFAULT_FILTERS: FilterState = {
   search: "", city: "", society: "", propertyCategory: "", propertyType: "",
   listingType: "", condition: "", minPrice: "", maxPrice: "", bedrooms: "", sort: "",
-  listingSource: "",
+  listingSource: "", verifiedOnly: false,
 };
 
 const SEO_CANONICAL_KEYS = new Set([
@@ -193,6 +194,7 @@ const SEO_CANONICAL_KEYS = new Set([
   "condition",
   "sort",
   "listingSource",
+  "verifiedOnly",
 ]);
 
 // ============================================================================
@@ -214,6 +216,18 @@ function clampInt(v: unknown, min: number, max: number): number {
   const n = typeof v === "string" ? Number(v) : typeof v === "number" ? v : NaN;
   if (!Number.isFinite(n)) return min;
   return Math.max(min, Math.min(max, Math.floor(n)));
+}
+
+// Next.js query params are always strings; coerce the Verified-Only toggle
+// back into a boolean so the filter state stays type-safe.
+function coerceBooleanParam(v: unknown): boolean {
+  if (typeof v === "boolean") return v;
+  if (typeof v === "number") return v !== 0;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "1" || s === "true" || s === "yes" || s === "on";
+  }
+  return false;
 }
 
 const PURPOSE_ALIASES: Readonly<Record<string, string>> = {
@@ -512,6 +526,7 @@ export default function PropertiesListingPage(): React.ReactElement {
         bedrooms: clampEnum(next.bedrooms, VALID_BEDROOMS),
         sort: clampEnum(next.sort, VALID_SORTS),
         listingSource: clampEnum(next.listingSource, ["", "owner", "agent"]),
+        verifiedOnly: Boolean(next.verifiedOnly),
       };
 
       Object.entries(safe).forEach(([k, v]) => {
@@ -560,6 +575,7 @@ export default function PropertiesListingPage(): React.ReactElement {
       bedrooms: clampEnum(q.bedrooms, VALID_BEDROOMS),
       sort: clampEnum(q.sort, VALID_SORTS),
       listingSource: clampEnum(q.listingSource, ["", "owner", "agent"]),
+      verifiedOnly: coerceBooleanParam(q.verifiedOnly),
     };
 
     setFilters(safeFilters);
@@ -633,6 +649,9 @@ export default function PropertiesListingPage(): React.ReactElement {
       if (safeBedrooms) params.append("bedrooms", safeBedrooms);
       if (safeSort) params.append("sort", safeSort);
       if (filters.listingSource) params.append("listingSource", clampEnum(filters.listingSource, ["", "owner", "agent"]));
+      // Verified Only — the platform's core trust promise. When enabled the
+      // server guarantees every returned listing is fully verified.
+      if (filters.verifiedOnly) params.append("verifiedOnly", "true");
 
       params.append("page", String(safePage));
       params.append("limit", String(PAGE_LIMIT));
@@ -695,6 +714,7 @@ export default function PropertiesListingPage(): React.ReactElement {
     filters.propertyType,
     filters.propertyCategory,
     filters.listingSource,
+    filters.verifiedOnly,
     currentPage,
     getPropertyTypesForQuery,
   ]);
@@ -742,7 +762,10 @@ export default function PropertiesListingPage(): React.ReactElement {
 
   const clearFilter = useCallback(
     (key: FilterKey) => {
-      const next: FilterState = { ...filters, [key]: "" };
+      const next: FilterState = {
+        ...filters,
+        [key]: key === "verifiedOnly" ? false : "",
+      };
       setFilters(next);
       setCurrentPage(1);
       updateURL(next, 1);
@@ -1044,6 +1067,27 @@ return (
                 </select>
                 <icons.ChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-[#029bba]" />
               </div>
+
+              {/* Verified Only toggle — the platform's core trust promise.
+                  The public listing contract already restricts to verified
+                  listings; this switch is the explicit user-facing guarantee
+                  that nothing unverified or pending can slip through. */}
+              <button
+                type="button"
+                onClick={() => handleFilterChange("verifiedOnly", !filters.verifiedOnly ? "true" : "")}
+                aria-pressed={filters.verifiedOnly}
+                className={`inline-flex h-9 items-center gap-1.5 rounded-xl border px-3 text-xs font-bold transition-all ${
+                  filters.verifiedOnly
+                    ? "border-emerald-200 bg-emerald-50 text-emerald-700 shadow-sm ring-2 ring-emerald-100"
+                    : "border-gray-300 bg-white text-gray-700 shadow-sm hover:border-[#029bba] hover:text-[#029bba]"
+                }`}
+              >
+                <icons.ShieldCheck
+                  className={`h-3.5 w-3.5 ${filters.verifiedOnly ? "fill-emerald-600 text-emerald-600" : "text-[#029bba]"}`}
+                />
+                <span>Verified Only</span>
+                {filters.verifiedOnly && <icons.Check className="h-3 w-3" />}
+              </button>
                 {activeFilterCount > 0 && (
                   <button
                     type="button"
@@ -1120,6 +1164,13 @@ return (
                   icon={<icons.UserCheck className="w-3 h-3 text-[#029bba]" />}
                   label={filters.listingSource === 'owner' ? "Owner Direct" : "Agent Listed"}
                   onClear={() => clearFilter("listingSource")}
+                />
+              )}
+              {filters.verifiedOnly && (
+                <FilterChip
+                  icon={<icons.ShieldCheck className="w-3 h-3 text-emerald-600" />}
+                  label="Verified Only"
+                  onClear={() => clearFilter("verifiedOnly")}
                 />
               )}
               {(filters.minPrice || filters.maxPrice) && (
@@ -1386,14 +1437,19 @@ return (
             description="Published buying, renting, selling, and property-market guidance for Pakistan."
             tags={['Buying Guide', 'Selling Guide', 'Renting Guide', 'Price Trends', 'Property Types']}
           />
-          <section aria-labelledby="property-research-tools-heading" className="mt-8 border-t border-gray-200 pt-6">
-            <div className="mb-4">
-              <p className="mb-1 text-xs font-bold text-[#029bba]">PROPERTY RESEARCH TOOLS</p>
-              <h2 id="property-research-tools-heading" className="text-xl font-black text-[#004063] md:text-2xl">
-                Make a more informed property decision
-              </h2>
-            </div>
-            <div className="flex flex-wrap gap-2">
+          <section aria-labelledby="property-research-tools-heading" className="mt-16 border-t border-gray-200 pt-16">
+            <SectionHeading
+              id="property-research-tools-heading"
+              eyebrow="Property Research Tools"
+              eyebrowIcon={<icons.Compass className="h-3.5 w-3.5 text-[#029bba]" />}
+              title={
+                <>
+                  Make a more <span className="text-[#029bba]">informed</span> property decision
+                </>
+              }
+              subtitle="Use our verification and intelligence tools to research properties, societies, and pricing before you invest."
+            />
+            <div className="flex flex-wrap gap-3">
               <Link href="/tools/price-estimator" className="inline-flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 text-xs font-bold text-gray-700 transition hover:border-[#029bba] hover:text-[#029bba]">
                 <icons.DollarSign className="h-4 w-4 text-[#029bba]" /> Price estimator
               </Link>
@@ -1408,14 +1464,26 @@ return (
               </Link>
             </div>
           </section>
-          <section aria-labelledby="list-property-cta" className="mt-8 flex flex-col gap-4 rounded-xl border border-[#029bba]/20 bg-[#029bba]/5 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 id="list-property-cta" className="text-lg font-black text-[#004063]">Have a property to sell or rent?</h2>
-              <p className="mt-1 text-sm text-gray-600">Create a listing and submit it for Highrise review.</p>
+          <section aria-labelledby="list-property-cta" className="mt-16 relative overflow-hidden rounded-3xl border border-[#029bba]/20 bg-gradient-to-br from-[#002b42] to-[#004063] p-8 sm:p-12 text-center shadow-2xl">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-[#029bba]/10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
+            <div className="absolute bottom-0 left-0 w-64 h-64 bg-[#029bba]/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
+
+            <div className="relative z-10 max-w-2xl mx-auto">
+              <h2 id="list-property-cta" className="text-3xl font-black text-white md:text-4xl mb-4 leading-tight">
+                Have a property to <span className="text-[#38aec7]">sell or rent?</span>
+              </h2>
+              <p className="text-lg text-blue-100/80 mb-8 leading-relaxed">
+                Connect with thousands of verified buyers and tenants. Create a high-quality listing and submit it for Highrise verification review.
+              </p>
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
+                <Link href="/add-property" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#029bba] px-8 py-4 text-base font-bold text-white transition-all hover:bg-[#017a94] hover:shadow-lg active:scale-95 shadow-md">
+                  List Your Property <icons.Plus className="w-5 h-5" />
+                </Link>
+                <Link href="/onboarding/business" className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-white/10 px-8 py-4 text-base font-bold text-white border border-white/20 transition-all hover:bg-white/20 active:scale-95">
+                  Business Onboarding
+                </Link>
+              </div>
             </div>
-            <Link href="/add-property" className="inline-flex shrink-0 items-center justify-center rounded-lg bg-[#029bba] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-[#017a94]">
-              List Property
-            </Link>
           </section>
 
           {/* SEO content — professional card at the very bottom of the page,

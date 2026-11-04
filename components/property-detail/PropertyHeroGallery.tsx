@@ -17,8 +17,8 @@ import {
 import {
   getOptimizedImageUrl,
   getThumbnailUrl,
-  getListingTypeBadge,
 } from "./propertyDetailUtils";
+import ListingTypeBadge from "@/components/property/ListingTypeBadge";
 
 interface PropertyImage {
   url: string;
@@ -88,9 +88,7 @@ export default function PropertyHeroGallery({
       <div className="relative bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         {/* Top Left Badges */}
         <div className="absolute top-4 left-4 flex flex-wrap gap-2 z-20 pointer-events-none">
-          <span className="bg-[#029bba] text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm">
-            {getListingTypeBadge(listingType)}
-          </span>
+          <ListingTypeBadge listingType={listingType} size="md" className="px-3 py-1 rounded-lg text-xs font-bold shadow-sm" />
           {isVerified && (
             <span className="bg-[#10b981] text-white px-3 py-1 rounded-lg text-xs font-bold shadow-sm flex items-center gap-1">
               <CheckCircle className="w-3 h-3" /> Verified

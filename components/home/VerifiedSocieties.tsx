@@ -62,7 +62,7 @@ export default function VerifiedSocieties({
             </span>
           </div>
 
-          <h2 className="text-3xl md:text-4xl font-extrabold text-[#001f2b] mb-4 tracking-tight">
+          <h2 className="text-3xl md:text-4xl font-black text-[#004063] mb-4 tracking-tight">
             Pakistan&apos;s Most <span className="text-[#029bba]">Trusted</span> Housing
           </h2>
           <p className="text-base md:text-lg text-gray-600 max-w-2xl mx-auto leading-relaxed">
