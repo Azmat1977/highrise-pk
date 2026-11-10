@@ -8,36 +8,35 @@ import { rateLimitApi } from '@/lib/rateLimit';
 import mongoose from 'mongoose';
 import { isPublicProperty, PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import Property from '@/models/Property';
+import Society from '@/models/Society';
 import { requireAuth } from '@/lib/requireAuth';
+
 /**
- * 🔐 ENTERPRISE FAVORITES LIST & CHECK ENDPOINT
- * 
- * Security Features:
- * ├── Authentication required (session-based)
- * ├── Distributed rate limiting (100 req/min)
- * ├── Request ID tracking
- * ├── Comprehensive security headers
- * ├── Input validation & sanitization
- * ├── Sensitive data scrubbing (Cloudinary keys, etc.)
- * ├── Audit logging for errors
- * └── Safe error handling
- * 
+ * Favorites list and check endpoint.
+ *
+ * Security features:
+ *   Authentication required (session-based, canonical requireAuth guard).
+ *   Distributed rate limiting.
+ *   Request ID tracking and security headers.
+ *   Input validation and sanitization.
+ *   Sensitive media keys scrubbed from responses.
+ *   Audit logging for errors with generic client messages.
+ *
  * Modes:
- * ├── mode=has: Check if entity is favorited (for heart icon state)
- * └── mode=list: List user's favorites with pagination
- * 
+ *   mode=has   Check whether one entity is favorited (heart icon state).
+ *   mode=ids   Property-only ID list for the signed-in user, with a meta debug block.
+ *   default    List favorites with populated, scrubbed entities (offset or cursor pagination).
+ *
  * Pagination:
- * ├── Cursor-based (recommended for infinite scroll)
- * └── Offset-based (for traditional pagination)
- * 
+ *   Cursor-based (recommended for infinite scroll).
+ *   Offset-based (for traditional pagination).
+ *
  * @route GET /api/favorites
  * @route GET /api/favorites?mode=has&propertyId=<id>
  * @access Authenticated users only
  */
 
-// ═══════════════════════════════════════════════════════════════
-// 🔒 CONSTANTS
-// ═══════════════════════════════════════════════════════════════
+// ===== Constants =====
 
 const MAX_LIMIT = 50;
 const DEFAULT_LIMIT = 20;
@@ -59,9 +58,7 @@ const SENSITIVE_MEDIA_KEYS = new Set([
   'accessToken',
 ]);
 
-// ═══════════════════════════════════════════════════════════════
-// 🛠️ HELPER FUNCTIONS
-// ═══════════════════════════════════════════════════════════════
+// ===== Helper functions =====
 
 function makeRequestId(): string {
   return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
@@ -115,9 +112,7 @@ async function logSecurityEvent(data: {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔑 CURSOR PAGINATION HELPERS
-// ═══════════════════════════════════════════════════════════════
+// ===== Cursor pagination helpers =====
 
 type CursorPayload = { t: string; id: string };
 
@@ -144,13 +139,13 @@ function decodeCursor(token: string): CursorPayload | null {
   try {
     const raw = base64UrlDecode(String(token || '').trim());
     const parsed = JSON.parse(raw) as CursorPayload;
-    
+
     if (!parsed || typeof parsed.t !== 'string' || typeof parsed.id !== 'string') return null;
     if (!isValidObjectId(parsed.id)) return null;
-    
+
     const d = new Date(parsed.t);
     if (Number.isNaN(d.getTime())) return null;
-    
+
     return parsed;
   } catch {
     return null;
@@ -163,9 +158,7 @@ function cursorCondition(payload: CursorPayload): any {
   return { $or: [{ createdAt: { $lt: t } }, { createdAt: t, _id: { $lt: oid } }] };
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔐 SENSITIVE DATA SCRUBBING
-// ═══════════════════════════════════════════════════════════════
+// ===== Sensitive data scrubbing =====
 
 function scrubSensitive(val: any): any {
   if (!val) return val;
@@ -182,9 +175,7 @@ function scrubSensitive(val: any): any {
   return val;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🚀 MAIN HANDLER
-// ═══════════════════════════════════════════════════════════════
+// ===== Main handler =====
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
   const requestId = makeRequestId();
@@ -193,9 +184,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const clientIP = getClientIP(req);
   const userAgent = req.headers['user-agent'] || 'unknown';
 
-  // ─────────────────────────────────────────────
   // STEP 1: METHOD VALIDATION
-  // ─────────────────────────────────────────────
   if (req.method !== 'GET') {
     res.setHeader('Allow', ['GET']);
     return res.status(405).json({
@@ -206,9 +195,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 
   try {
-    // ─────────────────────────────────────────────
     // STEP 2: RATE LIMITING (Distributed)
-    // ─────────────────────────────────────────────
     const rateLimitResult = await rateLimitApi(req);
 
     if (!rateLimitResult.ok) {
@@ -232,15 +219,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // ─────────────────────────────────────────────
     // STEP 3: DATABASE CONNECTION
-    // ─────────────────────────────────────────────
     await dbConnect();
 
-    // ─────────────────────────────────────────────
     // STEP 4: AUTHENTICATION (canonical guard)
     // requireAuth validates tokenVersion + account status + returns AuthToken
-    // ─────────────────────────────────────────────
     const auth = await requireAuth(req, res);
     if (!auth) return; // requireAuth already sent 401 response
 
@@ -256,14 +239,10 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const userOid = new mongoose.Types.ObjectId(userId);
 
-    // ─────────────────────────────────────────────
     // STEP 5: DETERMINE MODE
-    // ─────────────────────────────────────────────
     const mode = normalizeText(req.query.mode, 16).toLowerCase();
 
-    // ═══════════════════════════════════════════════════════════
     // MODE: HAS (Check if entity is favorited)
-    // ═══════════════════════════════════════════════════════════
     if (mode === 'has') {
       return handleHasMode(req, res, userOid, userId, requestId);
     }
@@ -325,9 +304,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       });
     }
 
-    // ═══════════════════════════════════════════════════════════
-    // MODE: LIST (Default - List user's favorites)
-    // ═══════════════════════════════════════════════════════════
+    // MODE: LIST (Default: list user's favorites)
     return handleListMode(req, res, userOid, userId, requestId);
 
   } catch (error: unknown) {
@@ -352,9 +329,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 🔍 HAS MODE: Check if entity is favorited
-// ═══════════════════════════════════════════════════════════════
+// ===== HAS MODE: Check if entity is favorited =====
 
 async function handleHasMode(
   req: NextApiRequest,
@@ -369,7 +344,7 @@ async function handleHasMode(
   const entityTypeRaw = normalizeText(req.query.entityType, 16).toLowerCase();
   const entityIdRaw = normalizeText(req.query.entityId, 64);
 
-  let entityType: 'property' | 'project' = 'property';
+  let entityType: 'property' | 'project' | 'society' = 'property';
   let entityId = '';
 
   if (propertyId) {
@@ -379,14 +354,18 @@ async function handleHasMode(
     entityType = 'project';
     entityId = projectId;
   } else if (entityTypeRaw && entityIdRaw) {
-    if (entityTypeRaw !== 'property' && entityTypeRaw !== 'project') {
+    if (
+      entityTypeRaw !== 'property' &&
+      entityTypeRaw !== 'project' &&
+      entityTypeRaw !== 'society'
+    ) {
       return res.status(400).json({
         success: false,
-        message: 'Invalid entityType. Must be property or project.',
+        message: 'Invalid entityType. Must be property, project, or society.',
         requestId,
       });
     }
-    entityType = entityTypeRaw as 'property' | 'project';
+    entityType = entityTypeRaw as 'property' | 'project' | 'society';
     entityId = entityIdRaw;
   } else {
     return res.status(400).json({
@@ -395,7 +374,6 @@ async function handleHasMode(
       requestId,
     });
   }
-
   if (!isValidObjectId(entityId)) {
     return res.status(400).json({
       success: false,
@@ -441,9 +419,7 @@ async function handleHasMode(
   });
 }
 
-// ═══════════════════════════════════════════════════════════════
-// 📋 LIST MODE: List user's favorites with pagination
-// ═══════════════════════════════════════════════════════════════
+// ===== LIST MODE: List user's favorites with pagination =====
 
 async function handleListMode(
   req: NextApiRequest,
@@ -454,8 +430,8 @@ async function handleListMode(
 ) {
   // Parse query parameters
   const entityTypeFilter = normalizeText(req.query.entityType, 16).toLowerCase();
-  const entityType = ['property', 'project'].includes(entityTypeFilter) 
-    ? entityTypeFilter 
+  const entityType = ['property', 'project', 'society'].includes(entityTypeFilter)
+    ? entityTypeFilter
     : '';
 
   const limitNum = clampInt(
@@ -467,8 +443,8 @@ async function handleListMode(
   const cursorToken = normalizeText(req.query.cursor, 256);
   const isCursorMode = Boolean(cursorToken);
 
-  const pageNum = isCursorMode 
-    ? 1 
+  const pageNum = isCursorMode
+    ? 1
     : clampInt(parseInt(String(req.query.page || 1), 10) || 1, 1, MAX_PAGE);
   const skip = isCursorMode ? 0 : (pageNum - 1) * limitNum;
 
@@ -519,7 +495,7 @@ async function handleListMode(
     : Math.min(limitNum * 3, MAX_LIMIT * 3);
 
   const favoritesRaw = await Favorite.find(filter)
-    .select('_id entityType entityId createdAt updatedAt')
+    .select('_id entityType entityId notes createdAt updatedAt')
     .sort(sortOption)
     .skip(skip)
     .limit(fetchLimit)
@@ -559,6 +535,11 @@ async function handleListMode(
     .map((f: any) => toCleanIdString(f.entityId))
     .filter(Boolean);
 
+  const rawSocietyKeys = favoritesRaw
+    .filter((f: any) => String(f.entityType).toLowerCase() === 'society')
+    .map((f: any) => toCleanIdString(f.entityId))
+    .filter(Boolean);
+
   const propertyOids = rawPropertyKeys
     .filter((id) => isValidObjectId(id))
     .map((id) => new mongoose.Types.ObjectId(id));
@@ -567,14 +548,19 @@ async function handleListMode(
     .filter((id) => isValidObjectId(id))
     .map((id) => new mongoose.Types.ObjectId(id));
 
+  const societyOids = rawSocietyKeys
+    .filter((id) => isValidObjectId(id))
+    .map((id) => new mongoose.Types.ObjectId(id));
+
   // Safely resolve Project model dynamically
   const ProjectModel = (mongoose.models.Project || mongoose.models.project) as mongoose.Model<any> | undefined;
 
-  // Query Property and Project models flexibly (matching ObjectId or slug)
+  // Query Property, Project, and Society models flexibly
   const nonOidPropertySlugs = rawPropertyKeys.filter((id) => !isValidObjectId(id));
   const nonOidProjectSlugs = rawProjectKeys.filter((id) => !isValidObjectId(id));
+  const nonOidSocietySlugs = rawSocietyKeys.filter((id) => !isValidObjectId(id));
 
-  const [propertiesRaw, projectsRaw] = await Promise.all([
+  const [propertiesRaw, projectsRaw, societiesRaw] = await Promise.all([
     rawPropertyKeys.length > 0
       ? Property.find({
           $or: [
@@ -584,6 +570,7 @@ async function handleListMode(
           isDeleted: { $ne: true },
         })
           .select(safeSelectFields)
+          .maxTimeMS(MAX_QUERY_TIME_MS)
           .lean()
       : [],
     rawProjectKeys.length > 0 && ProjectModel
@@ -595,6 +582,21 @@ async function handleListMode(
           isDeleted: { $ne: true },
         })
           .select(safeSelectFields)
+          .maxTimeMS(MAX_QUERY_TIME_MS)
+          .lean()
+      : [],
+    rawSocietyKeys.length > 0
+      ? Society.find({
+          $or: [
+            ...(societyOids.length > 0 ? [{ _id: { $in: societyOids } }] : []),
+            ...(nonOidSocietySlugs.length > 0 ? [{ slug: { $in: nonOidSocietySlugs } }] : []),
+          ],
+          isPublished: true,
+        })
+          .select(
+            '_id name slug city areaName featuredImage images category nocStatus approvalAuthority overallRiskLevel isVerifiedByHighrise isFeatured'
+          )
+          .maxTimeMS(MAX_QUERY_TIME_MS)
           .lean()
       : [],
   ]);
@@ -614,6 +616,13 @@ async function handleListMode(
     if (p.slug) projectMap.set(String(p.slug), p);
   }
 
+  const societyMap = new Map<string, (typeof societiesRaw)[number]>();
+  for (const society of societiesRaw) {
+    const idStr = toCleanIdString(society._id);
+    if (idStr) societyMap.set(idStr, society);
+    if (society.slug) societyMap.set(String(society.slug), society);
+  }
+
   // Deduplicate and assemble clean favorites list
   const uniqueFavoritesMap = new Map<string, any>();
 
@@ -631,9 +640,11 @@ async function handleListMode(
       populatedEntity = propertyMap.get(rawEntityKey);
     } else if (canonicalEntityType === 'project') {
       populatedEntity = projectMap.get(rawEntityKey);
+    } else if (canonicalEntityType === 'society') {
+      populatedEntity = societyMap.get(rawEntityKey);
     }
 
-    if (!populatedEntity) continue; // Property/Project deleted or missing
+    if (!populatedEntity) continue; // Entity deleted, unpublished, or missing
 
     const canonicalId = toCleanIdString(populatedEntity._id) || rawEntityKey;
     const key = `${canonicalEntityType}:${canonicalId}`;
@@ -643,6 +654,7 @@ async function handleListMode(
         _id: toCleanIdString(f._id),
         entityType: canonicalEntityType,
         entityId: populatedEntity,
+        notes: typeof f.notes === 'string' ? f.notes : undefined,
         createdAt: f.createdAt,
         updatedAt: f.updatedAt,
       });
@@ -681,6 +693,7 @@ async function handleListMode(
   const grouped = {
     properties: favorites.filter((f: any) => f.entityType === 'property'),
     projects: favorites.filter((f: any) => f.entityType === 'project'),
+    societies: favorites.filter((f: any) => f.entityType === 'society'),
   };
 
   return res.status(200).json({

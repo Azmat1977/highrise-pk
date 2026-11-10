@@ -1,148 +1,294 @@
-/**
- * components/compare/CompareBar.tsx
- *
- * Sticky bottom compare bar.
- * Appears when 1 or more items are added to compare (bottom of viewport).
- */
-
+//C:\dev\highrise-pk\components\compare\CompareBar.tsx
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import ReactDOM from 'react-dom';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useSession } from 'next-auth/react';
 
 import { icons } from '@/lib/design-system/icons';
 import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
 import { useCompare } from '@/hooks/useCompare';
 import { formatListingPrice } from '@/components/home/HomeListingCard';
 import {
-  COMPARE_STORAGE_KEY,
   MAX_COMPARE_ITEMS,
   type CompareEntityType,
 } from '@/types/projects';
 
-// TYPES
-
 interface CompareItemDisplay {
   entityType: CompareEntityType;
-  entityId:   string;
-  title:      string;
-  imageUrl:   string | null;
-  city?:      string;
-  price?:     number | null;
-  minPrice?:  number | null;
-  slug?:      string;
+  entityId: string;
+  title: string;
+  imageUrl: string | null;
+  city: string | null;
+  price: number | null;
+  minPrice: number | null;
+  listingType: string | null;
+  slug: string | null;
 }
 
-interface StoredCompareItem {
-  entityType: CompareEntityType;
-  entityId:   string;
-  title?:     string;
-  imageUrl?:  string | null;
-  price?:     number | null;
-  slug?:      string;
-}
-
-function readStoredCompareItems(): StoredCompareItem[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(COMPARE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter(
-        (i): i is StoredCompareItem =>
-          Boolean(i) &&
-          typeof i === 'object' &&
-          typeof i.entityId === 'string' &&
-          (i.entityType === 'property' || i.entityType === 'project'),
-      )
-      .slice(0, MAX_COMPARE_ITEMS);
-  } catch {
-    return [];
+function asRecord(value: unknown): Record<string, unknown> {
+  if (typeof value === 'object' && value !== null && !Array.isArray(value)) {
+    return value as Record<string, unknown>;
   }
+
+  return {};
 }
 
-// SLOT COMPONENT
+function stringValue(value: unknown): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim();
+  return normalized.length > 0 ? normalized : null;
+}
+
+function numberValue(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : null;
+}
+
+function isCompareEntityType(value: unknown): value is CompareEntityType {
+  return value === 'property' || value === 'project' || value === 'society';
+}
+
+function safeImageUrl(value: unknown): string | null {
+  const candidate = stringValue(value);
+  if (!candidate) {
+    return null;
+  }
+
+  if (candidate.startsWith('/') && !candidate.startsWith('//')) {
+    return candidate;
+  }
+
+  try {
+    const parsed = new URL(candidate);
+    if (
+      (parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
+      parsed.username.length === 0 &&
+      parsed.password.length === 0
+    ) {
+      return candidate;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+function imageUrlFromValue(value: unknown): string | null {
+  if (typeof value === 'string') {
+    return safeImageUrl(value);
+  }
+
+  const image = asRecord(value);
+  return (
+    safeImageUrl(image.url) ??
+    safeImageUrl(image.secure_url) ??
+    safeImageUrl(image.src) ??
+    safeImageUrl(image.imageUrl)
+  );
+}
+
+function imageFromData(data: Record<string, unknown>): string | null {
+  const directImage =
+    safeImageUrl(data.primaryImage) ??
+    safeImageUrl(data.featuredImage) ??
+    safeImageUrl(data.featureImageUrl);
+
+  if (directImage) {
+    return directImage;
+  }
+
+  if (!Array.isArray(data.images)) {
+    return null;
+  }
+
+  const images = data.images as unknown[];
+  let fallback: string | null = null;
+
+  for (const rawImage of images.slice(0, 8)) {
+    const image = asRecord(rawImage);
+    const url = imageUrlFromValue(rawImage);
+
+    if (!url) {
+      continue;
+    }
+
+    if (image.isPrimary === true) {
+      return url;
+    }
+
+    if (!fallback) {
+      fallback = url;
+    }
+  }
+
+  return fallback;
+}
+
+function toDisplayItem(value: unknown): CompareItemDisplay | null {
+  const entity = asRecord(value);
+  const entityType = entity.entityType;
+
+  if (!isCompareEntityType(entityType)) {
+    return null;
+  }
+
+  const data = asRecord(entity.data);
+  const entityId = stringValue(data._id);
+
+  if (!entityId) {
+    return null;
+  }
+
+  const title =
+    entityType === 'property'
+      ? stringValue(data.title)
+      : entityType === 'project'
+        ? stringValue(data.projectName)
+        : stringValue(data.name);
+
+  return {
+    entityType,
+    entityId,
+    title: title ?? 'Untitled item',
+    imageUrl: imageFromData(data),
+    city: stringValue(data.city),
+    price: numberValue(data.price),
+    minPrice: numberValue(data.minPrice),
+    listingType: stringValue(data.listingType),
+    slug: stringValue(data.slug),
+  };
+}
+
+function entityLabel(entityType: CompareEntityType): string {
+  if (entityType === 'property') {
+    return 'Property';
+  }
+  if (entityType === 'project') {
+    return 'Project';
+  }
+  return 'Society';
+}
+
+function pluralEntityLabel(entityType: CompareEntityType): string {
+  if (entityType === 'property') {
+    return 'properties';
+  }
+  if (entityType === 'project') {
+    return 'projects';
+  }
+  return 'societies';
+}
+
+function browseHref(entityType: CompareEntityType): string {
+  if (entityType === 'property') {
+    return '/properties';
+  }
+  if (entityType === 'project') {
+    return '/projects';
+  }
+  return '/societies';
+}
+
+function itemHref(item: CompareItemDisplay): string {
+  if (item.entityType === 'property') {
+    return item.slug
+      ? `/property/${item.slug}`
+      : `/property/${item.entityId}`;
+  }
+
+  if (!item.slug) {
+    return '#';
+  }
+
+  return item.entityType === 'project'
+    ? `/projects/${item.slug}`
+    : `/societies/${item.slug}`;
+}
+
+function ItemPlaceholderIcon({
+  entityType,
+}: {
+  entityType: CompareEntityType;
+}): React.ReactElement {
+  if (entityType === 'property') {
+    return <icons.Home className="h-4 w-4 text-[#029bba]/60" />;
+  }
+
+  if (entityType === 'project') {
+    return <icons.Building2 className="h-4 w-4 text-[#029bba]/60" />;
+  }
+
+  return <icons.MapPin className="h-4 w-4 text-[#029bba]/60" />;
+}
 
 function FilledSlot({
   item,
   onRemove,
   isRemoving,
 }: {
-  item:       CompareItemDisplay;
-  onRemove:   () => void;
+  item: CompareItemDisplay;
+  onRemove: () => void;
   isRemoving: boolean;
 }): React.ReactElement {
-  const href = item.slug
-    ? item.entityType === 'project'
-      ? `/projects/${item.slug}`
-      : `/property/${item.slug}`
-    : item.entityType === 'property' && item.entityId
-      ? `/property/${item.entityId}`
-      : '#';
-
-  const displayPrice = item.entityType === 'project'
-    ? formatListingPrice(item.minPrice ?? item.price)
-    : formatListingPrice(item.price);
-
-  const thumbUrl = item.imageUrl ? getOptimizedImageUrl(item.imageUrl, 80) : null;
-  const isTitlePending = !item.title;
+  const href = itemHref(item);
+  const thumbnailUrl = item.imageUrl
+    ? getOptimizedImageUrl(item.imageUrl, 80)
+    : null;
+  const displayPrice =
+    item.entityType === 'society'
+      ? ''
+      : formatListingPrice(
+          item.entityType === 'project'
+            ? item.minPrice ?? item.price
+            : item.price,
+          item.listingType ?? undefined,
+        );
 
   return (
-    <div className="relative flex-shrink-0 group">
+    <div className="group relative shrink-0">
       <Link
         href={href}
-        className="flex items-center gap-2.5 pl-2 pr-8 py-1.5
-                   bg-white border-2 border-gray-100 rounded-xl
-                   hover:border-[#029bba]/40 hover:shadow-md
-                   transition-all duration-200 w-[180px] sm:w-[220px]"
+        aria-label={`View ${item.title}`}
+        className="flex w-[190px] items-center gap-2.5 rounded-xl border border-gray-200 bg-white py-1.5 pl-2 pr-9 transition-colors hover:border-[#029bba]/40 sm:w-[220px]"
       >
-        {/* Thumbnail */}
-        <div className="relative w-10 h-10 rounded-lg overflow-hidden
-                        bg-gray-100 flex-shrink-0">
-          {thumbUrl ? (
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-gray-100">
+          {thumbnailUrl ? (
             <img
-              src={thumbUrl}
-              alt={item.title || 'Compare item'}
-              className="w-full h-full object-cover"
+              src={thumbnailUrl}
+              alt=""
               loading="lazy"
+              className="h-full w-full object-cover"
             />
           ) : (
-            <div className="w-full h-full bg-gradient-to-br
-                            from-[#004063]/10 to-[#029bba]/10
-                            flex items-center justify-center">
-              {item.entityType === 'project'
-                ? <icons.Building2 className="w-4 h-4 text-[#029bba]/40" />
-                : <icons.Home className="w-4 h-4 text-[#029bba]/40" />}
-            </div>
+            <ItemPlaceholderIcon entityType={item.entityType} />
           )}
         </div>
 
-        {/* Text */}
-        <div className="flex-1 min-w-0">
-          {isTitlePending ? (
-            <div className="h-3.5 w-24 rounded bg-gray-200 animate-pulse" />
-          ) : (
-            <p className="text-xs font-black text-gray-900 truncate leading-tight">
-              {item.title}
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-bold leading-tight text-[#004063]">
+            {item.title}
+          </p>
+          {item.city && (
+            <p className="mt-0.5 truncate text-[10px] text-gray-500">
+              {item.city}
             </p>
           )}
-          <div className="flex items-center gap-1 mt-0.5">
-            {/* Type badge */}
-            <span className={`text-[8px] font-black uppercase tracking-wider shrink-0 ${
-              item.entityType === 'project'
-                ? 'text-[#029bba]'
-                : 'text-emerald-600'
-            }`}>
-              {item.entityType === 'project' ? 'Project' : 'Property'}
+          <div className="mt-0.5 flex min-w-0 items-center gap-1">
+            <span className="shrink-0 text-[9px] font-bold uppercase tracking-wide text-[#029bba]">
+              {entityLabel(item.entityType)}
             </span>
             {displayPrice && (
               <>
-                <span className="text-[8px] text-gray-300">|</span>
-                <span className="text-[10px] font-bold text-gray-600 truncate">
+                <span className="text-[9px] text-gray-300">|</span>
+                <span className="truncate text-[10px] font-semibold text-gray-600">
                   {displayPrice}
                 </span>
               </>
@@ -151,50 +297,46 @@ function FilledSlot({
         </div>
       </Link>
 
-      {/* Remove button */}
       <button
         type="button"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onRemove();
-        }}
+        onClick={onRemove}
         disabled={isRemoving}
-        aria-label={`Remove ${item.title || 'item'} from comparison`}
-        className="absolute top-1/2 -translate-y-1/2 right-1.5 z-10
-                   w-6 h-6 rounded-full bg-red-500 text-white
-                   flex items-center justify-center
-                   opacity-90 hover:opacity-100
-                   hover:bg-red-600 hover:scale-110
-                   transition-all duration-200
-                   focus:outline-none focus:ring-2 focus:ring-red-400
-                   disabled:opacity-70 disabled:cursor-wait"
+        aria-label={`Remove ${item.title} from comparison`}
+        className="absolute right-1.5 top-1/2 z-10 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full bg-[#ef4444] text-white transition hover:bg-red-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-wait disabled:opacity-60"
       >
-        {isRemoving
-          ? <icons.Loader2 className="w-3 h-3 animate-spin" />
-          : <icons.X className="w-3 h-3" />
-        }
+        {isRemoving ? (
+          <icons.Loader2 className="h-3 w-3 animate-spin" />
+        ) : (
+          <icons.X className="h-3 w-3" />
+        )}
       </button>
     </div>
   );
 }
 
-function EmptySlot(): React.ReactElement {
+function EmptySlot({
+  entityType,
+}: {
+  entityType: CompareEntityType;
+}): React.ReactElement {
   return (
-    <div className="flex-shrink-0 w-[180px] sm:w-[220px] py-1.5
-                    border-2 border-dashed border-gray-200 rounded-xl
-                    flex items-center justify-center gap-1.5
-                    text-gray-400 text-xs font-bold">
-      <span className="text-lg leading-none">+</span>
-      <span>Add More</span>
-    </div>
+    <Link
+      href={browseHref(entityType)}
+      className="flex w-[190px] shrink-0 items-center justify-center gap-2 rounded-xl border border-dashed border-gray-300 px-3 py-4 text-xs font-bold text-[#029bba] transition hover:border-[#029bba] hover:bg-[#029bba]/5 sm:w-[220px]"
+      aria-label={`Browse more ${pluralEntityLabel(entityType)}`}
+    >
+      <span aria-hidden="true" className="text-lg leading-none">
+        +
+      </span>
+      <span>Browse more {pluralEntityLabel(entityType)}</span>
+    </Link>
   );
 }
 
-// MAIN COMPONENT
-
 export default function CompareBar(): React.ReactElement | null {
   const router = useRouter();
+  const { data: session, status } = useSession();
+  const isSignedIn = status === 'authenticated' && Boolean(session?.user);
 
   const {
     totalCount,
@@ -203,235 +345,185 @@ export default function CompareBar(): React.ReactElement | null {
     errorMessage,
     remove,
     clear,
-  } = useCompare({ defaultEntityType: 'project' });
+  } = useCompare({ defaultEntityType: 'property' });
 
-  const [items,       setItems]       = useState<CompareItemDisplay[]>([]);
-  const [removingId,  setRemovingId]  = useState<string | null>(null);
-  const [clearing,    setClearing]    = useState(false);
+  const [items, setItems] = useState<CompareItemDisplay[]>([]);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const requestIdRef = useRef(0);
 
-  // Hide on compare page (avoid redundancy)
-  const isOnComparePage = router.pathname === '/compare'
-    || router.pathname.startsWith('/compare/')
-    || router.asPath?.startsWith('/compare');
+  const isOnComparePage =
+    router.pathname === '/compare' ||
+    router.pathname.startsWith('/compare/') ||
+    router.asPath.startsWith('/compare');
 
-  // Sync tiles immediately from localStorage, then enrich missing fields from API
-  const loadItemDetails = useCallback(async () => {
-    const localItems = readStoredCompareItems();
+  const loadItemDetails = useCallback(async (): Promise<void> => {
+    const requestId = requestIdRef.current + 1;
+    requestIdRef.current = requestId;
 
-    if (localItems.length === 0) {
+    if (!isSignedIn) {
       setItems([]);
       return;
     }
 
-    // 1. Instant 0ms render from localStorage metadata saved at add time
-    setItems((prev) => {
-      const prevMap = new Map(prev.map(i => [`${i.entityType}:${i.entityId}`, i]));
-      return localItems.map((li) => {
-        const key = `${li.entityType}:${li.entityId}`;
-        const existing = prevMap.get(key);
-        return {
-          entityType: li.entityType,
-          entityId:   li.entityId,
-          title:      li.title || existing?.title || '',
-          imageUrl:   li.imageUrl ?? existing?.imageUrl ?? null,
-          city:       existing?.city,
-          price:      typeof li.price === 'number' ? li.price : existing?.price,
-          minPrice:   existing?.minPrice,
-          slug:       li.slug || existing?.slug,
-        };
-      });
-    });
-
-    // 2. Enrich from backend without wiping optimistic local items
     try {
-      const sessionId = typeof window !== 'undefined'
-        ? localStorage.getItem('highrise_compare_session')
-        : null;
-
-      const url = sessionId
-        ? `/api/compare?sessionId=${sessionId}`
-        : '/api/compare';
-
-      const res = await fetch(url, {
+      const response = await fetch('/api/compare', {
         credentials: 'include',
         cache: 'no-store',
-        headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
+        headers: {
+          Accept: 'application/json',
+          'Cache-Control': 'no-cache',
+          Pragma: 'no-cache',
+        },
       });
-      if (!res.ok) return;
 
-      const data = await res.json() as {
-        success: boolean;
-        data?: {
-          entities?: Array<{
-            entityType: CompareEntityType;
-            data: Record<string, unknown>;
-          }>;
-        };
-      };
-
-      if (!data.success || !Array.isArray(data.data?.entities)) return;
-
-      const serverMap = new Map<string, CompareItemDisplay>();
-      for (const e of data.data.entities) {
-        const d = e.data;
-        const idStr = String(d._id ?? '');
-        if (!idStr) continue;
-
-        let imageUrl: string | null = null;
-        if (typeof d.primaryImage === 'string') {
-          imageUrl = d.primaryImage;
-        } else if (typeof d.featureImageUrl === 'string') {
-          imageUrl = d.featureImageUrl;
-        } else if (Array.isArray(d.images) && d.images.length > 0) {
-          const imgs = d.images as Array<{ url?: string } | string>;
-          const first = imgs[0];
-          imageUrl = typeof first === 'string'
-            ? first
-            : first?.url ?? null;
-        }
-
-        serverMap.set(`${e.entityType}:${idStr}`, {
-          entityType: e.entityType,
-          entityId:   idStr,
-          title:      String(d.projectName ?? d.title ?? 'Untitled'),
-          imageUrl,
-          city:       typeof d.city === 'string' ? d.city : undefined,
-          price:      typeof d.price === 'number' ? d.price : undefined,
-          minPrice:   typeof d.minPrice === 'number' ? d.minPrice : undefined,
-          slug:       typeof d.slug === 'string' ? d.slug : undefined,
-        });
-      }
-
-      const latestLocal = readStoredCompareItems();
-      if (latestLocal.length === 0) {
-        setItems([]);
+      if (!response.ok) {
         return;
       }
 
-      setItems((prev) => {
-        const prevMap = new Map(prev.map(i => [`${i.entityType}:${i.entityId}`, i]));
-        return latestLocal.map((li) => {
-          const key = `${li.entityType}:${li.entityId}`;
-          const fromServer = serverMap.get(key);
-          const existing = prevMap.get(key);
-          return {
-            entityType: li.entityType,
-            entityId:   li.entityId,
-            title:      fromServer?.title || li.title || existing?.title || 'Untitled',
-            imageUrl:   fromServer?.imageUrl ?? li.imageUrl ?? existing?.imageUrl ?? null,
-            city:       fromServer?.city ?? existing?.city,
-            price:      fromServer?.price ?? (typeof li.price === 'number' ? li.price : existing?.price),
-            minPrice:   fromServer?.minPrice ?? existing?.minPrice,
-            slug:       fromServer?.slug || li.slug || existing?.slug,
-          };
-        });
-      });
+      const result: unknown = await response.json();
+      const resultRecord = asRecord(result);
+      const data = asRecord(resultRecord.data);
+
+      if (
+        requestId !== requestIdRef.current ||
+        resultRecord.success !== true ||
+        !Array.isArray(data.entities)
+      ) {
+        return;
+      }
+
+      const nextItems = (data.entities as unknown[])
+        .map(toDisplayItem)
+        .filter(
+          (item): item is CompareItemDisplay => item !== null,
+        )
+        .slice(0, MAX_COMPARE_ITEMS);
+
+      setItems(nextItems);
     } catch {
-      // Keep local items on network failure
+      // Preserve the last successfully loaded server state.
     }
+  }, [isSignedIn]);
+
+  useEffect(() => {
+    setMounted(true);
   }, []);
 
   useEffect(() => {
+    if (!isSignedIn) {
+      requestIdRef.current += 1;
+      setItems([]);
+      return;
+    }
+
     void loadItemDetails();
-  }, [totalCount, loadItemDetails]);
+  }, [isSignedIn, totalCount, loadItemDetails]);
 
   useEffect(() => {
-    const handleCompareSync = () => {
+    if (!isSignedIn) {
+      return;
+    }
+
+    const handleCompareSync = (): void => {
       void loadItemDetails();
     };
 
-    const handleStorageSync = (e: StorageEvent) => {
-      if (e.key === COMPARE_STORAGE_KEY) {
-        void loadItemDetails();
-      }
-    };
-
     window.addEventListener('highrise:compare-changed', handleCompareSync);
-    window.addEventListener('storage', handleStorageSync);
     window.addEventListener('focus', handleCompareSync);
 
     return () => {
-      window.removeEventListener('highrise:compare-changed', handleCompareSync);
-      window.removeEventListener('storage', handleStorageSync);
+      window.removeEventListener(
+        'highrise:compare-changed',
+        handleCompareSync,
+      );
       window.removeEventListener('focus', handleCompareSync);
     };
-  }, [loadItemDetails]);
+  }, [isSignedIn, loadItemDetails]);
 
-  // Remove handler
+  useEffect(() => {
+    if (!showConfirm) {
+      return;
+    }
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [showConfirm]);
+
   const handleRemove = useCallback(
-    async (item: CompareItemDisplay) => {
+    async (item: CompareItemDisplay): Promise<void> => {
       setRemovingId(item.entityId);
-      await remove(item.entityId, item.entityType);
-      setRemovingId(null);
+
+      try {
+        await remove(item.entityId, item.entityType);
+      } finally {
+        setRemovingId(null);
+        await loadItemDetails();
+      }
     },
-    [remove],
+    [loadItemDetails, remove],
   );
 
-  // Clear all handler
-  const handleClearAll = useCallback(async () => {
+  const handleClearAll = useCallback(async (): Promise<void> => {
     setClearing(true);
-    await clear();
-    setClearing(false);
-    setShowConfirm(false);
-    setItems([]);
-  }, [clear]);
 
-  const activeCount = items.length > 0 ? items.length : totalCount;
+    try {
+      await clear();
+      await loadItemDetails();
+      setShowConfirm(false);
+    } finally {
+      setClearing(false);
+    }
+  }, [clear, loadItemDetails]);
 
-  // Render guards
-  if (!isReady)         return null;
-  if (isOnComparePage)  return null;
-  if (activeCount === 0) return null;
+  const activeEntityType = items[0]?.entityType ?? null;
+  const activeCount = items.length;
+  const emptySlotCount = Math.max(0, MAX_COMPARE_ITEMS - activeCount);
 
-  if (typeof document === 'undefined') return null;
+  if (!mounted || !isReady || !isSignedIn || isOnComparePage) {
+    return null;
+  }
 
-  const emptySlotCount = Math.max(0, MAX_COMPARE_ITEMS - items.length);
+  if (!activeEntityType || activeCount === 0) {
+    return null;
+  }
 
   const barContent = (
     <>
-      {/* STICKY COMPARE BAR */}
-      <div className="fixed bottom-0 left-0 right-0 z-[9998]
-                      bg-white border-t-2 border-[#029bba]
-                      shadow-[0_-8px_32px_rgba(0,0,0,0.12)]
-                      animate-in slide-in-from-bottom-full duration-300">
-
-        <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3">
+      <div className="fixed bottom-0 left-0 right-0 z-[9998] border-t-2 border-[#029bba] bg-white shadow-[0_-8px_32px_rgba(0,0,0,0.12)]">
+        <div className="mx-auto max-w-7xl px-3 py-3 sm:px-4">
           <div className="flex items-center gap-3">
-
-            {/* Left: Icon + Label */}
-            <div className="hidden md:flex items-center gap-2 flex-shrink-0
-                            border-r border-gray-100 pr-3">
-              <div className="w-10 h-10 rounded-xl bg-[#029bba]/10
-                              flex items-center justify-center">
-                <icons.BarChart3 className="w-5 h-5 text-[#029bba]" />
+            <div className="hidden shrink-0 items-center gap-2 border-r border-gray-100 pr-3 md:flex">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#029bba]/10">
+                <icons.BarChart3 className="h-5 w-5 text-[#029bba]" />
               </div>
               <div>
-                <p className="text-xs font-black text-gray-900 leading-tight">
+                <p className="text-xs font-bold leading-tight text-[#004063]">
                   Compare
                 </p>
-                <p className="text-[10px] font-bold text-gray-500">
+                <p className="text-[10px] font-semibold text-gray-500">
                   {activeCount} of {MAX_COMPARE_ITEMS}
                 </p>
               </div>
             </div>
 
-            {/* Mobile count badge */}
-            <div className="md:hidden flex flex-col items-center flex-shrink-0
-                            px-2 py-1 rounded-lg bg-[#029bba]/10">
-              <span className="text-xs font-black text-[#029bba] leading-none">
+            <div className="flex shrink-0 flex-col items-center rounded-lg bg-[#029bba]/10 px-2 py-1 md:hidden">
+              <span className="text-xs font-bold leading-none text-[#029bba]">
                 {activeCount}
               </span>
-              <span className="text-[8px] font-bold text-[#029bba]/70
-                               uppercase leading-none mt-0.5">
+              <span className="mt-0.5 text-[8px] font-bold uppercase leading-none text-[#029bba]">
                 Compare
               </span>
             </div>
 
-            {/* Center: Items scroll */}
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 overflow-x-auto
-                              scrollbar-hide pb-1 -mb-1">
+            <div className="min-w-0 flex-1">
+              <div className="scrollbar-hide -mb-1 flex items-center gap-2 overflow-x-auto pb-1">
                 {items.map(item => (
                   <FilledSlot
                     key={`${item.entityType}-${item.entityId}`}
@@ -441,94 +533,84 @@ export default function CompareBar(): React.ReactElement | null {
                   />
                 ))}
 
-                {/* Empty slots */}
-                {Array.from({ length: emptySlotCount }).map((_, i) => (
-                  <EmptySlot key={`empty-${i}`} />
+                {Array.from({ length: emptySlotCount }).map((_, index) => (
+                  <EmptySlot
+                    key={`empty-${index}`}
+                    entityType={activeEntityType}
+                  />
                 ))}
               </div>
             </div>
 
-            {/* Right: Actions */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              {/* Clear all */}
+            <div className="flex shrink-0 items-center gap-2">
               <button
                 type="button"
                 onClick={() => setShowConfirm(true)}
-                aria-label="Clear all"
-                className="hidden sm:inline-flex items-center justify-center
-                           w-10 h-10 rounded-xl text-gray-400
-                           hover:text-red-500 hover:bg-red-50
-                           transition-colors duration-200
-                           focus:outline-none focus:ring-2 focus:ring-red-200"
+                aria-label="Clear comparison"
+                className="hidden h-10 w-10 items-center justify-center rounded-xl text-gray-500 transition hover:bg-red-50 hover:text-[#ef4444] focus:outline-none focus-visible:ring-2 focus-visible:ring-red-300 sm:inline-flex"
               >
-                <icons.Trash2 className="w-4 h-4" />
+                <icons.Trash2 className="h-4 w-4" />
               </button>
 
-              {/* Compare Now CTA */}
               <Link
                 href="/compare"
-                className="inline-flex items-center gap-1.5 sm:gap-2
-                           px-3 sm:px-5 py-2.5 rounded-xl
-                           bg-[#029bba] text-white
-                           text-xs sm:text-sm font-black shadow-md
-                           hover:bg-[#017a94] hover:shadow-lg
-                           hover:-translate-y-0.5
-                           transition-all duration-200
-                           focus:outline-none focus:ring-2 focus:ring-[#029bba]/50
-                           whitespace-nowrap"
+                className="inline-flex items-center gap-2 whitespace-nowrap rounded-xl bg-[#029bba] px-3 py-2.5 text-xs font-bold text-white transition hover:bg-[#017a94] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 sm:px-5 sm:text-sm"
               >
-                <span className="hidden xs:inline">Compare Now</span>
-                <span className="xs:hidden">Compare</span>
-                <icons.ArrowRight className="w-3.5 h-3.5" />
+                Compare Now
+                <icons.ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
 
-          {/* Error message (if any) */}
           {actionState === 'error' && errorMessage && (
-            <div className="mt-2 px-3 py-2 rounded-lg bg-red-50
-                            border border-red-200 text-xs font-bold
-                            text-red-700 text-center">
+            <div
+              role="alert"
+              className="mt-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-center text-xs font-semibold text-red-700"
+            >
               {errorMessage}
             </div>
           )}
         </div>
       </div>
 
-      {/* CLEAR CONFIRMATION MODAL */}
       {showConfirm && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center
-                     bg-black/50 backdrop-blur-sm p-4"
-          onClick={() => !clearing && setShowConfirm(false)}
+          className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm"
+          role="presentation"
+          onClick={() => {
+            if (!clearing) {
+              setShowConfirm(false);
+            }
+          }}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6"
-            onClick={(e) => e.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="compare-clear-title"
+            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
+            onClick={event => event.stopPropagation()}
           >
-            <div className="w-12 h-12 rounded-full bg-red-50
-                            flex items-center justify-center mb-4">
-              <icons.Trash2 className="w-6 h-6 text-red-500" />
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-50">
+              <icons.Trash2 className="h-6 w-6 text-[#ef4444]" />
             </div>
 
-            <h3 className="text-lg font-black text-gray-900 mb-2">
-              Clear Comparison?
-            </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Remove all {activeCount} item{activeCount > 1 ? 's' : ''} from your comparison list?
-              You can add them back anytime.
+            <h2
+              id="compare-clear-title"
+              className="mb-2 text-lg font-bold text-[#004063]"
+            >
+              Clear comparison?
+            </h2>
+            <p className="mb-6 text-sm text-gray-600">
+              Remove all {activeCount} item{activeCount === 1 ? '' : 's'} from
+              your comparison?
             </p>
 
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => !clearing && setShowConfirm(false)}
+                onClick={() => setShowConfirm(false)}
                 disabled={clearing}
-                className="flex-1 px-4 py-2.5 rounded-xl
-                           border-2 border-gray-200 text-gray-700
-                           text-sm font-bold hover:bg-gray-50
-                           transition-colors
-                           disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 Cancel
               </button>
@@ -537,16 +619,12 @@ export default function CompareBar(): React.ReactElement | null {
                 type="button"
                 onClick={() => void handleClearAll()}
                 disabled={clearing}
-                className="flex-1 inline-flex items-center justify-center gap-1.5
-                           px-4 py-2.5 rounded-xl bg-red-500 text-white
-                           text-sm font-black hover:bg-red-600
-                           transition-colors
-                           disabled:opacity-50 disabled:cursor-not-allowed"
+                className="inline-flex flex-1 items-center justify-center gap-2 rounded-xl bg-[#ef4444] px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {clearing ? (
-                  <icons.Loader2 className="w-4 h-4 animate-spin" />
+                  <icons.Loader2 className="h-4 w-4 animate-spin" />
                 ) : (
-                  <icons.Trash2 className="w-4 h-4" />
+                  <icons.Trash2 className="h-4 w-4" />
                 )}
                 Clear All
               </button>

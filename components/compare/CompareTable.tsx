@@ -1,34 +1,15 @@
-/**
- * components/compare/CompareTable.tsx
- *
- * Enterprise comparison table — side-by-side columns.
- * Handles BOTH projects and properties in unified view.
- *
- * ENTERPRISE PATTERN:
- *   → Fixed column widths (no stretching)
- *   → Empty slots shown when < 4 items (encourages "add more")
- *   → Sticky first column with row labels
- *   → Horizontal scroll on mobile
- *   → Pakistani Area Unit Normalization (Marla, Kanal, Sq.Ft.)
- *   → Sale vs. Rent Financial Model Guard & Rental Yield Estimator
- *   → "Highlight Differences Only" Filter Mode
- *   → "🤖 Ask ALEEM's Verdict" AI Modal Integration
- */
-
-'use client';
-
 import React, { useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import {
+import { icons } from '@/lib/design-system/icons';
+import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
+
+const {
   X,
   MapPin,
   BadgeCheck,
-  ShieldCheck,
   Building2,
-  Home as HomeIcon,
-  Trophy,
-  MessageSquare,
+  Home: HomeIcon,
   ArrowRight,
   Loader2,
   BedDouble,
@@ -36,117 +17,374 @@ import {
   Maximize2,
   Calendar,
   Plus,
-  Bot,
-  Sparkles,
   SlidersHorizontal,
   Info,
-  TrendingUp,
   CreditCard,
-} from 'lucide-react';
+} = icons;
 
-// ─── TYPES ────────────────────────────────────────────────────────────────────
-
-export type CompareItemType = 'property' | 'project';
+export type CompareItemType = 'property' | 'project' | 'society';
 
 export interface CompareEntity {
   entityType: CompareItemType;
-  data:       Record<string, unknown>;
+  data: Record<string, unknown>;
 }
 
 export interface CompareTableProps {
-  entities:   CompareEntity[];
-  onRemove:   (entityType: CompareItemType, entityId: string) => Promise<void>;
+  entities: CompareEntity[];
+  onRemove: (
+    entityType: CompareItemType,
+    entityId: string,
+  ) => Promise<void>;
   removingId: string | null;
 }
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
-
 const MAX_COLUMNS = 4;
 
-// ─── HELPERS ──────────────────────────────────────────────────────────────────
-
-function formatPrice(price?: number | null): string {
-  if (!price || price <= 0) return '—';
-  if (price >= 10_000_000) return `PKR ${(price / 10_000_000).toFixed(1)} Cr`;
-  if (price >= 100_000)    return `PKR ${(price / 100_000).toFixed(1)} Lac`;
-  return `PKR ${price.toLocaleString('en-PK')}`;
+interface NormalizedEntity {
+  id: string;
+  entityType: CompareItemType;
+  title: string;
+  slug: string;
+  city: string | null;
+  area: string | null;
+  imageUrl: string | null;
+  price: number | null;
+  priceMin: number | null;
+  priceMax: number | null;
+  score: number | null;
+  verification: string | null;
+  nocStatus: string | null;
+  nocAuthority: string | null;
+  litigationStatus: string | null;
+  riskLevel: string | null;
+  developer: string | null;
+  category: string | null;
+  status: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  areaSize: number | null;
+  areaUnit: string | null;
+  listingType: string | null;
+  paymentTerms: string | null;
+  detailUrl: string;
+  amenities: string[];
 }
 
-function formatPriceRange(
-  min?: number | null,
-  max?: number | null,
-): string {
-  if (!min && !max) return 'On Request';
-  if (min && max) return `${formatPrice(min)} – ${formatPrice(max)}`;
-  if (min) return `${formatPrice(min)}+`;
-  if (max) return `Up to ${formatPrice(max)}`;
-  return 'On Request';
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return null;
+  }
+
+  return value as Record<string, unknown>;
 }
 
-function formatPakistaniArea(area?: number | null, unit?: string | null): string {
-  if (!area || area <= 0) return '—';
+function readString(value: unknown): string | null {
+  if (typeof value !== 'string') return null;
 
-  const rawUnit = (unit || 'Sq.Ft.').trim();
-  const lowerUnit = rawUnit.toLowerCase();
-
-  // If unit is explicitly Marla or Kanal
-  if (lowerUnit.includes('marla')) {
-    const sqft = Math.round(area * 225);
-    return `${area.toLocaleString()} Marla (~${sqft.toLocaleString()} Sq.Ft.)`;
-  }
-  if (lowerUnit.includes('kanal')) {
-    const marla = area * 20;
-    const sqft = Math.round(area * 4500);
-    return `${area.toLocaleString()} Kanal (${marla} Marla / ~${sqft.toLocaleString()} Sq.Ft.)`;
-  }
-  if (lowerUnit.includes('sq.yd') || lowerUnit.includes('sqyd') || lowerUnit.includes('yard')) {
-    const sqft = Math.round(area * 9);
-    return `${area.toLocaleString()} Sq.Yd. (~${sqft.toLocaleString()} Sq.Ft.)`;
-  }
-
-  // If raw number in Sq.Ft., convert to Pakistani Marla / Kanal
-  if (area >= 4500) {
-    const kanal = (area / 4500).toFixed(1).replace(/\.0$/, '');
-    const marla = Math.round(area / 225);
-    return `${marla} Marla / ${kanal} Kanal (${area.toLocaleString()} Sq.Ft.)`;
-  }
-  if (area >= 225) {
-    const marla = (area / 225).toFixed(1).replace(/\.0$/, '');
-    return `${marla} Marla (${area.toLocaleString()} Sq.Ft.)`;
-  }
-
-  return `${area.toLocaleString()} Sq.Ft.`;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : null;
 }
 
-function getShieldTier(score: number): { label: string; color: string } {
-  if (score >= 80) return { label: 'Excellent', color: 'text-emerald-600' };
-  if (score >= 60) return { label: 'Trusted',   color: 'text-[#029bba]' };
-  if (score >= 40) return { label: 'Good',      color: 'text-amber-600' };
-  return { label: 'Pending', color: 'text-gray-400' };
+function readNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? value
+    : null;
 }
 
-// ─── EMPTY SLOT COMPONENTS ────────────────────────────────────────────────────
+function humanize(value: string | null): string {
+  if (!value) return 'Not available';
 
-function EmptyColumnHeader(): React.ReactElement {
+  return value
+    .replace(/[_-]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/\b\w/g, (character) => character.toUpperCase());
+}
+
+function getImageUrl(data: Record<string, unknown>): string | null {
+  const directCandidates = [
+    data.featuredImage,
+    data.primaryImage,
+    data.featureImageUrl,
+  ];
+
+  for (const candidate of directCandidates) {
+    const imageUrl = readString(candidate);
+    if (imageUrl) return imageUrl;
+  }
+
+  if (!Array.isArray(data.images)) return null;
+
+  const firstImage: unknown = data.images[0];
+
+  if (typeof firstImage === 'string') {
+    return readString(firstImage);
+  }
+
+  const firstImageRecord = asRecord(firstImage);
+  return readString(firstImageRecord?.url);
+}
+
+function getScore(
+  entityType: CompareItemType,
+  data: Record<string, unknown>,
+): number | null {
+  if (entityType === 'society') {
+    const scores = asRecord(data.scores);
+    return readNumber(scores?.overall);
+  }
+
+  return readNumber(data.highriseScore);
+}
+
+function getVerificationLabel(
+  entityType: CompareItemType,
+  data: Record<string, unknown>,
+): string | null {
+  if (entityType === 'property') {
+    const ownershipProof = asRecord(data.ownershipProof);
+    const reviewStatus = readString(ownershipProof?.reviewStatus);
+
+    if (reviewStatus === 'verified') {
+      return 'Title Verified';
+    }
+
+    if (reviewStatus) {
+      return `Title review: ${humanize(reviewStatus)}`;
+    }
+
+    const verification = asRecord(data.verification);
+    const verificationStatus = readString(verification?.status);
+
+    return verificationStatus
+      ? `Verification status: ${humanize(verificationStatus)}`
+      : null;
+  }
+
+  if (entityType === 'society') {
+    if (data.isVerifiedByHighrise === true) {
+      return 'Highrise verified';
+    }
+
+    if (data.isVerifiedByHighrise === false) {
+      return 'Not verified by Highrise';
+    }
+
+    return null;
+  }
+
+  const verificationStatus = readString(data.verificationStatus);
+  return verificationStatus
+    ? `Project verification status: ${humanize(verificationStatus)}`
+    : null;
+}
+
+function getAmenities(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+
+  return value.filter(
+    (amenity): amenity is string =>
+      typeof amenity === 'string' && amenity.trim().length > 0,
+  );
+}
+
+function normalizeEntity(entity: CompareEntity): NormalizedEntity {
+  const data = entity.data;
+  const isProject = entity.entityType === 'project';
+  const isSociety = entity.entityType === 'society';
+  const id = readString(data._id) ?? '';
+  const slug = readString(data.slug) ?? id;
+
+  const rawTitle = isSociety
+    ? data.name
+    : isProject
+      ? data.projectName
+      : data.title;
+
+  const title = readString(rawTitle) ?? 'Untitled';
+
+  const rawArea = isSociety
+    ? data.areaName
+    : typeof data.area === 'string'
+      ? data.area
+      : null;
+
+  const category = isSociety
+    ? readString(data.category)
+    : isProject
+      ? readString(data.projectCategory)
+      : readString(data.propertyType);
+
+  const status = isSociety
+    ? null
+    : isProject
+      ? readString(data.projectStatus)
+      : readString(data.status);
+
+  const ownershipProof = asRecord(data.ownershipProof);
+  const societyScores = asRecord(data.scores);
+
+  return {
+    id,
+    entityType: entity.entityType,
+    title,
+    slug,
+    city: readString(data.city),
+    area: readString(rawArea),
+    imageUrl: getImageUrl(data),
+    price: entity.entityType === 'property'
+      ? readNumber(data.price)
+      : null,
+    priceMin: isProject ? readNumber(data.minPrice) : null,
+    priceMax: isProject ? readNumber(data.maxPrice) : null,
+    score: isSociety
+      ? readNumber(societyScores?.overall)
+      : readNumber(data.highriseScore),
+    verification: getVerificationLabel(entity.entityType, data),
+    nocStatus: isSociety ? readString(data.nocStatus) : null,
+    nocAuthority: isSociety ? readString(data.approvalAuthority) : null,
+    litigationStatus: isSociety
+      ? readString(data.litigationStatus)
+      : null,
+    riskLevel: isSociety ? readString(data.overallRiskLevel) : null,
+    developer: isProject || isSociety
+      ? readString(data.developerName)
+      : null,
+    category,
+    status,
+    bedrooms: entity.entityType === 'property'
+      ? readNumber(data.bedrooms)
+      : null,
+    bathrooms: entity.entityType === 'property'
+      ? readNumber(data.bathrooms)
+      : null,
+    areaSize: entity.entityType === 'property'
+      ? readNumber(data.area)
+      : null,
+    areaUnit: entity.entityType === 'property'
+      ? readString(data.areaUnit)
+      : null,
+    listingType: entity.entityType === 'property'
+      ? readString(data.listingType)?.toLowerCase() ?? null
+      : null,
+    paymentTerms: entity.entityType === 'property'
+      ? readString(data.saleMode)
+      : null,
+    detailUrl: isSociety
+      ? `/societies/${encodeURIComponent(slug)}`
+      : isProject
+        ? `/projects/${encodeURIComponent(slug)}`
+        : `/property/${encodeURIComponent(slug)}`,
+    amenities: entity.entityType === 'society'
+      ? []
+      : getAmenities(data.amenities),
+  };
+}
+
+function formatPrice(value: number | null): string | null {
+  if (value === null || value <= 0) return null;
+
+  if (value >= 10_000_000) {
+    return `PKR ${(value / 10_000_000).toFixed(1)} Cr`;
+  }
+
+  if (value >= 100_000) {
+    return `PKR ${(value / 100_000).toFixed(1)} Lac`;
+  }
+
+  return `PKR ${value.toLocaleString('en-PK')}`;
+}
+
+function formatProjectPriceRange(
+  minimum: number | null,
+  maximum: number | null,
+): string | null {
+  const formattedMinimum = formatPrice(minimum);
+  const formattedMaximum = formatPrice(maximum);
+
+  if (formattedMinimum && formattedMaximum) {
+    return `${formattedMinimum} to ${formattedMaximum}`;
+  }
+
+  if (formattedMinimum) return `From ${formattedMinimum}`;
+  if (formattedMaximum) return `Up to ${formattedMaximum}`;
+
+  return null;
+}
+
+function formatArea(
+  area: number | null,
+  unit: string | null,
+): string | null {
+  if (area === null || area <= 0) return null;
+
+  const formattedArea = area.toLocaleString('en-PK');
+  return unit
+    ? `${formattedArea} ${unit}`
+    : `${formattedArea} (unit not specified)`;
+}
+
+function propertyIntent(
+  listingType: string | null,
+): 'sale' | 'rent' | 'pre_launch' | null {
+  switch (listingType) {
+    case 'full_payment':
+    case 'installment':
+      return 'sale';
+    case 'rent':
+      return 'rent';
+    case 'pre_launch':
+      return 'pre_launch';
+    default:
+      return null;
+  }
+}
+
+function listingTypeLabel(listingType: string | null): string | null {
+  switch (listingType) {
+    case 'full_payment':
+      return 'For sale, full payment';
+    case 'installment':
+      return 'For sale, installments';
+    case 'rent':
+      return 'For rent';
+    case 'pre_launch':
+      return 'Pre-launch';
+    default:
+      return null;
+  }
+}
+
+function EmptyColumnHeader({
+  entityType,
+}: {
+  entityType: CompareItemType;
+}): React.ReactElement {
+  const browseHref = entityType === 'society'
+    ? '/societies'
+    : entityType === 'property'
+      ? '/properties'
+      : '/projects';
+
+  const browseLabel = entityType === 'society'
+    ? 'Browse societies'
+    : entityType === 'property'
+      ? 'Browse properties'
+      : 'Browse projects';
+
   return (
     <th className="w-[280px] min-w-[280px] max-w-[280px] p-4 align-top border-l border-gray-100">
-      <Link href="/projects" className="block group">
+      <Link href={browseHref} className="block group">
         <div className="flex flex-col gap-3">
           <div className="relative aspect-[16/10] rounded-xl overflow-hidden bg-gradient-to-br from-gray-50 to-gray-100 border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-2 group-hover:border-[#029bba]/40 group-hover:bg-[#029bba]/5 transition-colors">
             <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform">
               <Plus className="w-5 h-5 text-gray-400 group-hover:text-[#029bba]" />
             </div>
-            <p className="text-xs font-bold text-gray-400 group-hover:text-[#029bba] transition-colors">
-              Add More
+            <p className="text-xs font-bold text-gray-500 group-hover:text-[#029bba] transition-colors">
+              Add another
             </p>
           </div>
-
-          <div>
-            <p className="text-sm font-black text-gray-300 group-hover:text-[#029bba] transition-colors">
-              Empty Slot
-            </p>
-            <p className="text-xs text-gray-300 mt-1">Browse projects</p>
-          </div>
+          <p className="text-xs text-gray-500">{browseLabel}</p>
         </div>
       </Link>
     </th>
@@ -156,743 +394,429 @@ function EmptyColumnHeader(): React.ReactElement {
 function EmptyCell(): React.ReactElement {
   return (
     <td className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100 bg-gray-50/30">
-      <span className="text-xs text-gray-300">—</span>
+      <span className="text-xs text-gray-500">Not available</span>
     </td>
   );
 }
-
-// ─── NORMALIZATION ────────────────────────────────────────────────────────────
-
-interface NormalizedEntity {
-  id:           string;
-  entityType:   CompareItemType;
-  title:        string;
-  slug:         string;
-  city:         string;
-  area:         string;
-  imageUrl:     string | null;
-  imageCount:   number;
-  price:        number | null;
-  priceMin:     number | null;
-  priceMax:     number | null;
-  shieldScore:  number;
-  isVerified:   boolean;
-  nocStatus:    string;
-  nocAuthority: string | null;
-  developer:    string;
-  developerBadge: string | null;
-  category:     string;
-  status:       string;
-  bedrooms:     number | null;
-  bathrooms:    number | null;
-  areaSize:     number | null;
-  areaUnit:     string | null;
-  listingType:  string | null;
-  detailUrl:    string;
-  saleMode:     string;
-  amenities:    string[];
-}
-
-function normalizeEntity(entity: CompareEntity): NormalizedEntity {
-  const d = entity.data;
-  const isProject = entity.entityType === 'project';
-
-  let imageUrl: string | null = null;
-  if (typeof d.primaryImage === 'string') {
-    imageUrl = d.primaryImage;
-  } else if (typeof d.featureImageUrl === 'string') {
-    imageUrl = d.featureImageUrl;
-  } else if (Array.isArray(d.images) && d.images.length > 0) {
-    const imgs = d.images as Array<{ url?: string } | string>;
-    const first = imgs[0];
-    imageUrl = typeof first === 'string' ? first : (first?.url ?? null);
-  }
-
-  const slug = String(d.slug ?? d._id ?? '');
-
-  return {
-    id:           String(d._id ?? ''),
-    entityType:   entity.entityType,
-    title:        String(isProject ? d.projectName : d.title) || 'Untitled',
-    slug,
-    city:         String(d.city ?? ''),
-    area:         String(d.area ?? ''),
-    imageUrl,
-    imageCount:   Array.isArray(d.images) ? d.images.length : 0,
-    price:        !isProject && typeof d.price === 'number' ? d.price : null,
-    priceMin:     isProject && typeof d.minPrice === 'number' ? d.minPrice : null,
-    priceMax:     isProject && typeof d.maxPrice === 'number' ? d.maxPrice : null,
-    shieldScore:  typeof d.highriseScore === 'number' ? d.highriseScore : 0,
-    isVerified:   Boolean(d.isVerified),
-    nocStatus:    String(d.nocStatus ?? 'not_applied'),
-    nocAuthority: typeof d.approvalAuthority === 'string' ? d.approvalAuthority : null,
-    developer:    String(d.developerName ?? '') || '—',
-    developerBadge: typeof d.developerBadge === 'string' ? d.developerBadge : null,
-    category:     String(d.projectCategory ?? d.propertyType ?? '—'),
-    status:       String(d.projectStatus ?? d.listingType ?? '—'),
-    bedrooms:     typeof d.bedrooms === 'number' ? d.bedrooms : null,
-    bathrooms:    typeof d.bathrooms === 'number' ? d.bathrooms : null,
-    areaSize:     typeof d.area === 'number' ? d.area : null,
-    areaUnit:     typeof d.areaUnit === 'string' ? d.areaUnit : null,
-    listingType:  typeof d.listingType === 'string' ? d.listingType : null,
-    detailUrl:    isProject ? `/projects/${slug}` : `/property/${slug}`,
-    saleMode:     typeof d.saleMode === 'string' ? d.saleMode : 'Full Payment',
-    amenities:    Array.isArray(d.amenities) ? (d.amenities as string[]) : [],
-  };
-}
-
-// ─── BEST-IN-CATEGORY DETECTION (Sale vs Rent Guard) ─────────────────────────
-
-interface BestPicks {
-  bestPriceId:  string | null;
-  bestShieldId: string | null;
-}
-
-function calculateBestPicks(entities: NormalizedEntity[]): BestPicks {
-  if (entities.length < 2) {
-    return { bestPriceId: null, bestShieldId: null };
-  }
-
-  // Guard: Do not compare prices across mixed Sale vs Rent models
-  const listingTypes = new Set(
-    entities.map((e) => e.listingType || (e.entityType === 'project' ? 'project' : 'full_payment'))
-  );
-  const isMixedModel =
-    listingTypes.has('rent') &&
-    (listingTypes.has('full_payment') || listingTypes.has('installment') || listingTypes.has('project'));
-
-  let bestPriceId: string | null = null;
-  if (!isMixedModel) {
-    const withPrice = entities
-      .map((e) => ({ id: e.id, p: e.price ?? e.priceMin ?? Infinity }))
-      .filter((x) => x.p !== Infinity && x.p > 0);
-    if (withPrice.length > 0) {
-      bestPriceId = withPrice.reduce((min, x) => (x.p < min.p ? x : min)).id;
-    }
-  }
-
-  const withShield = entities.filter((e) => e.shieldScore > 0);
-  const bestShield =
-    withShield.length > 0
-      ? withShield.reduce((max, e) => (e.shieldScore > max.shieldScore ? e : max))
-      : null;
-
-  return {
-    bestPriceId,
-    bestShieldId: bestShield?.id ?? null,
-  };
-}
-
-// ─── MAIN COMPONENT ───────────────────────────────────────────────────────────
 
 export default function CompareTable({
   entities,
   onRemove,
   removingId,
 }: CompareTableProps): React.ReactElement {
-  const normalized = useMemo(() => entities.map(normalizeEntity), [entities]);
-  const bestPicks  = useMemo(() => calculateBestPicks(normalized), [normalized]);
+  const normalized = useMemo(
+    () => entities.map(normalizeEntity).filter((entity) => entity.id.length > 0),
+    [entities],
+  );
+
+  const [showDiffOnly, setShowDiffOnly] = useState(false);
   const emptySlots = Math.max(0, MAX_COLUMNS - normalized.length);
 
-  // Enterprise Interactive States
-  const [showDiffOnly, setShowDiffOnly] = useState(false);
-  const [aiVerdictLoading, setAiVerdictLoading] = useState(false);
-  const [aiVerdict, setAiVerdict] = useState<string | null>(null);
-  const [showAiModal, setShowAiModal] = useState(false);
+  const entityTypes = new Set(normalized.map((entity) => entity.entityType));
+  const hasMixedEntityTypes = entityTypes.size > 1;
 
-  // Detect mixed Sale vs Rent comparison
-  const hasSale = normalized.some((e) => e.listingType === 'full_payment' || e.listingType === 'installment' || e.entityType === 'project');
-  const hasRent = normalized.some((e) => e.listingType === 'rent');
-  const isMixedSaleRent = hasSale && hasRent;
+  const propertyListings = normalized.filter(
+    (entity) => entity.entityType === 'property',
+  );
+  const propertyIntents = new Set(
+    propertyListings.map((entity) => propertyIntent(entity.listingType)),
+  );
+  const hasInvalidPropertyIntents =
+    propertyListings.length > 0 &&
+    (
+      propertyListings.length !== normalized.length ||
+      propertyListings.some((entity) => propertyIntent(entity.listingType) === null) ||
+      propertyIntents.size > 1
+    );
 
-  // Row visibility helper for "Differences Only" mode
-  const isRowDifferent = (values: (string | number | boolean | null)[]): boolean => {
-    if (!showDiffOnly) return true;
-    const nonNulls = values.filter((v) => v !== null && v !== '—' && v !== '');
-    if (nonNulls.length <= 1) return true;
-    return new Set(nonNulls).size > 1;
-  };
+  const activeEntityType = normalized[0]?.entityType ?? 'property';
 
-  // Reusable empty slot renderer
-  const renderEmptyCells = (rowKey: string) =>
-    Array.from({ length: emptySlots }).map((_, i) => (
-      <EmptyCell key={`${rowKey}-empty-${i}`} />
+  const renderEmptyCells = (rowKey: string): React.ReactElement[] =>
+    Array.from({ length: emptySlots }, (_, index) => (
+      <EmptyCell key={`${rowKey}-empty-${index}`} />
     ));
 
-  // Request ALEEM AI Verdict via Nemotron engine
-  const fetchAleemVerdict = async () => {
-    setShowAiModal(true);
-    if (aiVerdict) return; // Cached
+  const shouldShowRow = (values: Array<string | null>): boolean => {
+    const availableValues = values.filter(
+      (value): value is string => value !== null,
+    );
 
-    setAiVerdictLoading(true);
-    try {
-      const summaryList = normalized
-        .map(
-          (e, idx) =>
-            `${idx + 1}. "${e.title}" (${e.entityType}, ${e.city}, ${e.listingType || 'sale'}, Price: ${
-              e.price ? formatPrice(e.price) : 'On Request'
-            }, Area: ${formatPakistaniArea(e.areaSize, e.areaUnit)})`
-        )
-        .join('\n');
+    if (availableValues.length === 0) return false;
+    if (!showDiffOnly || availableValues.length <= 1) return true;
 
-      const prompt = `Compare these ${normalized.length} options side-by-side and give me your expert investment verdict with pros/cons for each:\n${summaryList}`;
-
-      const res = await fetch('/api/ai/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: prompt }),
-      });
-
-      const data = await res.json();
-      const verdictText = data.response || data.reply || data.message;
-      if (verdictText) {
-        setAiVerdict(verdictText);
-      } else {
-        setAiVerdict('Unable to generate AI verdict at this moment. Please try again.');
-      }
-    } catch {
-      setAiVerdict('Network error generating AI verdict. Please try again.');
-    } finally {
-      setAiVerdictLoading(false);
-    }
+    return new Set(availableValues).size > 1;
   };
+
+  const renderTextRow = (
+    rowKey: string,
+    label: string,
+    values: Array<string | null>,
+  ): React.ReactNode => {
+    if (!shouldShowRow(values)) return null;
+
+    return (
+      <tr key={rowKey} className="hover:bg-gray-50/40 transition-colors">
+        <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
+          <p className="text-xs font-black text-gray-600 uppercase tracking-wider">
+            {label}
+          </p>
+        </th>
+
+        {values.map((value, index) => (
+          <td
+            key={`${rowKey}-${normalized[index]?.id ?? index}`}
+            className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100"
+          >
+            <span className="text-sm font-semibold text-gray-700">
+              {value ?? 'Not available'}
+            </span>
+          </td>
+        ))}
+
+        {renderEmptyCells(rowKey)}
+      </tr>
+    );
+  };
+
+  if (normalized.length === 0) {
+    return (
+      <div className="rounded-2xl border border-gray-200 bg-white p-6 text-sm font-semibold text-gray-600">
+        No comparison items are available to display.
+      </div>
+    );
+  }
+
+  if (hasMixedEntityTypes) {
+    return (
+      <div
+        role="alert"
+        className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900"
+      >
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+        <div>
+          <p className="text-sm font-bold">These items cannot be compared together.</p>
+          <p className="mt-1 text-sm">
+            Clear the comparison and add properties, projects, or societies of one type.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (hasInvalidPropertyIntents) {
+    return (
+      <div
+        role="alert"
+        className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900"
+      >
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-amber-700" />
+        <div>
+          <p className="text-sm font-bold">These property listings cannot be compared together.</p>
+          <p className="mt-1 text-sm">
+            Clear the comparison, then add properties with the same listing intent. For-sale listings and rentals must be compared separately.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  const priceLabel = activeEntityType === 'society'
+    ? null
+    : activeEntityType === 'project'
+      ? 'Project price range'
+      : propertyListings[0]?.listingType === 'rent'
+        ? 'Listed rent'
+        : 'Listed price';
+
+  const priceValues = normalized.map((entity) => {
+    if (entity.entityType === 'project') {
+      return formatProjectPriceRange(entity.priceMin, entity.priceMax);
+    }
+
+    if (entity.entityType === 'property') {
+      return formatPrice(entity.price);
+    }
+
+    return null;
+  });
+
+  const scoreLabel = activeEntityType === 'society'
+    ? 'Overall score'
+    : 'Recorded Highrise score';
+
+  const listingTypeValues = normalized.map((entity) =>
+    entity.entityType === 'property'
+      ? listingTypeLabel(entity.listingType)
+      : null,
+  );
+
+  const paymentTermValues = normalized.map((entity) =>
+    entity.entityType === 'property'
+      ? entity.paymentTerms
+      : null,
+  );
+
+  const verificationLabel = activeEntityType === 'property'
+    ? 'Title and verification status'
+    : activeEntityType === 'society'
+      ? 'Highrise verification'
+      : 'Project verification status';
 
   return (
     <div className="space-y-4">
-      {/* ── Enterprise Action & Control Bar ── */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={fetchAleemVerdict}
-            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#029bba] to-[#004063] hover:from-[#004063] hover:to-[#029bba] text-white text-xs font-bold flex items-center gap-2 shadow-md hover:shadow-lg transition-all active:scale-[0.98]"
-          >
-            <Bot className="w-4 h-4 text-[#06b6d4]" />
-            <span>🤖 Ask ALEEM&apos;s Verdict</span>
-            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-          </button>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-white rounded-2xl border border-gray-200 shadow-sm">
+        <div>
+          <p className="text-sm font-black text-[#004063]">
+            Comparing {normalized.length} of {MAX_COLUMNS}
+          </p>
+          <p className="mt-1 text-xs font-semibold text-gray-600">
+            Missing details are shown as not available. Review the original listing before making a decision.
+          </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setShowDiffOnly(!showDiffOnly)}
-            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1.5 transition-all ${
-              showDiffOnly
-                ? 'bg-[#029bba]/10 border-[#029bba] text-[#029bba]'
-                : 'bg-gray-50 border-gray-200 text-gray-600 hover:bg-gray-100'
-            }`}
-          >
-            <SlidersHorizontal className="w-3.5 h-3.5" />
-            <span>{showDiffOnly ? 'Showing Differences Only' : 'Highlight Differences'}</span>
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={() => setShowDiffOnly((current) => !current)}
+          aria-pressed={showDiffOnly}
+          className={`inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold transition-colors ${
+            showDiffOnly
+              ? 'border-[#029bba] bg-[#029bba]/10 text-[#029bba]'
+              : 'border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100'
+          }`}
+        >
+          <SlidersHorizontal className="h-4 w-4" />
+          {showDiffOnly ? 'Showing differences' : 'Highlight differences'}
+        </button>
       </div>
 
-      {/* ── Sale vs Rent Mismatch Warning Banner ── */}
-      {isMixedSaleRent && (
-        <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs flex items-start gap-3 shadow-sm">
-          <Info className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold">Sale vs. Rent Model Mismatch:</span> You are comparing properties listed for <strong>Sale</strong> against properties for <strong>Rent</strong>. Purchase prices and monthly rentals are evaluated in separate financial tiers below.
-          </div>
-        </div>
-      )}
-
-      {/* ── Main Comparison Table ── */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden">
+      <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
         <div className="overflow-x-auto">
           <table className="text-sm">
             <thead>
               <tr>
-                <th className="w-[140px] min-w-[140px] max-w-[140px] sticky left-0 bg-white z-10 border-r border-gray-100">
+                <th className="sticky left-0 z-20 w-[140px] min-w-[140px] max-w-[140px] border-r border-gray-100 bg-white">
                   <div className="p-4">
-                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-gray-500">
                       Comparing
                     </p>
-                    <p className="text-lg font-black text-gray-900 mt-1">
+                    <p className="mt-1 text-lg font-black text-[#004063]">
                       {normalized.length} of {MAX_COLUMNS}
                     </p>
                   </div>
                 </th>
 
-                {normalized.map((entity) => (
-                  <th
-                    key={entity.id}
-                    className="w-[280px] min-w-[280px] max-w-[280px] p-4 align-top border-l border-gray-100"
-                  >
-                    <div className="flex flex-col gap-3">
-                      <Link
-                        href={entity.detailUrl}
-                        className="relative block aspect-[16/10] rounded-xl overflow-hidden bg-gray-100 group"
-                      >
-                        {entity.imageUrl ? (
-                          <Image
-                            src={entity.imageUrl}
-                            alt={entity.title}
-                            fill
-                            className="object-cover group-hover:scale-105 transition-transform duration-500"
-                            sizes="280px"
-                          />
-                        ) : (
-                          <div className="absolute inset-0 bg-gradient-to-br from-[#004063]/10 to-[#029bba]/10 flex items-center justify-center">
-                            {entity.entityType === 'project' ? (
-                              <Building2 className="w-8 h-8 text-[#029bba]/40" />
+                {normalized.map((entity) => {
+                  const optimizedImageUrl = entity.imageUrl
+                    ? getOptimizedImageUrl(entity.imageUrl, { width: 720 })
+                    : null;
+
+                  return (
+                    <th
+                      key={entity.id}
+                      className="w-[280px] min-w-[280px] max-w-[280px] p-4 align-top border-l border-gray-100"
+                    >
+                      <div className="flex flex-col gap-3">
+                        <div className="relative">
+                          <Link
+                            href={entity.detailUrl}
+                            className="relative block aspect-[16/10] overflow-hidden rounded-xl bg-gray-100"
+                          >
+                            {optimizedImageUrl ? (
+                              <Image
+                                src={optimizedImageUrl}
+                                alt={entity.title}
+                                fill
+                                className="object-cover transition-transform duration-300 hover:scale-105"
+                                sizes="280px"
+                              />
                             ) : (
-                              <HomeIcon className="w-8 h-8 text-[#029bba]/40" />
+                              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-[#004063]/10 to-[#029bba]/10">
+                                {entity.entityType === 'property' ? (
+                                  <HomeIcon className="h-8 w-8 text-[#029bba]/60" />
+                                ) : (
+                                  <Building2 className="h-8 w-8 text-[#029bba]/60" />
+                                )}
+                              </div>
                             )}
+
+                            <span className="absolute left-2 top-2 rounded-full bg-[#004063] px-2 py-1 text-[10px] font-black uppercase tracking-wider text-white">
+                              {entity.entityType}
+                            </span>
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={() => void onRemove(entity.entityType, entity.id)}
+                            disabled={removingId === entity.id}
+                            aria-label={`Remove ${entity.title} from comparison`}
+                            className="absolute right-2 top-2 flex h-8 w-8 items-center justify-center rounded-full bg-white/95 shadow-sm transition-colors hover:bg-red-500 hover:text-white focus:outline-none focus:ring-2 focus:ring-red-400 disabled:cursor-wait disabled:opacity-70"
+                          >
+                            {removingId === entity.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin text-gray-600" />
+                            ) : (
+                              <X className="h-4 w-4 text-gray-600" />
+                            )}
+                          </button>
+                        </div>
+
+                        <div>
+                          <Link href={entity.detailUrl}>
+                            <span className="line-clamp-2 text-sm font-black text-[#004063] transition-colors hover:text-[#029bba]">
+                              {entity.title}
+                            </span>
+                          </Link>
+
+                          <div className="mt-1 flex items-center gap-1">
+                            <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+                            <p className="truncate text-xs text-gray-600">
+                              {[entity.area, entity.city]
+                                .filter((value): value is string => Boolean(value))
+                                .join(', ') || 'Location not available'}
+                            </p>
                           </div>
-                        )}
-
-                        <span
-                          className={`absolute top-2 left-2 px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                            entity.entityType === 'project'
-                              ? 'bg-[#029bba] text-white'
-                              : 'bg-emerald-500 text-white'
-                          }`}
-                        >
-                          {entity.entityType}
-                        </span>
-
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            void onRemove(entity.entityType, entity.id);
-                          }}
-                          disabled={removingId === entity.id}
-                          aria-label={`Remove ${entity.title}`}
-                          className="absolute top-2 right-2 w-7 h-7 rounded-full bg-white/95 shadow-md flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors focus:outline-none focus:ring-2 focus:ring-red-400 disabled:opacity-70 disabled:cursor-wait"
-                        >
-                          {removingId === entity.id ? (
-                            <Loader2 className="w-3.5 h-3.5 animate-spin text-gray-500" />
-                          ) : (
-                            <X className="w-3.5 h-3.5 text-gray-600" />
-                          )}
-                        </button>
-                      </Link>
-
-                      <div>
-                        <Link href={entity.detailUrl}>
-                          <h3 className="font-black text-sm text-gray-900 leading-tight line-clamp-2 hover:text-[#029bba] transition-colors">
-                            {entity.title}
-                          </h3>
-                        </Link>
-                        <div className="flex items-center gap-1 mt-1">
-                          <MapPin className="w-3 h-3 text-gray-400 flex-shrink-0" />
-                          <p className="text-xs text-gray-500 truncate">
-                            {[entity.area, entity.city].filter(Boolean).join(', ') || '—'}
-                          </p>
                         </div>
                       </div>
-                    </div>
-                  </th>
-                ))}
+                    </th>
+                  );
+                })}
 
-                {Array.from({ length: emptySlots }).map((_, i) => (
-                  <EmptyColumnHeader key={`empty-header-${i}`} />
+                {Array.from({ length: emptySlots }, (_, index) => (
+                  <EmptyColumnHeader
+                    key={`empty-header-${index}`}
+                    entityType={activeEntityType}
+                  />
                 ))}
               </tr>
             </thead>
 
             <tbody className="divide-y divide-gray-100">
-              {/* PRICE */}
-              {isRowDifferent(normalized.map((e) => e.price ?? e.priceMin)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Price
-                    </p>
-                  </th>
-                  {normalized.map((entity) => {
-                    const isBest = bestPicks.bestPriceId === entity.id;
-                    const priceStr =
-                      entity.entityType === 'project'
-                        ? formatPriceRange(entity.priceMin, entity.priceMax)
-                        : formatPrice(entity.price);
-                    return (
-                      <td
-                        key={entity.id}
-                        className={`w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100 ${
-                          isBest ? 'bg-emerald-50/50' : ''
-                        }`}
-                      >
-                        {isBest && (
-                          <div className="inline-flex items-center gap-1 mb-1.5 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider">
-                            <Trophy className="w-2.5 h-2.5" />
-                            Best Price
-                          </div>
-                        )}
-                        <p className={`font-black text-base ${isBest ? 'text-emerald-700' : 'text-[#029bba]'}`}>
-                          {priceStr}
-                        </p>
-                      </td>
-                    );
-                  })}
-                  {renderEmptyCells('price')}
-                </tr>
+              {priceLabel && renderTextRow('price', priceLabel, priceValues)}
+
+              {renderTextRow(
+                'score',
+                scoreLabel,
+                normalized.map((entity) =>
+                  entity.score === null ? null : String(entity.score),
+                ),
               )}
 
-              {/* SHIELD SCORE */}
-              {isRowDifferent(normalized.map((e) => e.shieldScore)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Shield Score
-                    </p>
-                  </th>
-                  {normalized.map((entity) => {
-                    const isBest = bestPicks.bestShieldId === entity.id;
-                    const tier = getShieldTier(entity.shieldScore);
-                    return (
-                      <td
-                        key={entity.id}
-                        className={`w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100 ${
-                          isBest ? 'bg-emerald-50/50' : ''
-                        }`}
-                      >
-                        {isBest && (
-                          <div className="inline-flex items-center gap-1 mb-1.5 px-2 py-0.5 rounded-full bg-emerald-500 text-white text-[9px] font-black uppercase tracking-wider">
-                            <Trophy className="w-2.5 h-2.5" />
-                            Top Trusted
-                          </div>
-                        )}
-                        <div className="flex items-center gap-1.5">
-                          <ShieldCheck className={`w-4 h-4 ${tier.color}`} />
-                          <span className={`font-black text-base ${tier.color}`}>
-                            {entity.shieldScore}
-                          </span>
-                          <span className={`text-xs font-semibold ${tier.color}`}>
-                            {tier.label}
-                          </span>
-                        </div>
-                      </td>
-                    );
-                  })}
-                  {renderEmptyCells('shield')}
-                </tr>
+              {renderTextRow(
+                'verification',
+                verificationLabel,
+                normalized.map((entity) => entity.verification),
               )}
 
-              {/* NOC */}
-              {isRowDifferent(normalized.map((e) => e.nocStatus)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      NOC Status
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      {entity.nocStatus === 'approved' ? (
-                        <div className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg bg-emerald-50 border border-emerald-200">
-                          <BadgeCheck className="w-3.5 h-3.5 text-emerald-600" />
-                          <span className="text-xs font-black text-emerald-700">
-                            {entity.nocAuthority || 'Approved'}
-                          </span>
-                        </div>
-                      ) : entity.nocStatus === 'pending' ? (
-                        <span className="text-xs font-bold text-amber-600">⌛ Pending</span>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  ))}
-                  {renderEmptyCells('noc')}
-                </tr>
+              {activeEntityType === 'society' && renderTextRow(
+                'noc-status',
+                'NOC status',
+                normalized.map((entity) => humanize(entity.nocStatus)),
               )}
 
-              {/* DEVELOPER */}
-              {isRowDifferent(normalized.map((e) => e.developer)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Developer
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      <p className="font-bold text-xs text-gray-900 truncate">
-                        {entity.developer}
-                      </p>
-                      {entity.developerBadge && (
-                        <p className="text-[10px] font-black text-[#029bba] uppercase mt-0.5">
-                          {entity.developerBadge.replace(/_/g, ' ')}
-                        </p>
-                      )}
-                    </td>
-                  ))}
-                  {renderEmptyCells('developer')}
-                </tr>
+              {activeEntityType === 'society' && renderTextRow(
+                'approval-authority',
+                'Approval authority',
+                normalized.map((entity) => entity.nocAuthority),
               )}
 
-              {/* CATEGORY */}
-              {isRowDifferent(normalized.map((e) => e.category)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Category
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs font-bold capitalize">
-                        {entity.category.replace(/_/g, ' ')}
-                      </span>
-                    </td>
-                  ))}
-                  {renderEmptyCells('category')}
-                </tr>
+              {activeEntityType === 'society' && renderTextRow(
+                'litigation-status',
+                'Litigation status',
+                normalized.map((entity) => humanize(entity.litigationStatus)),
               )}
 
-              {/* STATUS */}
-              {isRowDifferent(normalized.map((e) => e.status)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Status
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-3.5 h-3.5 text-gray-400" />
-                        <span className="text-xs font-bold text-gray-700 capitalize">
-                          {entity.status.replace(/_/g, ' ')}
-                        </span>
-                      </div>
-                    </td>
-                  ))}
-                  {renderEmptyCells('status')}
-                </tr>
+              {activeEntityType === 'society' && renderTextRow(
+                'risk-level',
+                'Recorded risk level',
+                normalized.map((entity) => humanize(entity.riskLevel)),
               )}
 
-              {/* PAYMENT OPTION (Cash vs Installments) */}
-              {isRowDifferent(normalized.map((e) => e.saleMode)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Payment Terms
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      {entity.saleMode === 'Installment' || entity.saleMode === 'Both' ? (
-                        <div className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#029bba]/10 text-[#029bba] text-xs font-bold border border-[#029bba]/20">
-                          <CreditCard className="w-3.5 h-3.5" />
-                          <span>Installment Schedule</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs font-bold text-gray-600">Full Payment Only</span>
-                      )}
-                    </td>
-                  ))}
-                  {renderEmptyCells('payment_terms')}
-                </tr>
+              {(activeEntityType === 'project' || activeEntityType === 'society') &&
+                renderTextRow(
+                  'developer',
+                  'Developer',
+                  normalized.map((entity) => entity.developer),
+                )}
+
+              {renderTextRow(
+                'category',
+                'Category',
+                normalized.map((entity) => humanize(entity.category)),
               )}
 
-              {/* AMENITIES */}
-              <tr className="hover:bg-gray-50/40 transition-colors">
-                <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                  <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                    Amenities Matrix
-                  </p>
-                </th>
-                {normalized.map((entity) => (
-                  <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                    {entity.amenities && entity.amenities.length > 0 ? (
-                      <div className="flex flex-col gap-1.5">
-                        {entity.amenities.slice(0, 5).map((amenity, idx) => (
-                          <div key={idx} className="flex items-center gap-1.5 text-xs text-gray-600 font-bold">
-                            <span className="w-1.5 h-1.5 bg-[#029bba] rounded-full shrink-0" />
-                            <span className="truncate">{amenity}</span>
-                          </div>
-                        ))}
-                        {entity.amenities.length > 5 && (
-                          <span className="text-[10px] text-gray-400 font-bold ml-3">
-                            +{entity.amenities.length - 5} more features
-                          </span>
-                        )}
-                      </div>
-                    ) : (
-                      <span className="text-xs text-gray-400">See description</span>
-                    )}
-                  </td>
-                ))}
-                {renderEmptyCells('amenities_matrix')}
-              </tr>
-
-              {/* BEDROOMS */}
-              {normalized.some((e) => e.bedrooms !== null) && isRowDifferent(normalized.map((e) => e.bedrooms)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Bedrooms
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      {entity.bedrooms !== null ? (
-                        <div className="flex items-center gap-1.5">
-                          <BedDouble className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm font-bold text-gray-700">
-                            {entity.bedrooms}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  ))}
-                  {renderEmptyCells('bedrooms')}
-                </tr>
+              {activeEntityType !== 'society' && renderTextRow(
+                'status',
+                'Status',
+                normalized.map((entity) => humanize(entity.status)),
               )}
 
-              {/* BATHROOMS */}
-              {normalized.some((e) => e.bathrooms !== null) && isRowDifferent(normalized.map((e) => e.bathrooms)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Bathrooms
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      {entity.bathrooms !== null ? (
-                        <div className="flex items-center gap-1.5">
-                          <Bath className="w-4 h-4 text-gray-400" />
-                          <span className="text-sm font-bold text-gray-700">
-                            {entity.bathrooms}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  ))}
-                  {renderEmptyCells('bathrooms')}
-                </tr>
+              {activeEntityType === 'property' && renderTextRow(
+                'listing-type',
+                'Listing type',
+                listingTypeValues,
               )}
 
-              {/* AREA SIZE (Pakistani Land Unit Normalization) */}
-              {normalized.some((e) => e.areaSize !== null) && isRowDifferent(normalized.map((e) => e.areaSize)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Area Size
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      {entity.areaSize !== null ? (
-                        <div className="flex items-center gap-1.5">
-                          <Maximize2 className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-                          <span className="text-xs font-bold text-gray-800">
-                            {formatPakistaniArea(entity.areaSize, entity.areaUnit)}
-                          </span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  ))}
-                  {renderEmptyCells('area')}
-                </tr>
+              {activeEntityType === 'property' && renderTextRow(
+                'payment-terms',
+                'Payment terms',
+                paymentTermValues,
               )}
 
-              {/* RENTAL YIELD / FINANCIAL ESTIMATE ROW */}
-              <tr className="bg-gradient-to-r from-gray-50 to-cyan-50/30 hover:bg-cyan-50/50 transition-colors">
-                <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                  <p className="text-xs font-black text-[#029bba] uppercase tracking-wider flex items-center gap-1">
-                    <TrendingUp className="w-3.5 h-3.5" /> Financial Est.
-                  </p>
-                </th>
-                {normalized.map((entity) => {
-                  const isRent = entity.listingType === 'rent';
-                  const isSale =
-                    entity.listingType === 'full_payment' ||
-                    entity.listingType === 'installment' ||
-                    entity.entityType === 'project';
-                  const price = entity.price ?? entity.priceMin ?? 0;
-
-                  return (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      {isSale && price > 0 && (
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase">Est. Rental Yield</p>
-                          <p className="text-xs font-extrabold text-emerald-600">
-                            ~PKR {Math.round(price * 0.005).toLocaleString()}/mo{' '}
-                            <span className="text-[10px] text-gray-500 font-normal">(6% p.a.)</span>
-                          </p>
-                        </div>
-                      )}
-                      {isRent && price > 0 && (
-                        <div>
-                          <p className="text-[10px] font-bold text-gray-400 uppercase">Est. Buy Value</p>
-                          <p className="text-xs font-extrabold text-[#004063]">
-                            ~PKR {formatPrice(price * 200)}
-                          </p>
-                        </div>
-                      )}
-                      {!price && <span className="text-xs text-gray-400">—</span>}
-                    </td>
-                  );
-                })}
-                {renderEmptyCells('financial_est')}
-              </tr>
-
-              {/* VERIFIED */}
-              {isRowDifferent(normalized.map((e) => e.isVerified)) && (
-                <tr className="hover:bg-gray-50/40 transition-colors">
-                  <th className="sticky left-0 bg-white z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
-                      Verified
-                    </p>
-                  </th>
-                  {normalized.map((entity) => (
-                    <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                      {entity.isVerified ? (
-                        <div className="inline-flex items-center gap-1 text-emerald-600">
-                          <BadgeCheck className="w-4 h-4" />
-                          <span className="text-xs font-black">Yes</span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-gray-400">—</span>
-                      )}
-                    </td>
-                  ))}
-                  {renderEmptyCells('verified')}
-                </tr>
+              {activeEntityType === 'property' && renderTextRow(
+                'bedrooms',
+                'Bedrooms',
+                normalized.map((entity) =>
+                  entity.bedrooms === null ? null : String(entity.bedrooms),
+                ),
               )}
 
-              {/* ACTION CTA */}
+              {activeEntityType === 'property' && renderTextRow(
+                'bathrooms',
+                'Bathrooms',
+                normalized.map((entity) =>
+                  entity.bathrooms === null ? null : String(entity.bathrooms),
+                ),
+              )}
+
+              {activeEntityType === 'property' && renderTextRow(
+                'area',
+                'Area',
+                normalized.map((entity) =>
+                  formatArea(entity.areaSize, entity.areaUnit),
+                ),
+              )}
+
+              {activeEntityType !== 'society' && renderTextRow(
+                'amenities',
+                'Amenities',
+                normalized.map((entity) =>
+                  entity.amenities.length > 0
+                    ? entity.amenities.slice(0, 8).join(', ')
+                    : null,
+                ),
+              )}
+
               <tr className="bg-gray-50/60">
-                <th className="sticky left-0 bg-gray-50 z-10 border-r border-gray-100 px-4 py-4 text-left align-top">
-                  <p className="text-xs font-black text-gray-500 uppercase tracking-wider">
+                <th className="sticky left-0 z-10 border-r border-gray-100 bg-gray-50 px-4 py-4 text-left align-top">
+                  <p className="text-xs font-black uppercase tracking-wider text-gray-600">
                     Action
                   </p>
                 </th>
-                {normalized.map((entity) => (
-                  <td key={entity.id} className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100">
-                    <div className="flex flex-col gap-2">
-                      <Link
-                        href={entity.detailUrl}
-                        className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl bg-[#029bba] text-white text-xs font-black hover:bg-[#017a94] transition-colors shadow-sm focus:outline-none focus:ring-2 focus:ring-[#029bba]/50"
-                      >
-                        View Details
-                        <ArrowRight className="w-3 h-3" />
-                      </Link>
 
-                      <Link
-                        href={entity.detailUrl}
-                        className="inline-flex items-center justify-center gap-1 px-3 py-2 rounded-xl border-2 border-[#029bba] text-[#029bba] text-xs font-black hover:bg-[#029bba]/5 transition-colors focus:outline-none focus:ring-2 focus:ring-[#029bba]/50"
-                      >
-                        <MessageSquare className="w-3 h-3" />
-                        Contact
-                      </Link>
-                    </div>
+                {normalized.map((entity) => (
+                  <td
+                    key={entity.id}
+                    className="w-[280px] min-w-[280px] max-w-[280px] px-4 py-4 align-top border-l border-gray-100"
+                  >
+                    <Link
+                      href={entity.detailUrl}
+                      className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#029bba] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-colors hover:bg-[#027f99] focus:outline-none focus:ring-2 focus:ring-[#029bba]/50"
+                    >
+                      View details
+                      <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
                   </td>
                 ))}
+
                 {renderEmptyCells('action')}
               </tr>
             </tbody>
@@ -900,59 +824,10 @@ export default function CompareTable({
         </div>
       </div>
 
-      {/* ── ALEEM AI Verdict Modal ── */}
-      {showAiModal && (
-        <div className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-2xl w-full p-6 shadow-2xl space-y-4 max-h-[85vh] flex flex-col relative overflow-hidden">
-            <button
-              type="button"
-              onClick={() => setShowAiModal(false)}
-              className="absolute top-4 right-4 p-2 rounded-full hover:bg-gray-100 text-gray-500 transition-colors"
-            >
-              <X className="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#029bba] to-[#004063] flex items-center justify-center text-white shadow-md">
-                <Bot className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-2">
-                  ALEEM AI Investment Verdict
-                  <Sparkles className="w-4 h-4 text-amber-500" />
-                </h3>
-                <p className="text-xs text-gray-500">Grounded analysis based on database records &amp; sector intelligence</p>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto space-y-4 text-sm text-gray-700 pr-2">
-              {aiVerdictLoading ? (
-                <div className="py-12 text-center space-y-3">
-                  <Loader2 className="w-8 h-8 text-[#029bba] animate-spin mx-auto" />
-                  <p className="text-xs font-semibold text-gray-500">
-                    ALEEM is analyzing your {normalized.length} compared properties...
-                  </p>
-                </div>
-              ) : (
-                <div className="prose prose-sm max-w-none space-y-3 whitespace-pre-wrap leading-relaxed">
-                  {aiVerdict}
-                </div>
-              )}
-            </div>
-
-            <div className="pt-3 border-t border-gray-100 flex items-center justify-between">
-                            <span className="text-[10px] text-gray-400 font-semibold">Powered by Highrise Property Intelligence</span>
-              <button
-                type="button"
-                onClick={() => setShowAiModal(false)}
-                className="px-5 py-2 rounded-xl bg-[#029bba] text-white text-xs font-bold hover:bg-[#027a94] transition-colors"
-              >
-                Close Verdict
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <p className="flex items-start gap-2 text-xs font-semibold leading-relaxed text-gray-600">
+        <BadgeCheck className="mt-0.5 h-4 w-4 shrink-0 text-[#029bba]" />
+        Comparison values are limited to information available in the saved records. Confirm details with the original listing.
+      </p>
     </div>
   );
 }

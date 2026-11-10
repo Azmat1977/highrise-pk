@@ -74,8 +74,6 @@ export default function PropertyListingForm({
         }
         if (!form.city) newErrors.city = 'City is required.';
         if (!form.society) newErrors.society = 'Society / Area is required.';
-        // Verification mandatory for listing
-        if (!form.isVerified) newErrors.isVerified = 'Seller verification is mandatory to list a property.';
       }
 
       if (stepNum === 2) {

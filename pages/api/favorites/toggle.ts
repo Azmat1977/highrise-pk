@@ -6,10 +6,12 @@ import dbConnect from '@/lib/dbConnect';
 import Favorite from '@/models/Favorite';
 import Property from '@/models/Property';
 import Project from '@/models/Projects';
+import Society from '@/models/Society';
 import SecurityEvent from '@/models/SecurityEvent';
 import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitFavorite } from '@/lib/rateLimit';
 import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
+import { z } from 'zod';
 
 /**
  * 🔐 ENTERPRISE FAVORITES TOGGLE ENDPOINT
@@ -43,10 +45,11 @@ import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 // 🔒 TYPE DEFINITIONS
 // ═══════════════════════════════════════════════════════════════
 
+type FavoriteToggleEntityType = 'property' | 'project' | 'society';
+
 interface ToggleRequest {
-  entityType: 'property' | 'project';
-  entityId: string;
-  // Legacy support
+  entityType?: FavoriteToggleEntityType;
+  entityId?: string;
   propertyId?: string;
   projectId?: string;
   desiredState?: 'add' | 'remove';
@@ -58,7 +61,7 @@ interface ApiResponse {
   data?: {
     isFavorited: boolean;
     action: 'added' | 'removed';
-    entityType: 'property' | 'project';
+    entityType: FavoriteToggleEntityType;
     entityId: string;
     totalFavorites?: number;
   };
@@ -66,7 +69,6 @@ interface ApiResponse {
   requestId?: string;
   retryAfter?: number;
 }
-
 // ═══════════════════════════════════════════════════════════════
 // 🔒 SECURITY CONSTANTS
 // ═══════════════════════════════════════════════════════════════
@@ -75,7 +77,37 @@ const MAX_FAVORITES_PER_USER = 500;
 const MAX_DAILY_ACTIONS = 50;
 const MAX_QUERY_TIME_MS = 2500;
 const RAPID_TOGGLE_WINDOW_MS = 3000; // 3 seconds
-const ALLOWED_ENTITY_TYPES = ['property', 'project'] as const;
+const ALLOWED_ENTITY_TYPES = ['property', 'project', 'society'] as const;
+
+const objectIdSchema = z.string().refine(
+  isValidObjectId,
+  'Invalid entity ID format',
+);
+
+const favoriteToggleSchema = z.object({
+  entityType: z.enum(ALLOWED_ENTITY_TYPES).optional(),
+  entityId: objectIdSchema.optional(),
+  propertyId: objectIdSchema.optional(),
+  projectId: objectIdSchema.optional(),
+  desiredState: z.enum(['add', 'remove']).optional(),
+}).strict().superRefine((data, context) => {
+  const hasEntityType = data.entityType !== undefined;
+  const hasEntityId = data.entityId !== undefined;
+  const legacyCount =
+    Number(data.propertyId !== undefined) +
+    Number(data.projectId !== undefined);
+
+  if (
+    hasEntityType !== hasEntityId ||
+    (hasEntityType && legacyCount > 0) ||
+    (!hasEntityType && legacyCount !== 1)
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: 'Provide entityType with entityId, or exactly one legacy propertyId/projectId.',
+    });
+  }
+});
 
 // ═══════════════════════════════════════════════════════════════
 // 🛠️ HELPER FUNCTIONS
@@ -113,11 +145,15 @@ async function logSecurityEvent(data: {
   userId?: string;
   ipAddress: string;
   userAgent: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }): Promise<void> {
   try {
     await SecurityEvent.create({
       ...data,
+      metadata: {
+        ...(data.metadata ?? {}),
+        action: data.eventType,
+      },
       timestamp: new Date(),
     });
   } catch {
@@ -183,7 +219,7 @@ async function detectRapidToggle(
  * Verify entity exists and is publicly accessible
  */
 async function verifyEntity(
-  entityType: 'property' | 'project',
+  entityType: FavoriteToggleEntityType,
   entityId: string
 ): Promise<boolean> {
   try {
@@ -198,8 +234,10 @@ async function verifyEntity(
         .maxTimeMS(MAX_QUERY_TIME_MS)
         .lean();
 
-      return !!property;
-    } else if (entityType === 'project') {
+      return Boolean(property);
+    }
+
+    if (entityType === 'project') {
       const project = await Project.findOne({
         _id: entityOid,
         isDeleted: { $ne: true },
@@ -212,10 +250,18 @@ async function verifyEntity(
         .maxTimeMS(MAX_QUERY_TIME_MS)
         .lean();
 
-      return !!project;
+      return Boolean(project);
     }
 
-    return false;
+    const society = await Society.findOne({
+      _id: entityOid,
+      isPublished: true,
+    })
+      .select('_id')
+      .maxTimeMS(MAX_QUERY_TIME_MS)
+      .lean();
+
+    return Boolean(society);
   } catch {
     return false;
   }
@@ -225,11 +271,13 @@ async function verifyEntity(
  * Update favorite count analytics (background task)
  */
 async function updateAnalytics(
-  entityType: 'property' | 'project',
+  entityType: FavoriteToggleEntityType,
   entityId: string,
   action: 'add' | 'remove',
   count: number = 1
 ): Promise<void> {
+  if (entityType === 'society') return;
+
   try {
     const entityOid = new mongoose.Types.ObjectId(entityId);
     const safeCount = Math.max(count || 1, 1);
@@ -347,52 +395,22 @@ export default async function handler(
     // ─────────────────────────────────────────────
     // STEP 5: PARSE & VALIDATE INPUT
     // ─────────────────────────────────────────────
-    const {
-      entityType: bodyEntityType,
-      entityId: bodyEntityId,
-      propertyId,
-      projectId,
-      desiredState,
-    }: ToggleRequest = req.body;
+    const validation = favoriteToggleSchema.safeParse(req.body);
 
-    // Support legacy format (propertyId/projectId) and new format (entityType/entityId)
-    let entityType: 'property' | 'project';
-    let entityId: string;
-
-    if (propertyId) {
-      entityType = 'property';
-      entityId = propertyId;
-    } else if (projectId) {
-      entityType = 'project';
-      entityId = projectId;
-    } else if (bodyEntityType && bodyEntityId) {
-      entityType = bodyEntityType;
-      entityId = bodyEntityId;
-    } else {
+    if (!validation.success) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required fields. Provide propertyId, projectId, or (entityType + entityId)',
+        message: validation.error.issues[0]?.message ?? 'Invalid request',
         requestId,
       });
     }
 
-    // Validate entity type
-    if (!ALLOWED_ENTITY_TYPES.includes(entityType)) {
-      return res.status(400).json({
-        success: false,
-        message: `Invalid entityType. Must be: ${ALLOWED_ENTITY_TYPES.join(', ')}`,
-        requestId,
-      });
-    }
-
-    // Validate entity ID
-    if (!isValidObjectId(entityId)) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid entity ID format',
-        requestId,
-      });
-    }
+    const input = validation.data;
+    const entityType: FavoriteToggleEntityType =
+      input.entityType ?? (input.projectId ? 'project' : 'property');
+    const entityId =
+      input.entityId ?? input.propertyId ?? input.projectId ?? '';
+    const { desiredState } = input;
 
     // ─────────────────────────────────────────────
     // STEP 6: ABUSE DETECTION
@@ -594,9 +612,8 @@ export default async function handler(
         data: {
           isFavorited: true,
           action: 'added',
-          entityType: (body.entityType as 'property' | 'project') || 'property',
-          entityId: body.entityId || body.propertyId || '',
-        },
+          entityType: body.entityType ?? (body.projectId ? 'project' : 'property'),
+          entityId: body.entityId ?? body.propertyId ?? body.projectId ?? '',        },
         requestId,
       });
     }

@@ -1,77 +1,53 @@
 /**
  * pages/shortlist/index.tsx
  *
- * The /shortlist page — user's saved projects.
+ * The /shortlist page: the user's saved projects.
  *
- * ARCHITECTURE:
- *   → Client-side rendered (guest mode needs localStorage access)
- *   → Uses useFavorites hook (guest + logged-in unified)
- *   → Fetches full project data via /api/projects/batch
- *   → Displays via ProjectListingCard (grid + list variants)
+ * Architecture:
+ *   Client-side rendered page. useFavorites supplies favoriteIds for the
+ *   signed-in user; full project data is fetched with POST /api/projects/batch
+ *   and rendered through ProjectListingCard grid and list variants.
+ *   Signed-out visitors get the empty state because useFavorites returns no
+ *   favorites and performs no requests when signed out.
  *
- * FEATURES:
- *   ✅ Grid + List view toggle
- *   ✅ Sort: Newest / Oldest / Price ↑↓ / Shield Score
- *   ✅ Search within saved (client-side filter)
- *   ✅ Bulk selection (checkboxes)
- *   ✅ Bulk actions: Remove Selected, Clear All
- *   ✅ Per-project notes (logged-in only)
- *   ✅ Empty state
- *   ✅ Loading skeleton
- *   ✅ Real-time updates when unhearting
- *   ✅ Guest-friendly with login CTA
+ * Notes:
+ *   Private per-project notes load from GET /api/favorites?limit=500 and are
+ *   saved through PATCH /api/projects/notes.
  */
-
-'use client';
 
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import type { NextPage } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
-import {
-  Search,
-  Grid3x3,
-  List as ListIcon,
-  ArrowUpDown,
-  Trash2,
-  StickyNote,
-  Check,
-  X,
-  AlertCircle,
-  Loader2,
-  Lock,
-  Home,
-  ChevronRight,
-} from 'lucide-react';
 
+import { icons } from '@/lib/design-system/icons';
 import { useFavorites } from '@/hooks/useFavorites';
 import ProjectListingCard from '@/components/projects/ProjectListingCard';
-import ShortlistEmpty      from '@/components/shortlist/ShortlistEmpty';
-import ShortlistNoteModal  from '@/components/shortlist/ShortlistNoteModal';
+import ShortlistEmpty from '@/components/shortlist/ShortlistEmpty';
+import ShortlistNoteModal from '@/components/shortlist/ShortlistNoteModal';
 import type { ProjectListing } from '@/types/projects';
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+// ===== Types =====
 
 type ViewMode = 'grid' | 'list';
 type SortMode = 'newest' | 'oldest' | 'price_asc' | 'price_desc' | 'shield_desc';
 
-// ─── PAGE ────────────────────────────────────────────────────────────────────
+// ===== Page =====
 
 const ShortlistPage: NextPage = () => {
   const router = useRouter();
 
-  // ── Favorites hook ────────────────────────────────────────────────────────
+  // Favorites hook
   const {
     favoriteIds,
-    totalCount,
     isLoggedIn,
     isReady,
     toggle,
     refresh,
   } = useFavorites({ defaultEntityType: 'project' });
 
-  // ── Local state ───────────────────────────────────────────────────────────
+  // Local state
   const [projects, setProjects]         = useState<ProjectListing[]>([]);
   const [loading,  setLoading]          = useState(true);
   const [error,    setError]            = useState<string | null>(null);
@@ -88,7 +64,7 @@ const ShortlistPage: NextPage = () => {
   const [noteProject,   setNoteProject]     = useState<ProjectListing | null>(null);
   const [noteMap,       setNoteMap]         = useState<Map<string, string>>(new Map());
 
-  // ── Fetch project details for favoriteIds ─────────────────────────────────
+  // Fetch project details for favoriteIds
   useEffect(() => {
     if (!isReady) return;
 
@@ -137,7 +113,7 @@ const ShortlistPage: NextPage = () => {
     return () => { cancelled = true; };
   }, [favoriteIds, isReady]);
 
-  // ── Load notes for logged-in users ────────────────────────────────────────
+  // Load notes for logged-in users
   useEffect(() => {
     if (!isLoggedIn) {
       setNoteMap(new Map());
@@ -187,7 +163,7 @@ const ShortlistPage: NextPage = () => {
     return () => { cancelled = true; };
   }, [isLoggedIn, favoriteIds.length]);
 
-  // ── Derived: filtered + sorted projects ───────────────────────────────────
+  // Derived: filtered + sorted projects
   const displayedProjects = useMemo(() => {
     let list = [...projects];
 
@@ -228,7 +204,7 @@ const ShortlistPage: NextPage = () => {
     return list;
   }, [projects, search, sortMode]);
 
-  // ── Bulk selection helpers ────────────────────────────────────────────────
+  // Bulk selection helpers
   const toggleSelection = useCallback((id: string) => {
     setSelectedIds(prev => {
       const next = new Set(prev);
@@ -251,7 +227,7 @@ const ShortlistPage: NextPage = () => {
     setSelectedIds(new Set());
   }, []);
 
-  // ── Bulk remove ───────────────────────────────────────────────────────────
+  // Bulk remove
   const handleBulkRemove = useCallback(async () => {
     if (selectedIds.size === 0) return;
     if (!confirm(`Remove ${selectedIds.size} project${selectedIds.size > 1 ? 's' : ''} from your shortlist?`)) {
@@ -272,11 +248,11 @@ const ShortlistPage: NextPage = () => {
     await refresh();
   }, [selectedIds, toggle, refresh]);
 
-  // ── Notes save handler ────────────────────────────────────────────────────
+  // Notes save handler
   const handleNoteSave = useCallback(
     async (project: ProjectListing, note: string): Promise<boolean> => {
       try {
-        const res = await fetch('/api/favorites/notes', {
+        const res = await fetch('/api/projects/notes', {
           method:      'PATCH',
           credentials: 'include',
           headers:     { 'Content-Type': 'application/json' },
@@ -306,9 +282,7 @@ const ShortlistPage: NextPage = () => {
     [],
   );
 
-  // ─────────────────────────────────────────────────────────────────────────
-  // RENDER
-  // ─────────────────────────────────────────────────────────────────────────
+  // Render
 
   return (
     <>
@@ -319,19 +293,16 @@ const ShortlistPage: NextPage = () => {
         <meta name="robots" content="noindex, nofollow" />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-[#f8f9fa]">
 
-        {/* ═══════════════════════════════════════════════════════
-            HERO SECTION
-        ═══════════════════════════════════════════════════════ */}
-        {/* ── COMPACT PAGE HEADER ── */}
+        {/* Page header */}
         <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
           <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
             <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-              <Home className="w-3.5 h-3.5" />
+              <icons.Home className="w-3.5 h-3.5" />
               <span>Home</span>
             </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
+            <icons.ChevronRight className="w-3 h-3 text-gray-300" />
             <span className="text-[#004063] font-bold">Shortlist</span>
           </nav>
 
@@ -343,61 +314,33 @@ const ShortlistPage: NextPage = () => {
               {isReady
                 ? favoriteIds.length === 0
                   ? 'Save projects you love to compare and revisit'
-                  : `${favoriteIds.length} project${favoriteIds.length > 1 ? 's' : ''} saved${!isLoggedIn ? ' (guest mode)' : ''}`
+                  : `${favoriteIds.length} project${favoriteIds.length > 1 ? 's' : ''} saved`
                 : 'Loading your favorites...'}
             </span>
           </p>
         </div>
 
-        {/* Guest login CTA (relocated from hero) */}
-        {isReady && !isLoggedIn && favoriteIds.length > 0 && (
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6">
-            <div className="bg-white border border-gray-200 rounded-xl px-4 py-3 shadow-sm max-w-xl">
-              <div className="flex items-start gap-3">
-                <Lock className="w-4 h-4 text-[#029bba] flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-xs font-bold text-[#004063] mb-1">
-                    Save Across Devices
-                  </p>
-                  <p className="text-[11px] text-gray-500 mb-2 leading-relaxed">
-                    Login to sync your shortlist to any device
-                  </p>
-                  <Link
-                    href="/login?callbackUrl=/shortlist"
-                    className="inline-flex items-center gap-1 text-xs
-                               font-black text-[#029bba] hover:underline"
-                  >
-                    Login now →
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════════════════════════════════════
-            BODY
-        ═══════════════════════════════════════════════════════ */}
+        {/* Body */}
         <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
 
-          {/* ── Loading ── */}
+          {/* Loading */}
           {!isReady || loading ? (
             <div className="flex flex-col items-center justify-center py-20">
-              <Loader2 className="w-10 h-10 text-[#029bba] animate-spin mb-4" />
+              <icons.Loader2 className="w-10 h-10 text-[#029bba] animate-spin mb-4" />
               <p className="text-sm text-gray-500 font-semibold">
                 Loading your shortlist...
               </p>
             </div>
           )
-          /* ── Empty state ── */
+          /* Empty state */
           : favoriteIds.length === 0 ? (
             <ShortlistEmpty />
           )
-          /* ── Error state ── */
+          /* Error state */
           : error ? (
             <div className="bg-red-50 border-2 border-red-200 rounded-2xl
                             p-8 text-center max-w-md mx-auto">
-              <AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
+              <icons.AlertCircle className="w-10 h-10 text-red-500 mx-auto mb-3" />
               <p className="text-sm font-bold text-red-700 mb-4">{error}</p>
               <button
                 onClick={() => router.reload()}
@@ -409,17 +352,17 @@ const ShortlistPage: NextPage = () => {
               </button>
             </div>
           )
-          /* ── Main content ── */
+          /* Main content */
           : (
             <>
-              {/* ═══ TOOLBAR ═══ */}
+              {/* Toolbar */}
               <div className="bg-white rounded-2xl border border-gray-100
                               shadow-sm p-4 mb-6">
                 <div className="flex items-center justify-between flex-wrap gap-3">
 
                   {/* Left: Search */}
                   <div className="relative flex-1 min-w-[200px] max-w-md">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2
+                    <icons.Search className="absolute left-3 top-1/2 -translate-y-1/2
                                        w-4 h-4 text-gray-400 pointer-events-none" />
                     <input
                       type="text"
@@ -439,7 +382,7 @@ const ShortlistPage: NextPage = () => {
                         className="absolute right-3 top-1/2 -translate-y-1/2
                                    p-0.5 hover:bg-gray-100 rounded transition-colors"
                       >
-                        <X className="w-3.5 h-3.5 text-gray-400" />
+                        <icons.X className="w-3.5 h-3.5 text-gray-400" />
                       </button>
                     )}
                   </div>
@@ -449,7 +392,7 @@ const ShortlistPage: NextPage = () => {
 
                     {/* Sort */}
                     <div className="relative">
-                      <ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2
+                      <icons.ArrowUpDown className="absolute left-3 top-1/2 -translate-y-1/2
                                               w-3.5 h-3.5 text-gray-400 pointer-events-none" />
                       <select
                         value={sortMode}
@@ -481,7 +424,7 @@ const ShortlistPage: NextPage = () => {
                             : 'text-gray-500 hover:text-gray-700'
                         }`}
                       >
-                        <Grid3x3 className="w-4 h-4" />
+                        <icons.Grid3X3 className="w-4 h-4" />
                       </button>
                       <button
                         onClick={() => setViewMode('list')}
@@ -493,7 +436,7 @@ const ShortlistPage: NextPage = () => {
                             : 'text-gray-500 hover:text-gray-700'
                         }`}
                       >
-                        <ListIcon className="w-4 h-4" />
+                        <icons.List className="w-4 h-4" />
                       </button>
                     </div>
 
@@ -545,9 +488,9 @@ const ShortlistPage: NextPage = () => {
                                  disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {bulkRemoving ? (
-                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <icons.Loader2 className="w-3.5 h-3.5 animate-spin" />
                       ) : (
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <icons.Trash2 className="w-3.5 h-3.5" />
                       )}
                       Remove Selected
                     </button>
@@ -555,18 +498,18 @@ const ShortlistPage: NextPage = () => {
                 )}
               </div>
 
-              {/* ═══ RESULTS INFO ═══ */}
+              {/* Results info */}
               {search && (
                 <p className="text-sm text-gray-500 mb-4">
                   Showing {displayedProjects.length} of {projects.length} saved projects
                 </p>
               )}
 
-              {/* ═══ NO SEARCH RESULTS ═══ */}
+              {/* No search results */}
               {displayedProjects.length === 0 && search ? (
                 <div className="bg-white rounded-2xl border border-gray-100
                                 p-12 text-center">
-                  <Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+                  <icons.Search className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                   <p className="text-sm font-bold text-gray-700 mb-2">
                     No projects match &quot;{search}&quot;
                   </p>
@@ -578,7 +521,7 @@ const ShortlistPage: NextPage = () => {
                   </button>
                 </div>
               )
-              /* ═══ PROJECTS GRID/LIST ═══ */
+              /* Projects grid and list */
               : (
                 <div className={
                   viewMode === 'grid'
@@ -604,7 +547,7 @@ const ShortlistPage: NextPage = () => {
                           }}
                         >
                           {selectedIds.has(project._id) && (
-                            <Check className="w-4 h-4 text-white" />
+                            <icons.Check className="w-4 h-4 text-white" />
                           )}
                         </button>
                       )}
@@ -623,7 +566,7 @@ const ShortlistPage: NextPage = () => {
                             display: selectionMode ? 'none' : 'flex',
                           }}
                         >
-                          <StickyNote className="w-3.5 h-3.5 text-white" />
+                          <icons.StickyNote className="w-3.5 h-3.5 text-white" />
                         </button>
                       )}
 
@@ -645,7 +588,7 @@ const ShortlistPage: NextPage = () => {
                                      transition-all
                                      inline-flex items-center justify-center gap-1.5"
                         >
-                          <StickyNote className="w-3.5 h-3.5" />
+                          <icons.StickyNote className="w-3.5 h-3.5" />
                           {noteMap.has(project._id)
                             ? 'Edit Note'
                             : 'Add Private Note'}
@@ -660,9 +603,7 @@ const ShortlistPage: NextPage = () => {
         </div>
       </div>
 
-      {/* ═══════════════════════════════════════════════════════
-          NOTE MODAL
-      ═══════════════════════════════════════════════════════ */}
+      {/* Note modal */}
       {noteProject && (
         <ShortlistNoteModal
           project={noteProject}

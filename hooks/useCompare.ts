@@ -1,13 +1,19 @@
 /**
  * hooks/useCompare.ts
  *
- * Enterprise compare hook for Highrise.pk (V2 multi-entity).
- * Mirrors useFavorites pattern for consistency.
+ * Server-backed compare hook for Highrise.pk (V2 multi-entity).
+ * Same public contract as the previous hook, minus all client persistence.
  *
  * ARCHITECTURE:
- *   Guest mode:      localStorage only, syncs to backend via session ID
- *   Logged-in mode:  DB persistence + localStorage mirror
- *   Max 4 items (industry standard)
+ *   Signed-in mode:  /api/compare is the single source of truth.
+ *   Signed-out mode: Empty state. This hook never reads, writes, or clears
+ *                    localStorage, sessionStorage, or cookies.
+ *
+ *   Cross-component sync: after a confirmed mutation the hook dispatches a
+ *   page-level custom event and every mounted instance refetches from the
+ *   server. There is no storage event and no localStorage mirror.
+ *
+ *   Max 4 items (industry standard).
  *
  * DEFAULT ENTITY TYPE:
  *   'project' for project cards
@@ -16,10 +22,9 @@
 
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useSession } from 'next-auth/react';
 import {
-  COMPARE_STORAGE_KEY,
   MAX_COMPARE_ITEMS,
   type CompareEntityType,
   type CompareItem,
@@ -28,7 +33,7 @@ import {
   type CompareListResponse,
 } from '@/types/projects';
 
-// ─── TYPES ───────────────────────────────────────────────────────────────────
+// ============================ TYPES ============================
 
 export type CompareActionState = 'idle' | 'pending' | 'error' | 'success';
 
@@ -60,57 +65,24 @@ export interface UseCompareReturn {
   refresh:      () => Promise<void>;
 }
 
-// ─── STORAGE HELPERS ─────────────────────────────────────────────────────────
-
-function readCompareItems(): CompareItem[] {
-  if (typeof window === 'undefined') return [];
-  try {
-    const raw = localStorage.getItem(COMPARE_STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
-      .filter((i): i is CompareItem =>
-        i
-        && typeof i === 'object'
-        && typeof i.entityId === 'string'
-        && (i.entityType === 'property' || i.entityType === 'project'),
-      )
-      .map((i) => ({
-        entityType: i.entityType,
-        entityId:   i.entityId,
-        addedAt:    i.addedAt || new Date().toISOString(),
-        title:      typeof i.title === 'string' ? i.title : undefined,
-        imageUrl:   typeof i.imageUrl === 'string' ? i.imageUrl : null,
-        price:      typeof i.price === 'number' ? i.price : null,
-        slug:       typeof i.slug === 'string' ? i.slug : undefined,
-      }))
-      .slice(0, MAX_COMPARE_ITEMS);
-  } catch {
-    return [];
-  }
-}
-
-function writeCompareItems(items: CompareItem[]): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(
-      COMPARE_STORAGE_KEY,
-      JSON.stringify(items.slice(0, MAX_COMPARE_ITEMS)),
-    );
-  } catch {
-    // Silent fail
-  }
-}
+// ============================ EVENTS ============================
 
 const COMPARE_CHANGE_EVENT = 'highrise:compare-changed';
+const COMPARE_ERROR_EVENT = 'highrise:compare-error';
 
 function dispatchCompareChange(): void {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new CustomEvent(COMPARE_CHANGE_EVENT));
 }
 
-// ─── MAIN HOOK ───────────────────────────────────────────────────────────────
+function dispatchCompareError(message: string): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(
+    new CustomEvent(COMPARE_ERROR_EVENT, { detail: { message } }),
+  );
+}
+
+// ============================ MAIN HOOK ============================
 
 export function useCompare(
   options: UseCompareOptions = {},
@@ -120,51 +92,53 @@ export function useCompare(
   const { data: session, status } = useSession();
   const isLoggedIn = status === 'authenticated' && !!session?.user;
 
-  const [compareIds,   setCompareIds]   = useState<string[]>([]);
-  const [totalCount,   setTotalCount]   = useState(0);
+  const [items,        setItems]        = useState<CompareItem[]>([]);
   const [isReady,      setIsReady]      = useState(false);
   const [actionState,  setActionState]  = useState<CompareActionState>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  const itemsRef    = useRef<CompareItem[]>([]);
   const inFlightRef = useRef<Set<string>>(new Set());
   const abortRef    = useRef<AbortController | null>(null);
 
-  // ── Load compare state ──────────────────────────────────────────────────
+  const applyItems = useCallback((next: CompareItem[]): void => {
+    itemsRef.current = next;
+    setItems(next);
+  }, []);
+
+  const flagError = useCallback((message: string): void => {
+    setActionState('error');
+    setErrorMessage(message);
+    dispatchCompareError(message);
+    window.setTimeout(() => {
+      setActionState('idle');
+      setErrorMessage((current) => (current === message ? null : current));
+    }, 4000);
+  }, []);
+
+  // == Load compare state from the server ==
   const loadCompare = useCallback(async (): Promise<void> => {
-    // Guest mode: no compare items until signed in
+    if (status === 'loading') {
+      setIsReady(false);
+      return;
+    }
+
     if (!isLoggedIn) {
-      setCompareIds([]);
-      setTotalCount(0);
+      // Signed out: empty state only. Never touch client storage here.
+      applyItems([]);
+      setActionState('idle');
+      setErrorMessage(null);
       setIsReady(true);
       return;
     }
 
-    // Start with localStorage for instant UI
-    const localItems = readCompareItems();
-    const idsForType = localItems
-      .filter(i => i.entityType === defaultType)
-      .map(i => i.entityId);
-    setCompareIds(idsForType);
-    setTotalCount(localItems.length);
     setIsReady(true);
 
-    // If no compare items locally, skip network call to prevent noise
-    if (localItems.length === 0) return;
-
-    // Then fetch from backend to sync/reconcile
     if (abortRef.current) abortRef.current.abort();
     abortRef.current = new AbortController();
 
     try {
-      const sessionId = typeof window !== 'undefined'
-        ? localStorage.getItem('highrise_compare_session')
-        : null;
-
-      const url = sessionId
-        ? `/api/compare?sessionId=${sessionId}`
-        : '/api/compare';
-
-      const res = await fetch(url, {
+      const res = await fetch('/api/compare', {
         credentials: 'include',
         signal:      abortRef.current.signal,
         cache:       'no-store',
@@ -176,12 +150,6 @@ export function useCompare(
       const data = await res.json() as CompareListResponse;
       if (!data.success || !data.data) return;
 
-      // Reconcile from server truth while preserving cached display metadata
-      const localMetaMap = new Map(
-        localItems.map((item) => [`${item.entityType}:${item.entityId}`, item]),
-      );
-      const serverItems: CompareItem[] = [];
-
       const extractServerImage = (d: Record<string, unknown>): string | null => {
         if (typeof d.primaryImage === 'string') return d.primaryImage;
         if (typeof d.featureImageUrl === 'string') return d.featureImageUrl;
@@ -192,69 +160,71 @@ export function useCompare(
         return null;
       };
 
+      const serverItems: CompareItem[] = [];
+
       if (Array.isArray(data.data.entities)) {
         // V2 response format
         for (const e of data.data.entities) {
           const eData = e.data as Record<string, unknown>;
-          if (eData?._id) {
-            const id = String(eData._id);
-            const prevMeta = localMetaMap.get(`${e.entityType}:${id}`);
-            const rawTitle = eData.projectName ?? eData.title ?? prevMeta?.title;
-            const rawPrice = typeof eData.minPrice === 'number'
-              ? eData.minPrice
-              : typeof eData.price === 'number'
-                ? eData.price
-                : prevMeta?.price ?? null;
-            serverItems.push({
-              entityType: e.entityType,
-              entityId:   id,
-              addedAt:    prevMeta?.addedAt || new Date().toISOString(),
-              title:      typeof rawTitle === 'string' ? rawTitle : undefined,
-              imageUrl:   extractServerImage(eData) ?? prevMeta?.imageUrl ?? null,
-              price:      rawPrice,
-              slug:       typeof eData.slug === 'string' ? eData.slug : prevMeta?.slug,
-            });
-          }
+          if (!eData?._id) continue;
+
+          const rawTitle =
+            typeof eData.projectName === 'string' ? eData.projectName :
+            typeof eData.title === 'string' ? eData.title :
+            typeof eData.name === 'string' ? eData.name :
+            undefined;
+
+          const rawPrice =
+            typeof eData.minPrice === 'number' ? eData.minPrice :
+            typeof eData.price === 'number' ? eData.price :
+            null;
+
+          serverItems.push({
+            entityType: e.entityType,
+            entityId:   String(eData._id),
+            addedAt:    new Date().toISOString(),
+            title:      rawTitle,
+            imageUrl:   extractServerImage(eData),
+            price:      rawPrice,
+            slug:       typeof eData.slug === 'string' ? eData.slug : undefined,
+          });
         }
       } else if (Array.isArray(data.data.properties)) {
         // Legacy fallback
         for (const p of data.data.properties) {
           const pData = p as Record<string, unknown>;
-          if (pData?._id) {
-            const id = String(pData._id);
-            const prevMeta = localMetaMap.get(`property:${id}`);
-            serverItems.push({
-              entityType: 'property',
-              entityId:   id,
-              addedAt:    prevMeta?.addedAt || new Date().toISOString(),
-              title:      typeof pData.title === 'string' ? pData.title : prevMeta?.title,
-              imageUrl:   extractServerImage(pData) ?? prevMeta?.imageUrl ?? null,
-              price:      typeof pData.price === 'number' ? pData.price : prevMeta?.price ?? null,
-              slug:       typeof pData.slug === 'string' ? pData.slug : prevMeta?.slug,
-            });
-          }
+          if (!pData?._id) continue;
+
+          serverItems.push({
+            entityType: 'property',
+            entityId:   String(pData._id),
+            addedAt:    new Date().toISOString(),
+            title:      typeof pData.title === 'string' ? pData.title : undefined,
+            imageUrl:   extractServerImage(pData),
+            price:      typeof pData.price === 'number' ? pData.price : null,
+            slug:       typeof pData.slug === 'string' ? pData.slug : undefined,
+          });
         }
       }
 
-      // Authenticated/server state is authoritative even when empty,
-      // unless an optimistic add/remove is currently in flight.
-      if (inFlightRef.current.size === 0) {
-        writeCompareItems(serverItems);
-        const serverIdsForType = serverItems
-          .filter(i => i.entityType === defaultType)
-          .map(i => i.entityId);
-        setCompareIds(serverIdsForType);
-        setTotalCount(serverItems.length);
-        dispatchCompareChange();
-      }
-    } catch (err) {
-      if (err instanceof Error && err.name !== 'AbortError') {
-        // Fall back to local (already loaded above)
-      }
-    }
-  }, [defaultType, isLoggedIn]);
+      // Defensive: keep one entity type even if the server ever returned mixed data.
+      const serverEntityType = serverItems[0]?.entityType;
+      const consistentItems = serverEntityType
+        ? serverItems.filter(item => item.entityType === serverEntityType)
+        : [];
 
-  // ── Initial load ─────────────────────────────────────────────────────────
+      // Skip while a mutation is in flight. The post-mutation change event
+      // triggers a fresh refetch that applies the final server state.
+      if (inFlightRef.current.size > 0) return;
+
+      applyItems(consistentItems);
+    } catch (err) {
+      if (err instanceof Error && err.name === 'AbortError') return;
+      // Network failure: keep current state until the next successful load.
+    }
+  }, [applyItems, isLoggedIn, status]);
+
+  // == Initial load and reload on auth change ==
   useEffect(() => {
     void loadCompare();
     return () => {
@@ -262,46 +232,57 @@ export function useCompare(
     };
   }, [loadCompare]);
 
-  // ── Cross-tab + same-tab sync ────────────────────────────────────────────
+  // == Cross-instance sync via page events (no storage events) ==
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key !== COMPARE_STORAGE_KEY) return;
-      const items = readCompareItems();
-      setCompareIds(items.filter(i => i.entityType === defaultType).map(i => i.entityId));
-      setTotalCount(items.length);
+    const handleChange = (): void => {
+      void loadCompare();
     };
 
-    const handleCustom = () => {
-      const items = readCompareItems();
-      setCompareIds(items.filter(i => i.entityType === defaultType).map(i => i.entityId));
-      setTotalCount(items.length);
+    const handleCompareError = (event: Event): void => {
+      const detail = (event as CustomEvent<{ message?: unknown }>).detail;
+      const message = detail?.message;
+
+      if (typeof message !== 'string' || message.trim().length === 0) return;
+
+      setActionState('error');
+      setErrorMessage(message);
+
+      window.setTimeout(() => {
+        setActionState('idle');
+        setErrorMessage(current => current === message ? null : current);
+      }, 4000);
     };
 
-    window.addEventListener('storage', handleStorage);
-    window.addEventListener(COMPARE_CHANGE_EVENT, handleCustom);
+    window.addEventListener(COMPARE_CHANGE_EVENT, handleChange);
+    window.addEventListener(COMPARE_ERROR_EVENT, handleCompareError);
 
     return () => {
-      window.removeEventListener('storage', handleStorage);
-      window.removeEventListener(COMPARE_CHANGE_EVENT, handleCustom);
+      window.removeEventListener(COMPARE_CHANGE_EVENT, handleChange);
+      window.removeEventListener(COMPARE_ERROR_EVENT, handleCompareError);
     };
-  }, [defaultType]);
+  }, [loadCompare]);
 
-  // ── isInCompare check ────────────────────────────────────────────────────
+  // == Derived values ==
+  const compareIds = useMemo(
+    () => items.filter(item => item.entityType === defaultType).map(item => item.entityId),
+    [items, defaultType],
+  );
+  const totalCount = items.length;
+
+  // == isInCompare check ==
   const isInCompare = useCallback(
     (entityId: string, entityType?: CompareEntityType): boolean => {
+      if (!isLoggedIn) return false;
+
       const type = entityType ?? defaultType;
-      if (type === defaultType) {
-        return compareIds.includes(entityId);
-      }
-      const items = readCompareItems();
-      return items.some(i => i.entityType === type && i.entityId === entityId);
+      return items.some(item => item.entityType === type && item.entityId === entityId);
     },
-    [compareIds, defaultType],
+    [items, defaultType, isLoggedIn],
   );
 
-  // ── ADD ───────────────────────────────────────────────────────────────────
+  // == ADD ==
   const add = useCallback(
     async (
       entityId: string,
@@ -310,7 +291,7 @@ export function useCompare(
     ): Promise<boolean> => {
       if (!entityId) return false;
 
-      // Guest users cannot compare — caller should open AuthGateModal
+      // Signed-out users cannot compare. Callers must open AuthGateModal first.
       if (!isLoggedIn) return false;
 
       const type        = entityType ?? defaultType;
@@ -318,140 +299,83 @@ export function useCompare(
 
       if (inFlightRef.current.has(debounceKey)) return false;
 
-      const currentItems = readCompareItems();
-      if (currentItems.some(i => i.entityType === type && i.entityId === entityId)) {
-        return true; // Already there
+      const current = itemsRef.current;
+
+      if (current.some(item => item.entityType === type && item.entityId === entityId)) {
+        return true; // Already in the comparison
       }
 
-      // Enforce same-entity-type comparison
-      if (currentItems.length > 0 && currentItems[0].entityType !== type) {
-        setActionState('error');
-        setErrorMessage('You can only compare items of the same type');
-        setTimeout(() => {
-          setActionState('idle');
-          setErrorMessage(null);
-        }, 3000);
+      if (current.length > 0 && current.some(item => item.entityType !== type)) {
+        flagError('You can only compare items of the same type. Clear the comparison to start a new one.');
         return false;
       }
 
-      if (currentItems.length >= MAX_COMPARE_ITEMS) {
-        setActionState('error');
-        setErrorMessage(`Maximum ${MAX_COMPARE_ITEMS} items can be compared at once`);
-        setTimeout(() => {
-          setActionState('idle');
-          setErrorMessage(null);
-        }, 3000);
+      if (current.length >= MAX_COMPARE_ITEMS) {
+        flagError(`You can compare up to ${MAX_COMPARE_ITEMS} items. Remove one to add another.`);
         return false;
       }
 
       inFlightRef.current.add(debounceKey);
-      // Auto-expire lock after 3s to prevent deadlocks from aborted/canceled requests
-      setTimeout(() => inFlightRef.current.delete(debounceKey), 3000);
+      // Auto-expire the lock so an aborted request cannot deadlock the item.
+      setTimeout(() => inFlightRef.current.delete(debounceKey), 5000);
       setActionState('pending');
       setErrorMessage(null);
 
-      // Optimistic with metadata
-      const previous = currentItems;
-      const optimistic: CompareItem[] = [
-        ...currentItems,
-        {
-          entityType: type,
-          entityId,
-          addedAt: new Date().toISOString(),
-          title: meta?.title,
-          imageUrl: meta?.imageUrl ?? null,
-          price: meta?.price ?? null,
-          slug: meta?.slug,
-        },
-      ];
-      writeCompareItems(optimistic);
-      if (type === defaultType) {
-        setCompareIds([...compareIds, entityId]);
-      }
-      setTotalCount(optimistic.length);
-      dispatchCompareChange();
-
-      // Backend sync
       try {
-        const sessionId = typeof window !== 'undefined'
-          ? localStorage.getItem('highrise_compare_session')
-          : null;
-
-        // Build clean body — omit sessionId if null (Zod .optional() rejects null)
-        const body: Record<string, string> = {
-          entityType: type,
-          entityId,
-        };
-        if (sessionId) body.sessionId = sessionId;
-
         const res = await fetch('/api/compare/add', {
           method:      'POST',
           credentials: 'include',
           headers:     { 'Content-Type': 'application/json' },
-          body:        JSON.stringify(body),
+          body:        JSON.stringify({ entityType: type, entityId }),
         });
 
         const data = await res.json() as CompareAddResponse;
 
-        if (data.data?.sessionId && typeof window !== 'undefined') {
-          localStorage.setItem('highrise_compare_session', data.data.sessionId);
+        if (!res.ok || !data.success) {
+          inFlightRef.current.delete(debounceKey);
+          const message = data.reason === 'limit_reached'
+            ? `You can compare up to ${MAX_COMPARE_ITEMS} items. Remove one to add another.`
+            : data.error || 'Could not add this item to the comparison. Please try again.';
+          flagError(message);
+          return false;
         }
 
-        if (res.ok && data.success) {
-          inFlightRef.current.delete(debounceKey);
-          setActionState('success');
-          dispatchCompareChange();
-          setTimeout(() => setActionState('idle'), 1500);
-          return true;
-        } else if (data.reason === 'limit_reached') {
-          // Rollback
-          writeCompareItems(previous);
-          setCompareIds(previous.filter(i => i.entityType === defaultType).map(i => i.entityId));
-          setTotalCount(previous.length);
-          dispatchCompareChange();
-          setActionState('error');
-          setErrorMessage(`Maximum ${MAX_COMPARE_ITEMS} items can be compared at once`);
-          setTimeout(() => {
-            setActionState('idle');
-            setErrorMessage(null);
-          }, 3000);
-          inFlightRef.current.delete(debounceKey);
-          return false;
-        } else {
-          // Other error — rollback
-          writeCompareItems(previous);
-          setCompareIds(previous.filter(i => i.entityType === defaultType).map(i => i.entityId));
-          setTotalCount(previous.length);
-          dispatchCompareChange();
-          setActionState('error');
-          setErrorMessage(data.error || 'Failed to add to comparison');
-          setTimeout(() => {
-            setActionState('idle');
-            setErrorMessage(null);
-          }, 3000);
-          inFlightRef.current.delete(debounceKey);
-          return false;
-        }
-      } catch {
-        // Network error — keep optimistic (offline resilience)
         inFlightRef.current.delete(debounceKey);
+
+        // Server accepted the add. Show it immediately, then let every mounted
+        // instance (including this one) reconcile against the server.
+        applyItems([
+          ...itemsRef.current,
+          {
+            entityType: type,
+            entityId,
+            addedAt:    new Date().toISOString(),
+            title:      meta?.title,
+            imageUrl:   meta?.imageUrl ?? null,
+            price:      meta?.price ?? null,
+            slug:       meta?.slug,
+          },
+        ]);
         setActionState('success');
-        setTimeout(() => setActionState('idle'), 1500);
+        dispatchCompareChange();
+        setTimeout(() => setActionState(s => (s === 'success' ? 'idle' : s)), 1500);
         return true;
+      } catch {
+        inFlightRef.current.delete(debounceKey);
+        flagError('Could not reach the comparison service. Check your connection and try again.');
+        return false;
       }
     },
-    [compareIds, defaultType, isLoggedIn],
+    [applyItems, defaultType, flagError, isLoggedIn],
   );
 
-  // ── REMOVE ───────────────────────────────────────────────────────────────
+  // == REMOVE ==
   const remove = useCallback(
     async (
       entityId: string,
       entityType?: CompareEntityType,
     ): Promise<boolean> => {
       if (!entityId) return false;
-
-      // Guest users cannot compare
       if (!isLoggedIn) return false;
 
       const type        = entityType ?? defaultType;
@@ -459,83 +383,56 @@ export function useCompare(
 
       if (inFlightRef.current.has(debounceKey)) return false;
 
-      const currentItems = readCompareItems();
-      const previous = currentItems;
+      const previous = itemsRef.current;
+      if (!previous.some(item => item.entityType === type && item.entityId === entityId)) {
+        return true; // Nothing to remove
+      }
 
       inFlightRef.current.add(debounceKey);
-      // Auto-expire lock after 3s to prevent deadlocks from aborted/canceled requests
-      setTimeout(() => inFlightRef.current.delete(debounceKey), 3000);
+      setTimeout(() => inFlightRef.current.delete(debounceKey), 5000);
       setActionState('pending');
 
-      const filtered = currentItems.filter(
-        i => !(i.entityType === type && i.entityId === entityId),
-      );
-      writeCompareItems(filtered);
-      if (type === defaultType) {
-        setCompareIds(compareIds.filter(id => id !== entityId));
-      }
-      setTotalCount(filtered.length);
-      dispatchCompareChange();
+      // Optimistic removal in memory only. Rolled back if the server rejects.
+      applyItems(previous.filter(item => !(item.entityType === type && item.entityId === entityId)));
 
       try {
-        const sessionId = typeof window !== 'undefined'
-          ? localStorage.getItem('highrise_compare_session')
-          : null;
-
-        // Build clean body — omit sessionId if null
-        const body: Record<string, string> = {
-          entityType: type,
-          entityId,
-        };
-        if (sessionId) body.sessionId = sessionId;
-
         const queryParams = new URLSearchParams({
           entityType: type,
-          entityId: entityId,
+          entityId,
         });
-        if (sessionId) queryParams.set('sessionId', sessionId);
 
         const res = await fetch(`/api/compare/remove?${queryParams.toString()}`, {
           method:      'DELETE',
           credentials: 'include',
           headers:     { 'Content-Type': 'application/json' },
-          body:        JSON.stringify(body),
+          body:        JSON.stringify({ entityType: type, entityId }),
         });
 
         const data = await res.json() as CompareRemoveResponse;
 
-        if (res.ok && data.success) {
+        if (!res.ok || !data.success) {
+          applyItems(previous);
           inFlightRef.current.delete(debounceKey);
-          setActionState('success');
-          setTimeout(() => setActionState('idle'), 1500);
-          return true;
-        } else {
-          // Rollback
-          writeCompareItems(previous);
-          setCompareIds(previous.filter(i => i.entityType === defaultType).map(i => i.entityId));
-          setTotalCount(previous.length);
-          dispatchCompareChange();
-          setActionState('error');
-          setErrorMessage(data.error || 'Failed to remove from comparison');
-          setTimeout(() => {
-            setActionState('idle');
-            setErrorMessage(null);
-          }, 3000);
-          inFlightRef.current.delete(debounceKey);
+          flagError(data.error || 'Could not remove this item from the comparison. Please try again.');
           return false;
         }
-      } catch {
-        // Network error — keep optimistic
+
         inFlightRef.current.delete(debounceKey);
         setActionState('success');
-        setTimeout(() => setActionState('idle'), 1500);
+        dispatchCompareChange();
+        setTimeout(() => setActionState(s => (s === 'success' ? 'idle' : s)), 1500);
         return true;
+      } catch {
+        applyItems(previous);
+        inFlightRef.current.delete(debounceKey);
+        flagError('Could not reach the comparison service. Check your connection and try again.');
+        return false;
       }
     },
-    [compareIds, defaultType, isLoggedIn],
+    [applyItems, defaultType, flagError, isLoggedIn],
   );
 
-  // ── TOGGLE ────────────────────────────────────────────────────────────────
+  // == TOGGLE ==
   const toggle = useCallback(
     async (
       entityId: string,
@@ -544,47 +441,46 @@ export function useCompare(
     ): Promise<boolean> => {
       if (isInCompare(entityId, entityType)) {
         return remove(entityId, entityType);
-      } else {
-        return add(entityId, entityType, meta);
       }
+      return add(entityId, entityType, meta);
     },
     [isInCompare, add, remove],
   );
-  // ── CLEAR ────────────────────────────────────────────────────────────────
+
+  // == CLEAR ==
   const clear = useCallback(async (): Promise<boolean> => {
-    const previous = readCompareItems();
-    writeCompareItems([]);
-    setCompareIds([]);
-    setTotalCount(0);
-    dispatchCompareChange();
+    if (!isLoggedIn) return false;
+
+    const previous = itemsRef.current;
+    if (previous.length === 0) return true;
+
+    setActionState('pending');
+    applyItems([]);
 
     try {
-      const sessionId = typeof window !== 'undefined'
-        ? localStorage.getItem('highrise_compare_session')
-        : null;
-
-      const body: Record<string, string> = {};
-      if (sessionId) body.sessionId = sessionId;
-
       const res = await fetch('/api/compare/clear', {
         method:      'DELETE',
         credentials: 'include',
-        headers:     { 'Content-Type': 'application/json' },
-        body:        JSON.stringify(body),
       });
 
-      return res.ok;
-    } catch {
-      // Rollback on failure
-      writeCompareItems(previous);
-      setCompareIds(previous.filter(i => i.entityType === defaultType).map(i => i.entityId));
-      setTotalCount(previous.length);
+      if (!res.ok) {
+        applyItems(previous);
+        flagError('Could not clear the comparison. Please try again.');
+        return false;
+      }
+
+      setActionState('success');
       dispatchCompareChange();
+      setTimeout(() => setActionState(s => (s === 'success' ? 'idle' : s)), 1500);
+      return true;
+    } catch {
+      applyItems(previous);
+      flagError('Could not reach the comparison service. Check your connection and try again.');
       return false;
     }
-  }, [defaultType]);
+  }, [applyItems, flagError, isLoggedIn]);
 
-  // ── REFRESH ──────────────────────────────────────────────────────────────
+  // == REFRESH ==
   const refresh = useCallback(async (): Promise<void> => {
     await loadCompare();
   }, [loadCompare]);

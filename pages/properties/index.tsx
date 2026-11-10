@@ -306,87 +306,6 @@ function mergeSignals(a: AbortSignal, b: AbortSignal): AbortSignal {
   return controller.signal;
 }
 
-// ============================================================================
-// COMPARE BAR COMPONENT (API driven, no localStorage)
-// ============================================================================
-
-interface CompareBarItem {
-  _id: string;
-}
-
-function CompareBar(): React.ReactElement | null {
-  const router = useRouter();
-  const [count, setCount] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-
-  const loadCompare = useCallback(async (signal: AbortSignal) => {
-    try {
-      const res = await fetch("/api/compare", { signal, credentials: "include" });
-      if (!res.ok) {
-        setCount(0);
-        return;
-      }
-      const data = (await res.json()) as {
-        success?: boolean;
-        data?: { properties?: CompareBarItem[] };
-      };
-      const items = data?.data?.properties ?? [];
-      setCount(Array.isArray(items) ? items.length : 0);
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") return;
-      setCount(0);
-    } finally {
-      setLoaded(true);
-    }
-  }, []);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    loadCompare(controller.signal);
-    return () => controller.abort();
-  }, [loadCompare]);
-
-  useEffect(() => {
-    const onRouteChange = () => {
-      const c = new AbortController();
-      loadCompare(c.signal);
-    };
-    router.events.on("routeChangeComplete", onRouteChange);
-    return () => {
-      router.events.off("routeChangeComplete", onRouteChange);
-    };
-  }, [router.events, loadCompare]);
-
-  if (!loaded || count < 2) return null;
-
-  return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[120] pointer-events-none">
-      <div className="pointer-events-auto animate-fadeIn">
-        <div className="flex items-center gap-4 bg-white border-2 border-[#029bba]/20 rounded-full shadow-xl px-6 py-3 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-[#029bba]/10 rounded-full">
-              <icons.Maximize className="w-5 h-5 text-[#029bba]" />
-            </div>
-            <span className="text-sm font-medium text-gray-800">
-              Comparing{" "}
-              <span className="text-[#029bba] font-bold text-base">{count}</span>{" "}
-              properties
-              <span className="text-gray-400 hidden sm:inline"> / 4 max</span>
-            </span>
-          </div>
-          <button
-            type="button"
-            onClick={() => router.push("/compare")}
-            className="bg-gradient-to-r from-[#029bba] to-[#017a8a] hover:opacity-90 text-white text-sm font-semibold px-5 py-2 rounded-full shadow-md transition-opacity flex items-center gap-2"
-          >
-            View Comparison
-            <icons.ChevronRight className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ============================================================================
 // MAIN PAGE COMPONENT
@@ -1496,7 +1415,6 @@ return (
             />
           )}
         </div>
-        <CompareBar />
 
         {/* Floating Back to Top Button */}
         <div className={`fixed bottom-6 left-0 right-0 flex justify-center z-40 transition-all duration-300 pointer-events-none ${

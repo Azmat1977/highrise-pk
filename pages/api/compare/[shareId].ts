@@ -1,106 +1,180 @@
 // C:\dev\highrise-pk\pages\api\compare\[shareId].ts
 import type { NextApiRequest, NextApiResponse } from 'next';
+import { z } from 'zod';
 import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
 import { rateLimitApi, sendRateLimitResponse } from '@/lib/rateLimit';
-import { z } from 'zod';
-import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
+import {
+  MAX_COMPARE_ITEMS,
+  asRecord,
+  createCompareRequestContext,
+  parseComparisonReferences,
+  resolveCompareReferences,
+  safelyLogCompareEvent,
+  setCompareSecurityHeaders,
+  toCompareDate,
+  toCompareIsoDate,
+  validatePropertyListingIntents,
+} from '@/lib/compareApi';
 
-// ----------------------------------------------------------------------
-// 🛡️ 1. SECURITY & VALIDATION SCHEMA
-// ----------------------------------------------------------------------
+const shareQuerySchema = z
+  .object({
+    shareId: z
+      .string()
+      .min(1)
+      .max(100)
+      .regex(/^[A-Za-z0-9_-]+$/, 'Invalid share ID format'),
+  })
+  .strict();
 
-// Strict validation to prevent NoSQL Injection in public URLs
-const shareQuerySchema = z.object({
-  shareId: z
-    .string()
-    .min(1, 'Share ID is required')
-    .max(50, 'Share ID is too long')
-    .regex(/^[a-zA-Z0-9_-]+$/, 'Invalid Share ID format'), // Only letters, numbers, dash, underscore
-});
-
-// ----------------------------------------------------------------------
-// 🚀 2. API HANDLER
-// ----------------------------------------------------------------------
+function notFound(res: NextApiResponse): void {
+  res.status(404).json({
+    success: false,
+    error: 'Comparison link not found or expired.',
+  });
+}
 
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse
-) {
+  res: NextApiResponse,
+): Promise<void> {
+  setCompareSecurityHeaders(res);
+  const context = createCompareRequestContext(req, res);
+
   if (req.method !== 'GET') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({
+      success: false,
+      error: 'Method not allowed',
+    });
+    return;
   }
 
   try {
-    // 🛡️ 1. Apply Rate Limiting (Crucial for Public Endpoints)
     const rateLimitResult = await rateLimitApi(req);
+
     if (!rateLimitResult.ok) {
-      return sendRateLimitResponse(res, rateLimitResult);
+      await safelyLogCompareEvent({
+        type: 'suspicious_activity',
+        severity: 'medium',
+        ip: context.ip,
+        userAgent: context.userAgent,
+        requestId: context.requestId,
+        req,
+        metadata: {
+          action: 'compare_shared_read_rate_limited',
+          endpoint: '/api/compare/[shareId]',
+          retryAfter: rateLimitResult.retryAfter,
+        },
+      });
+
+      sendRateLimitResponse(res, rateLimitResult);
+      return;
     }
 
-    // 🛡️ 2. Strict Input Validation (Extract from URL Query)
     const validation = shareQuerySchema.safeParse(req.query);
     if (!validation.success) {
-      return res.status(400).json({
+      res.status(400).json({
         success: false,
-        error: validation.error.issues[0].message,
+        error: 'Invalid comparison share link.',
       });
+      return;
     }
 
-    const { shareId } = validation.data;
-
-    // 🗄️ 3. Connect to Database
     await dbConnect();
 
-    // ─────────────────────────────────────────────────────────────
-    // 4. Securely Fetch Shared Comparison
-    // ─────────────────────────────────────────────────────────────
-    // .lean() is already used here, which is excellent for read-only performance!
-    const comparison = await Comparison.findOne({ shareId })
-      .populate({
-        path: 'properties',
-        select:
-          'title price city area areaUnit images propertyType slug bedrooms bathrooms listingType location previousPrice priceDropPercent developer possession',
-        match: PUBLIC_PROPERTY_FILTER,
-      })
-      .lean();
+    const now = new Date();
+    const comparison = await Comparison.findOne({
+      shareId: validation.data.shareId,
+      isShared: true,
+      expiresAt: { $gt: now },
+    }).lean();
 
     if (!comparison) {
-      return res.status(404).json({
-        success: false,
-        error: 'Comparison list not found or link has expired',
-      });
+      notFound(res);
+      return;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 5. Update Share Flag (Fire and Forget)
-    // ─────────────────────────────────────────────────────────────
-    if (!comparison.isShared) {
-      // Background async update (no need to await it and slow down the GET request)
-      Comparison.findByIdAndUpdate(comparison._id, { $set: { isShared: true } }).catch(() => undefined);
+    const comparisonRecord = asRecord(comparison);
+    const expiry = toCompareDate(comparisonRecord.expiresAt);
+
+    if (
+      comparisonRecord.isShared !== true ||
+      expiry === null ||
+      expiry.getTime() <= Date.now()
+    ) {
+      notFound(res);
+      return;
     }
 
-    // ─────────────────────────────────────────────────────────────
-    // 6. Format and Clean Response
-    // ─────────────────────────────────────────────────────────────
-    const validProperties = (comparison.properties || []).filter((p: any) => p !== null);
+    const parsed = parseComparisonReferences(comparison);
 
-    // 📤 7. Return Secure Response
-    return res.status(200).json({
+    if (
+      parsed.invalidCount > 0 ||
+      parsed.references.length === 0 ||
+      parsed.references.length > MAX_COMPARE_ITEMS
+    ) {
+      notFound(res);
+      return;
+    }
+
+    const entityTypes = new Set(
+      parsed.references.map(reference => reference.entityType),
+    );
+
+    if (entityTypes.size !== 1) {
+      notFound(res);
+      return;
+    }
+
+    const resolved = await resolveCompareReferences(parsed.references);
+
+    if (resolved.unavailableCount > 0) {
+      notFound(res);
+      return;
+    }
+
+    const intentValidation = validatePropertyListingIntents(
+      parsed.references,
+      resolved,
+    );
+
+    if (!intentValidation.valid) {
+      notFound(res);
+      return;
+    }
+
+    res.status(200).json({
       success: true,
       data: {
-        shareId: comparison.shareId,
-        properties: validProperties,
-        count: validProperties.length,
-        createdAt: comparison.createdAt,
+        shareId: validation.data.shareId,
+        entityType: Array.from(entityTypes)[0],
+        properties: resolved.properties,
+        projects: resolved.projects,
+        societies: resolved.societies,
+        entities: resolved.entities,
+        count: resolved.entities.length,
+        limit: MAX_COMPARE_ITEMS,
+        createdAt: toCompareIsoDate(comparisonRecord.createdAt),
+        expiresAt: expiry.toISOString(),
+      },
+    });
+  } catch {
+    await safelyLogCompareEvent({
+      type: 'api_unhandled_error',
+      ip: context.ip,
+      userAgent: context.userAgent,
+      requestId: context.requestId,
+      req,
+      metadata: {
+        action: 'compare_shared_read_failed',
+        endpoint: '/api/compare/[shareId]',
       },
     });
 
-  } catch {
-    // 🛡️ Security: Never expose raw database errors to public users
-    return res.status(500).json({
+    res.status(500).json({
       success: false,
-      error: 'Server error while fetching shared comparison',
+      error: 'Server error while fetching shared comparison.',
     });
   }
 }

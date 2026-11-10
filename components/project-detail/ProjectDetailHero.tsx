@@ -20,27 +20,14 @@
 import React, { useState, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import {
-  MapPin,
-  ChevronRight,
-  Home,
-  Heart,
-  GitCompare,
-  Share2,
-  CheckCircle2,
-  Building2,
-  Flame,
-  Camera,
-  Video,
-  Map as MapIcon,
-  LayoutGrid,
-} from 'lucide-react';
+import { icons } from '@/lib/design-system/icons';
 
 import ProjectGallery, {
   type GalleryImage,
 } from '@/components/projects/ProjectGallery';
 import ProjectMediaExplorer from '@/components/project-detail/ProjectMediaExplorer';
 import ShareMenu from '@/components/projects/ShareMenu';
+import AuthGateModal from '@/components/auth/AuthGateModal';
 
 import { useFavorites } from '@/hooks/useFavorites';
 import { useCompare } from '@/hooks/useCompare';
@@ -52,6 +39,21 @@ import {
   getDeveloperDisplayName,
   toProjectListing,
 } from '@/types/projectDetail';
+
+const {
+  MapPin,
+  ChevronRight,
+  Home,
+  Heart,
+  Share2,
+  CheckCircle2,
+  Building2,
+  Flame,
+  Camera,
+  Video,
+  Map: MapIcon,
+  LayoutGrid,
+} = icons;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROPS
@@ -171,11 +173,13 @@ export default function ProjectDetailHero({
   const [explorerTab,    setExplorerTab]    = useState<ExplorerTab>('media');
   const [explorerPhotoIdx, setExplorerPhotoIdx] = useState(0);
 
-  // Share state
+  // Share and auth state
   const [shareOpen, setShareOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
   // Favorites / Compare
   const {
+    isLoggedIn,
     isFavorite,
     actionState: favActionState,
     toggle:      toggleFavorite,
@@ -288,6 +292,10 @@ export default function ProjectDetailHero({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!isLoggedIn) {
+                    setAuthOpen(true);
+                    return;
+                  }
                   void toggleFavorite(project._id, 'project');
                 }}
                 disabled={favPending}
@@ -300,6 +308,10 @@ export default function ProjectDetailHero({
                 type="button"
                 onClick={(e) => {
                   e.stopPropagation();
+                  if (!isLoggedIn) {
+                    setAuthOpen(true);
+                    return;
+                  }
                   void toggleCompare(project._id, 'project');
                 }}
                 disabled={comparePending}
@@ -407,6 +419,12 @@ export default function ProjectDetailHero({
         project={listing}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
+      />
+
+      <AuthGateModal
+        isOpen={authOpen}
+        onClose={() => setAuthOpen(false)}
+        context="save"
       />
 
       <ProjectMediaExplorer

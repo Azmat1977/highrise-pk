@@ -15,6 +15,9 @@ import { colors, containers, grids, radii, shadows } from '@/lib/design-system/t
 import { typography } from '@/lib/design-system/typography';
 import { card, button, badge, safety } from '@/lib/design-system/components';
 import { getOptimizedImageUrl } from '@/utils/cloudinaryTransform';
+import AuthGateModal from '@/components/auth/AuthGateModal';
+import { useFavorites } from '@/hooks/useFavorites';
+import { useCompare } from '@/hooks/useCompare';
 
 import UniversalContactCard from '@/components/shared/UniversalContactCard';
 import SafeDealSidebarCard from '@/components/shared/SafeDealSidebarCard';
@@ -314,7 +317,7 @@ function formatPKR(value: number): string {
 }
 
 function formatDate(iso: string | undefined): string {
-  if (!iso) return '—';
+  if (!iso) return 'Not recorded';
   return new Date(iso).toLocaleDateString('en-PK', {
     day: 'numeric',
     month: 'long',
@@ -407,6 +410,13 @@ export default function SocietyDetailPage({
 }: PageProps): React.ReactElement {
   const router = useRouter();
   const [showReportModal, setShowReportModal] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+
+  // Gated favorites and compare: signed-out clicks open the auth gate modal
+  // before any API call. Both hooks return empty state when signed out.
+  // Hooks are declared before the fallback return so they run unconditionally.
+  const favorites = useFavorites({ defaultEntityType: 'society' });
+  const compare = useCompare({ defaultEntityType: 'society' });
 
   if (router.isFallback) {
     return (
@@ -426,6 +436,28 @@ export default function SocietyDetailPage({
 
   const activeAlerts = society.riskAlerts.filter((a) => !a.isResolved);
   const resolvedAlerts = society.riskAlerts.filter((a) => a.isResolved);
+
+  const favoriteBusy = favorites.actionState === 'pending';
+  const compareBusy = compare.actionState === 'pending';
+  const isFavorite = favorites.isFavorite(society._id, 'society');
+  const isCompared = compare.isInCompare(society._id, 'society');
+  const compareFull = compare.isMaxReached;
+
+  const handleToggleFavorite = (): void => {
+    if (!favorites.isLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+    void favorites.toggle(society._id, 'society');
+  };
+
+  const handleToggleCompare = (): void => {
+    if (!compare.isLoggedIn) {
+      setShowAuthModal(true);
+      return;
+    }
+    void compare.toggle(society._id, 'society');
+  };
 
   const canonicalUrl = `https://highrise.pk/societies/${society.slug}`;
   const pageTitle = society.seoTitle || `${society.name} - NOC Status, Scores & Intelligence Report | Highrise.pk`;
@@ -546,14 +578,14 @@ export default function SocietyDetailPage({
                 </span>
               </div>
 
-              {/* NOC / Status badges */}
+              {/* NOC / Status badges + gated save and compare actions */}
               <div className="flex flex-wrap items-center gap-3 pb-8">
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${noc.bg} ${noc.border} ${noc.color} text-xs font-bold shadow-xs`}>
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${noc.bg} ${noc.border} ${noc.color} text-xs font-bold shadow-sm`}>
                   {noc.icon}
                   {noc.label}
                 </div>
 
-                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${risk.bg} ${risk.border} ${risk.color} text-xs font-bold shadow-xs`}>
+                <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-xl border ${risk.bg} ${risk.border} ${risk.color} text-xs font-bold shadow-sm`}>
                   <icons.Shield className="w-4 h-4" />
                   {risk.label}
                 </div>
@@ -564,6 +596,38 @@ export default function SocietyDetailPage({
                     {activeAlerts.length} Active Compliance Risk Alert{activeAlerts.length > 1 ? 's' : ''}
                   </div>
                 )}
+
+                <div className="ml-auto flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={handleToggleFavorite}
+                    disabled={favoriteBusy}
+                    aria-pressed={isFavorite}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isFavorite
+                        ? 'bg-[#ef4444] text-white'
+                        : 'border border-white/20 bg-white/15 text-white hover:bg-white/25'
+                    }`}
+                  >
+                    <icons.Heart className={`w-4 h-4 ${isFavorite ? 'fill-current' : ''}`} />
+                    {isFavorite ? 'Saved' : 'Save Society'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleToggleCompare}
+                    disabled={compareBusy || (!isCompared && compareFull)}
+                    aria-pressed={isCompared}
+                    title={!isCompared && compareFull ? 'Compare list is full (4 maximum)' : undefined}
+                    className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-bold transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60 disabled:cursor-not-allowed disabled:opacity-60 ${
+                      isCompared
+                        ? 'bg-[#10b981] text-white'
+                        : 'border border-white/20 bg-white/15 text-white hover:bg-white/25'
+                    }`}
+                  >
+                    {isCompared ? <icons.Check className="w-4 h-4" /> : <icons.BarChart3 className="w-4 h-4" />}
+                    {isCompared ? 'Added to Compare' : 'Compare'}
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -882,7 +946,7 @@ export default function SocietyDetailPage({
                             <td className="px-4 py-3 text-right text-gray-700 font-bold">PKR {formatPKR(rate.minPrice)}</td>
                             <td className="px-4 py-3 text-right text-gray-700 font-bold">PKR {formatPKR(rate.maxPrice)}</td>
                             <td className="px-4 py-3 text-right text-[#029bba] font-bold">
-                              {rate.pricePerMarla ? `PKR ${formatPKR(rate.pricePerMarla)}` : '—'}
+                              {rate.pricePerMarla ? `PKR ${formatPKR(rate.pricePerMarla)}` : 'N/A'}
                             </td>
                           </tr>
                         ))}
@@ -912,7 +976,10 @@ export default function SocietyDetailPage({
                         </div>
                         <p className="text-xs text-gray-500 leading-relaxed">{alert.message}</p>
                         {alert.resolvedNote && (
-                          <p className="text-xs text-emerald-600 font-semibold mt-1">✓ Resolution update: {alert.resolvedNote}</p>
+                          <p className="text-xs text-emerald-600 font-semibold mt-1 inline-flex items-center gap-1">
+                            <icons.Check className="w-3 h-3" />
+                            Resolution update: {alert.resolvedNote}
+                          </p>
                         )}
                       </div>
                     ))}
@@ -1053,17 +1120,19 @@ export default function SocietyDetailPage({
               Inspect verified master-plans, risk reports, and block pricing trends across all societies on Pakistan's smartest real estate index.
             </p>
             <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
-              <Link href="/societies">
-                <button className="px-5 py-2.5 rounded-xl bg-white text-[#004063] font-bold text-xs hover:bg-gray-100 transition-colors inline-flex items-center gap-2">
-                  <icons.Building2 className="w-4 h-4 text-[#029bba]" />
-                  All Housing Schemes
-                </button>
+              <Link
+                href="/societies"
+                className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-[#004063] transition-colors hover:bg-gray-100"
+              >
+                <icons.Building2 className="w-4 h-4 text-[#029bba]" />
+                All Housing Schemes
               </Link>
-              <Link href="/risk-alerts">
-                <button className="px-5 py-2.5 rounded-xl bg-white/10 border border-white/20 text-white font-bold text-xs hover:bg-white/20 transition-colors inline-flex items-center gap-2">
-                  <icons.AlertTriangle className="w-4 h-4 text-[#f59e0b]" />
-                  Risk Alert Board
-                </button>
+              <Link
+                href="/risk-alerts"
+                className="inline-flex items-center gap-2 rounded-xl border border-white/20 bg-white/10 px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-white/20"
+              >
+                <icons.AlertTriangle className="w-4 h-4 text-[#f59e0b]" />
+                Risk Alert Board
               </Link>
             </div>
           </div>
@@ -1103,6 +1172,13 @@ export default function SocietyDetailPage({
         reporterUserId=""
         reporterEmail=""
         reporterPhone=""
+      />
+
+      <AuthGateModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        context="save"
+        actionDescription="save this society"
       />
     </>
   );

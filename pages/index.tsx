@@ -1,10 +1,8 @@
 // pages/index.tsx
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import Head from 'next/head';
-import { useSession } from 'next-auth/react';
-import { CheckCircle, Mail, Shield, X } from 'lucide-react';
 
-import { useCompare } from '@/hooks/useCompare';
+import { icons } from '@/lib/design-system/icons';
 import HomeHero from '@/components/home/HomeHero';
 import BrowseCategories from '@/components/home/BrowseCategories';
 import CityExplorer from '@/components/cities/CityExplorer';
@@ -20,7 +18,7 @@ import HomeNewsletter from '@/components/home/HomeNewsletter';
 import PopularSearches from '@/components/home/PopularSearches';
 import FinalCta from '@/components/home/FinalCta';
 
-// ─── Types ────────────────────────────────────────────────────────────────────
+// ===== Types =====
 
 interface PropertyItem {
   _id: string;
@@ -133,11 +131,6 @@ interface PartnerItem {
   logo?: { url: string };
 }
 
-interface ToastState {
-  message: string;
-  type: 'success' | 'error' | 'info';
-}
-
 interface SocietyItem {
   _id: string;
   name: string;
@@ -159,7 +152,7 @@ interface SocietyItem {
   developerName?: string;
 }
 
-// ─── Inline Modal ─────────────────────────────────────────────────────────────
+// ===== Newsletter inline modal =====
 
 interface SubscriptionInlineModalProps {
   isOpen: boolean;
@@ -193,20 +186,20 @@ function SubscriptionInlineModal({
       aria-modal="true"
       aria-labelledby="sub-modal-title"
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-2xl">
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative z-10 w-full max-w-md rounded-2xl bg-white p-8 text-center shadow-xl">
         <button
           onClick={onClose}
           className="absolute right-4 top-4 flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 transition-colors hover:bg-gray-200"
           aria-label="Close"
         >
-          <X className="h-4 w-4 text-gray-600" />
+          <icons.X className="h-4 w-4 text-gray-600" />
         </button>
 
         {type === 'success' && (
           <>
-            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-              <CheckCircle className="h-8 w-8 text-green-500" />
+            <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+              <icons.Check className="h-8 w-8 text-emerald-500" />
             </div>
             <h3 id="sub-modal-title" className="mb-2 text-xl font-bold text-gray-900">
               You&apos;re Subscribed!
@@ -220,7 +213,7 @@ function SubscriptionInlineModal({
         {type === 'already_subscribed' && (
           <>
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-              <Mail className="h-8 w-8 text-[#029bba]" />
+              <icons.Check className="h-8 w-8 text-[#029bba]" />
             </div>
             <h3 id="sub-modal-title" className="mb-2 text-xl font-bold text-gray-900">
               Already Subscribed
@@ -232,7 +225,7 @@ function SubscriptionInlineModal({
         {type === 'error' && (
           <>
             <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100">
-              <X className="h-8 w-8 text-red-500" />
+              <icons.X className="h-8 w-8 text-red-500" />
             </div>
             <h3 id="sub-modal-title" className="mb-2 text-xl font-bold text-gray-900">
               Something Went Wrong
@@ -252,19 +245,12 @@ function SubscriptionInlineModal({
   );
 }
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
+// ===== Page =====
 
 export default function HomePage(): React.ReactElement {
-  const { data: session } = useSession();
-
-  const { isInCompare, toggle: toggleCompare, isMaxReached } = useCompare({
-    defaultEntityType: 'property',
-  });
-
   // Data states
   const [featuredProperties, setFeaturedProperties] = useState<PropertyItem[]>([]);
   const [featuredTotal, setFeaturedTotal] = useState<number | null>(null);
-  const [installmentProperties, setInstallmentProperties] = useState<PropertyItem[]>([]);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [developers, setDevelopers] = useState<DeveloperItem[]>([]);
   const [agents, setAgents] = useState<AgentItem[]>([]);
@@ -276,7 +262,6 @@ export default function HomePage(): React.ReactElement {
 
   // Loading states
   const [loadingProperties, setLoadingProperties] = useState(true);
-  const [loadingInstallments, setLoadingInstallments] = useState(true);
   const [loadingProjects, setLoadingProjects] = useState(true);
   const [loadingDevelopers, setLoadingDevelopers] = useState(true);
   const [loadingAgents, setLoadingAgents] = useState(true);
@@ -290,29 +275,12 @@ export default function HomePage(): React.ReactElement {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileKey, setTurnstileKey] = useState(0);
 
-  // Favorites states
-  const [favoriteMap, setFavoriteMap] = useState<Record<string, boolean>>({});
-  const [favoriteLoadingMap, setFavoriteLoadingMap] = useState<Record<string, boolean>>({});
-
-  // Modal state
+  // Inline modal state
   const [showModal, setShowModal] = useState(false);
   const [modalType, setModalType] = useState<'success' | 'error' | 'already_subscribed'>('success');
   const [modalMessage, setModalMessage] = useState('');
 
-  // Toast state
-  const [toast, setToast] = useState<ToastState | null>(null);
-
-  // ── Helpers ────────────────────────────────────────────────────────────────
-
-  const showToast = useCallback((message: string, type: ToastState['type'] = 'info') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
-  const getFavoriteKey = (entityType: 'property' | 'project', entityId: string): string =>
-    `${entityType}:${entityId}`;
-
-  // ── Data fetching ──────────────────────────────────────────────────────────
+  // Data fetching
 
   useEffect(() => {
     const run = async () => {
@@ -338,21 +306,6 @@ export default function HomePage(): React.ReactElement {
   useEffect(() => {
     const run = async () => {
       try {
-        const res = await fetch('/api/properties?listingType=installment&limit=6');
-        const data = await res.json();
-        setInstallmentProperties(data.success ? data.properties || [] : []);
-      } catch {
-        setInstallmentProperties([]);
-      } finally {
-        setLoadingInstallments(false);
-      }
-    };
-    run();
-  }, []);
-
-  useEffect(() => {
-    const run = async () => {
-      try {
         const res = await fetch('/api/projects?status=verified&limit=6');
         const data = await res.json();
         setProjects(data.success ? data.projects || [] : []);
@@ -370,7 +323,7 @@ export default function HomePage(): React.ReactElement {
       try {
         const res = await fetch('/api/developers?limit=6');
         const data = await res.json();
-        // API shape: { success, data: { developers } } — verify filter client-side
+        // API shape: { success, data: { developers } }; verified filter applied client-side
         const payload = (data?.data ?? data) as { developers?: Partial<DeveloperItem>[] };
         const verified = (Array.isArray(payload.developers) ? payload.developers : []).filter(
           (d) => d?.isVerified
@@ -445,58 +398,6 @@ export default function HomePage(): React.ReactElement {
     run();
   }, []);
 
-  // Favorites (only when logged in) — mode=ids is authoritative for heart UI
-  const fetchFavorites = useCallback(async () => {
-    if (!session?.user) return;
-    try {
-      const res = await fetch(`/api/favorites?mode=ids&_ts=${Date.now()}`, {
-        credentials: 'include',
-        cache: 'no-store',
-        headers: { Accept: 'application/json' },
-      });
-      const data = await res.json();
-      const ids: string[] = Array.isArray(data?.data?.propertyIds)
-        ? data.data.propertyIds.map((id: unknown) => String(id))
-        : [];
-
-      const nextMap: Record<string, boolean> = {};
-      ids.forEach((id) => {
-        if (id) nextMap[`property:${id}`] = true;
-      });
-      setFavoriteMap(nextMap);
-    } catch {
-      // silent
-    }
-  }, [session]);
-
-  useEffect(() => {
-    if (session?.user) fetchFavorites();
-  }, [session, fetchFavorites]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && session?.user) {
-        void fetchFavorites();
-      }
-    };
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [session, fetchFavorites]);
-
-  // Keep homepage hearts in sync with header/card toggles
-  useEffect(() => {
-    if (!session?.user || typeof window === 'undefined') return;
-    const sync = () => {
-      void fetchFavorites();
-    };
-    window.addEventListener('highrise_favorite_updated', sync);
-    window.addEventListener('highrise:favorites-changed', sync);
-    return () => {
-      window.removeEventListener('highrise_favorite_updated', sync);
-      window.removeEventListener('highrise:favorites-changed', sync);
-    };
-  }, [session, fetchFavorites]);
-
   // Verified societies (top 5 by score)
   useEffect(() => {
     const run = async () => {
@@ -515,66 +416,7 @@ export default function HomePage(): React.ReactElement {
     run();
   }, []);
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
-
-  const handleFavoriteToggle = async (
-    entityType: 'property' | 'project',
-    entityId: string,
-    e?: React.MouseEvent
-  ) => {
-    e?.preventDefault();
-    e?.stopPropagation();
-
-    const favoriteKey = getFavoriteKey(entityType, entityId);
-    const previousState = favoriteMap[favoriteKey];
-
-    if (!session?.user) {
-      showToast('Please sign in to save properties', 'info');
-      return;
-    }
-
-    setFavoriteMap((prev) => ({ ...prev, [favoriteKey]: !previousState }));
-    setFavoriteLoadingMap((prev) => ({ ...prev, [favoriteKey]: true }));
-
-    try {
-      const res = await fetch('/api/favorites/toggle', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ entityType, entityId }),
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        setFavoriteMap((prev) => ({ ...prev, [favoriteKey]: previousState }));
-        showToast(data?.message || 'Unable to update favorites', 'error');
-        return;
-      }
-
-      const isFav = Boolean(data?.data?.isFavorited);
-      const actionStr = isFav ? 'added' : 'removed';
-      setFavoriteMap((prev) => ({ ...prev, [favoriteKey]: isFav }));
-      showToast(isFav ? 'Saved to your list' : 'Removed from saved', 'success');
-
-      try {
-        localStorage.setItem(
-          'highrise_favorite_toggle',
-          JSON.stringify({
-            entityType,
-            entityId,
-            action: actionStr,
-            timestamp: Date.now(),
-          })
-        );
-      } catch {}
-      window.dispatchEvent(new CustomEvent('highrise_favorite_updated'));
-      window.dispatchEvent(new CustomEvent('highrise:favorites-changed'));
-    } catch {
-      setFavoriteMap((prev) => ({ ...prev, [favoriteKey]: previousState }));
-      showToast('Connection error. Please try again.', 'error');
-    } finally {
-      setFavoriteLoadingMap((prev) => ({ ...prev, [favoriteKey]: false }));
-    }
-  };
+  // Newsletter signup
 
   const handleNewsletterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -629,7 +471,7 @@ export default function HomePage(): React.ReactElement {
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
+  // Render
 
   return (
     <>
@@ -713,25 +555,6 @@ export default function HomePage(): React.ReactElement {
         <PopularSearches />
 
         <FinalCta />
-
-        {toast && (
-          <div className="pointer-events-none fixed bottom-6 right-6 z-[9999]">
-            <div
-              className={`flex items-center gap-3 rounded-2xl border px-6 py-4 shadow-2xl transition-all duration-300 ${
-                toast.type === 'success'
-                  ? 'border-green-400/50 bg-green-500/95 text-white'
-                  : toast.type === 'error'
-                    ? 'border-red-400/50 bg-red-500/95 text-white'
-                    : 'border-[#029bba]/50 bg-[#029bba]/95 text-white'
-              }`}
-            >
-              {toast.type === 'success' && <CheckCircle className="h-5 w-5" />}
-              {toast.type === 'error' && <X className="h-5 w-5" />}
-              {toast.type === 'info' && <Shield className="h-5 w-5" />}
-              <span className="text-sm font-medium">{toast.message}</span>
-            </div>
-          </div>
-        )}
 
         <SubscriptionInlineModal
           isOpen={showModal}

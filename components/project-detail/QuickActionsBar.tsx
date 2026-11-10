@@ -30,19 +30,13 @@ import React, {
   useRef,
 } from 'react';
 import { createPortal } from 'react-dom';
-import {
-  Heart,
-  GitCompare,
-  Share2,
-  Phone,
-  Calendar,
-  ChevronUp,
-} from 'lucide-react';
+import { icons } from '@/lib/design-system/icons';
 
 import { useFavorites }      from '@/hooks/useFavorites';
 import { useCompare }        from '@/hooks/useCompare';
 import ShareMenu             from '@/components/projects/ShareMenu';
 import UniversalInquiryModal from '@/components/UniversalInquiryModal';
+import AuthGateModal         from '@/components/auth/AuthGateModal';
 
 import type { ProjectDetailData, InquiryType } from '@/types/projectDetail';
 
@@ -53,6 +47,15 @@ import {
   getDeveloperDisplayName,
   toProjectListing,
 } from '@/types/projectDetail';
+
+const {
+  Heart,
+  LayoutGrid,
+  Share2,
+  Phone,
+  Calendar,
+  ChevronUp,
+} = icons;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PROPS
@@ -118,6 +121,7 @@ function QuickActionsBarInner({
 
   // ── SPRINT 2: Favorites — correct API ──
   const {
+    isLoggedIn,
     isFavorite,
     actionState: favActionState,
     toggle:      toggleFavorite,
@@ -139,6 +143,7 @@ function QuickActionsBarInner({
   // ── Share + Inquiry state ──
   const [shareOpen,   setShareOpen]   = useState(false);
   const [inquiryOpen, setInquiryOpen] = useState(false);
+  const [authOpen,    setAuthOpen]    = useState(false);
   const [inquiryType, setInquiryType] = useState<InquiryType>('project_interest');
 
   const handleInquiry = useCallback((type: InquiryType) => {
@@ -190,7 +195,13 @@ function QuickActionsBarInner({
 
               {/* FAVORITE — isFavorite(id) + toggle(id, type) */}
               <button
-                onClick={() => void toggleFavorite(project._id, 'project')}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    setAuthOpen(true);
+                    return;
+                  }
+                  void toggleFavorite(project._id, 'project');
+                }}
                 disabled={favPending}
                 aria-label={isFavorited ? 'Remove from shortlist' : 'Save to shortlist'}
                 aria-pressed={isFavorited}
@@ -211,7 +222,13 @@ function QuickActionsBarInner({
 
               {/* COMPARE — isInCompare(id) + toggle(id, type) */}
               <button
-                onClick={() => void toggleCompare(project._id, 'project')}
+                onClick={() => {
+                  if (!isLoggedIn) {
+                    setAuthOpen(true);
+                    return;
+                  }
+                  void toggleCompare(project._id, 'project');
+                }}
                 disabled={comparePending}
                 aria-label={isCompared ? 'Remove from comparison' : 'Add to comparison'}
                 aria-pressed={isCompared}
@@ -224,7 +241,7 @@ function QuickActionsBarInner({
                   ${comparePending ? 'opacity-60 cursor-wait' : ''}
                 `}
               >
-                <GitCompare className="w-3.5 h-3.5" />
+                <LayoutGrid className="w-3.5 h-3.5" />
                 <span className="hidden sm:inline">
                   {isCompared ? 'Comparing' : 'Compare'}
                 </span>
@@ -279,6 +296,12 @@ function QuickActionsBarInner({
         project={listing}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
+      />
+
+      <AuthGateModal
+        isOpen={authOpen}
+        onClose={() => setAuthOpen(false)}
+        context="save"
       />
 
       {/* ── INQUIRY MODAL — contact gating ── */}

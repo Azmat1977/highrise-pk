@@ -1,142 +1,241 @@
 // C:\dev\highrise-pk\pages\api\compare\remove.ts
-// V2 — Multi-entity remove (property + project)
-// Backward compatible: legacy propertyId still works
-
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getOptionalAuth } from '@/lib/optionalAuth';
+import mongoose from 'mongoose';
+import { z } from 'zod';
+import { requireAuth } from '@/lib/requireAuth';
 import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
-import mongoose from 'mongoose';
-import { rateLimitApiWrite, sendRateLimitResponse } from '@/lib/rateLimit';
-import { z } from 'zod';
+import {
+  MAX_COMPARE_ITEMS,
+  asRecord,
+  createCompareRequestContext,
+  parseComparisonReferences,
+  safelyLogCompareEvent,
+  setCompareSecurityHeaders,
+} from '@/lib/compareApi';
 
-const MAX_ITEMS = 4;
+const entityIdSchema = z
+  .string()
+  .regex(/^[0-9a-fA-F]{24}$/, 'Invalid entity ID');
 
-const removeCompareSchema = z.object({
-  entityType: z.enum(['property', 'project']).optional().nullable(),
-  entityId:   z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid entity ID").optional().nullable(),
-  propertyId: z.string().regex(/^[0-9a-fA-F]{24}$/, "Invalid property ID").optional().nullable(),
-  sessionId:  z.string().max(100, "Session ID too long").optional().nullable(),
-}).refine(
-  data => (data.entityType && data.entityId) || data.propertyId,
-  { message: 'Provide either (entityType + entityId) or propertyId' },
-);
+const removeCompareSchema = z
+  .object({
+    entityType: z.enum(['property', 'project', 'society']).optional(),
+    entityId: entityIdSchema.optional(),
+    propertyId: entityIdSchema.optional(),
+  })
+  .strict()
+  .superRefine((data, context) => {
+    const hasEntityType = data.entityType !== undefined;
+    const hasEntityId = data.entityId !== undefined;
+    const hasPropertyId = data.propertyId !== undefined;
+
+    if (
+      hasEntityType !== hasEntityId ||
+      (hasEntityType && hasPropertyId) ||
+      (!hasEntityType && !hasPropertyId)
+    ) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: 'Provide either (entityType + entityId) or propertyId.',
+      });
+    }
+  });
+
+function isEmptyObject(value: unknown): boolean {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    !Array.isArray(value) &&
+    Object.keys(value).length === 0
+  );
+}
+
+function entityLabel(entityType: string): string {
+  if (entityType === 'property') {
+    return 'Property';
+  }
+  if (entityType === 'society') {
+    return 'Society';
+  }
+  return 'Project';
+}
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
-) {
+): Promise<void> {
+  setCompareSecurityHeaders(res);
+  const context = createCompareRequestContext(req, res);
+  let userId: string | undefined;
+
   if (req.method !== 'DELETE') {
-    return res.status(405).json({ success: false, error: 'Method not allowed' });
+    res.setHeader('Allow', 'DELETE');
+    res.status(405).json({
+      success: false,
+      error: 'Method not allowed',
+    });
+    return;
   }
 
   try {
+    const { rateLimitApiWrite, sendRateLimitResponse } = await import(
+      '@/lib/rateLimit'
+    );
     const rateLimitResult = await rateLimitApiWrite(req);
+
     if (!rateLimitResult.ok) {
-      return sendRateLimitResponse(res, rateLimitResult);
-    }
-
-    // Support body + query params
-    const payload = {
-      entityType: req.body?.entityType ?? req.query?.entityType,
-      entityId:   req.body?.entityId   ?? req.query?.entityId,
-      propertyId: req.body?.propertyId ?? req.query?.propertyId,
-      sessionId:  req.body?.sessionId  ?? req.query?.sessionId,
-    };
-
-    const validation = removeCompareSchema.safeParse(payload);
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        error:   validation.error.issues[0].message,
+      await safelyLogCompareEvent({
+        type: 'suspicious_activity',
+        severity: 'medium',
+        ip: context.ip,
+        userAgent: context.userAgent,
+        requestId: context.requestId,
+        req,
+        metadata: {
+          action: 'compare_remove_rate_limited',
+          endpoint: '/api/compare/remove',
+          retryAfter: rateLimitResult.retryAfter,
+        },
       });
+
+      sendRateLimitResponse(res, rateLimitResult);
+      return;
     }
 
-    // Normalize
-    const entityType: 'property' | 'project' =
-      validation.data.entityType
-      ?? (validation.data.propertyId ? 'property' : 'property');
+    const auth = await requireAuth(req, res);
+    if (!auth) {
+      return;
+    }
+    userId = auth.id;
 
-    const entityId: string =
-      validation.data.entityId
-      ?? validation.data.propertyId
-      ?? '';
+    if (!mongoose.Types.ObjectId.isValid(auth.id)) {
+      res.status(401).json({
+        success: false,
+        error: 'Authentication required.',
+      });
+      return;
+    }
 
-    const { sessionId } = validation.data;
+    const bodyIsEmpty =
+      req.body === undefined || req.body === null || isEmptyObject(req.body);
+    const queryIsEmpty = Object.keys(req.query).length === 0;
+
+    if (!bodyIsEmpty && !queryIsEmpty) {
+      res.status(400).json({
+        success: false,
+        error: 'Provide removal parameters in either the body or query, not both.',
+      });
+      return;
+    }
+
+    const source = bodyIsEmpty ? req.query : req.body;
+    const validation = removeCompareSchema.safeParse(source);
+
+    if (!validation.success) {
+      await safelyLogCompareEvent({
+        type: 'suspicious_activity',
+        severity: 'low',
+        userId,
+        ip: context.ip,
+        userAgent: context.userAgent,
+        requestId: context.requestId,
+        req,
+        metadata: {
+          action: 'compare_remove_invalid_request',
+          endpoint: '/api/compare/remove',
+        },
+      });
+
+      res.status(400).json({
+        success: false,
+        error: 'Invalid comparison removal request.',
+      });
+      return;
+    }
 
     await dbConnect();
 
-    // Canonical optional auth (guests allowed for comparison)
-    const auth = await getOptionalAuth(req);
-    const userId = auth?.id;
-    if (!userId && !sessionId) {
-      return res.status(400).json({
-        success: false,
-        error:   'Session identification required',
-      });
+    const entityType = validation.data.entityType ?? 'property';
+    const entityId = (
+      validation.data.entityId ??
+      validation.data.propertyId ??
+      ''
+    ).toLowerCase();
+    const entityObjectId = new mongoose.Types.ObjectId(entityId);
+    const userObjectId = new mongoose.Types.ObjectId(auth.id);
+
+    const matchConditions: Record<string, unknown>[] = [
+      {
+        items: {
+          $elemMatch: {
+            entityType,
+            entityId: entityObjectId,
+          },
+        },
+      },
+    ];
+
+    if (entityType === 'property') {
+      matchConditions.push({ properties: entityObjectId });
     }
 
-    const query = userId
-      ? { userId: new mongoose.Types.ObjectId(userId) }
-      : { sessionId };
+    const pull: Record<string, unknown> = {
+      items: {
+        entityType,
+        entityId: entityObjectId,
+      },
+    };
 
-    // Delete from ALL matching docs (multi-doc ghost fix).
-    // GET uses sort createdAt:-1; a single findOne can hit a different doc.
-    const comparisons = await Comparison.find(query).sort({ createdAt: -1 });
-
-    if (!comparisons.length) {
-      return res.status(404).json({
-        success: false,
-        error:   'Comparison list not found',
-      });
+    if (entityType === 'property') {
+      pull.properties = entityObjectId;
     }
 
-    const targetIdStr = String(entityId);
-
-    for (const comparison of comparisons) {
-      const nextItems = Array.isArray(comparison.items)
-        ? comparison.items.filter(
-            (item) => String(item?.entityId ?? '') !== targetIdStr,
-          )
-        : [];
-
-      const nextProperties = Array.isArray(comparison.properties)
-        ? comparison.properties.filter(
-            (pid) => String(pid ?? '') !== targetIdStr,
-          )
-        : [];
-
-      comparison.set('items', nextItems);
-      comparison.set('properties', nextProperties);
-      comparison.markModified('items');
-      comparison.markModified('properties');
-      await comparison.save();
-    }
-
-    const primary = comparisons[0];
-    const remaining =
-      primary.items?.length
-      ?? primary.properties?.length
-      ?? 0;
-
-    res.setHeader(
-      'Cache-Control',
-      'no-store, no-cache, must-revalidate, private',
+    await Comparison.updateMany(
+      {
+        userId: userObjectId,
+        $or: matchConditions,
+      },
+      {
+        $pull: pull,
+        $set: { isShared: false },
+        $inc: { __v: 1 },
+      },
     );
-    res.setHeader('Pragma', 'no-cache');
 
-    return res.status(200).json({
+    const latest = await Comparison.findOne({ userId: userObjectId })
+      .sort({ createdAt: -1 })
+      .lean();
+
+    const remaining = latest
+      ? parseComparisonReferences(latest).references.length
+      : 0;
+
+    res.status(200).json({
       success: true,
-      message: `${entityType === 'property' ? 'Property' : 'Project'} removed from comparison`,
+      message: `${entityLabel(entityType)} removed from comparison.`,
       data: {
         count: remaining,
-        limit: MAX_ITEMS,
+        limit: MAX_COMPARE_ITEMS,
       },
     });
   } catch {
-    return res.status(500).json({
+    await safelyLogCompareEvent({
+      type: 'api_unhandled_error',
+      userId,
+      ip: context.ip,
+      userAgent: context.userAgent,
+      requestId: context.requestId,
+      req,
+      metadata: {
+        action: 'compare_remove_failed',
+        endpoint: '/api/compare/remove',
+      },
+    });
+
+    res.status(500).json({
       success: false,
-      error:   'Server error while removing from comparison',
+      error: 'Server error while removing comparison item.',
     });
   }
 }

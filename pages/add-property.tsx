@@ -3,7 +3,13 @@
 import React, { useState, useCallback } from "react";
 import Head from "next/head";
 import Link from "next/link";
-import {
+import { useRouter } from "next/router";
+import { useSession } from "next-auth/react";
+import { icons } from "@/lib/design-system/icons";
+import AuthGateModal from "@/components/auth/AuthGateModal";
+import PropertyListingForm from "@/components/property/forms/listing/PropertyListingForm";
+
+const {
   Home,
   ChevronRight,
   Shield,
@@ -12,10 +18,14 @@ import {
   Users,
   CheckCircle,
   ArrowRight,
-} from "lucide-react";
-import PropertyListingForm from "@/components/property/forms/listing/PropertyListingForm";
+} = icons;
 
 export default function AddPropertyPage(): React.ReactElement {
+  const router = useRouter();
+  const { data: session, status } = useSession();
+  const isLoggedIn = status === "authenticated" && Boolean(session?.user);
+  const isSessionLoading = status === "loading";
+
   const [emailModalOpen, setEmailModalOpen] = useState(false);
 
   const openEmailModal = useCallback(() => setEmailModalOpen(true), []);
@@ -73,8 +83,31 @@ export default function AddPropertyPage(): React.ReactElement {
 
           {/* MAIN FORM ZONE */}
           <div className="pb-8">
-            <PropertyListingForm />
+            {isSessionLoading ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center text-sm font-semibold text-gray-500 shadow-sm">
+                Checking your account session...
+              </div>
+            ) : isLoggedIn ? (
+              <PropertyListingForm />
+            ) : (
+              <div className="rounded-2xl border border-gray-200 bg-white p-10 text-center shadow-sm">
+                <h2 className="text-lg font-bold text-[#004063]">
+                  Sign in required to list a property
+                </h2>
+                <p className="mt-1 text-sm text-gray-600">
+                  Please sign in or create an account to access the property listing form.
+                </p>
+              </div>
+            )}
           </div>
+
+          <AuthGateModal
+            isOpen={!isSessionLoading && !isLoggedIn}
+            onClose={() => {
+              void router.push("/");
+            }}
+            context="listing"
+          />
 
           {/* SUPPORT SECTION */}
           <div className="pb-16 md:pb-20">

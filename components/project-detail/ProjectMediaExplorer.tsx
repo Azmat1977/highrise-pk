@@ -11,23 +11,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import Image from 'next/image';
-import {
-  X,
-  ChevronLeft,
-  ChevronRight,
-  Camera,
-  Video,
-  Map as MapIcon,
-  ExternalLink,
-  Home,
-  UtensilsCrossed,
-  Heart,
-  Building2,
-  TreePine,
-  Star,
-  Car,
-  Share2,
-} from 'lucide-react';
+import { icons } from '@/lib/design-system/icons';
 
 import type { ProjectDetailData, ProjectImage } from '@/types/projectDetail';
 import {
@@ -41,7 +25,26 @@ import {
 } from '@/types/projectDetail';
 import UniversalContactCard from '@/components/shared/UniversalContactCard';
 import ShareMenu from '@/components/projects/ShareMenu';
+import AuthGateModal from '@/components/auth/AuthGateModal';
 import { useFavorites } from '@/hooks/useFavorites';
+
+const {
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Camera,
+  Video,
+  Map: MapIcon,
+  ExternalLink,
+  Home,
+  UtensilsCrossed,
+  Heart,
+  Building2,
+  TreePine,
+  Star,
+  Car,
+  Share2,
+} = icons;
 
 type ExplorerTab = 'media' | 'video' | 'map';
 
@@ -79,8 +82,10 @@ export default function ProjectMediaExplorer({
   const [photoIdx, setPhotoIdx] = useState(0);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [shareOpen, setShareOpen] = useState(false);
+  const [authOpen, setAuthOpen] = useState(false);
 
   const {
+    isLoggedIn,
     isFavorite,
     actionState: favActionState,
     toggle: toggleFavorite,
@@ -252,7 +257,13 @@ export default function ProjectMediaExplorer({
 
           <button
             type="button"
-            onClick={() => void toggleFavorite(project._id, 'project')}
+            onClick={() => {
+              if (!isLoggedIn) {
+                setAuthOpen(true);
+                return;
+              }
+              void toggleFavorite(project._id, 'project');
+            }}
             disabled={favPending}
             aria-label={isFavorited ? 'Remove from shortlist' : 'Save to shortlist'}
             aria-pressed={isFavorited}
@@ -511,7 +522,7 @@ export default function ProjectMediaExplorer({
           </div>
 
           {/* Right CTA — always visible */}
-          <div className="w-full lg:sticky lg:top-0">
+            <div className="w-full">
             <UniversalContactCard
               entityType="project"
               entityId={project._id}
@@ -548,6 +559,12 @@ export default function ProjectMediaExplorer({
         project={listing}
         isOpen={shareOpen}
         onClose={() => setShareOpen(false)}
+      />
+
+      <AuthGateModal
+        isOpen={authOpen}
+        onClose={() => setAuthOpen(false)}
+        context="save"
       />
     </div>,
     document.body

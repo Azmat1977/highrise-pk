@@ -6,7 +6,7 @@ import mongoose, { Schema, Document, Types } from 'mongoose';
 // TYPE DEFINITIONS
 // ============================================
 
-export type FavoriteEntityType = 'property' | 'project' | 'unit';
+export type FavoriteEntityType = 'property' | 'project' | 'unit' | 'society';
 
 // ============================================
 // INTERFACE
@@ -70,7 +70,7 @@ const FavoriteSchema = new Schema<IFavorite>(
     // 🆕 Generic Entity Support
     entityType: {
       type: String,
-      enum: ['property', 'project', 'unit'],
+      enum: ['property', 'project', 'unit', 'society'],
       required: true,
       index: true,
     },
@@ -186,6 +186,7 @@ FavoriteSchema.virtual('entityModel').get(function (this: IFavorite) {
     property: 'Property',
     project: 'Project',
     unit: 'Unit',
+    society: 'Society',
   };
   return modelMap[this.entityType];
 });

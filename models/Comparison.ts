@@ -18,12 +18,12 @@ export interface IComparison extends Document {
   // NEW code should use `items[]` array with entityType support instead.
   properties: Types.ObjectId[];
 
-  // ─── NEW: Multi-entity compare items (V2 — supports property + project) ───
-  // Each item carries its own entityType, allowing mixed comparisons.
+  // Compare APIs enforce a single entity type per list.
   items?: Array<{
-    entityType: 'property' | 'project';
-    entityId:   Types.ObjectId;
-    addedAt:    Date;
+    entityType: 'property' | 'project' | 'society';
+    entityId: Types.ObjectId;
+    entityModel?: 'Property' | 'Project' | 'Society';
+    addedAt: Date;
   }>;
 
   // Shareable link
@@ -69,7 +69,7 @@ const ComparisonSchema = new Schema<IComparison>(
       {
         entityType: {
           type:    String,
-          enum:    ['property', 'project'],
+          enum:    ['property', 'project', 'society'],
           required: true,
         },
         entityId: {
@@ -79,7 +79,7 @@ const ComparisonSchema = new Schema<IComparison>(
         },
         entityModel: {
           type: String,
-          enum: ['Property', 'Project'],
+          enum: ['Property', 'Project', 'Society'],
         },
         addedAt: {
           type:    Date,

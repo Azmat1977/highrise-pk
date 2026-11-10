@@ -17,6 +17,7 @@ import type { GetStaticProps, GetStaticPaths } from "next";
 
 import UniversalInquiryModal from "@/components/UniversalInquiryModal";
 import LoginOrSignupForm from "@/components/auth/LoginOrSignupForm";
+import AuthGateModal from "@/components/auth/AuthGateModal";
 import SimilarProperties from "@/components/property/SimilarProperties";
 import RecentlyViewed from "@/components/recently-viewed";
 import { PropertyDetailSkeleton } from "@/components/skeletons/PropertyDetailSkeleton";
@@ -234,6 +235,7 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
   const [showInquiryModal, setShowInquiryModal] = useState(false);
   const [inquiryLeadType, setInquiryLeadType] = useState<InquiryLeadType>("general_inquiry");
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSaveAuthModal, setShowSaveAuthModal] = useState(false);
   const [showReportModal, setShowReportModal] = useState(false);
 
   const [showJumpLinks, setShowJumpLinks] = useState(false);
@@ -666,8 +668,22 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
             heroMapUrl={heroMapUrl}
             selectedImage={selectedImage}
             onShare={() => setShareOpen(true)}
-            onSave={() => property._id && void favorites.toggle(property._id, "property")}
-            onCompare={() => property._id && void compare.toggle(property._id, "property")}
+            onSave={() => {
+  if (!isLoggedIn) {
+    setShowSaveAuthModal(true);
+    return;
+  }
+  if (property._id) void favorites.toggle(property._id, "property");
+}}
+            onCompare={() => {
+  if (!isLoggedIn) {
+    setShowSaveAuthModal(true);
+    return;
+  }
+  if (property._id) {
+    void compare.toggle(property._id, "property");
+  }
+}}
             openExplorer={openExplorer}
           />
 
@@ -864,15 +880,29 @@ export default function PropertySlugPage({ initialProperty }: PageProps): React.
         initialPhotoIdx={explorerPhotoIdx}
         contactCard={contactCardNode}
         onShare={() => setShareOpen(true)}
-        isSaved={isSaved}
-        onSave={() => property._id && void favorites.toggle(property._id, "property")}
-      />
+          isSaved={isSaved}
+          onSave={() => {
+            if (!isLoggedIn) {
+              setShowSaveAuthModal(true);
+              return;
+            }
+            if (property._id) {
+              void favorites.toggle(property._id, "property");
+            }
+          }}
+        />
 
-      <ShareMenu
-        property={property}
-        isOpen={shareOpen}
-        onClose={() => setShareOpen(false)}
-      />
+        <ShareMenu
+          property={property}
+          isOpen={shareOpen}
+          onClose={() => setShareOpen(false)}
+        />
+
+        <AuthGateModal
+          isOpen={showSaveAuthModal}
+          onClose={() => setShowSaveAuthModal(false)}
+          context="save"
+        />
 
       <AleemWidget
         context={{

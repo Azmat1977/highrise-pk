@@ -1,247 +1,224 @@
-// C:\dev\highrise-pk\pages\api\compare\index.ts
-// V2 — Populates both properties AND projects
-// Backward compatible response shape
-
+//C:\dev\highrise-pk\pages\api\compare\index.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
-import { getOptionalAuth } from '@/lib/optionalAuth';
-import dbConnect from '@/lib/dbConnect';
-import Comparison from '@/models/Comparison';
-import Property from '@/models/Property';
-import Project from '@/models/Projects';
 import mongoose from 'mongoose';
-import { rateLimitApi, sendRateLimitResponse } from '@/lib/rateLimit';
 import { z } from 'zod';
-import { PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
+import dbConnect from '@/lib/dbConnect';
+import { getClientIp, requireAuth } from '@/lib/requireAuth';
+import { rateLimitApi, sendRateLimitResponse } from '@/lib/rateLimit';
+import { safelyLogCompareEvent } from '@/lib/compareApi';
+import {
+  MAX_COMPARE_ITEMS,
+  asRecord,
+  createCompareRequestContext,
+  parseComparisonReferences,
+  resolveCompareReferences,
+  setCompareSecurityHeaders,
+  toCompareDate,
+  toCompareIsoDate,
+  validatePropertyListingIntents,
+} from '@/lib/compareApi';
+import Comparison from '@/models/Comparison';
 
-const MAX_ITEMS = 4;
+const querySchema = z.object({}).strict();
 
-const sessionQuerySchema = z.object({
-  sessionId: z.string().max(100, "Session ID too long").optional(),
-});
+function emptyResponse(res: NextApiResponse): void {
+  res.status(200).json({
+    success: true,
+    data: {
+      entityType: null,
+      properties: [],
+      projects: [],
+      societies: [],
+      entities: [],
+      shareId: null,
+      isShared: false,
+      count: 0,
+      limit: MAX_COMPARE_ITEMS,
+      expiresAt: null,
+      validationError: null,
+      validationReason: null,
+      unavailableCount: 0,
+      invalidItemCount: 0,
+    },
+  });
+}
 
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse,
-) {
+): Promise<void> {
+  setCompareSecurityHeaders(res);
+  const context = createCompareRequestContext(req, res);
+  let userId: string | undefined;
+
   if (req.method !== 'GET') {
-    return res.status(405).json({
+    res.setHeader('Allow', 'GET');
+    res.status(405).json({
       success: false,
       message: 'Method not allowed',
     });
+    return;
   }
 
   try {
-    res.setHeader(
-      'Cache-Control',
-      'no-store, no-cache, must-revalidate, private',
-    );
-    res.setHeader('Pragma', 'no-cache');
-
     const rateLimitResult = await rateLimitApi(req);
+
     if (!rateLimitResult.ok) {
-      return sendRateLimitResponse(res, rateLimitResult);
-    }
-
-    const rawSessionId = req.cookies['compare_session'] || req.query.sessionId;
-    const validation = sessionQuerySchema.safeParse({ sessionId: rawSessionId });
-
-    if (!validation.success) {
-      return res.status(400).json({
-        success: false,
-        message: 'Invalid session ID format',
+      await safelyLogCompareEvent({
+        type: 'suspicious_activity',
+        severity: 'medium',
+        ip: context.ip,
+        userAgent: context.userAgent,
+        requestId: context.requestId,
+        req,
+        metadata: {
+          action: 'compare_list_rate_limited',
+          endpoint: '/api/compare',
+          retryAfter: rateLimitResult.retryAfter,
+        },
       });
+
+      sendRateLimitResponse(res, rateLimitResult);
+      return;
     }
 
-    const sessionId = validation.data.sessionId;
+    const auth = await requireAuth(req, res);
+    if (!auth) {
+      return;
+    }
+    userId = auth.id;
+
+    if (!mongoose.Types.ObjectId.isValid(auth.id)) {
+      res.status(401).json({
+        success: false,
+        message: 'Authentication required',
+      });
+      return;
+    }
+
+    const validation = querySchema.safeParse(req.query);
+    if (!validation.success) {
+      res.status(400).json({
+        success: false,
+        message: 'Invalid query parameters',
+      });
+      return;
+    }
 
     await dbConnect();
 
-    // Canonical optional auth (guests allowed for comparison)
-    const auth = await getOptionalAuth(req);
-
-    let comparison = null;
-
-    // Fetch comparison based on identity
-    if (auth?.id) {
-      comparison = await Comparison.findOne({
-        userId: new mongoose.Types.ObjectId(auth.id),
-      })
-        .sort({ createdAt: -1 })
-        .lean();
-    } else if (sessionId) {
-      comparison = await Comparison.findOne({ sessionId })
-        .sort({ createdAt: -1 })
-        .lean();
-    }
+    const now = new Date();
+    const comparison = await Comparison.findOne({
+      userId: new mongoose.Types.ObjectId(auth.id),
+      $or: [
+        { expiresAt: { $gt: now } },
+        { expiresAt: { $exists: false } },
+        { expiresAt: null },
+      ],
+    })
+      .sort({ createdAt: -1 })
+      .lean();
 
     if (!comparison) {
-      return res.status(200).json({
-        success: true,
-        data: {
-          properties: [],
-          projects:   [],
-          entities:   [],
-          shareId:    null,
-          count:      0,
-          limit:      MAX_ITEMS,
-        },
-      });
+      emptyResponse(res);
+      return;
     }
 
-    // ─── Migrate legacy properties[] → items[] on read (self-heal) ─
-    let items = comparison.items ?? [];
-    if (items.length === 0 && comparison.properties && comparison.properties.length > 0) {
-      items = comparison.properties.map(pid => ({
-        entityType: 'property' as const,
-        entityId:   pid,
-        addedAt:    comparison!.createdAt,
-      }));
+    const comparisonRecord = asRecord(comparison);
+    const parsed = parseComparisonReferences(comparison);
+    const resolved = await resolveCompareReferences(parsed.references);
+    const entityTypes = Array.from(
+      new Set(parsed.references.map(reference => reference.entityType)),
+    );
+    const entityType = entityTypes.length === 1 ? entityTypes[0] : null;
+
+    let validationError: string | null = null;
+    let validationReason: string | null = null;
+
+    if (parsed.invalidCount > 0) {
+      validationError =
+        'Some saved comparison items are invalid. Clear the comparison and add items again.';
+      validationReason = 'invalid_items';
+    } else if (parsed.references.length > MAX_COMPARE_ITEMS) {
+      validationError =
+        `A comparison can contain up to ${MAX_COMPARE_ITEMS} items. Clear or remove items before continuing.`;
+      validationReason = 'limit_reached';
+    } else if (entityTypes.length > 1) {
+      validationError =
+        'This comparison contains different entity types. Clear it before continuing.';
+      validationReason = 'entity_type_mismatch';
+    } else if (resolved.unavailableCount > 0) {
+      validationError =
+        'One or more items are no longer publicly available. Remove them or clear the comparison.';
+      validationReason = 'entity_unavailable';
+    } else if (entityType === 'property') {
+      const intentValidation = validatePropertyListingIntents(
+        parsed.references,
+        resolved,
+      );
+
+      if (!intentValidation.valid) {
+        validationError = intentValidation.message ?? null;
+        validationReason = intentValidation.reason ?? null;
+      }
     }
 
-    // ─── Separate by entity type ──────────────────────────────
-    const propertyIds = items
-      .filter(i => i.entityType === 'property')
-      .map(i => i.entityId);
+    const expiresAt = toCompareDate(comparisonRecord.expiresAt);
+    const isShared =
+      comparisonRecord.isShared === true &&
+      expiresAt !== null &&
+      expiresAt.getTime() > Date.now();
+    const shareId =
+      isShared && typeof comparisonRecord.shareId === 'string'
+        ? comparisonRecord.shareId
+        : null;
 
-    const projectIds = items
-      .filter(i => i.entityType === 'project')
-      .map(i => i.entityId);
-
-    // ─── Parallel populate ────────────────────────────────────
-    const [properties, projects] = await Promise.all([
-      propertyIds.length > 0
-        ? Property.find({
-            _id:    { $in: propertyIds },
-            ...PUBLIC_PROPERTY_FILTER,
-          })
-            .select('title price city area areaUnit images propertyType slug bedrooms bathrooms listingType location previousPrice priceDropPercent')
-            .lean()
-        : [],
-
-      projectIds.length > 0
-        ? Project.find({
-            _id:       { $in: projectIds },
-            isDeleted: { $ne: true },
-          })
-            .select({
-              _id: 1, slug: 1, projectName: 1, tagline: 1,
-              city: 1, area: 1, projectCategory: 1,
-              projectNature: 1, projectStatus: 1,
-              isVerified: 1, isFeatured: 1, isTrustedBuilder: 1,
-              developerBadge: 1, minPrice: 1, maxPrice: 1,
-              highriseScore: 1, nocStatus: 1, approvalAuthority: 1,
-              featureImageUrl: 1, 'images.url': 1, 'images.isPrimary': 1,
-              developerId: 1,
-              'developerProfile.name': 1,
-              'developerProfile.logoUrl': 1,
-              inquiries: 1, createdAt: 1,
-            })
-            .lean()
-        : [],
-    ]);
-
-    // Filter out any null populated results (shouldn't happen but safety)
-    const validProperties = properties.filter(p => p !== null);
-    const validProjects   = projects.filter(p => p !== null);
-
-    // ─── Format properties (legacy compatible) ────────────────
-    const formattedProperties = validProperties.map((property: Record<string, unknown>) => ({
-      _id:              property._id,
-      title:            property.title,
-      price:            property.price,
-      city:             property.city,
-      area:             property.area,
-      areaUnit:         property.areaUnit,
-      images:           property.images,
-      propertyType:     property.propertyType,
-      slug:             property.slug,
-      bedrooms:         property.bedrooms,
-      bathrooms:        property.bathrooms,
-      listingType:      property.listingType,
-      location:         property.location,
-      previousPrice:    property.previousPrice,
-      priceDropPercent: property.priceDropPercent,
-    }));
-
-    // ─── Format projects (for compare page consumption) ───────
-    const formattedProjects = validProjects.map((p: Record<string, unknown>) => {
-      let primaryImage: string | null = null;
-      if (typeof p.featureImageUrl === 'string') {
-        primaryImage = p.featureImageUrl;
-      } else if (Array.isArray(p.images) && p.images.length > 0) {
-        const imgs = p.images as Array<{ url?: string; isPrimary?: boolean }>;
-        primaryImage = imgs.find(i => i?.isPrimary)?.url ?? imgs[0]?.url ?? null;
-      }
-      const dev = p.developerProfile as { name?: string; logoUrl?: string } | undefined;
-
-      return {
-        _id:              String(p._id ?? ''),
-        slug:             String(p.slug ?? ''),
-        projectName:      String(p.projectName ?? ''),
-        tagline:          typeof p.tagline === 'string' ? p.tagline : null,
-        city:             String(p.city ?? ''),
-        area:             String(p.area ?? ''),
-        projectCategory:  String(p.projectCategory ?? ''),
-        projectNature:    String(p.projectNature ?? ''),
-        projectStatus:    String(p.projectStatus ?? ''),
-        minPrice:         typeof p.minPrice === 'number' ? p.minPrice : null,
-        maxPrice:         typeof p.maxPrice === 'number' ? p.maxPrice : null,
-        isVerified:       Boolean(p.isVerified),
-        isFeatured:       Boolean(p.isFeatured),
-        isTrustedBuilder: Boolean(p.isTrustedBuilder),
-        developerBadge:   p.developerBadge,
-        highriseScore:    typeof p.highriseScore === 'number' ? p.highriseScore : 0,
-        nocStatus:        p.nocStatus,
-        approvalAuthority:p.approvalAuthority,
-        primaryImage,
-        developerName:    dev?.name ?? '',
-        developerLogoUrl: dev?.logoUrl ?? null,
-        inquiryCount:     typeof p.inquiries === 'number' ? p.inquiries : null,
-        createdAt:        p.createdAt instanceof Date
-                          ? p.createdAt.toISOString()
-                          : String(p.createdAt ?? ''),
-      };
-    });
-
-    // ─── Ordered entities array (preserves add order for UI) ──
-    const entities = items.map(item => {
-      if (item.entityType === 'property') {
-        const found = formattedProperties.find(
-          p => String(p._id) === String(item.entityId),
-        );
-        return found ? { entityType: 'property' as const, data: found } : null;
-      } else {
-        const found = formattedProjects.find(
-          p => String(p._id) === String(item.entityId),
-        );
-        return found ? { entityType: 'project' as const, data: found } : null;
-      }
-    }).filter((e): e is NonNullable<typeof e> => e !== null);
-
-    return res.status(200).json({
+    res.status(200).json({
       success: true,
       data: {
-        _id:        comparison._id,
-        properties: formattedProperties,
-        projects:   formattedProjects,
-        entities,
-        shareId:    comparison.shareId,
-        isShared:   comparison.isShared,
-        count:      entities.length,
-        limit:      MAX_ITEMS,
-        expiresAt:  comparison.expiresAt,
+        _id: String(comparisonRecord._id ?? ''),
+        entityType,
+        properties: resolved.properties,
+        projects: resolved.projects,
+        societies: resolved.societies,
+        entities: resolved.entities,
+        shareId,
+        isShared,
+        count: resolved.entities.length,
+        limit: MAX_COMPARE_ITEMS,
+        createdAt: toCompareIsoDate(comparisonRecord.createdAt),
+        expiresAt: toCompareIsoDate(comparisonRecord.expiresAt),
+        validationError,
+        validationReason,
+        unavailableCount: resolved.unavailableCount,
+        invalidItemCount: parsed.invalidCount,
       },
     });
   } catch {
-    return res.status(500).json({
+    await safelyLogCompareEvent({
+      type: 'api_unhandled_error',
+      userId,
+      ip: context.ip,
+      userAgent: context.userAgent,
+      requestId: context.requestId,
+      req,
+      metadata: {
+        action: 'compare_list_fetch_failed',
+        endpoint: '/api/compare',
+      },
+    });
+
+    res.status(500).json({
       success: false,
-      message: 'Server error while fetching comparison list',
+      message: 'Server error while fetching comparison.',
       data: {
+        entityType: null,
         properties: [],
-        projects:   [],
-        entities:   [],
-        count:      0,
-        limit:      MAX_ITEMS,
+        projects: [],
+        societies: [],
+        entities: [],
+        count: 0,
+        limit: MAX_COMPARE_ITEMS,
       },
     });
   }

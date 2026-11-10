@@ -1,58 +1,75 @@
+//C:\dev\highrise-pk\pages\compare\[shareId].tsx
 /**
- * pages/compare/[shareId].tsx
- *
  * Public shared comparison view.
- * Anyone with the URL can view (no auth required).
- * SSR-rendered for SEO + instant load.
- *
- * SUPPORTS BOTH:
- *   ✅ Legacy property-only shared comparisons (backward compatible)
- *   ✅ New multi-entity comparisons (projects + properties)
- *
- * REUSES:
- *   → CompareTable component from /compare page (consistent UX)
- *   → CompareEntity type from same table
+ * The SSR path applies the same share, expiry, visibility, entity-type,
+ * listing-intent, and safe-DTO checks as the public compare API.
  */
 
 import type { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import Link from 'next/link';
-import {
-  ArrowLeft,
-  Home as HomeIcon,
-  ExternalLink,
-  BarChart3,
-  Building2,
-  ChevronRight,
-} from 'lucide-react';
 
 import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
-import Property from '@/models/Property';
-import Project from '@/models/Projects';
-import mongoose from 'mongoose';
-
-import CompareTable    from '@/components/compare/CompareTable';
+import {
+  MAX_COMPARE_ITEMS,
+  parseComparisonReferences,
+  resolveCompareReferences,
+  validatePropertyListingIntents,
+} from '@/lib/compareApi';
+import { icons } from '@/lib/design-system/icons';
+import CompareTable from '@/components/compare/CompareTable';
 import type { CompareEntity } from '@/components/compare/CompareTable';
-
-// ─── PROPS ───────────────────────────────────────────────────────────────────
+import type { CompareEntityType } from '@/types/projects';
 
 interface SharedComparisonProps {
-  shareId:  string;
+  shareId: string;
+  entityType: CompareEntityType | null;
   entities: CompareEntity[];
-  error?:   string;
+  error?: string;
 }
 
-// ─── COMPONENT ───────────────────────────────────────────────────────────────
+function browseHref(entityType: CompareEntityType | null): string {
+  if (entityType === 'project') {
+    return '/projects';
+  }
+  if (entityType === 'society') {
+    return '/societies';
+  }
+  return '/properties';
+}
+
+function browseLabel(entityType: CompareEntityType | null): string {
+  if (entityType === 'project') {
+    return 'Browse Projects';
+  }
+  if (entityType === 'society') {
+    return 'Browse Societies';
+  }
+  return 'Browse Properties';
+}
+
+function typeLabel(entityType: CompareEntityType | null): string {
+  if (entityType === 'project') {
+    return 'projects';
+  }
+  if (entityType === 'society') {
+    return 'societies';
+  }
+  return 'properties';
+}
 
 export default function SharedComparisonPage({
   shareId,
+  entityType,
   entities,
   error,
-}: SharedComparisonProps) {
+}: SharedComparisonProps): React.ReactElement {
+  const isUnavailable = Boolean(error) || entities.length === 0;
+  const primaryBrowseHref = browseHref(entityType);
+  const primaryBrowseLabel = browseLabel(entityType);
 
-  // ── Error / Not Found State ──
-  if (error || entities.length === 0) {
+  if (isUnavailable) {
     return (
       <>
         <Head>
@@ -60,232 +77,213 @@ export default function SharedComparisonPage({
           <meta name="robots" content="noindex, nofollow" />
         </Head>
 
-        <div className="min-h-screen bg-gray-50 flex items-center
-                        justify-center px-4">
+        <main className="flex min-h-screen items-center justify-center bg-[#f8f9fa] px-4">
           <div className="max-w-md text-center">
-            <div className="inline-flex items-center justify-center
-                            w-20 h-20 rounded-full bg-red-50
-                            border-2 border-red-100 mb-6">
-              <BarChart3 className="w-10 h-10 text-red-400" />
+            <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-full border border-red-100 bg-red-50">
+              <icons.BarChart3 className="h-10 w-10 text-[#ef4444]" />
             </div>
 
-            <h1 className="text-2xl md:text-3xl font-black text-gray-900
-                           mb-3 tracking-tight">
+            <h1 className="mb-3 text-2xl font-black tracking-tight text-[#004063]">
               Comparison Not Found
             </h1>
 
-            <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-              {error || 'This comparison link may have expired or been deleted. Shared comparisons are kept for 7 days.'}
+            <p className="mb-6 text-sm leading-relaxed text-gray-600">
+              {error ??
+                'This comparison link may have expired or the items may no longer be publicly available.'}
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center
-                            justify-center gap-3">
+            <div className="flex flex-col justify-center gap-3 sm:flex-row">
               <Link
-                href="/projects"
-                className="inline-flex items-center gap-2 px-6 py-3
-                           rounded-xl bg-[#029bba] text-white
-                           text-sm font-black hover:bg-[#017a94]
-                           shadow-lg transition-all"
+                href={primaryBrowseHref}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#029bba] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#017a94]"
               >
-                <Building2 className="w-4 h-4" />
-                Browse Projects
+                {entityType === 'project' ? (
+                  <icons.Building2 className="h-4 w-4" />
+                ) : entityType === 'society' ? (
+                  <icons.MapPin className="h-4 w-4" />
+                ) : (
+                  <icons.Home className="h-4 w-4" />
+                )}
+                {primaryBrowseLabel}
               </Link>
 
-              <Link
-                href="/properties"
-                className="inline-flex items-center gap-2 px-6 py-3
-                           rounded-xl bg-white border-2 border-gray-200
-                           text-gray-700 text-sm font-black
-                           hover:border-[#029bba]/30 hover:text-[#029bba]
-                           transition-all"
-              >
-                <HomeIcon className="w-4 h-4" />
-                Browse Properties
-              </Link>
+              {entityType !== 'property' && (
+                <Link
+                  href="/properties"
+                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-bold text-gray-700 transition hover:border-[#029bba]/40 hover:text-[#029bba]"
+                >
+                  <icons.Home className="h-4 w-4" />
+                  Browse Properties
+                </Link>
+              )}
             </div>
           </div>
-        </div>
+        </main>
       </>
     );
   }
 
-  // Count breakdown
-  const projectCount  = entities.filter(e => e.entityType === 'project').length;
-  const propertyCount = entities.filter(e => e.entityType === 'property').length;
+  const label = typeLabel(entityType);
 
   return (
     <>
       <Head>
-        <title>Shared Comparison ({entities.length} items) | Highrise.pk</title>
-        <meta name="description"
-          content={`View a shared comparison of ${entities.length} ${entities.length === 1 ? 'item' : 'items'} on Highrise.pk`} />
-        {/* Public share URL — allow indexing for SEO */}
+        <title>
+          Shared {entityType === 'project' ? 'Project' : entityType === 'society' ? 'Society' : 'Property'} Comparison ({entities.length} items) | Highrise.pk
+        </title>
+        <meta
+          name="description"
+          content={`View a shared comparison of ${entities.length} ${label} on Highrise.pk.`}
+        />
         <meta property="og:type" content="website" />
-        <meta property="og:title"
-          content={`Compare ${entities.length} items on Highrise.pk`} />
-        <meta property="og:description"
-          content="Side-by-side comparison of properties and projects" />
+        <meta
+          property="og:title"
+          content={`Compare ${entities.length} ${label} on Highrise.pk`}
+        />
+        <meta
+          property="og:description"
+          content={`A side-by-side comparison of ${label} shared on Highrise.pk.`}
+        />
+        <meta
+          property="og:url"
+          content={`https://highrise.pk/compare/${encodeURIComponent(shareId)}`}
+        />
+        <link
+          rel="canonical"
+          href={`https://highrise.pk/compare/${encodeURIComponent(shareId)}`}
+        />
       </Head>
 
-      <div className="min-h-screen bg-gray-50">
-
-        {/* ═══════════════════════════════════════════════════════
-            TOP BAR
-        ═══════════════════════════════════════════════════════ */}
-        <div className="bg-white border-b border-gray-100 shadow-sm">
-          <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-3
-                          flex items-center justify-between flex-wrap gap-2">
+      <main className="min-h-screen bg-[#f8f9fa]">
+        <div className="border-b border-gray-100 bg-white shadow-sm">
+          <div className="mx-auto flex max-w-[1440px] flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-4 lg:px-6">
             <div className="flex items-center gap-3">
               <Link
-                href="/projects"
-                className="inline-flex items-center gap-1.5 text-sm
-                           text-gray-600 hover:text-[#029bba]
-                           transition-colors group"
+                href={primaryBrowseHref}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-gray-600 transition hover:text-[#029bba]"
               >
-                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5
-                                      transition-transform" />
-                Browse Projects
+                {primaryBrowseLabel}
+                <icons.ArrowRight className="h-4 w-4" />
               </Link>
+
               <span className="h-4 w-px bg-gray-200" />
+
               <Link
                 href="/"
-                className="inline-flex items-center gap-1 text-sm
-                           text-gray-500 hover:text-gray-800"
+                className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-500 transition hover:text-[#029bba]"
               >
-                <HomeIcon className="w-4 h-4" />
+                <icons.Home className="h-4 w-4" />
                 Home
               </Link>
             </div>
 
-            <span className="inline-flex items-center gap-1.5 px-3 py-1.5
-                             rounded-full bg-[#029bba]/10 text-[#029bba]
-                             text-xs font-black">
-              <ExternalLink className="w-3.5 h-3.5" />
+            <span className="inline-flex items-center gap-2 rounded-full bg-[#029bba]/10 px-3 py-1.5 text-xs font-bold text-[#029bba]">
+              <icons.BarChart3 className="h-3.5 w-3.5" />
               Shared View
             </span>
           </div>
         </div>
 
-        {/* ── COMPACT PAGE HEADER ── */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-4 md:py-5">
-          <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-xs text-gray-500 mb-2">
-            <Link href="/" className="hover:text-[#029bba] flex items-center gap-1 font-medium transition-colors">
-              <HomeIcon className="w-3.5 h-3.5" />
-              <span>Home</span>
+        <div className="mx-auto max-w-[1440px] px-3 py-4 sm:px-4 md:py-5 lg:px-6">
+          <nav
+            aria-label="Breadcrumb"
+            className="mb-2 flex items-center gap-2 text-xs text-gray-500"
+          >
+            <Link
+              href="/"
+              className="inline-flex items-center gap-1 font-semibold transition hover:text-[#029bba]"
+            >
+              <icons.Home className="h-3.5 w-3.5" />
+              Home
             </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <Link href="/compare" className="hover:text-[#029bba] font-medium transition-colors">
+            <icons.ChevronRight className="h-3 w-3 text-gray-300" />
+            <Link
+              href="/compare"
+              className="font-semibold transition hover:text-[#029bba]"
+            >
               Compare
             </Link>
-            <ChevronRight className="w-3 h-3 text-gray-300" />
-            <span className="text-[#004063] font-bold">Shared</span>
+            <icons.ChevronRight className="h-3 w-3 text-gray-300" />
+            <span className="font-bold text-[#004063]">Shared</span>
           </nav>
 
-          <h1 className="text-xl md:text-2xl lg:text-3xl font-black text-[#004063] tracking-tight leading-tight">
+          <h1 className="text-xl font-black leading-tight tracking-tight text-[#004063] md:text-2xl lg:text-3xl">
             Shared Comparison
           </h1>
-          <p className="text-xs text-gray-600 font-semibold mt-0.5 flex flex-wrap items-center gap-2">
+          <p className="mt-1 flex flex-wrap items-center gap-2 text-xs font-semibold text-gray-600">
             <span>
-              Viewing {entities.length} item{entities.length > 1 ? 's' : ''} shared with you.
+              Viewing {entities.length} {label} shared with you.
             </span>
-            {projectCount > 0 && propertyCount > 0 && (
-              <>
-                <span className="text-gray-300">•</span>
-                <span>
-                  {projectCount} project{projectCount > 1 ? 's' : ''} + {propertyCount} propert{propertyCount > 1 ? 'ies' : 'y'}
-                </span>
-              </>
-            )}
-            <span className="text-gray-300">•</span>
-            <span className="text-[#029bba]">Powered by Highrise.pk</span>
+            <span className="text-gray-300">|</span>
+            <span className="text-[#029bba]">Highrise.pk</span>
           </p>
         </div>
 
-        {/* ═══════════════════════════════════════════════════════
-            COMPARISON TABLE
-        ═══════════════════════════════════════════════════════ */}
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 lg:px-6 py-8">
-
-          {/* Reuse the same CompareTable component from /compare page */}
-          {/* Pass no-op onRemove since shared view is read-only */}
+        <section className="mx-auto max-w-[1440px] px-3 py-6 sm:px-4 lg:px-6">
           <CompareTable
             entities={entities}
             onRemove={async () => Promise.resolve()}
             removingId={null}
           />
 
-          {/* Info banner */}
-          <div className="mt-6 p-4 rounded-2xl bg-[#029bba]/5
-                          border border-[#029bba]/20
-                          flex items-start gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#029bba]/10
-                            flex items-center justify-center flex-shrink-0">
-              <BarChart3 className="w-4 h-4 text-[#029bba]" />
+          <div className="mt-6 flex items-start gap-3 rounded-2xl border border-[#029bba]/20 bg-[#029bba]/5 p-4">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-[#029bba]/10">
+              <icons.BarChart3 className="h-4 w-4 text-[#029bba]" />
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-black text-gray-900 mb-1">
-                💡 Read-Only Shared View
+            <div>
+              <p className="mb-1 text-sm font-bold text-[#004063]">
+                Read-only shared view
               </p>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                This is a read-only comparison shared with you. To save these items
-                to your own list or add more, visit any project/property and click
-                &quot;Add to Compare&quot;.
+              <p className="text-xs leading-relaxed text-gray-600">
+                This comparison is read-only. To create your own comparison,
+                browse publicly available listings and add items to your
+                comparison list.
               </p>
             </div>
           </div>
 
-          {/* CTA Section */}
-          <div className="mt-8 text-center">
-            <p className="text-sm text-gray-600 mb-4 font-semibold">
+          <div className="mt-8 flex flex-col items-center gap-4 text-center">
+            <p className="text-sm font-semibold text-gray-600">
               Want to create your own comparison?
             </p>
-            <div className="flex flex-col sm:flex-row items-center
-                            justify-center gap-3">
+            <div className="flex flex-wrap justify-center gap-3">
               <Link
-                href="/projects"
-                className="inline-flex items-center gap-2 px-6 py-3
-                           rounded-xl bg-gradient-to-r from-[#029bba] to-[#017a94]
-                           text-white text-sm font-black
-                           hover:shadow-lg hover:-translate-y-0.5
-                           transition-all"
+                href={primaryBrowseHref}
+                className="inline-flex items-center gap-2 rounded-xl bg-[#029bba] px-6 py-3 text-sm font-bold text-white transition hover:bg-[#017a94]"
               >
-                Explore Projects
-                <ExternalLink className="w-4 h-4" />
+                {primaryBrowseLabel}
+                <icons.ArrowRight className="h-4 w-4" />
               </Link>
-
-              <Link
-                href="/properties"
-                className="inline-flex items-center gap-2 px-6 py-3
-                           rounded-xl bg-white border-2 border-gray-200
-                           text-gray-700 text-sm font-black
-                           hover:border-[#029bba]/30 hover:text-[#029bba]
-                           transition-all"
-              >
-                Explore Properties
-                <ExternalLink className="w-4 h-4" />
-              </Link>
+              {entityType !== 'society' && (
+                <Link
+                  href="/societies"
+                  className="inline-flex items-center gap-2 rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-bold text-gray-700 transition hover:border-[#029bba]/40 hover:text-[#029bba]"
+                >
+                  Browse Societies
+                  <icons.ArrowRight className="h-4 w-4" />
+                </Link>
+              )}
             </div>
           </div>
-        </div>
-      </div>
+        </section>
+      </main>
     </>
   );
 }
 
-// ─── SSR ─────────────────────────────────────────────────────────────────────
-
 export const getServerSideProps: GetServerSideProps<
   SharedComparisonProps
-> = async (context) => {
-  const { shareId } = context.params as { shareId: string };
+> = async context => {
+  const rawShareId = context.params?.shareId;
+  const shareId = typeof rawShareId === 'string' ? rawShareId : '';
 
-  // Validate shareId format (16 hex chars)
-  if (!shareId || !/^[a-zA-Z0-9_-]+$/.test(shareId) || shareId.length > 50) {
+  if (!/^[A-Za-z0-9_-]{1,100}$/.test(shareId)) {
     return {
       props: {
         shareId: '',
+        entityType: null,
         entities: [],
-        error: 'Invalid share link format',
+        error: 'Invalid comparison link.',
       },
     };
   }
@@ -293,7 +291,12 @@ export const getServerSideProps: GetServerSideProps<
   try {
     await dbConnect();
 
-    const comparison = await Comparison.findOne({ shareId })
+    const now = new Date();
+    const comparison = await Comparison.findOne({
+      shareId,
+      isShared: true,
+      expiresAt: { $gt: now },
+    })
       .maxTimeMS(3000)
       .lean();
 
@@ -301,190 +304,79 @@ export const getServerSideProps: GetServerSideProps<
       return {
         props: {
           shareId,
+          entityType: null,
           entities: [],
-          error: 'Comparison not found or has expired',
+          error: 'This comparison link is not available or has expired.',
         },
       };
     }
 
-    // ── Get items list (V2 items[] with fallback to legacy properties[]) ──
-    let items = comparison.items ?? [];
+    const parsed = parseComparisonReferences(comparison);
+    const entityTypes = new Set(
+      parsed.references.map(reference => reference.entityType),
+    );
 
-    if (items.length === 0 && comparison.properties && comparison.properties.length > 0) {
-      // Legacy fallback — convert properties[] to items[]
-      items = comparison.properties.map((pid: mongoose.Types.ObjectId) => ({
-        entityType: 'property' as const,
-        entityId:   pid,
-        addedAt:    comparison!.createdAt,
-      }));
-    }
-
-    if (items.length === 0) {
+    if (
+      parsed.invalidCount > 0 ||
+      parsed.references.length === 0 ||
+      parsed.references.length > MAX_COMPARE_ITEMS ||
+      entityTypes.size !== 1
+    ) {
       return {
         props: {
           shareId,
+          entityType: null,
           entities: [],
-          error: 'This comparison is empty',
+          error: 'This comparison link is not available or has expired.',
         },
       };
     }
 
-    // ── Separate IDs by entity type ──
-    const propertyIds = items
-      .filter(i => i.entityType === 'property')
-      .map(i => i.entityId);
+    const resolved = await resolveCompareReferences(parsed.references);
 
-    const projectIds = items
-      .filter(i => i.entityType === 'project')
-      .map(i => i.entityId);
-
-    // ── Parallel populate ──
-    const [properties, projects] = await Promise.all([
-      propertyIds.length > 0
-        ? Property.find({
-            _id:    { $in: propertyIds },
-            'verification.status': 'verified',
-          })
-            // Note: select both `areaUnit` and `unit` — schema uses one or the other
-            // depending on data source (legacy vs new listings)
-            .select('title price city area areaUnit unit images propertyType slug bedrooms bathrooms listingType location')
-            .maxTimeMS(3000)
-            .lean()
-        : [],
-
-      projectIds.length > 0
-        ? Project.find({
-            _id:       { $in: projectIds },
-            isDeleted: { $ne: true },
-          })
-            .select({
-              _id: 1, slug: 1, projectName: 1, tagline: 1,
-              city: 1, area: 1, projectCategory: 1,
-              projectNature: 1, projectStatus: 1,
-              isVerified: 1, isFeatured: 1, isTrustedBuilder: 1,
-              developerBadge: 1, minPrice: 1, maxPrice: 1,
-              highriseScore: 1, nocStatus: 1, approvalAuthority: 1,
-              featureImageUrl: 1, 'images.url': 1, 'images.isPrimary': 1,
-              'developerProfile.name': 1,
-              'developerProfile.logoUrl': 1,
-              createdAt: 1,
-            })
-            .maxTimeMS(3000)
-            .lean()
-        : [],
-    ]);
-
-    // ── Update isShared flag (fire and forget) ──
-    if (!comparison.isShared) {
-      Comparison.findByIdAndUpdate(comparison._id, {
-        $set: { isShared: true },
-      }).catch(() => undefined);
-    }
-
-    // ── Build ordered entities array ──
-    const entities: CompareEntity[] = items
-      .map(item => {
-        if (item.entityType === 'property') {
-          const found = properties.find(
-            p => String(p._id) === String(item.entityId),
-          );
-          if (!found) return null;
-
-          // Serialize (ObjectIds → strings, Dates → ISO)
-          // Cast to unknown record for safe optional field access
-          // (Property schema fields vary across versions — unit vs areaUnit)
-          const propRaw = found as unknown as Record<string, unknown>;
-
-          return {
-            entityType: 'property' as const,
-            data: {
-              _id:          String(found._id),
-              title:        found.title,
-              price:        found.price,
-              city:         found.city,
-              area:         found.area,
-              areaUnit:     propRaw.areaUnit ?? propRaw.unit ?? null,
-              images:       found.images,
-              propertyType: found.propertyType,
-              slug:         found.slug,
-              bedrooms:     found.bedrooms,
-              bathrooms:    found.bathrooms,
-              listingType:  found.listingType,
-            } as Record<string, unknown>,
-          };
-        } else {
-          const found = projects.find(
-            p => String(p._id) === String(item.entityId),
-          );
-          if (!found) return null;
-
-          // Extract image
-          let primaryImage: string | null = null;
-          if (typeof found.featureImageUrl === 'string') {
-            primaryImage = found.featureImageUrl;
-          } else if (Array.isArray(found.images) && found.images.length > 0) {
-            const imgs = found.images as Array<{ url?: string; isPrimary?: boolean }>;
-            primaryImage = imgs.find(i => i?.isPrimary)?.url ?? imgs[0]?.url ?? null;
-          }
-
-          const dev = found.developerProfile as { name?: string; logoUrl?: string } | undefined;
-
-          return {
-            entityType: 'project' as const,
-            data: {
-              _id:              String(found._id),
-              slug:             found.slug,
-              projectName:      found.projectName,
-              tagline:          found.tagline,
-              city:             found.city,
-              area:             found.area,
-              projectCategory:  found.projectCategory,
-              projectNature:    found.projectNature,
-              projectStatus:    found.projectStatus,
-              minPrice:         typeof found.minPrice === 'number' ? found.minPrice : null,
-              maxPrice:         typeof found.maxPrice === 'number' ? found.maxPrice : null,
-              isVerified:       Boolean(found.isVerified),
-              isFeatured:       Boolean(found.isFeatured),
-              isTrustedBuilder: Boolean(found.isTrustedBuilder),
-              developerBadge:   found.developerBadge,
-              highriseScore:    typeof found.highriseScore === 'number' ? found.highriseScore : 0,
-              nocStatus:        found.nocStatus,
-              approvalAuthority: found.approvalAuthority,
-              primaryImage,
-              developerName:    dev?.name ?? '',
-              developerLogoUrl: dev?.logoUrl ?? null,
-              createdAt:        found.createdAt instanceof Date
-                                ? found.createdAt.toISOString()
-                                : String(found.createdAt ?? ''),
-            } as Record<string, unknown>,
-          };
-        }
-      })
-      .filter((e): e is NonNullable<typeof e> => e !== null);
-
-    if (entities.length === 0) {
+    if (resolved.unavailableCount > 0) {
       return {
         props: {
           shareId,
+          entityType: null,
           entities: [],
-          error: 'The items in this comparison are no longer available',
+          error: 'One or more items are no longer publicly available.',
         },
       };
     }
+
+    const intentValidation = validatePropertyListingIntents(
+      parsed.references,
+      resolved,
+    );
+
+    if (!intentValidation.valid) {
+      return {
+        props: {
+          shareId,
+          entityType: null,
+          entities: [],
+          error: 'This comparison is no longer available.',
+        },
+      };
+    }
+
+    const activeEntityType = Array.from(entityTypes)[0];
 
     return {
       props: {
         shareId,
-        entities,
+        entityType: activeEntityType,
+        entities: resolved.entities as unknown as CompareEntity[],
       },
     };
-  } catch (error) {
-    console.error('[compare/[shareId]] SSR error:', error);
+  } catch {
     return {
       props: {
-        shareId: shareId || '',
+        shareId,
+        entityType: null,
         entities: [],
-        error: 'Failed to load comparison. Please try again.',
+        error: 'Unable to load this comparison right now.',
       },
     };
   }

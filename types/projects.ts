@@ -909,7 +909,7 @@ export interface FavoritesListResponse {
 //   GET    /api/compare/[shareId]    → view shared comparison
 
 /** Entity types supported by compare (matches Comparison schema) */
-export type CompareEntityType = 'property' | 'project';
+export type CompareEntityType = 'property' | 'project' | 'society';
 
 /** localStorage keys for compare persistence */
 export const COMPARE_STORAGE_KEY  = 'highrise_compare_v2';
@@ -918,7 +918,7 @@ export const COMPARE_SESSION_KEY  = 'highrise_compare_session';
 /** Max items in one comparison (industry standard, Amazon uses same) */
 export const MAX_COMPARE_ITEMS = 4;
 
-/** Guest-side compare item stored in localStorage */
+/** Authenticated comparison item mirrored in localStorage */
 export interface CompareItem {
   entityType: CompareEntityType;
   entityId:   string;
@@ -961,8 +961,10 @@ export interface CompareListResponse {
   message?: string;
   data?: {
     _id?:        string;
+    entityType?: CompareEntityType | null;
     properties:  Array<Record<string, unknown>>;  // legacy field
-    projects?:   Array<Record<string, unknown>>;  // new field
+    projects?:   Array<Record<string, unknown>>;
+    societies?:  Array<Record<string, unknown>>;
     entities?:   Array<{
       entityType: CompareEntityType;
       data:       Record<string, unknown>;

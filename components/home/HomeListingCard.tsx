@@ -449,6 +449,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
     <AuthGateModal
       isOpen={showAuthModal}
       onClose={() => setShowAuthModal(false)}
+      context="save"
       actionDescription="save this property"
     />
     </>
