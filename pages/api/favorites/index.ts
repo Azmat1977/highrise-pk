@@ -6,7 +6,6 @@ import Favorite from '@/models/Favorite';
 import SecurityEvent from '@/models/SecurityEvent';
 import { rateLimitApi } from '@/lib/rateLimit';
 import mongoose from 'mongoose';
-import { isPublicProperty, PUBLIC_PROPERTY_FILTER } from '@/lib/property/publicProperty';
 import Property from '@/models/Property';
 import Society from '@/models/Society';
 import { requireAuth } from '@/lib/requireAuth';

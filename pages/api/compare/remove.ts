@@ -7,7 +7,6 @@ import dbConnect from '@/lib/dbConnect';
 import Comparison from '@/models/Comparison';
 import {
   MAX_COMPARE_ITEMS,
-  asRecord,
   createCompareRequestContext,
   parseComparisonReferences,
   safelyLogCompareEvent,

@@ -3,7 +3,7 @@ import type { NextApiRequest, NextApiResponse } from 'next';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import dbConnect from '@/lib/dbConnect';
-import { getClientIp, requireAuth } from '@/lib/requireAuth';
+import { requireAuth } from '@/lib/requireAuth';
 import { rateLimitApi, sendRateLimitResponse } from '@/lib/rateLimit';
 import { safelyLogCompareEvent } from '@/lib/compareApi';
 import {
