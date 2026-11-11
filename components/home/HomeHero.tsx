@@ -113,8 +113,8 @@ export default function HomeHero({ cities }: { cities: CityItem[] }) {
   const activeBanner = heroImages[currentHeroImage];
 
   return (
-    <section className="relative isolate overflow-hidden bg-[#002b42] pb-14 pt-10 text-white sm:pb-16 sm:pt-14">
-      <div className="absolute inset-0 z-0">
+    <section className="relative isolate z-30 bg-[#002b42] pb-14 pt-10 text-white sm:pb-16 sm:pt-14">
+      <div className="absolute inset-0 z-0 overflow-hidden">
         {!heroLoading &&
           heroImages.map((image, index) => (
             <div
