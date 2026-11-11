@@ -36,7 +36,7 @@ export const card = {
   bodyLg: 'p-8',
 
   // Interactive card (hover effect)
-  interactive: 'bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-md hover:border-[#029bba]/20 transition-all cursor-pointer',
+  interactive: 'bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-lg hover:border-[#029bba]/40 hover:-translate-y-0.5 transition-all cursor-pointer',
 
   // Highlight card (gray background, used in spec grids)
   highlight: 'p-3.5 bg-gray-50 rounded-xl border border-gray-100 flex items-center gap-3',
@@ -94,13 +94,13 @@ export const button = {
 
 export const input = {
   // Text input
-  text: 'w-full rounded-xl border-gray-200 text-sm focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30',
+  text: 'w-full rounded-xl border-gray-200 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/30',
 
   // Textarea
-  textarea: 'w-full rounded-xl border-gray-200 text-sm focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 min-h-[100px] resize-y',
+  textarea: 'w-full rounded-xl border-gray-200 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/30 min-h-[100px] resize-y',
 
   // Select
-  select: 'w-full rounded-xl border-gray-200 text-sm focus:border-[#029bba] focus:ring-1 focus:ring-[#029bba]/30 bg-white',
+  select: 'w-full rounded-xl border-gray-200 text-sm focus:border-[#029bba] focus:ring-2 focus:ring-[#029bba]/30 bg-white',
 
   // Error state (append to input)
   error: 'border-[#ef4444] focus:border-[#ef4444] focus:ring-[#ef4444]/30',
@@ -120,8 +120,8 @@ export const input = {
 // ============================================================================
 
 export const badge = {
-  // Primary badge
-  primary: 'inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-[#029bba] text-white shadow-sm',
+  // Primary badge (darkened to #017a8a for WCAG AA 5.1:1 with white text)
+  primary: 'inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-[#017a8a] text-white shadow-sm',
 
   // Success badge
   success: 'inline-flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-bold bg-[#10b981] text-white shadow-sm',
