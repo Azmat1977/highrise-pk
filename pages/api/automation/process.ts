@@ -414,8 +414,9 @@ export default async function handler(
   const userAgent = String(req.headers['user-agent'] || 'cron').slice(0, 500);
 
   // ── Method guard ─────────────────────────────────────────────
-  if (req.method !== 'POST') {
-    res.setHeader('Allow', ['POST']);
+  // Vercel Cron sends GET requests; admin triggers use POST.
+  if (req.method !== 'GET' && req.method !== 'POST') {
+    res.setHeader('Allow', ['GET', 'POST']);
     res.status(405).json({ success: false, message: 'Method not allowed' });
     return;
   }
