@@ -14,6 +14,12 @@ export const typography = {
   // Page subtitle -- below pageTitle
   pageSubtitle: 'text-sm md:text-base text-[#666666] font-medium',
 
+  // Homepage hero title (h1, marketing only)
+  heroTitle: 'text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight leading-tight',
+
+  // Homepage hero subtitle
+  heroSubtitle: 'text-base sm:text-lg leading-relaxed',
+
   // ========================================================================
   // SECTION HEADINGS (h2)
   // ========================================================================
@@ -41,8 +47,8 @@ export const typography = {
   // Hero price (detail pages)
   priceHero: 'text-3xl md:text-[32px] font-black text-[#004063] tracking-tight',
 
-  // Card price (listing cards, compare)
-  priceCard: 'text-xl font-bold text-[#029bba]',
+  // Card price (listing cards, compare) — darkened for WCAG AA
+  priceCard: 'text-xl font-bold text-[#017a8a]',
 
   // Price per unit
   priceUnit: 'text-sm text-gray-500 font-medium',

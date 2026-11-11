@@ -36,10 +36,19 @@ body {
   color: var(--hr-text);
 }
 
-body {
-  font-family: 'Poppins', sans-serif;
-  background-color: var(--hr-page-bg);
-  color: var(--hr-text);
+/* Brand text selection */
+::selection {
+  background: var(--hr-primary);
+  color: #ffffff;
+}
+
+/* Respect reduced motion (accessibility) */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 h1, h2, h3, h4, h5, h6 {
