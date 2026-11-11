@@ -88,6 +88,16 @@ const TOOLS: ToolCard[] = [
   },
 ];
 
+// Per-tool illustration (public/images/tools/)
+const TOOL_IMAGES: Record<string, string> = {
+  verify: '/images/tools/verify-society.png',
+  price: '/images/tools/price-estimator.png',
+  construction: '/images/tools/construction-cost.png',
+  loan: '/images/tools/home-loan.png',
+  area: '/images/tools/area-converter.png',
+  tools: '/images/tools/all-tools.png',
+};
+
 const PURPOSE_LABEL: Record<RecentSearchEntry['purpose'], string> = {
   buy: 'BUY',
   rent: 'RENT',
@@ -308,9 +318,15 @@ export default function ResearchTools() {
                     {tool.subtitle}
                   </p>
 
-                  <div className="mb-4 flex h-36 items-center justify-center overflow-hidden rounded-2xl border border-[#004063]/15 bg-gradient-to-br from-[#00314d]/10 via-[#004063]/10 to-[#029bba]/10">
-                    <div className="flex h-16 w-16 items-center justify-center rounded-2xl border border-[#004063]/15 bg-white text-[#004063] shadow-sm">
-                      <Icon className="h-7 w-7" />
+                  <div className="relative mb-4 h-36 overflow-hidden rounded-2xl border border-slate-200/80 bg-[#002b42]">
+                    <img
+                      src={TOOL_IMAGES[tool.id]}
+                      alt=""
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
+                    <div className="absolute bottom-2.5 right-2.5 flex h-9 w-9 items-center justify-center rounded-xl bg-white/95 text-[#004063] shadow-md">
+                      <Icon className="h-4 w-4" />
                     </div>
                   </div>
                 </div>
