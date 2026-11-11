@@ -128,7 +128,7 @@ export default function ResearchTools() {
     <section className="bg-[#f8fafc] py-16 sm:py-20">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-8 text-center">
-          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#004063]/10 bg-[#004063]/5 px-3 py-1 text-xs font-semibold text-[#004063]">
+          <span className="mb-2 inline-flex items-center gap-1.5 rounded-full border border-[#029bba]/20 bg-[#029bba]/5 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#007196]">
             <Calculator className="h-3.5 w-3.5 text-[#029bba]" />
             <span>Interactive Financial Planning</span>
           </span>
@@ -191,7 +191,7 @@ export default function ResearchTools() {
                 {filtered.map((entry) => (
                   <div
                     key={entry.id}
-                    className="group relative flex cursor-pointer flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm transition-all hover:border-[#004063] hover:shadow-md"
+                    className="group relative flex cursor-pointer flex-col justify-between rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#004063] hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50"
                     role="button"
                     tabIndex={0}
                     onClick={() => void router.push(entry.url)}
@@ -271,7 +271,7 @@ export default function ResearchTools() {
             type="button"
             onClick={() => scroll('left')}
             aria-label="Previous tools"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-sm transition-all hover:border-[#004063] hover:bg-[#004063] hover:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#004063] hover:bg-[#004063] hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50"
           >
             <ChevronLeft className="h-4 w-4" />
           </button>
@@ -279,7 +279,7 @@ export default function ResearchTools() {
             type="button"
             onClick={() => scroll('right')}
             aria-label="Next tools"
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-sm transition-all hover:border-[#004063] hover:bg-[#004063] hover:text-white"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-300 bg-white text-slate-600 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#004063] hover:bg-[#004063] hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50"
           >
             <ChevronRight className="h-4 w-4" />
           </button>
@@ -295,7 +295,7 @@ export default function ResearchTools() {
               <Link
                 key={tool.id}
                 href={tool.href}
-                className="group flex w-full shrink-0 snap-start flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 text-left shadow-sm transition-all duration-300 hover:border-[#004063] hover:shadow-lg sm:w-[290px]"
+                className="group flex w-full shrink-0 snap-start flex-col justify-between rounded-2xl border border-slate-200/90 bg-white p-5 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#029bba]/60 hover:shadow-xl sm:w-[290px]"
               >
                 <div>
                   <span className="mb-2 inline-block rounded-md border border-[#004063]/10 bg-[#004063]/5 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-[#004063]">
@@ -336,7 +336,7 @@ export default function ResearchTools() {
             </p>
             <Link
               href="/properties"
-              className="inline-flex items-center gap-2 rounded-xl bg-[#004063] px-4 py-2 text-xs font-bold text-white transition-colors hover:bg-[#029bba]"
+              className="inline-flex items-center gap-2 rounded-xl bg-[#004063] px-4 py-2 text-xs font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#029bba] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 focus-visible:ring-offset-2"
             >
               Start Searching
               <ArrowRight className="h-3.5 w-3.5" />

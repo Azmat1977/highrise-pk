@@ -21,7 +21,7 @@ export default function PremiumAdBanner({
     <section className="py-8 bg-white">
       <div className="container mx-auto px-4 max-w-7xl">
         <Link href={link}>
-          <div className="relative w-full h-32 md:h-40 rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:shadow-xl transition-all duration-300 border border-gray-100">
+          <div className="relative w-full h-32 md:h-40 rounded-2xl overflow-hidden group cursor-pointer shadow-sm hover:-translate-y-0.5 hover:border-[#029bba]/40 hover:shadow-xl transition-all duration-300 border border-gray-100">
             {/* Ad Image */}
             <Image
               src={imageUrl}
@@ -43,11 +43,11 @@ export default function PremiumAdBanner({
             {/* Ad Content */}
             <div className="absolute inset-0 p-5 md:p-8 flex flex-col justify-center">
               {sponsorName && (
-                <span className="text-[#06b6d4] text-xs font-bold uppercase tracking-wider mb-1">
+                <span className="text-[#38aec7] text-xs font-bold uppercase tracking-wider mb-1">
                   {sponsorName}
                 </span>
               )}
-              <h3 className="text-white text-lg md:text-2xl font-bold mb-1 group-hover:text-[#06b6d4] transition-colors">
+              <h3 className="text-white text-lg md:text-2xl font-bold mb-1 group-hover:text-[#38aec7] transition-colors">
                 {title}
               </h3>
               <p className="text-white/80 text-xs md:text-sm max-w-lg hidden sm:block">
