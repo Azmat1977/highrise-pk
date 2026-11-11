@@ -129,7 +129,7 @@ export default function HomeHero({ cities }: { cities: CityItem[] }) {
                 fill
                 priority={index === 0}
                 sizes="100vw"
-                className="scale-105 object-cover opacity-30 mix-blend-luminosity"
+                className="scale-105 object-cover opacity-50 mix-blend-luminosity"
               />
             </div>
           ))}
@@ -148,12 +148,12 @@ export default function HomeHero({ cities }: { cities: CityItem[] }) {
           </div>
 
           <h1 className="mx-auto mb-4 max-w-5xl text-2xl font-black leading-tight tracking-tight text-white sm:text-4xl sm:leading-tight lg:text-5xl lg:leading-snug">
-            <span className="block">Find Verified Properties</span>
+            <span className="block">Transparent, Verified Properties</span>
             <span className="block text-[#38aec7]">Across Pakistan</span>
           </h1>
 
           <p className="mx-auto mb-6 max-w-2xl text-sm font-light leading-relaxed text-slate-200 sm:text-base">
-            Pakistan&apos;s first trust-first property ecosystem. From plot to possession &mdash; every property, project, society, and developer is rigorously screened and verified.
+            Pakistan&apos;s first transparent property platform. Every property, project, society, and developer is verified — from plot to possession, with NOC checks and screened sellers.
           </p>
 
           {/* Trust Guarantees Bar */}
