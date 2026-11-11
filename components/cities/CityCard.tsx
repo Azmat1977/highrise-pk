@@ -48,7 +48,7 @@ export default function CityCard({ city, className = '', isCarousel = false }: C
 
   return (
     <article
-      className={`group relative w-full overflow-hidden rounded-2xl bg-white border border-navy-100 shadow-sm hover:shadow-xl transition-all duration-300 ${className}`}
+      className={`group relative w-full overflow-hidden rounded-2xl bg-white border border-navy-100 shadow-sm hover:-translate-y-1 hover:border-[#029bba]/40 hover:shadow-xl transition-all duration-300 ${className}`}
       style={{
         backgroundColor: colors.cardBg,
         borderColor: colors.borderDefault,
@@ -72,12 +72,12 @@ export default function CityCard({ city, className = '', isCarousel = false }: C
           </div>
           <div className="absolute inset-0 z-10 bg-gradient-to-t from-[#00293a]/90 via-[#00293a]/40 to-transparent" />
           <div className="absolute left-3 top-3 z-20">
-            <span className="rounded-md bg-[#004063] px-2.5 py-1 text-[11px] font-bold text-white shadow-sm">
+            <span className="rounded-lg bg-[#004063]/90 px-2.5 py-1 text-[11px] font-bold text-white shadow-md backdrop-blur-sm">
               {city.name}
             </span>
           </div>
           <div className="absolute bottom-3 left-3 right-3 z-20">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#029bba] truncate">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#38aec7] truncate drop-shadow">
               {city.kicker}
             </p>
             <h3 className="text-xs font-bold text-white sm:text-sm truncate">

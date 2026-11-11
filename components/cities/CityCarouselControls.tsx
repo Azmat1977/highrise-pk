@@ -24,7 +24,7 @@ export default function CityCarouselControls({
         disabled={!canPrevious}
         aria-label="Previous cities"
         aria-controls="cities-carousel-track"
-        className={`rounded-xl border border-navy-100 bg-white p-2.5 text-navy-700 shadow-sm transition-colors hover:border-primary hover:text-white focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:border-navy-50 disabled:text-navy-300 ${!canPrevious ? '' : 'hover:bg-navy-800 hover:border-navy-800'}`}
+        className={`rounded-xl border border-navy-100 bg-white p-2.5 text-navy-700 shadow-sm transition-all hover:border-primary hover:text-white hover:shadow-md focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:cursor-not-allowed disabled:border-navy-50 disabled:text-navy-300 disabled:opacity-40 ${!canPrevious ? '' : 'hover:-translate-y-0.5 hover:bg-navy-800 hover:border-navy-800'}`}
       >
         <ChevronLeft className="h-5 w-5" />
       </button>

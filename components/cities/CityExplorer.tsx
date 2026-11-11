@@ -93,14 +93,14 @@ export default function CityExplorer({
         {/* Section Header with Centered Text and Right-Aligned Arrows */}
         <div className="relative mb-8 flex flex-col items-center justify-center text-center">
           <div className="mx-auto max-w-3xl">
-            <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#029bba]/10 px-3 py-1 text-xs font-bold text-[#029bba]">
+            <div className="mb-2.5 inline-flex items-center gap-1.5 rounded-full bg-[#029bba]/10 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#007196]">
               <Landmark className="h-3.5 w-3.5" />
               <span>Regional Discovery</span>
             </div>
             <h2 id="city-explorer-heading" className="text-3xl font-black tracking-tight text-[#004063] sm:text-4xl">
               Explore Properties by <span className="text-[#029bba]">Major Cities</span>
             </h2>
-            <p className="mt-2 text-sm font-semibold text-[#3c6c85] sm:text-base">
+            <p className="mt-3 text-sm font-medium text-[#3c6c85] sm:text-base">
               Discover verified homes, towers, and plots across Pakistan&apos;s architectural capitals. Click any city to view active listings.
             </p>
           </div>
@@ -113,7 +113,7 @@ export default function CityExplorer({
               disabled={!canPrevious}
               aria-label="Previous cities"
               aria-controls="city-explorer-track"
-              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-all hover:border-[#029bba] hover:text-[#004063] focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:opacity-40"
+              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#029bba] hover:text-[#004063] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:opacity-40"
             >
               <ChevronLeft className="h-5 w-5" />
             </button>
@@ -123,7 +123,7 @@ export default function CityExplorer({
               disabled={!canNext}
               aria-label="Next cities"
               aria-controls="city-explorer-track"
-              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-all hover:border-[#029bba] hover:text-[#004063] focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:opacity-40"
+              className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm transition-all hover:-translate-y-0.5 hover:border-[#029bba] hover:text-[#004063] hover:shadow-md focus:outline-none focus:ring-2 focus:ring-[#029bba]/40 disabled:cursor-not-allowed disabled:border-slate-100 disabled:text-slate-300 disabled:opacity-40"
             >
               <ChevronRight className="h-5 w-5" />
             </button>
@@ -152,7 +152,7 @@ export default function CityExplorer({
           <div
             ref={trackRef}
             id="city-explorer-track"
-            className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory py-2 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+            className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 py-3 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           >
             {cities.map((city) => (
               <div
