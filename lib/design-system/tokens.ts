@@ -71,6 +71,7 @@ export const colors = {
   carouselCountBg: '#dff4f8',
   carouselCountText: '#015c72',
   carouselScrim: 'rgba(0,41,58,0.6)',
+  carouselScrimHover: 'rgba(0,41,58,0.75)',
 
   // Borders
   borderDefault: '#e5e7eb',
@@ -87,6 +88,7 @@ export const spacing = {
   sectionGap: 'space-y-6',
   sectionGapLg: 'space-y-8',
   sectionGapXl: 'space-y-10',
+  sectionGapMarketing: 'space-y-12 sm:space-y-16',
 
   // Card internal
   cardPadding: 'p-6',
@@ -109,13 +111,17 @@ export const spacing = {
 
 export const shadows = {
   card: 'shadow-sm',
-  cardHover: 'shadow-md',
+  cardHover: 'shadow-lg',
+  cardHoverLift: 'shadow-lg hover:-translate-y-0.5',
   modal: 'shadow-xl',
   dropdown: 'shadow-2xl',
   floating: 'shadow-lg',
   sticky: 'shadow-md',
   bottomBar: 'shadow-[0_-4px_20px_rgba(0,0,0,0.08)]',
 } as const;
+
+// Focus ring (WCAG 2.4.7) — single source, used by components.ts buttons/inputs
+export const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/60 focus-visible:ring-offset-2' as const;
 
 // ============================================================================
 // BORDER RADIUS
