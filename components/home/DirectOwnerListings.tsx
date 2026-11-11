@@ -5,7 +5,6 @@
 
 import Link from 'next/link';
 import { ShieldCheck } from 'lucide-react';
-import SectionHeading from '@/components/ui/SectionHeading';
 import { icons } from '@/lib/design-system/icons';
 import HomeListingCard, { HomeListingCardSkeleton } from '@/components/home/HomeListingCard';
 import type { HomeListingInput } from '@/components/home/HomeListingCard';
@@ -92,16 +91,19 @@ export default function DirectOwnerListings({ properties, total, loading }: Dire
     <section className="bg-white py-16 sm:py-20">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-10 flex flex-col items-center gap-5 text-center">
-          <SectionHeading
-            eyebrowIcon={<ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />}
-            eyebrow="0% Brokerage • 100% Direct Owner Contact"
-            title={
-              <>
-                Explore Direct <span className="text-[#029bba]">Owner Listings</span>
-              </>
-            }
-            subtitle="Deal directly with verified property owners — no broker commissions, authenticated title documents, and direct negotiation."
-          />
+          <div className="max-w-3xl">
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-emerald-700">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span>0% Brokerage • 100% Direct Owner Contact</span>
+            </span>
+            <h2 className="text-3xl font-black tracking-tight text-[#004063] sm:text-4xl">
+              Explore Direct <span className="text-emerald-600">Owner Listings</span>
+            </h2>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">
+              Deal directly with verified property owners — no broker commissions, authenticated title
+              documents, and direct negotiation.
+            </p>
+          </div>
         </div>
 
         {loading ? (

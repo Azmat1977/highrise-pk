@@ -328,14 +328,17 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
               className="px-2 py-0.5 text-[10px] font-bold rounded-md shadow-md uppercase tracking-wide w-auto"
             />
           )}
+          {ownerListed && (
+            <span className="inline-flex items-center gap-1 rounded-md bg-[#10b981] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md">
+              Owner Listed
+              <span className="rounded bg-white/25 px-1 py-px text-[9px] font-extrabold normal-case tracking-normal">
+                0% Fee
+              </span>
+            </span>
+          )}
           {typeText && (
             <span className="rounded-md bg-white/95 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#004063] shadow-md">
               {typeText}
-            </span>
-          )}
-          {ownerListed && (
-            <span className="rounded-md bg-[#10b981] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-white shadow-md">
-              Owner Listed
             </span>
           )}
         </div>
