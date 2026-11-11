@@ -42,6 +42,11 @@ body {
   color: #ffffff;
 }
 
+/* Native select dropdown option spacing (best-effort; Chrome on Windows may ignore) */
+select option {
+  padding: 6px 12px;
+}
+
 /* Respect reduced motion (accessibility) */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

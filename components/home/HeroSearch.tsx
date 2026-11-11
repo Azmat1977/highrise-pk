@@ -81,7 +81,7 @@ const TAB_LABELS: Array<{ id: SearchTab; label: string }> = [
 const FIELD_LABEL_CLASS =
   'mb-1 flex items-center gap-1.5 text-[11px] font-medium leading-4 text-slate-500';
 const FIELD_CELL_CLASS =
-  'rounded-xl border border-slate-200 px-3.5 py-2 focus-within:ring-2 focus-within:ring-[#029bba]/40 focus-within:ring-offset-0 lg:rounded-none lg:border-0 lg:px-4 lg:py-2.5';
+  'rounded-xl border border-slate-200 px-4 py-2 focus-within:ring-2 focus-within:ring-[#029bba]/40 focus-within:ring-offset-0 lg:rounded-none lg:border-0 lg:px-5 lg:py-2.5';
 const FIELD_CONTROL_CLASS =
   'w-full appearance-none truncate bg-transparent text-sm font-medium leading-6 text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none';
 
@@ -237,9 +237,9 @@ export default function HeroSearch({ cities }: { cities: CityItem[] }) {
                   onChange={(event) => setCity(event.target.value)}
                   className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
                 >
-                  <option value="">All Cities</option>
+                  <option value="" className="py-2 pr-4">All Cities</option>
                   {cityOptions.map((name) => (
-                    <option key={name} value={name}>
+                    <option key={name} value={name} className="py-2 pr-4">
                       {name}
                     </option>
                   ))}
@@ -315,7 +315,11 @@ export default function HeroSearch({ cities }: { cities: CityItem[] }) {
                   className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
                 >
                   {PROPERTY_TYPES.map((option) => (
-                    <option key={option.value || 'all'} value={option.value}>
+                    <option
+                      key={option.value || 'all'}
+                      value={option.value}
+                      className="py-2 pr-4"
+                    >
                       {option.label}
                     </option>
                   ))}
@@ -341,7 +345,11 @@ export default function HeroSearch({ cities }: { cities: CityItem[] }) {
                   className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
                 >
                   {BUDGETS[activeTab].map((option) => (
-                    <option key={option.value || 'any'} value={option.value}>
+                    <option
+                      key={option.value || 'any'}
+                      value={option.value}
+                      className="py-2 pr-4"
+                    >
                       {option.label}
                     </option>
                   ))}
