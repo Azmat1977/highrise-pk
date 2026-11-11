@@ -159,11 +159,11 @@ export const Footer: React.FC = () => {
             <div className="lg:col-span-3">
               <Link href="/" className="inline-flex items-center group mb-4">
                 <Image
-                  src="/images/logo.png"
+                  src="/images/logo-footer.png"
                   alt="Highrise.pk"
                   width={160}
-                  height={56}
-                  className="h-12 w-auto object-contain brightness-0 invert transition-transform group-hover:scale-105"
+                  height={138}
+                  className="h-16 w-auto object-contain transition-transform group-hover:scale-105 drop-shadow-lg"
                 />
               </Link>
 

@@ -408,7 +408,7 @@ export const Header: React.FC = () => {
           fixed drawer inside the header's height, so it is disabled while the
           menu overlay is open. */}
       <header
-        className={`bg-white/95 shadow-sm sticky top-0 z-50 border-b border-gray-200/50 transition-transform duration-200 ease-out motion-reduce:transition-none ${isMobileMenuOpen ? '' : 'backdrop-blur-md'} ${stickySearchActive ? '-translate-y-full pointer-events-none' : ''}`}
+        className={`bg-white/95 shadow-md sticky top-0 z-50 border-b border-gray-200/50 transition-transform duration-200 ease-out motion-reduce:transition-none ${isMobileMenuOpen ? '' : 'backdrop-blur-md'} ${stickySearchActive ? '-translate-y-full pointer-events-none' : ''}`}
         onMouseEnter={clearNavCloseTimer}
         onMouseLeave={scheduleCloseNav}
         onBlur={handleNavBlur}
