@@ -300,7 +300,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
 
   return (
     <>
-    <article className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-shadow duration-300 hover:shadow-xl">
+    <article className="group relative flex h-full w-full flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#029bba]/40 hover:shadow-xl">
       {/* Image */}
       <div className="relative aspect-[16/10] overflow-hidden bg-gray-100">
         {image && !imageFailed ? (
@@ -371,7 +371,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
         </div>
 
         {/* Bottom left: price over the image */}
-        <div className="absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-1.5 shadow-md">
+        <div className="absolute bottom-3 left-3 rounded-lg bg-white/95 px-3 py-1.5 shadow-md backdrop-blur-sm">
           <p className="text-base font-black tracking-tight text-[#004063]">{formatPrice(price, listingType)}</p>
         </div>
       </div>
@@ -380,7 +380,7 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
       <div className="flex flex-1 flex-col p-4">
         {city && <p className="text-[11px] font-bold uppercase tracking-wider text-gray-500">{city}</p>}
 
-        <h3 className="mt-1 line-clamp-2 text-base font-bold leading-snug text-[#004063]">
+        <h3 className="mt-1 line-clamp-2 text-base font-bold leading-snug text-[#004063] transition-colors group-hover:text-[#017a8a]">
           <Link
             href={href}
             className="after:absolute after:inset-0 after:content-[''] focus:outline-none focus-visible:underline"
@@ -439,9 +439,9 @@ export default function HomeListingCard({ property, ownerListed = false }: HomeL
               </p>
             </div>
           </div>
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#004063] px-3.5 py-2 text-xs font-bold text-white transition-colors group-hover:bg-[#029bba]">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-[#004063] px-3.5 py-2 text-xs font-bold text-white transition-all group-hover:bg-[#029bba] group-hover:shadow-md">
             View Details
-            <icons.ArrowRight className="h-3.5 w-3.5" />
+            <icons.ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </span>
         </div>
       </div>
