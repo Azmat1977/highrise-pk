@@ -60,7 +60,7 @@ export default function FeaturedProperties({ properties, total, loading }: Featu
             <div className="mt-10 flex justify-center">
               <Link
                 href="/properties?sort=newest"
-                className="inline-flex items-center gap-2 rounded-full border border-[#004063]/15 bg-white px-5 py-2.5 text-xs font-bold text-[#004063] transition-colors hover:bg-[#029bba] hover:text-white"
+                className="inline-flex items-center gap-2 rounded-full border border-[#004063]/15 bg-white px-6 py-2.5 text-xs font-bold text-[#004063] transition-all hover:-translate-y-0.5 hover:border-[#029bba] hover:bg-[#029bba] hover:text-white hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 focus-visible:ring-offset-2"
               >
                 <span>{viewAllLabel}</span>
                 <icons.ArrowRight className="h-3.5 w-3.5" />
@@ -76,7 +76,7 @@ export default function FeaturedProperties({ properties, total, loading }: Featu
             </p>
             <Link
               href="/properties"
-              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#004063] px-5 py-2.5 text-xs font-bold text-white transition-colors hover:bg-[#029bba]"
+              className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[#004063] px-5 py-2.5 text-xs font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#029bba] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 focus-visible:ring-offset-2"
             >
               Browse all properties
               <icons.ArrowRight className="h-3.5 w-3.5" />
