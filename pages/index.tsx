@@ -7,6 +7,7 @@ import HomeHero from '@/components/home/HomeHero';
 import BrowseCategories from '@/components/home/BrowseCategories';
 import CityExplorer from '@/components/cities/CityExplorer';
 import FeaturedProperties from '@/components/home/FeaturedProperties';
+import DirectOwnerListings from '@/components/home/DirectOwnerListings';
 import PremiumAdBanner from '@/components/home/PremiumAdBanner';
 import ResearchTools from '@/components/home/ResearchTools';
 import ProjectShowcase from '@/components/home/ProjectShowcase';
@@ -251,6 +252,9 @@ export default function HomePage(): React.ReactElement {
   // Data states
   const [featuredProperties, setFeaturedProperties] = useState<PropertyItem[]>([]);
   const [featuredTotal, setFeaturedTotal] = useState<number | null>(null);
+  const [ownerProperties, setOwnerProperties] = useState<PropertyItem[]>([]);
+  const [ownerTotal, setOwnerTotal] = useState<number | null>(null);
+  const [loadingOwner, setLoadingOwner] = useState(true);
   const [projects, setProjects] = useState<ProjectItem[]>([]);
   const [developers, setDevelopers] = useState<DeveloperItem[]>([]);
   const [agents, setAgents] = useState<AgentItem[]>([]);
@@ -298,6 +302,27 @@ export default function HomePage(): React.ReactElement {
         setFeaturedTotal(null);
       } finally {
         setLoadingProperties(false);
+      }
+    };
+    run();
+  }, []);
+
+  useEffect(() => {
+    const run = async () => {
+      try {
+        const res = await fetch('/api/properties?sort=newest&limit=6&listingSource=owner');
+        const data = await res.json();
+        setOwnerProperties(
+          data?.success && Array.isArray(data.properties) ? data.properties : []
+        );
+        setOwnerTotal(
+          typeof data?.pagination?.total === 'number' ? data.pagination.total : null
+        );
+      } catch {
+        setOwnerProperties([]);
+        setOwnerTotal(null);
+      } finally {
+        setLoadingOwner(false);
       }
     };
     run();
@@ -514,6 +539,12 @@ export default function HomePage(): React.ReactElement {
           properties={featuredProperties}
           total={featuredTotal}
           loading={loadingProperties}
+        />
+
+        <DirectOwnerListings
+          properties={ownerProperties}
+          total={ownerTotal}
+          loading={loadingOwner}
         />
 
         <PremiumAdBanner
