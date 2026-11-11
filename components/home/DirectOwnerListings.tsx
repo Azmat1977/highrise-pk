@@ -97,7 +97,7 @@ export default function DirectOwnerListings({ properties, total, loading }: Dire
               <span>0% Brokerage • 100% Direct Owner Contact</span>
             </span>
             <h2 className="text-3xl font-black tracking-tight text-[#004063] sm:text-4xl">
-              Explore Direct <span className="text-emerald-600">Owner Listings</span>
+              Explore Direct <span className="text-[#029bba]">Owner Listings</span>
             </h2>
             <p className="mx-auto mt-2 max-w-2xl text-sm text-slate-600">
               Deal directly with verified property owners — no broker commissions, authenticated title
