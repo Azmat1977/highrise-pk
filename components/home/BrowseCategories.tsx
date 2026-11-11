@@ -31,7 +31,7 @@ interface CategoryGroup {
   subTabs: Array<{ key: SubTabKey; label: string; chips: CategoryChip[] }>;
 }
 
-/** One icon treatment for all three cards, so the trio reads as a set. */
+/** One icon treatment for all three groups, so the trio reads as a set. */
 const ICON_TILE = 'bg-[#029bba]/[0.10] text-[#007196]';
 
 // Three primary buckets, matching how buyers actually start a search.
@@ -189,15 +189,33 @@ function toHref(query: Record<string, string>): string {
 
 export default function BrowseCategories() {
   const baseId = useId();
+  const [activeGroup, setActiveGroup] = useState<string>(GROUPS[0].id);
   const [activeTabs, setActiveTabs] = useState<Record<string, SubTabKey>>({
     homes: 'popular',
     plots: 'popular',
     commercial: 'popular',
   });
 
+  const group = GROUPS.find((item) => item.id === activeGroup) ?? GROUPS[0];
+  const currentKey = activeTabs[group.id] || 'popular';
+  const activeSubTab =
+    group.subTabs.find((tab) => tab.key === currentKey) ?? group.subTabs[0];
+  const tablistId = `${baseId}-${group.id}-tablist`;
+  const panelId = `${baseId}-${group.id}-panel`;
+
   return (
-    <section className="bg-white py-16 sm:py-20">
-      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="relative overflow-hidden bg-[#f4fafb] py-16 sm:py-20">
+      {/* Ambient brand glows */}
+      <div
+        className="pointer-events-none absolute -left-32 -top-32 h-80 w-80 rounded-full bg-[#029bba]/10 blur-3xl"
+        aria-hidden="true"
+      />
+      <div
+        className="pointer-events-none absolute -bottom-32 -right-32 h-80 w-80 rounded-full bg-[#004063]/10 blur-3xl"
+        aria-hidden="true"
+      />
+
+      <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <SectionHeading
           className="mx-auto max-w-3xl"
           eyebrow="Interactive Real Estate Directory"
@@ -210,107 +228,139 @@ export default function BrowseCategories() {
           subtitle="Start with what you are buying — a home, a plot, or commercial space — then narrow it down by type and budget."
         />
 
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {GROUPS.map((group) => {
-            const currentKey = activeTabs[group.id] || 'popular';
-            const activeSubTab =
-              group.subTabs.find((tab) => tab.key === currentKey) ?? group.subTabs[0];
-            const Icon = group.icon;
-            const tablistId = `${baseId}-${group.id}-tablist`;
-            const panelId = `${baseId}-${group.id}-panel`;
-
-            return (
-              <div
-                key={group.id}
-                className="group/card flex flex-col overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:border-[#029bba]/40 hover:shadow-lg focus-within:border-[#029bba]/40 focus-within:ring-2 focus-within:ring-[#029bba]/20 motion-reduce:transform-none motion-reduce:transition-none"
-              >
-                <div className="p-6 sm:p-7">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${ICON_TILE}`}
-                      aria-hidden="true"
-                    >
-                      <Icon className="h-6 w-6" />
-                    </div>
-                    <div className="min-w-0">
-                      <h3 className="text-lg font-extrabold leading-tight tracking-tight text-[#001f2b]">
-                        {group.name}
-                      </h3>
-                      <p className="mt-1 text-[13px] leading-relaxed text-slate-600">
-                        {group.tagline}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div
-                    id={tablistId}
-                    role="tablist"
-                    aria-label={`${group.name} filters`}
-                    className="mt-5 inline-flex w-full items-center gap-1 rounded-xl bg-slate-50 p-1"
-                  >
-                    {group.subTabs.map((tab) => {
-                      const isActive = currentKey === tab.key;
-                      return (
-                        <button
-                          key={tab.key}
-                          type="button"
-                          role="tab"
-                          id={`${tablistId}-${tab.key}`}
-                          aria-selected={isActive}
-                          aria-controls={panelId}
-                          onClick={() =>
-                            setActiveTabs((prev) => ({ ...prev, [group.id]: tab.key }))
-                          }
-                          className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40 ${
-                            isActive
-                              ? 'bg-white text-[#004063] shadow-sm'
-                              : 'text-slate-500 hover:text-[#004063]'
-                          }`}
-                        >
-                          {tab.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div
-                  id={panelId}
-                  role="tabpanel"
-                  aria-labelledby={`${tablistId}-${activeSubTab.key}`}
-                  className="flex flex-1 flex-col border-t border-slate-100 bg-slate-50/50 p-4 sm:p-5"
+        {/* Command panel */}
+        <div className="mx-auto mt-10 max-w-6xl overflow-hidden rounded-[28px] border border-slate-200/80 bg-white shadow-[0_24px_60px_-28px_rgba(0,64,99,0.35)] lg:grid lg:grid-cols-[300px_minmax(0,1fr)]">
+          {/* Category rail */}
+          <div
+            role="tablist"
+            aria-label="Property categories"
+            className="flex gap-2 overflow-x-auto border-b border-slate-200 bg-slate-50/70 p-3 scrollbar-hide sm:p-4 lg:flex-col lg:gap-3 lg:border-b-0 lg:border-r lg:bg-white lg:p-5"
+          >
+            {GROUPS.map((item) => {
+              const ItemIcon = item.icon;
+              const isActive = item.id === activeGroup;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={isActive}
+                  aria-controls={panelId}
+                  onClick={() => setActiveGroup(item.id)}
+                  className={`flex min-w-[190px] items-center gap-3 rounded-2xl px-4 py-3.5 text-left transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 lg:min-w-0 ${isActive
+                      ? 'bg-[#004063] text-white shadow-lg shadow-[#004063]/25'
+                      : 'border border-slate-200 bg-white text-slate-700 hover:border-[#029bba]/50 hover:bg-[#029bba]/[0.04]'
+                    }`}
                 >
-                  <div className="grid flex-1 grid-cols-2 gap-2">
-                    {activeSubTab.chips.map((chip) => (
-                      <Link
-                        key={`${chip.title}-${chip.subtitle}`}
-                        href={toHref(chip.query)}
-                        className="group/chip flex min-h-[62px] flex-col justify-center rounded-xl border border-slate-200/80 bg-white p-3 text-left transition-all duration-200 hover:border-[#029bba] hover:shadow-sm focus-visible:border-[#029bba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
-                      >
-                        <span className="flex items-start justify-between gap-1">
-                          <span className="line-clamp-1 text-[12.5px] font-bold text-[#001f2b] transition-colors group-hover/chip:text-[#004063]">
-                            {chip.title}
-                          </span>
-                          <ArrowUpRight className="mt-0.5 h-3 w-3 shrink-0 text-slate-300 transition-colors group-hover/chip:text-[#029bba]" />
-                        </span>
-                        <span className="mt-0.5 line-clamp-2 text-[10.5px] font-medium leading-snug text-slate-500">
-                          {chip.subtitle}
-                        </span>
-                      </Link>
-                    ))}
-                  </div>
-
-                  <Link
-                    href={`/properties?propertyCategory=${group.browseCategory}`}
-                    className="mt-4 flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-xs font-bold text-[#004063] transition-colors hover:border-[#029bba] hover:text-[#007196] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
+                  <span
+                    className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors ${isActive ? 'bg-white/15 text-[#38aec7]' : ICON_TILE
+                      }`}
+                    aria-hidden="true"
                   >
-                    <span>Explore all {group.shortName}</span>
-                    <ChevronRight className="h-4 w-4 text-slate-400" />
-                  </Link>
-                </div>
+                    <ItemIcon className="h-5 w-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span
+                      className={`block text-sm font-extrabold tracking-tight ${isActive ? 'text-white' : 'text-[#001f2b]'
+                        }`}
+                    >
+                      {item.name}
+                    </span>
+                    <span
+                      className={`mt-0.5 hidden text-[11.5px] leading-snug lg:line-clamp-2 ${isActive ? 'text-white/70' : 'text-slate-500'
+                        }`}
+                    >
+                      {item.tagline}
+                    </span>
+                  </span>
+                  {isActive && (
+                    <ChevronRight className="ml-auto h-4 w-4 shrink-0 text-[#38aec7]" aria-hidden="true" />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Panel content */}
+          <div id={panelId} role="tabpanel" className="bg-white p-5 sm:p-7">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[11px] font-bold uppercase tracking-wider text-[#029bba]">
+                  {group.shortName} quick filters
+                </p>
+                <h3 className="mt-1 text-lg font-extrabold tracking-tight text-[#001f2b]">
+                  Explore {group.name}
+                </h3>
               </div>
-            );
-          })}
+
+              <div
+                id={tablistId}
+                role="tablist"
+                aria-label={`${group.name} filters`}
+                className="inline-flex items-center gap-1 rounded-xl bg-slate-100 p-1"
+              >
+                {group.subTabs.map((tab) => {
+                  const isActive = currentKey === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      type="button"
+                      role="tab"
+                      id={`${tablistId}-${tab.key}`}
+                      aria-selected={isActive}
+                      onClick={() =>
+                        setActiveTabs((prev) => ({ ...prev, [group.id]: tab.key }))
+                      }
+                      className={`rounded-lg px-3.5 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40 ${isActive
+                          ? 'bg-white text-[#004063] shadow-sm'
+                          : 'text-slate-500 hover:text-[#004063]'
+                        }`}
+                    >
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+              {activeSubTab.chips.map((chip) => (
+                <Link
+                  key={`${chip.title}-${chip.subtitle}`}
+                  href={toHref(chip.query)}
+                  className="group/chip flex min-h-[58px] items-center justify-between gap-3 rounded-2xl border border-slate-200/90 bg-slate-50/60 px-4 py-3 transition-all duration-200 hover:-translate-y-0.5 hover:border-[#029bba]/60 hover:bg-white hover:shadow-md focus-visible:border-[#029bba] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/40"
+                >
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-bold text-[#001f2b] transition-colors group-hover/chip:text-[#017a8a]">
+                      {chip.title}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[11px] font-medium text-slate-500">
+                      {chip.subtitle}
+                    </span>
+                  </span>
+                  <span
+                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-400 transition-all group-hover/chip:bg-[#029bba] group-hover/chip:text-white"
+                    aria-hidden="true"
+                  >
+                    <ArrowUpRight className="h-3.5 w-3.5" />
+                  </span>
+                </Link>
+              ))}
+            </div>
+
+            <Link
+              href={`/properties?propertyCategory=${group.browseCategory}`}
+              className="group/cta mt-6 flex w-full items-center justify-between rounded-2xl bg-gradient-to-r from-[#004063] to-[#007196] px-5 py-3.5 text-sm font-bold text-white shadow-md transition-all hover:shadow-lg hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/60 focus-visible:ring-offset-2"
+            >
+              <span>Explore all {group.shortName}</span>
+              <span
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-white/15 transition-transform group-hover/cta:translate-x-1"
+                aria-hidden="true"
+              >
+                <ArrowUpRight className="h-4 w-4" />
+              </span>
+            </Link>
+          </div>
         </div>
       </div>
     </section>
