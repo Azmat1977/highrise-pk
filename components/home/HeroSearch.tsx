@@ -81,7 +81,7 @@ const TAB_LABELS: Array<{ id: SearchTab; label: string }> = [
 const FIELD_LABEL_CLASS =
   'mb-1 flex items-center gap-1.5 text-[11px] font-medium leading-4 text-slate-500';
 const FIELD_CELL_CLASS =
-  'rounded-xl border border-slate-200 px-4 py-2 focus-within:ring-2 focus-within:ring-[#029bba]/40 focus-within:ring-offset-0 lg:rounded-none lg:border-0 lg:px-5 lg:py-2.5';
+  'relative rounded-xl border border-slate-200 px-4 py-2 focus-within:ring-2 focus-within:ring-[#029bba]/40 focus-within:ring-offset-0 lg:rounded-none lg:border-0 lg:px-5 lg:py-2.5';
 const FIELD_CONTROL_CLASS =
   'w-full appearance-none truncate bg-transparent text-sm font-medium leading-6 text-slate-900 placeholder:font-normal placeholder:text-slate-400 focus:outline-none';
 
@@ -99,6 +99,95 @@ function buildSearchHref(params: {
   if (params.propertyType) query.set('propertyType', params.propertyType);
   if (params.maxPrice) query.set('maxPrice', params.maxPrice);
   return `/properties?${query.toString()}`;
+}
+
+type SearchSelectOption = { value: string; label: string };
+
+function SearchSelect({
+  id,
+  ariaLabel,
+  value,
+  options,
+  onChange,
+}: {
+  id: string;
+  ariaLabel: string;
+  value: string;
+  options: SearchSelectOption[];
+  onChange: (value: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleEscape);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [isOpen]);
+
+  const selectedLabel =
+    options.find((option) => option.value === value)?.label ?? ariaLabel;
+
+  return (
+    <div ref={containerRef} className="mt-0.5">
+      <button
+        id={id}
+        type="button"
+        aria-haspopup="listbox"
+        aria-expanded={isOpen}
+        onClick={() => setIsOpen((open) => !open)}
+        className={`${FIELD_CONTROL_CLASS} flex w-full cursor-pointer items-center pr-6 text-left`}
+      >
+        <span className="truncate">{selectedLabel}</span>
+      </button>
+      <ChevronDown
+        className={`pointer-events-none absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400 transition-transform lg:right-5 ${isOpen ? 'rotate-180' : ''}`}
+        aria-hidden="true"
+      />
+      {isOpen && (
+        <div
+          role="listbox"
+          aria-label={ariaLabel}
+          className="absolute left-0 top-full z-50 mt-2 max-h-56 w-max min-w-full max-w-[320px] overflow-x-hidden overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl"
+        >
+          {options.map((option) => {
+            const isSelected = option.value === value;
+            return (
+              <button
+                key={option.value || 'empty'}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                onClick={() => {
+                  onChange(option.value);
+                  setIsOpen(false);
+                }}
+                className={`block w-full whitespace-nowrap rounded-lg px-3.5 py-2 text-left text-sm leading-snug transition-colors ${
+                  isSelected
+                    ? 'bg-[#029bba]/10 font-semibold text-[#017a8a]'
+                    : 'text-slate-700 hover:bg-slate-50'
+                }`}
+              >
+                {option.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function HeroSearch({ cities }: { cities: CityItem[] }) {
@@ -230,25 +319,16 @@ export default function HeroSearch({ cities }: { cities: CityItem[] }) {
                 <MapPin className="h-3.5 w-3.5 shrink-0 text-[#029bba]" aria-hidden="true" />
                 <span>City</span>
               </label>
-              <div className="relative mt-0.5">
-                <select
-                  id="hero-city"
-                  value={city}
-                  onChange={(event) => setCity(event.target.value)}
-                  className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
-                >
-                  <option value="" className="py-2 pr-4">All Cities</option>
-                  {cityOptions.map((name) => (
-                    <option key={name} value={name} className="py-2 pr-4">
-                      {name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                  aria-hidden="true"
-                />
-              </div>
+              <SearchSelect
+                id="hero-city"
+                ariaLabel="City"
+                value={city}
+                options={[
+                  { value: '', label: 'All Cities' },
+                  ...cityOptions.map((name) => ({ value: name, label: name })),
+                ]}
+                onChange={setCity}
+              />
             </div>
 
             {/* Location or Society */}
@@ -307,28 +387,13 @@ export default function HeroSearch({ cities }: { cities: CityItem[] }) {
               <label htmlFor="hero-type" className={FIELD_LABEL_CLASS}>
                 <span>Property Type</span>
               </label>
-              <div className="relative mt-0.5">
-                <select
-                  id="hero-type"
-                  value={propertyType}
-                  onChange={(event) => setPropertyType(event.target.value)}
-                  className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
-                >
-                  {PROPERTY_TYPES.map((option) => (
-                    <option
-                      key={option.value || 'all'}
-                      value={option.value}
-                      className="py-2 pr-4"
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                  aria-hidden="true"
-                />
-              </div>
+              <SearchSelect
+                id="hero-type"
+                ariaLabel="Property Type"
+                value={propertyType}
+                options={PROPERTY_TYPES}
+                onChange={setPropertyType}
+              />
             </div>
 
             {/* Budget */}
@@ -337,28 +402,13 @@ export default function HeroSearch({ cities }: { cities: CityItem[] }) {
                 <Wallet className="h-3.5 w-3.5 shrink-0 text-[#029bba]" aria-hidden="true" />
                 <span>Budget</span>
               </label>
-              <div className="relative mt-0.5">
-                <select
-                  id="hero-budget"
-                  value={maxPrice}
-                  onChange={(event) => setMaxPrice(event.target.value)}
-                  className={`${FIELD_CONTROL_CLASS} cursor-pointer pr-6`}
-                >
-                  {BUDGETS[activeTab].map((option) => (
-                    <option
-                      key={option.value || 'any'}
-                      value={option.value}
-                      className="py-2 pr-4"
-                    >
-                      {option.label}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  className="pointer-events-none absolute right-0 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400"
-                  aria-hidden="true"
-                />
-              </div>
+              <SearchSelect
+                id="hero-budget"
+                ariaLabel="Budget"
+                value={maxPrice}
+                options={BUDGETS[activeTab]}
+                onChange={setMaxPrice}
+              />
             </div>
 
             {/* Search */}
