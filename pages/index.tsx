@@ -8,6 +8,7 @@ import BrowseCategories from '@/components/home/BrowseCategories';
 import CityExplorer from '@/components/cities/CityExplorer';
 import FeaturedProperties from '@/components/home/FeaturedProperties';
 import DirectOwnerListings from '@/components/home/DirectOwnerListings';
+import HomeTestimonials from '@/components/home/HomeTestimonials';
 import PremiumAdBanner from '@/components/home/PremiumAdBanner';
 import ResearchTools from '@/components/home/ResearchTools';
 import ProjectShowcase from '@/components/home/ProjectShowcase';
@@ -584,6 +585,8 @@ export default function HomePage(): React.ReactElement {
         />
 
         <PopularSearches />
+
+        <HomeTestimonials />
 
         <FinalCta />
 
