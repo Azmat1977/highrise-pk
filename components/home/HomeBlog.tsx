@@ -19,8 +19,8 @@ export default function HomeBlog({ blogs, loading }: { blogs: BlogItem[]; loadin
     <section className="py-16 bg-white border-t border-gray-100">
       <div className="container mx-auto px-4 max-w-7xl">
         <div className="text-center mb-12">
-          <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#029bba]/10 text-[#029bba] text-sm font-bold tracking-wide mb-4">
-            <Newspaper className="w-4 h-4" /> Real Estate Insights
+          <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-[#029bba]/20 bg-[#029bba]/5 text-[11px] font-bold uppercase tracking-wider text-[#007196] mb-4">
+            <Newspaper className="h-3.5 w-3.5" /> Real Estate Insights
           </span>
           {/* Standardized Heading */}
           <h2 className="text-3xl md:text-4xl font-black text-[#004063] mb-4 tracking-tight">
@@ -48,7 +48,7 @@ export default function HomeBlog({ blogs, loading }: { blogs: BlogItem[]; loadin
                         sizes="(max-width: 768px) 100vw, 33vw"
                       />
                       <div className="absolute top-4 left-4">
-                        <span className="px-3 py-1.5 bg-white/95 backdrop-blur-md text-[#029bba] text-xs font-bold rounded-lg shadow-sm">
+                        <span className="px-3 py-1.5 bg-white/95 backdrop-blur-md text-[#017a8a] text-xs font-bold rounded-lg shadow-sm">
                           {blog.category || 'Insights'}
                         </span>
                       </div>
@@ -74,7 +74,7 @@ export default function HomeBlog({ blogs, loading }: { blogs: BlogItem[]; loadin
             </div>
             <div className="text-center mt-12">
               <Link href="/blog">
-                <button className="px-8 py-4 rounded-xl bg-white border-2 border-[#029bba] text-[#029bba] font-bold inline-flex items-center gap-2 hover:bg-[#029bba] hover:text-white transition-all shadow-sm hover:shadow-lg">
+                <button className="px-8 py-4 rounded-xl bg-white border-2 border-[#029bba] text-[#017a8a] font-bold inline-flex items-center gap-2 hover:-translate-y-0.5 hover:bg-[#029bba] hover:text-white transition-all shadow-sm hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 focus-visible:ring-offset-2">
                   View All Articles <ArrowRight className="w-5 h-5" />
                 </button>
               </Link>
