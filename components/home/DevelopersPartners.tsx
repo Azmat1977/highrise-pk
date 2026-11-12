@@ -57,25 +57,43 @@ interface DevelopersPartnersProps {
   loadingPartners: boolean;
 }
 
-function StarRow({ rating, reviews }: { rating?: number; reviews?: number }) {
-  if (typeof rating !== 'number' || rating <= 0) {
-    return <span className="text-xs font-medium text-slate-400">No ratings yet</span>;
-  }
-  const rounded = Math.round(rating);
+function initialsOf(name: string): string {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '?';
+  if (parts.length === 1) return (parts[0] ?? '').slice(0, 2).toUpperCase();
+  return `${(parts[0] ?? '').charAt(0)}${(parts[parts.length - 1] ?? '').charAt(0)}`.toUpperCase();
+}
+
+/** "cnic_verified" → "Cnic Verified" */
+function formatLabel(raw?: string): string {
+  return (raw || '').replace(/_/g, ' ').trim().replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+const BADGE_PILL =
+  'shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1 text-[10px] font-bold text-[#004063]';
+
+const STAT_BOX =
+  'flex items-center justify-center gap-2.5 rounded-xl border border-slate-100 bg-slate-50/80 px-3 py-3';
+
+const CARD_CLASS =
+  'group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#029bba]/50 hover:shadow-xl';
+
+const CTA_BAR =
+  'mt-5 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#004063] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-colors group-hover:bg-[#029bba]';
+
+function RatingStat({ rating, reviews }: { rating?: number; reviews?: number }) {
+  const hasRating = typeof rating === 'number' && rating > 0;
   return (
-    <div className="flex items-center gap-1">
-      {Array.from({ length: 5 }).map((_, index) => (
-        <Star
-          key={index}
-          className={`h-3.5 w-3.5 ${
-            index < rounded ? 'fill-amber-400 text-amber-400' : 'text-slate-300'
-          }`}
-        />
-      ))}
-      <span className="ml-1 text-xs font-medium text-slate-500">
-        {rating.toFixed(1)}
-        {typeof reviews === 'number' ? ` (${reviews})` : ''}
-      </span>
+    <div className={STAT_BOX}>
+      <Star className="h-5 w-5 shrink-0 fill-amber-400 text-amber-400" />
+      <div className="min-w-0 text-left">
+        <p className="text-sm font-extrabold leading-tight text-slate-900">
+          {hasRating ? `${rating!.toFixed(1)} / 5.0` : 'New'}
+        </p>
+        <p className="text-[10px] font-medium text-slate-500">
+          {typeof reviews === 'number' && reviews > 0 ? `${reviews} reviews` : 'No ratings yet'}
+        </p>
+      </div>
     </div>
   );
 }
@@ -99,9 +117,9 @@ export default function DevelopersPartners({
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mb-10 flex flex-col items-center gap-5 text-center">
           <div>
-            <span className="mb-2 inline-flex items-center gap-1.5 rounded-full bg-[#029bba]/10 px-3 py-1 text-xs font-semibold text-[#007196]">
+            <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#029bba]/20 bg-[#029bba]/5 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#007196]">
               <ShieldCheck className="h-3.5 w-3.5" />
-              <span>Verified Network</span>
+              <span>Accredited Industry Partners</span>
             </span>
             <h2 className="text-3xl font-black tracking-tight text-[#004063] sm:text-4xl">
               Top Developers &amp; <span className="text-[#029bba]">Agents</span>
@@ -129,7 +147,7 @@ export default function DevelopersPartners({
               }`}
             >
               <Building2 className="h-3.5 w-3.5" />
-              Developers
+              Top Developers ({developers.length})
             </button>
             <button
               type="button"
@@ -143,7 +161,7 @@ export default function DevelopersPartners({
               }`}
             >
               <UserRound className="h-3.5 w-3.5" />
-              Agents
+              Certified Agents ({agents.length})
             </button>
           </div>
         </div>
@@ -159,79 +177,71 @@ export default function DevelopersPartners({
                   <Link
                     key={developer._id}
                     href={`/developers/${developer.slug || developer._id}`}
-                    className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:border-[#029bba]/50 hover:shadow-lg"
+                    className={CARD_CLASS}
                   >
                     <div>
-                      <div className="mb-4 flex items-start gap-4">
-                        <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white p-1.5">
-                          {developer.logo?.url ? (
-                            <Image
-                              src={developer.logo.url}
-                              alt={developer.companyName}
-                              width={56}
-                              height={56}
-                              className="h-full w-full object-contain"
-                            />
-                          ) : (
-                            <Building2 className="h-6 w-6 text-slate-300" />
-                          )}
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <h3 className="truncate font-heading text-base font-bold text-slate-900 transition-colors group-hover:text-[#004063]">
-                              {developer.companyName}
-                            </h3>
-                            {developer.isVerified && (
-                              <BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />
+                      {/* Identity: navy initials tile + name + location + badge pill */}
+                      <div className="mb-4 flex items-start justify-between gap-3">
+                        <div className="flex min-w-0 items-start gap-3.5">
+                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#004063] text-white shadow-md">
+                            {developer.logo?.url ? (
+                              <Image
+                                src={developer.logo.url}
+                                alt={developer.companyName}
+                                width={56}
+                                height={56}
+                                className="h-full w-full bg-white object-contain p-1"
+                              />
+                            ) : (
+                              <span className="text-base font-black tracking-tight">
+                                {initialsOf(developer.companyName)}
+                              </span>
                             )}
                           </div>
-                          <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-wider text-[#029bba]">
-                            {developer.developerType || 'Developer'}
-                          </p>
-                          <div className="mt-1.5">
-                            <StarRow rating={developer.rating} reviews={developer.reviewsCount} />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1">
+                              <h3 className="line-clamp-2 font-heading text-base font-extrabold leading-tight text-[#004063] transition-colors group-hover:text-[#029bba]">
+                                {developer.companyName}
+                              </h3>
+                              {developer.isVerified && (
+                                <BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />
+                              )}
+                            </div>
+                            <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                              <MapPin className="h-3.5 w-3.5 shrink-0 text-[#029bba]" />
+                              <span className="truncate">{developer.city || 'Pakistan'}</span>
+                            </p>
+                          </div>
+                        </div>
+                        <span className={BADGE_PILL}>
+                          {developer.isVerified
+                            ? 'Featured Developer'
+                            : developer.developerType || 'Developer'}
+                        </span>
+                      </div>
+
+                      {/* Stat boxes */}
+                      <div className="grid grid-cols-2 gap-2.5">
+                        <RatingStat rating={developer.rating} reviews={developer.reviewsCount} />
+                        <div className={STAT_BOX}>
+                          <Briefcase className="h-5 w-5 shrink-0 text-[#004063]" />
+                          <div className="min-w-0 text-left">
+                            <p className="text-sm font-extrabold leading-tight text-[#004063]">
+                              {developer.activeProjectsCount ?? 0}{' '}
+                              <span className="text-[#029bba]">Active</span>
+                            </p>
+                            <p className="text-[10px] font-medium text-slate-500">
+                              Projects under dev
+                            </p>
                           </div>
                         </div>
                       </div>
-
-                      <div className="grid grid-cols-3 gap-2 rounded-xl border border-slate-100 bg-slate-50 py-3">
-                        <div className="border-r border-slate-200 text-center">
-                          <p className="text-base font-bold text-slate-900">
-                            {developer.completedProjectsCount ?? 0}
-                          </p>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                            Completed
-                          </p>
-                        </div>
-                        <div className="border-r border-slate-200 text-center">
-                          <p className="text-base font-bold text-slate-900">
-                            {developer.activeProjectsCount ?? 0}
-                          </p>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                            Active
-                          </p>
-                        </div>
-                        <div className="text-center">
-                          <p className="text-base font-bold text-slate-900">
-                            {developer.establishedYear ?? 'N/A'}
-                          </p>
-                          <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                            Since
-                          </p>
-                        </div>
-                      </div>
                     </div>
 
-                    <div className="mt-4 flex items-center justify-between">
-                      <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-                        <MapPin className="h-3.5 w-3.5 text-[#029bba]" />
-                        {developer.city || 'Pakistan'}
-                      </p>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#004063] transition-colors group-hover:text-[#029bba]">
-                        Profile
-                        <ArrowRight className="h-3.5 w-3.5" />
-                      </span>
-                    </div>
+                    <span className={CTA_BAR}>
+                      Explore Projects
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                    </span>
                   </Link>
                 ))
               : visibleAgents.map((agent) => {
@@ -241,43 +251,49 @@ export default function DevelopersPartners({
                     <Link
                       key={agent.slug || name}
                       href={href}
-                      className="group flex h-full flex-col justify-between rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all duration-300 hover:border-[#029bba]/50 hover:shadow-lg"
+                      className={CARD_CLASS}
                     >
                       <div>
-                        <div className="mb-4 flex items-start gap-4">
-                          <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-full border border-slate-200 bg-slate-100">
-                            {agent.documents?.profilePhoto?.url ? (
-                              <Image
-                                src={agent.documents.profilePhoto.url}
-                                alt={name}
-                                width={56}
-                                height={56}
-                                className="h-full w-full object-cover"
-                              />
-                            ) : (
-                              <UserRound className="h-6 w-6 text-slate-400" />
-                            )}
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <h3 className="truncate font-heading text-base font-bold text-slate-900 transition-colors group-hover:text-[#004063]">
-                                {name}
-                              </h3>
-                              {agent.verificationLevel ? (
-                                <BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />
-                              ) : null}
+                        <div className="mb-4 flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-3.5">
+                            <div className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-[#004063] text-white shadow-md">
+                              {agent.documents?.profilePhoto?.url ? (
+                                <Image
+                                  src={agent.documents.profilePhoto.url}
+                                  alt={name}
+                                  width={56}
+                                  height={56}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-base font-black tracking-tight">
+                                  {initialsOf(name)}
+                                </span>
+                              )}
                             </div>
-                            <p className="mt-0.5 truncate text-[11px] font-bold uppercase tracking-wider text-[#029bba]">
-                              {agent.agentType || 'Agent'}
-                              {agent.agencyName ? ` · ${agent.agencyName}` : ''}
-                            </p>
-                            <div className="mt-1.5">
-                              <StarRow
-                                rating={agent.ratings?.averageRating}
-                                reviews={agent.ratings?.totalReviews}
-                              />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1">
+                                <h3 className="line-clamp-2 font-heading text-base font-extrabold leading-tight text-[#004063] transition-colors group-hover:text-[#029bba]">
+                                  {name}
+                                </h3>
+                                {agent.verificationLevel ? (
+                                  <BadgeCheck className="h-4 w-4 shrink-0 text-[#029bba]" />
+                                ) : null}
+                              </div>
+                              <p className="mt-1 flex items-center gap-1 text-xs text-slate-500">
+                                <MapPin className="h-3.5 w-3.5 shrink-0 text-[#029bba]" />
+                                <span className="truncate">
+                                  {agent.city || 'Pakistan'}
+                                  {agent.agencyName ? ` · ${agent.agencyName}` : ''}
+                                </span>
+                              </p>
                             </div>
                           </div>
+                          <span className={BADGE_PILL}>
+                            {agent.verificationLevel
+                              ? formatLabel(agent.verificationLevel)
+                              : agent.agentType || 'Agent'}
+                          </span>
                         </div>
 
                         {agent.specializations && agent.specializations.length > 0 ? (
@@ -296,20 +312,31 @@ export default function DevelopersPartners({
                             {agent.tagline || 'Verified property professional on Highrise.pk.'}
                           </p>
                         )}
+
+                        <div className="grid grid-cols-2 gap-2.5">
+                          <RatingStat
+                            rating={agent.ratings?.averageRating}
+                            reviews={agent.ratings?.totalReviews}
+                          />
+                          <div className={STAT_BOX}>
+                            <Briefcase className="h-5 w-5 shrink-0 text-[#004063]" />
+                            <div className="min-w-0 text-left">
+                              <p className="text-sm font-extrabold leading-tight text-[#004063]">
+                                {agent.stats?.activeListings ?? 0}{' '}
+                                <span className="text-[#029bba]">Active</span>
+                              </p>
+                              <p className="text-[10px] font-medium text-slate-500">
+                                Listings live
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
 
-                      <div className="mt-2 flex items-center justify-between border-t border-slate-100 pt-3">
-                        <p className="flex items-center gap-1.5 text-xs font-medium text-slate-500">
-                          <MapPin className="h-3.5 w-3.5 text-[#029bba]" />
-                          {agent.city || 'Pakistan'}
-                        </p>
-                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#004063] transition-colors group-hover:text-[#029bba]">
-                          {typeof agent.stats?.activeListings === 'number'
-                            ? `${agent.stats.activeListings} active`
-                            : 'View profile'}
-                          <ArrowRight className="h-3.5 w-3.5" />
-                        </span>
-                      </div>
+                      <span className={CTA_BAR}>
+                        View Agent Profile
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                      </span>
                     </Link>
                   );
                 })}
@@ -382,14 +409,14 @@ export default function DevelopersPartners({
         <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <Link
             href="/developers"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#004063] px-6 py-3 text-sm font-bold text-white shadow-sm transition-colors hover:bg-[#029bba] sm:w-auto"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#004063] px-6 py-3 text-sm font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:bg-[#029bba] hover:shadow-lg sm:w-auto"
           >
             Browse All Developers
             <ArrowRight className="h-4 w-4" />
           </Link>
           <Link
             href="/agents"
-            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-[#004063] transition-colors hover:border-[#029bba] hover:text-[#029bba] sm:w-auto"
+            className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 bg-white px-6 py-3 text-sm font-semibold text-[#004063] transition-all hover:-translate-y-0.5 hover:border-[#029bba] hover:text-[#029bba] sm:w-auto"
           >
             Browse All Agents
             <ArrowRight className="h-4 w-4" />
