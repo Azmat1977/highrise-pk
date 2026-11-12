@@ -101,7 +101,7 @@ export default function VerifiedSocieties({
 
                   <div className="absolute bottom-0 left-0 right-0 p-6 flex items-end justify-between gap-4">
                     <div className="flex-1">
-                      <h3 className="font-bold text-white text-2xl md:text-3xl mb-1 group-hover:text-[#06b6d4] transition-colors">{heroSociety.name}</h3>
+                      <h3 className="font-bold text-white text-2xl md:text-3xl mb-1 group-hover:text-[#38aec7] transition-colors">{heroSociety.name}</h3>
                       <p className="text-white/80 text-sm flex items-center gap-1.5">
                         <MapPin className="w-4 h-4" /> {heroSociety.areaName}, {heroSociety.city}
                       </p>
@@ -129,7 +129,7 @@ export default function VerifiedSocieties({
                       </div>
                     ))}
                   </div>
-                  <button className="mt-auto w-full py-3 rounded-xl bg-[#029bba]/10 text-[#029bba] font-bold group-hover:bg-[#029bba] group-hover:text-white transition-all flex items-center justify-center gap-2">
+                  <button className="mt-auto w-full py-3 rounded-xl bg-[#029bba]/10 text-[#017a8a] font-bold group-hover:bg-[#029bba] group-hover:text-white transition-all flex items-center justify-center gap-2">
                     View Intelligence Report <ArrowRight className="w-4 h-4" />
                   </button>
                 </div>
