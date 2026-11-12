@@ -60,12 +60,12 @@ export default function TrustSection() {
 
       <div className="relative mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="mx-auto mb-10 max-w-3xl text-center">
-          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#38aec7]/30 bg-white/5 px-3 py-1 text-xs font-semibold text-[#8fc2d0]">
+          <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#38aec7]/30 bg-white/5 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8fc2d0]">
             <ShieldCheck className="h-3.5 w-3.5 text-[#38aec7]" />
             <span>Built for Accountable Property Decisions</span>
           </span>
-          <h2 className="font-heading text-2xl font-extrabold tracking-tight text-white sm:text-3xl">
-            Trust Infrastructure, Not Just Listings
+          <h2 className="font-heading text-3xl font-black tracking-tight text-white sm:text-4xl">
+            Trust Infrastructure, <span className="text-[#38aec7]">Not Just Listings</span>
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-slate-300">
             Every Highrise.pk section connects to a documented process — verification, pricing
@@ -80,7 +80,7 @@ export default function TrustSection() {
               <Link
                 key={pillar.title}
                 href={pillar.href}
-                className="group flex h-full flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm transition-all duration-300 hover:border-[#38aec7]/50 hover:bg-white/[0.08]"
+                className="group flex h-full flex-col justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-5 backdrop-blur-sm transition-all duration-300 hover:-translate-y-1 hover:border-[#38aec7]/50 hover:bg-white/[0.08] hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#38aec7]/60"
               >
                 <div>
                   <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl border border-[#38aec7]/25 bg-[#029bba]/15 text-[#38aec7] transition-colors group-hover:bg-[#029bba] group-hover:text-white">
