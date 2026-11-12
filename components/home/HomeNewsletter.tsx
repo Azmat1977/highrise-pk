@@ -32,7 +32,7 @@ export default function HomeNewsletter({
 
           <div className="relative grid grid-cols-1 items-center gap-8 lg:grid-cols-2 lg:gap-12">
             <div>
-              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#029bba]/20 bg-white px-3 py-1 text-xs font-semibold text-[#007196]">
+              <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-[#029bba]/20 bg-white px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#007196]">
                 <BellRing className="h-3.5 w-3.5 text-[#029bba]" />
                 <span>Weekly Market Brief</span>
               </span>
@@ -89,7 +89,7 @@ export default function HomeNewsletter({
                 <button
                   type="submit"
                   disabled={isSubscribing}
-                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#004063] px-6 py-3 text-sm font-bold text-white transition-colors hover:bg-[#029bba] disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#004063] px-6 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:bg-[#029bba] hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#029bba]/50 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:translate-y-0"
                 >
                   {isSubscribing ? (
                     <>

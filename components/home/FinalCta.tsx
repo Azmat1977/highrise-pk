@@ -26,7 +26,7 @@ export default function FinalCta() {
           />
 
           <div className="relative mx-auto max-w-3xl">
-            <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#38aec7]/30 bg-white/5 px-3 py-1 text-xs font-semibold text-[#8fc2d0]">
+            <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-[#38aec7]/30 bg-white/5 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-wider text-[#8fc2d0]">
               <Sparkles className="h-3.5 w-3.5 text-[#38aec7]" />
               <span>Start Your Property Journey</span>
             </span>
@@ -41,7 +41,7 @@ export default function FinalCta() {
             <div className="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
               <Link
                 href="/properties"
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#029bba] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-colors hover:bg-[#38aec7] hover:text-[#001f2b] sm:w-auto"
+                className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#029bba] px-6 py-3.5 text-sm font-bold text-white shadow-lg transition-all hover:-translate-y-0.5 hover:bg-[#38aec7] hover:text-[#001f2b] hover:shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60 focus-visible:ring-offset-2 focus-visible:ring-offset-[#001f2b] sm:w-auto"
               >
                 <Search className="h-4 w-4" /> Browse Properties
               </Link>
