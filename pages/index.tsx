@@ -18,7 +18,6 @@ import DevelopersPartners from '@/components/home/DevelopersPartners';
 import HomeBlog from '@/components/home/HomeBlog';
 import HomeNewsletter from '@/components/home/HomeNewsletter';
 import PopularSearches from '@/components/home/PopularSearches';
-import FinalCta from '@/components/home/FinalCta';
 
 // ===== Types =====
 
