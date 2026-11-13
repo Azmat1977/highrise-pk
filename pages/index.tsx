@@ -584,11 +584,9 @@ export default function HomePage(): React.ReactElement {
           setTurnstileToken={setTurnstileToken}
         />
 
-        <PopularSearches />
-
         <HomeTestimonials />
 
-        <FinalCta />
+        <PopularSearches />
 
         <SubscriptionInlineModal
           isOpen={showModal}
